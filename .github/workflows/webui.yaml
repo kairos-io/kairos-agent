@@ -2,7 +2,7 @@ name: WebUI tests
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 concurrency:
   group: ci-webui-${{ github.head_ref || github.ref }}-${{ github.repository }}
