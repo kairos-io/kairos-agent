@@ -295,7 +295,6 @@ func RunInstall(options map[string]string) error {
 	}
 
 	// Set our cloud-init to the file we just created
-	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, f.Name())
 
 	_, reboot := options["reboot"]
 	_, poweroff := options["poweroff"]
@@ -304,6 +303,7 @@ func RunInstall(options map[string]string) error {
 
 	// Generate the installation spec
 	installSpec, _ := elementalConfig.ReadInstallSpec(installConfig)
+	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
 	// Get the source of the installation if we are overriding it
 	if c.Install.Image != "" {
 		imgSource, err := v1.NewSrcFromURI(c.Install.Image)
