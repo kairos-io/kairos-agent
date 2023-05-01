@@ -186,6 +186,11 @@ func InteractiveInstall(spawnShell bool) error {
 
 	sshUsers := strings.Split(users, ",")
 
+	debug, err := prompt("Enable debug for install?", "n", yesNo, true, false)
+	if err != nil {
+		return err
+	}
+
 	// Prompt the user by prompts defined by the provider
 	r := []events.YAMLPrompt{}
 
@@ -264,6 +269,7 @@ func InteractiveInstall(spawnShell bool) error {
 	err = RunInstall(map[string]string{
 		"device": device,
 		"cc":     finalCloudConfig,
+		"debug":  debug,
 	})
 	if err != nil {
 		pterm.Error.Println(err.Error())
