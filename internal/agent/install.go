@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -18,8 +17,11 @@ import (
 	hook "github.com/kairos-io/kairos/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
+	"github.com/kairos-io/kairos/v2/pkg/action"
 	config "github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
+	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -249,21 +251,12 @@ func Install(dir ...string) error {
 }
 
 func RunInstall(options map[string]string) error {
+	// TODO: run yip directly
 	utils.SH("elemental run-stage kairos-install.pre")             //nolint:errcheck
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 
 	f, _ := os.CreateTemp("", "xxxx")
 	defer os.RemoveAll(f.Name())
-
-	device, ok := options["device"]
-	if !ok {
-		fmt.Println("device must be specified among options")
-		os.Exit(1)
-	}
-
-	if device == "auto" {
-		device = detectDevice()
-	}
 
 	cloudInit, ok := options["cc"]
 	if !ok {
@@ -274,22 +267,12 @@ func RunInstall(options map[string]string) error {
 	c := &config.Config{}
 	yaml.Unmarshal([]byte(cloudInit), c) //nolint:errcheck
 
-	_, reboot := options["reboot"]
-	_, poweroff := options["poweroff"]
 	if c.Install == nil {
 		c.Install = &config.Install{}
 	}
-	if poweroff {
-		c.Install.Poweroff = true
-	}
-	if reboot {
-		c.Install.Reboot = true
-	}
 
-	if c.Install.Image != "" {
-		options["system.uri"] = c.Install.Image
-	}
-
+	// TODO: Im guessing this was used to try to override elemental values from env vars
+	// Does it make sense anymore? We can now expose the whole options of elemental directly
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
 
@@ -298,16 +281,50 @@ func RunInstall(options map[string]string) error {
 		fmt.Printf("could not write cloud init: %s\n", err.Error())
 		os.Exit(1)
 	}
-	args := []string{"install"}
-	args = append(args, optsToArgs(options)...)
-	args = append(args, "-c", f.Name(), device)
 
-	cmd := exec.Command("elemental", args...)
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	// Load the installation Config from the system
+	// TODO: This uses the default mounter, logger, fs, etc...
+	// Make it configurable?
+	// TODO: This doesnt load the /etc/elemental/config.yaml file anymore
+	// As that was the cmd task. Restore it? Ignore it? It heavily relays on viper...
+	installConfig := elementalConfig.NewRunConfig()
+	// Set our cloud-init to the file we just created
+	installConfig.CloudInitPaths = []string{f.Name()}
+	_, reboot := options["reboot"]
+	_, poweroff := options["poweroff"]
+	installConfig.Reboot = reboot
+	installConfig.PowerOff = poweroff
+
+	// Generate the installation spec
+	installSpec := elementalConfig.NewInstallSpec(installConfig.Config)
+	// Get the source of the installation if we are overriding it
+	if c.Install.Image != "" {
+		imgSource, err := v1.NewSrcFromURI(c.Install.Image)
+		if err != nil {
+			return err
+		}
+		installSpec.Active.Source = imgSource
+	}
+	// Set the target device
+	device, ok := options["device"]
+	if !ok {
+		fmt.Println("device must be specified among options")
+		os.Exit(1)
+	}
+
+	if device == "auto" {
+		device = detectDevice()
+	}
+	installSpec.Target = device
+	// Check if values are correct
+	err = installSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+	// Create the action
+	installAction := action.NewInstallAction(installConfig, installSpec)
+	// Run it
+	if err := installAction.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
