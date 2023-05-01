@@ -287,7 +287,8 @@ func RunInstall(options map[string]string) error {
 	// Make it configurable?
 	installConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
 	// Set our cloud-init to the file we just created
-	installConfig.CloudInitPaths = []string{f.Name()}
+	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, f.Name())
+	
 	_, reboot := options["reboot"]
 	_, poweroff := options["poweroff"]
 	installConfig.Reboot = reboot
