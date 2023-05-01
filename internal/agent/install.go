@@ -18,7 +18,7 @@ import (
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
 	"github.com/kairos-io/kairos/v2/pkg/action"
-	config "github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
@@ -285,9 +285,7 @@ func RunInstall(options map[string]string) error {
 	// Load the installation Config from the system
 	// TODO: This uses the default mounter, logger, fs, etc...
 	// Make it configurable?
-	// TODO: This doesnt load the /etc/elemental/config.yaml file anymore
-	// As that was the cmd task. Restore it? Ignore it? It heavily relays on viper...
-	installConfig := elementalConfig.NewRunConfig()
+	installConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
 	// Set our cloud-init to the file we just created
 	installConfig.CloudInitPaths = []string{f.Name()}
 	_, reboot := options["reboot"]
@@ -296,7 +294,7 @@ func RunInstall(options map[string]string) error {
 	installConfig.PowerOff = poweroff
 
 	// Generate the installation spec
-	installSpec := elementalConfig.NewInstallSpec(installConfig.Config)
+	installSpec, _ := elementalConfig.ReadInstallSpec(installConfig)
 	// Get the source of the installation if we are overriding it
 	if c.Install.Image != "" {
 		imgSource, err := v1.NewSrcFromURI(c.Install.Image)

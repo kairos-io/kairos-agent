@@ -18,17 +18,28 @@ package elementalConfig
 
 import (
 	"fmt"
-	"k8s.io/mount-utils"
+	"io"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strings"
 
+	"github.com/kairos-io/kairos/v2/internal/common"
 	"github.com/kairos-io/kairos/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
 	"github.com/kairos-io/kairos/v2/pkg/http"
 	"github.com/kairos-io/kairos/v2/pkg/luet"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos/v2/pkg/utils"
+	"github.com/mitchellh/mapstructure"
+	"github.com/sanity-io/litter"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/twpayne/go-vfs"
+	"k8s.io/mount-utils"
 )
 
 type GenericOptions func(a *v1.Config) error
@@ -510,4 +521,161 @@ func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
 		}}
 	}
 	return b
+}
+
+func ReadConfigRun(configDir string) (*v1.RunConfig, error) {
+	cfg := NewRunConfig(WithLogger(v1.NewLogger()))
+
+	configLogger(cfg.Logger, cfg.Fs)
+
+	// TODO: is this really needed? It feels quite wrong, shouldn't it be loaded
+	// as regular environment variables?
+	// IMHO loading os-release as env variables should be sufficient here
+	cfgDefault := []string{"/etc/os-release"}
+	for _, c := range cfgDefault {
+		if exists, _ := utils.Exists(cfg.Fs, c); exists {
+			viper.SetConfigFile(c)
+			viper.SetConfigType("env")
+			cobra.CheckErr(viper.MergeInConfig())
+		}
+	}
+
+	// merge yaml config files on top of default runconfig
+	if exists, _ := utils.Exists(cfg.Fs, configDir); exists {
+		viper.AddConfigPath(configDir)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName("config")
+		// If a config file is found, read it in.
+		err := viper.MergeInConfig()
+		if err != nil {
+			cfg.Logger.Warnf("error merging config files: %s", err)
+		}
+	}
+
+	// Load extra config files on configdir/config.d/ so we can override config values
+	cfgExtra := fmt.Sprintf("%s/config.d/", strings.TrimSuffix(configDir, "/"))
+	if exists, _ := utils.Exists(cfg.Fs, cfgExtra); exists {
+		viper.AddConfigPath(cfgExtra)
+		_ = filepath.WalkDir(cfgExtra, func(path string, d fs.DirEntry, err error) error {
+			if !d.IsDir() && filepath.Ext(d.Name()) == ".yaml" {
+				viper.SetConfigType("yaml")
+				viper.SetConfigName(strings.TrimSuffix(d.Name(), ".yaml"))
+				cobra.CheckErr(viper.MergeInConfig())
+			}
+			return nil
+		})
+	}
+
+	// unmarshal all the vars into the RunConfig object
+	err := viper.Unmarshal(cfg, setDecoder, decodeHook)
+	if err != nil {
+		cfg.Logger.Warnf("error unmarshalling RunConfig: %s", err)
+	}
+
+	err = cfg.Sanitize()
+	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
+	return cfg, err
+}
+
+func ReadInstallSpec(r *v1.RunConfig) (*v1.InstallSpec, error) {
+	install := NewInstallSpec(r.Config)
+	vp := viper.Sub("install")
+	if vp == nil {
+		vp = viper.New()
+	}
+
+	err := vp.Unmarshal(install, setDecoder, decodeHook)
+	if err != nil {
+		r.Logger.Warnf("error unmarshalling InstallSpec: %s", err)
+	}
+	err = install.Sanitize()
+	r.Logger.Debugf("Loaded install spec: %s", litter.Sdump(install))
+	return install, err
+}
+
+func configLogger(log v1.Logger, vfs v1.FS) {
+	// Set debug level
+	if viper.GetBool("debug") {
+		log.SetLevel(v1.DebugLevel())
+	}
+
+	// Set formatter so both file and stdout format are equal
+	log.SetFormatter(&logrus.TextFormatter{
+		ForceColors:      true,
+		DisableColors:    false,
+		DisableTimestamp: false,
+		FullTimestamp:    true,
+	})
+
+	// Logfile
+	logfile := viper.GetString("logfile")
+	if logfile != "" {
+		o, err := vfs.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModePerm)
+
+		if err != nil {
+			log.Errorf("Could not open %s for logging to file: %s", logfile, err.Error())
+		}
+
+		if viper.GetBool("quiet") { // if quiet is set, only set the log to the file
+			log.SetOutput(o)
+		} else { // else set it to both stdout and the file
+			mw := io.MultiWriter(os.Stdout, o)
+			log.SetOutput(mw)
+		}
+	} else { // no logfile
+		if viper.GetBool("quiet") { // quiet is enabled so discard all logging
+			log.SetOutput(io.Discard)
+		} else { // default to stdout
+			log.SetOutput(os.Stdout)
+		}
+	}
+
+	v := common.GetVersion()
+	log.Infof("Starting elemental version %s", v)
+}
+
+var decodeHook = viper.DecodeHook(
+	mapstructure.ComposeDecodeHookFunc(
+		UnmarshalerHook(),
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+	),
+)
+
+type Unmarshaler interface {
+	CustomUnmarshal(interface{}) (bool, error)
+}
+
+func UnmarshalerHook() mapstructure.DecodeHookFunc {
+	return func(from reflect.Value, to reflect.Value) (interface{}, error) {
+		// get the destination object address if it is not passed by reference
+		if to.CanAddr() {
+			to = to.Addr()
+		}
+		// If the destination implements the unmarshaling interface
+		u, ok := to.Interface().(Unmarshaler)
+		if !ok {
+			return from.Interface(), nil
+		}
+		// If it is nil and a pointer, create and assign the target value first
+		if to.IsNil() && to.Type().Kind() == reflect.Ptr {
+			to.Set(reflect.New(to.Type().Elem()))
+			u = to.Interface().(Unmarshaler)
+		}
+		// Call the custom unmarshaling method
+		cont, err := u.CustomUnmarshal(from.Interface())
+		if cont {
+			// Continue with the decoding stack
+			return from.Interface(), err
+		}
+		// Decoding finalized
+		return to.Interface(), err
+	}
+}
+
+func setDecoder(config *mapstructure.DecoderConfig) {
+	// Make sure we zero fields before applying them, this is relevant for slices
+	// so we do not merge with any already present value and directly apply whatever
+	// we got form configs.
+	config.ZeroFields = true
 }
