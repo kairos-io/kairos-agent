@@ -25,7 +25,6 @@ import (
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -288,11 +287,6 @@ func RunInstall(options map[string]string) error {
 	// TODO: This uses the default mounter, logger, fs, etc...
 	// Make it configurable?
 	installConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
-
-	debug, _ := options["debug"]
-	if debug == "yes" {
-		installConfig.Logger.SetLevel(log.DebugLevel)
-	}
 
 	// Set our cloud-init to the file we just created
 
