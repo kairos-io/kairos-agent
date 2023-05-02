@@ -612,6 +612,25 @@ func ReadUpgradeSpec(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
 	return upgrade, err
 }
 
+func ReadResetSpec(r *v1.RunConfig) (*v1.ResetSpec, error) {
+	reset, err := NewResetSpec(r.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed initializing reset spec: %v", err)
+	}
+	vp := viper.Sub("reset")
+	if vp == nil {
+		vp = viper.New()
+	}
+
+	err = vp.Unmarshal(reset, setDecoder, decodeHook)
+	if err != nil {
+		r.Logger.Warnf("error unmarshalling ResetSpec: %s", err)
+	}
+	err = reset.Sanitize()
+	r.Logger.Debugf("Loaded reset spec: %s", litter.Sdump(reset))
+	return reset, err
+}
+
 func configLogger(log v1.Logger, vfs v1.FS) {
 	// Set debug level
 	if viper.GetBool("debug") {
