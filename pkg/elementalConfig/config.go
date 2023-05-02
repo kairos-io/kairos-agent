@@ -593,6 +593,25 @@ func ReadInstallSpec(r *v1.RunConfig) (*v1.InstallSpec, error) {
 	return install, err
 }
 
+func ReadUpgradeSpec(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
+	upgrade, err := NewUpgradeSpec(r.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed initializing upgrade spec: %v", err)
+	}
+	vp := viper.Sub("upgrade")
+	if vp == nil {
+		vp = viper.New()
+	}
+
+	err = vp.Unmarshal(upgrade, setDecoder, decodeHook)
+	if err != nil {
+		r.Logger.Warnf("error unmarshalling UpgradeSpec: %s", err)
+	}
+	err = upgrade.Sanitize()
+	r.Logger.Debugf("Loaded upgrade UpgradeSpec: %s", litter.Sdump(upgrade))
+	return upgrade, err
+}
+
 func configLogger(log v1.Logger, vfs v1.FS) {
 	// Set debug level
 	if viper.GetBool("debug") {

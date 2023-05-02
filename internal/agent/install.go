@@ -289,8 +289,8 @@ func RunInstall(options map[string]string) error {
 	// Make it configurable?
 	installConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
 
-	_, debug := options["debug"]
-	if debug {
+	debug, _ := options["debug"]
+	if debug == "yes" {
 		installConfig.Logger.SetLevel(log.DebugLevel)
 	}
 

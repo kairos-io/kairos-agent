@@ -4,18 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/docker/docker/api/types"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos/v2/internal/bus"
+	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	"github.com/kairos-io/kairos/v2/pkg/github"
+	"github.com/kairos-io/kairos/v2/pkg/luet"
+	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	elementalUtils "github.com/kairos-io/kairos/v2/pkg/utils"
 	"github.com/mudler/go-pluggable"
+	log "github.com/sirupsen/logrus"
 )
 
 func ListReleases(includePrereleases bool) semver.Collection {
@@ -117,24 +121,45 @@ func Upgrade(
 
 	utils.SetEnv(c.Env)
 
-	args := []string{"upgrade", "--system.uri", fmt.Sprintf("docker:%s", img)}
-	args = append(args,
-		"--auth-username", authUser,
-		"--auth-password", authPass,
-		"--auth-server-address", authServer,
-		"--auth-type", authType,
-		"--auth-registry-token", registryToken,
-		"--auth-identity-token", identityToken,
-	)
-
+	// Load the upgrade Config from the system
+	resetConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
 	if debug {
-		fmt.Printf("Running command: 'elemental %s'", strings.Join(args, " "))
+		resetConfig.Logger.SetLevel(log.DebugLevel)
 	}
 
-	cmd := exec.Command("elemental", args...)
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	// Generate an auth object
+	auth := &types.AuthConfig{
+		Username:      authUser,
+		Password:      authPass,
+		ServerAddress: authServer,
+		Auth:          authType,
+		IdentityToken: identityToken,
+		RegistryToken: registryToken,
+	}
+
+	// Override the default luet to pass the auth
+	// Remember to create the temp dir!
+	tmpDir := elementalUtils.GetTempDir(&resetConfig.Config, "")
+	l := luet.NewLuet(luet.WithLogger(resetConfig.Logger), luet.WithAuth(auth), luet.WithLuetTempDir(tmpDir))
+	resetConfig.Luet = l
+
+	// Generate the upgrade spec
+	resetSpec, _ := elementalConfig.ReadUpgradeSpec(resetConfig)
+
+	// Add the image source
+	imgSource, err := v1.NewSrcFromURI(fmt.Sprintf("docker:%s", img))
+	if err != nil {
+		return err
+	}
+	resetSpec.Active.Source = imgSource
+
+	// Sanitize (this is not required but good to do
+	err = resetSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+
+	upgradeAction := action.NewUpgradeAction(resetConfig, resetSpec)
+
+	return upgradeAction.Run()
 }
