@@ -286,7 +286,10 @@ func RunInstall(options map[string]string) error {
 	// Load the installation Config from the system
 	// TODO: This uses the default mounter, logger, fs, etc...
 	// Make it configurable?
-	installConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
 
 	// Set our cloud-init to the file we just created
 
@@ -296,7 +299,10 @@ func RunInstall(options map[string]string) error {
 	installConfig.PowerOff = poweroff
 
 	// Generate the installation spec
-	installSpec, _ := elementalConfig.ReadInstallSpec(installConfig)
+	installSpec, err := elementalConfig.ReadInstallSpec(installConfig)
+	if err != nil {
+		return err
+	}
 	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
 	// Get the source of the installation if we are overriding it
 	if c.Install.Image != "" {

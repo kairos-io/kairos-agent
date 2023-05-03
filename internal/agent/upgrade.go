@@ -122,7 +122,10 @@ func Upgrade(
 	utils.SetEnv(c.Env)
 
 	// Load the upgrade Config from the system
-	resetConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
+	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
 	if debug {
 		resetConfig.Logger.SetLevel(log.DebugLevel)
 	}
@@ -144,7 +147,10 @@ func Upgrade(
 	resetConfig.Luet = l
 
 	// Generate the upgrade spec
-	resetSpec, _ := elementalConfig.ReadUpgradeSpec(resetConfig)
+	resetSpec, err := elementalConfig.ReadUpgradeSpec(resetConfig)
+	if err != nil {
+		return err
+	}
 
 	// Add the image source
 	imgSource, err := v1.NewSrcFromURI(fmt.Sprintf("docker:%s", img))

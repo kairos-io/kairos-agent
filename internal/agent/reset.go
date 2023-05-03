@@ -78,9 +78,14 @@ func Reset(dir ...string) error {
 
 	utils.SetEnv(c.Env)
 
-	resetConfig, _ := elementalConfig.ReadConfigRun("/etc/elemental")
-	resetSpec, _ := elementalConfig.ReadResetSpec(resetConfig)
-
+	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+	resetSpec, err := elementalConfig.ReadResetSpec(resetConfig)
+	if err != nil {
+		return err
+	}
 	resetAction := action.NewResetAction(resetConfig, resetSpec)
 	if err := resetAction.Run(); err != nil {
 		fmt.Println(err)
