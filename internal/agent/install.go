@@ -291,8 +291,6 @@ func RunInstall(options map[string]string) error {
 		return err
 	}
 
-	// Set our cloud-init to the file we just created
-
 	_, reboot := options["reboot"]
 	_, poweroff := options["poweroff"]
 	installConfig.Reboot = reboot
@@ -303,6 +301,7 @@ func RunInstall(options map[string]string) error {
 	if err != nil {
 		return err
 	}
+	// Set our cloud-init to the file we just created
 	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
 	// Get the source of the installation if we are overriding it
 	if c.Install.Image != "" {

@@ -122,12 +122,12 @@ func Upgrade(
 	utils.SetEnv(c.Env)
 
 	// Load the upgrade Config from the system
-	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	upgradeConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
 		return err
 	}
 	if debug {
-		resetConfig.Logger.SetLevel(log.DebugLevel)
+		upgradeConfig.Logger.SetLevel(log.DebugLevel)
 	}
 
 	// Generate an auth object
@@ -141,13 +141,13 @@ func Upgrade(
 	}
 
 	// Override the default luet to pass the auth
-	// Remember to create the temp dir!
-	tmpDir := elementalUtils.GetTempDir(&resetConfig.Config, "")
-	l := luet.NewLuet(luet.WithLogger(resetConfig.Logger), luet.WithAuth(auth), luet.WithLuetTempDir(tmpDir))
-	resetConfig.Luet = l
+	// Remember to create the temp dir when creating a new luet object. Otherwise, things break with no temp dir.
+	tmpDir := elementalUtils.GetTempDir(&upgradeConfig.Config, "")
+	l := luet.NewLuet(luet.WithLogger(upgradeConfig.Logger), luet.WithAuth(auth), luet.WithLuetTempDir(tmpDir))
+	upgradeConfig.Luet = l
 
 	// Generate the upgrade spec
-	resetSpec, err := elementalConfig.ReadUpgradeSpec(resetConfig)
+	upgradeSpec, err := elementalConfig.ReadUpgradeSpec(upgradeConfig)
 	if err != nil {
 		return err
 	}
@@ -157,15 +157,15 @@ func Upgrade(
 	if err != nil {
 		return err
 	}
-	resetSpec.Active.Source = imgSource
+	upgradeSpec.Active.Source = imgSource
 
 	// Sanitize (this is not required but good to do
-	err = resetSpec.Sanitize()
+	err = upgradeSpec.Sanitize()
 	if err != nil {
 		return err
 	}
 
-	upgradeAction := action.NewUpgradeAction(resetConfig, resetSpec)
+	upgradeAction := action.NewUpgradeAction(upgradeConfig, upgradeSpec)
 
 	return upgradeAction.Run()
 }

@@ -25,6 +25,7 @@ import (
 func Reset(dir ...string) error {
 	// TODO: Enable args? No args for now so no possibility of reset persistent or overriding the source for the reset
 	// Nor the auto-reboot via cmd?
+	// This comment pertains calling reset via cmdline when wanting to override configs
 	bus.Manager.Initialize()
 
 	bus.Manager.Response(sdk.EventBeforeReset, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
@@ -86,6 +87,8 @@ func Reset(dir ...string) error {
 	if err != nil {
 		return err
 	}
+	// TODO: This is set as default, how we override it? Where is the magic r.Data on EventBeforeReset appearing?
+	resetSpec.FormatPersistent = true
 	resetAction := action.NewResetAction(resetConfig, resetSpec)
 	if err := resetAction.Run(); err != nil {
 		fmt.Println(err)
