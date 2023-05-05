@@ -28,8 +28,10 @@ func Reset(dir ...string) error {
 	// This comment pertains calling reset via cmdline when wanting to override configs
 	bus.Manager.Initialize()
 
+	options := map[string]string{}
+
 	bus.Manager.Response(sdk.EventBeforeReset, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
-		err := json.Unmarshal([]byte(r.Data), &map[string]string{})
+		err := json.Unmarshal([]byte(r.Data), &options)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -87,8 +89,14 @@ func Reset(dir ...string) error {
 	if err != nil {
 		return err
 	}
-	// TODO: This is set as default, how we override it? Where is the magic r.Data on EventBeforeReset appearing?
-	resetSpec.FormatPersistent = true
+	// Not even sure what opts can come from here to be honest. Where is the struct that supports this options?
+	// Where is the docs to support this? This is generic af and not easily identifiable
+	if len(options) == 0 {
+		resetSpec.FormatPersistent = true
+	} else {
+		fmt.Println(options)
+	}
+
 	resetAction := action.NewResetAction(resetConfig, resetSpec)
 	if err := resetAction.Run(); err != nil {
 		fmt.Println(err)
