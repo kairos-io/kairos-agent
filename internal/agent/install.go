@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -18,8 +17,11 @@ import (
 	hook "github.com/kairos-io/kairos/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
-	config "github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos/v2/pkg/action"
+	"github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
+	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -249,12 +251,67 @@ func Install(dir ...string) error {
 }
 
 func RunInstall(options map[string]string) error {
+	// TODO: run yip directly
 	utils.SH("elemental run-stage kairos-install.pre")             //nolint:errcheck
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 
 	f, _ := os.CreateTemp("", "xxxx")
 	defer os.RemoveAll(f.Name())
 
+	cloudInit, ok := options["cc"]
+	if !ok {
+		fmt.Println("cloudInit must be specified among options")
+		os.Exit(1)
+	}
+
+	// TODO: Drop this and make a more straighforward way of getting the cloud-init and options?
+	c := &config.Config{}
+	yaml.Unmarshal([]byte(cloudInit), c) //nolint:errcheck
+
+	if c.Install == nil {
+		c.Install = &config.Install{}
+	}
+
+	// TODO: Im guessing this was used to try to override elemental values from env vars
+	// Does it make sense anymore? We can now expose the whole options of elemental directly
+	env := append(c.Install.Env, c.Env...)
+	utils.SetEnv(env)
+
+	err := os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	if err != nil {
+		fmt.Printf("could not write cloud init: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	// Load the installation Config from the system
+	// TODO: This uses the default mounter, logger, fs, etc...
+	// Make it configurable?
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+
+	_, reboot := options["reboot"]
+	_, poweroff := options["poweroff"]
+	installConfig.Reboot = reboot
+	installConfig.PowerOff = poweroff
+
+	// Generate the installation spec
+	installSpec, err := elementalConfig.ReadInstallSpec(installConfig)
+	if err != nil {
+		return err
+	}
+	// Set our cloud-init to the file we just created
+	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
+	// Get the source of the installation if we are overriding it
+	if c.Install.Image != "" {
+		imgSource, err := v1.NewSrcFromURI(c.Install.Image)
+		if err != nil {
+			return err
+		}
+		installSpec.Active.Source = imgSource
+	}
+	// Set the target device
 	device, ok := options["device"]
 	if !ok {
 		fmt.Println("device must be specified among options")
@@ -264,50 +321,16 @@ func RunInstall(options map[string]string) error {
 	if device == "auto" {
 		device = detectDevice()
 	}
-
-	cloudInit, ok := options["cc"]
-	if !ok {
-		fmt.Println("cloudInit must be specified among options")
-		os.Exit(1)
-	}
-
-	c := &config.Config{}
-	yaml.Unmarshal([]byte(cloudInit), c) //nolint:errcheck
-
-	_, reboot := options["reboot"]
-	_, poweroff := options["poweroff"]
-	if c.Install == nil {
-		c.Install = &config.Install{}
-	}
-	if poweroff {
-		c.Install.Poweroff = true
-	}
-	if reboot {
-		c.Install.Reboot = true
-	}
-
-	if c.Install.Image != "" {
-		options["system.uri"] = c.Install.Image
-	}
-
-	env := append(c.Install.Env, c.Env...)
-	utils.SetEnv(env)
-
-	err := os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	installSpec.Target = device
+	// Check if values are correct
+	err = installSpec.Sanitize()
 	if err != nil {
-		fmt.Printf("could not write cloud init: %s\n", err.Error())
-		os.Exit(1)
+		return err
 	}
-	args := []string{"install"}
-	args = append(args, optsToArgs(options)...)
-	args = append(args, "-c", f.Name(), device)
-
-	cmd := exec.Command("elemental", args...)
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	// Create the action
+	installAction := action.NewInstallAction(installConfig, installSpec)
+	// Run it
+	if err := installAction.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
