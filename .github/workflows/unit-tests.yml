@@ -28,7 +28,7 @@ jobs:
           earthly +build
       - name: Run tests
         run: |
-          earthly +test
+          earthly -P +test
       - name: Codecov
         uses: codecov/codecov-action@v3
         with:

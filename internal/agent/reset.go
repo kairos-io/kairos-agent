@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"sync"
 	"time"
 
@@ -14,14 +13,19 @@ import (
 	hook "github.com/kairos-io/kairos/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
+	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
 )
 
 func Reset(dir ...string) error {
+	// TODO: Enable args? No args for now so no possibility of reset persistent or overriding the source for the reset
+	// Nor the auto-reboot via cmd?
+	// This comment pertains calling reset via cmdline when wanting to override configs
 	bus.Manager.Initialize()
 
 	options := map[string]string{}
@@ -35,6 +39,9 @@ func Reset(dir ...string) error {
 
 	cmd.PrintBranding(DefaultBanner)
 
+	// This loads yet another config ¬_¬
+	// TODO: merge this somehow with the rest so there is no 5 places to configure stuff?
+	// Also this reads the elemental config.yaml
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
@@ -62,18 +69,10 @@ func Reset(dir ...string) error {
 		time.Sleep(60 * time.Second)
 	}
 	lock.Lock()
-	args := []string{"reset"}
 
 	ensureDataSourceReady()
 
 	bus.Manager.Publish(sdk.EventBeforeReset, sdk.EventPayload{}) //nolint:errcheck
-
-	optsArgs := optsToArgs(options)
-	if len(optsArgs) > 0 {
-		args = append(args, optsArgs...)
-	} else {
-		args = append(args, "--reset-persistent")
-	}
 
 	c, err := config.Scan(collector.Directories(dir...))
 	if err != nil {
@@ -82,12 +81,24 @@ func Reset(dir ...string) error {
 
 	utils.SetEnv(c.Env)
 
-	cmd := exec.Command("elemental", args...)
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+	resetSpec, err := elementalConfig.ReadResetSpec(resetConfig)
+	if err != nil {
+		return err
+	}
+	// Not even sure what opts can come from here to be honest. Where is the struct that supports this options?
+	// Where is the docs to support this? This is generic af and not easily identifiable
+	if len(options) == 0 {
+		resetSpec.FormatPersistent = true
+	} else {
+		fmt.Println(options)
+	}
+
+	resetAction := action.NewResetAction(resetConfig, resetSpec)
+	if err := resetAction.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

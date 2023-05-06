@@ -1,9 +1,9 @@
-VERSION 0.6
+VERSION 0.7
 FROM alpine
-ARG CGO_ENABLED=0
-ARG GOLINT_VERSION=1.52.2
 # renovate: datasource=docker depName=golang
-ARG GO_VERSION=1.20
+ARG --global GOLINT_VERSION=1.52.2
+# renovate: datasource=docker depName=golang
+ARG --global GO_VERSION=1.20-alpine3.17
 
 go-deps:
     ARG GO_VERSION
@@ -11,7 +11,6 @@ go-deps:
     WORKDIR /build
     COPY go.mod go.sum ./
     RUN go mod download
-    RUN apt-get update && apt-get install -y upx
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
@@ -21,10 +20,17 @@ luet:
 
 test:
     FROM +go-deps
+    RUN apk add rsync gcc musl-dev docker jq bash
     WORKDIR /build
     COPY +luet/luet /usr/bin/luet
     COPY . .
-    RUN go run github.com/onsi/ginkgo/v2/ginkgo --fail-fast --covermode=atomic --coverprofile=coverage.out -p -r ./...
+    # Some test require the docker sock exposed
+    ARG TEST_PATHS=./...
+    ARG LABEL_FILTER=
+    ENV CGO_ENABLED=1
+    WITH DOCKER
+        RUN go run github.com/onsi/ginkgo/v2/ginkgo run --label-filter "$LABEL_FILTER" -v --output-interceptor-mode=none --fail-fast --race --covermode=atomic --coverprofile=coverage.out -r $TEST_PATHS
+    END
     SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
 version:
@@ -40,6 +46,7 @@ version:
 
 build-kairos-agent:
     FROM +go-deps
+    RUN apk add upx
     COPY . .
     COPY +webui-deps/node_modules ./internal/webui/public/node_modules
     COPY github.com/kairos-io/kairos:master+docs/public/local ./internal/webui/public/local
