@@ -20,7 +20,6 @@ require (
 	github.com/jaypipes/ghw v0.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.0.2-0.20230414094028-0c9d2bd9e6ae
-	github.com/kairos-io/kcrypt v0.5.2
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -130,7 +129,6 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jinzhu/copier v0.0.0-20180308034124-7e38e58719c3 // indirect
-	github.com/kairos-io/kairos v1.24.3-56.0.20230329142538-b6ae4b58c07d // indirect
 	github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 // indirect
 	github.com/kendru/darwin/go/depgraph v0.0.0-20220319173517-8abc3541da93 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
