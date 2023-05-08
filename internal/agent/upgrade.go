@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/docker/docker/api/types"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -147,11 +146,10 @@ func Upgrade(
 	upgradeConfig.Luet = l
 
 	// Generate the upgrade spec
-	upgradeSpec, err := elementalConfig.ReadUpgradeSpec(upgradeConfig)
+	upgradeSpec, err := elementalConfig.NewUpgradeSpec(upgradeConfig.Config)
 	if err != nil {
 		return err
 	}
-
 	// Add the image source
 	imgSource, err := v1.NewSrcFromURI(fmt.Sprintf("docker:%s", img))
 	if err != nil {
