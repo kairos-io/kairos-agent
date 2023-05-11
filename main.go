@@ -464,9 +464,21 @@ The validate command expects a configuration file as its only argument. Local fi
 	},
 	{
 		Name: "print-schema",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "version",
+				Usage: "Print the current schema but with another version number, instead of using the agent version number.",
+			},
+		},
 		Action: func(c *cli.Context) error {
+			var version string
+			if c.String("version") != "" {
+				version = c.String("version")
+			} else {
+				version = common.VERSION
+			}
 
-			json, err := agent.JSONSchema(common.VERSION)
+			json, err := agent.JSONSchema(version)
 
 			if err != nil {
 				return err
