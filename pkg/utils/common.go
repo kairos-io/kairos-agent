@@ -499,17 +499,6 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 
 var errInvalidArch = fmt.Errorf("invalid arch")
 
-func ArchToGolangArch(arch string) (string, error) {
-	switch strings.ToLower(arch) {
-	case cnst.Archx86:
-		return cnst.ArchAmd64, nil
-	case cnst.ArchArm64:
-		return cnst.ArchArm64, nil
-	default:
-		return "", errInvalidArch
-	}
-}
-
 func GolangArchToArch(arch string) (string, error) {
 	switch strings.ToLower(arch) {
 	case cnst.ArchAmd64:

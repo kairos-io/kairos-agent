@@ -57,6 +57,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	var mounter *v1mock.ErrorMounter
 	var fs *vfst.TestFS
 	var cleanup func()
+	var extractor *v1mock.FakeImageExtractor
+
 	BeforeEach(func() {
 		runner = v1mock.NewFakeRunner()
 		syscall = &v1mock.FakeSyscall{}
@@ -64,6 +66,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		client = &v1mock.FakeHTTPClient{}
 		logger = v1.NewNullLogger()
 		fs, cleanup, _ = vfst.NewTestFS(nil)
+		extractor = v1mock.NewFakeImageExtractor(logger)
 		config = conf.NewConfig(
 			conf.WithFs(fs),
 			conf.WithRunner(runner),
@@ -71,6 +74,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			conf.WithMounter(mounter),
 			conf.WithSyscall(syscall),
 			conf.WithClient(client),
+			conf.WithImageExtractor(extractor),
 		)
 	})
 	AfterEach(func() { cleanup() })
@@ -594,11 +598,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	Describe("DumpSource", Label("dump"), func() {
 		var e *elemental.Elemental
 		var destDir string
-		var luet *v1mock.FakeLuet
 		BeforeEach(func() {
 			var err error
-			luet = v1mock.NewFakeLuet()
-			config.Luet = luet
 			e = elemental.NewElemental(config)
 			destDir, err = utils.TempDir(fs, "", "elemental")
 			Expect(err).ShouldNot(HaveOccurred())
@@ -616,13 +617,11 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		It("Unpacks a docker image to target", Label("docker"), func() {
 			_, err := e.DumpSource(destDir, v1.NewDockerSrc("docker/image:latest"))
 			Expect(err).To(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
 		})
 		It("Unpacks a docker image to target with cosign validation", Label("docker", "cosign"), func() {
 			config.Cosign = true
 			_, err := e.DumpSource(destDir, v1.NewDockerSrc("docker/image:latest"))
 			Expect(err).To(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
 			Expect(runner.CmdsMatch([][]string{{"cosign", "verify", "docker/image:latest"}}))
 		})
 		It("Fails cosign validation", Label("cosign"), func() {
@@ -631,12 +630,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			_, err := e.DumpSource(destDir, v1.NewDockerSrc("docker/image:latest"))
 			Expect(err).NotTo(BeNil())
 			Expect(runner.CmdsMatch([][]string{{"cosign", "verify", "docker/image:latest"}}))
-		})
-		It("Fails to unpack a docker image to target", Label("docker"), func() {
-			luet.OnUnpackError = true
-			_, err := e.DumpSource(destDir, v1.NewDockerSrc("docker/image:latest"))
-			Expect(err).NotTo(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
 		})
 		It("Copies image file to target", func() {
 			sourceImg := "/source.img"
@@ -653,17 +646,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		It("Fails to copy, source file is not present", func() {
 			_, err := e.DumpSource("whatever", v1.NewFileSrc("/source.img"))
 			Expect(err).NotTo(BeNil())
-		})
-		It("Unpacks from channel to target", func() {
-			_, err := e.DumpSource(destDir, v1.NewChannelSrc("some/package"))
-			Expect(err).To(BeNil())
-			Expect(luet.UnpackChannelCalled()).To(BeTrue())
-		})
-		It("Fails to unpack from channel to target", func() {
-			luet.OnUnpackFromChannelError = true
-			_, err := e.DumpSource(destDir, v1.NewChannelSrc("some/package"))
-			Expect(err).NotTo(BeNil())
-			Expect(luet.UnpackChannelCalled()).To(BeTrue())
 		})
 	})
 	Describe("CheckActiveDeployment", Label("check"), func() {

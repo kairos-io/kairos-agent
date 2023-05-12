@@ -14,23 +14,15 @@ go-deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-luet:
-    FROM quay.io/luet/base:0.34.0
-    SAVE ARTIFACT /usr/bin/luet /luet
-
 test:
     FROM +go-deps
-    RUN apk add rsync gcc musl-dev docker jq bash
+    RUN apk add rsync gcc musl-dev bash
     WORKDIR /build
-    COPY +luet/luet /usr/bin/luet
     COPY . .
-    # Some test require the docker sock exposed
     ARG TEST_PATHS=./...
     ARG LABEL_FILTER=
     ENV CGO_ENABLED=1
-    WITH DOCKER
-        RUN go run github.com/onsi/ginkgo/v2/ginkgo run --label-filter "$LABEL_FILTER" -v --output-interceptor-mode=none --fail-fast --race --covermode=atomic --coverprofile=coverage.out -r $TEST_PATHS
-    END
+    RUN go run github.com/onsi/ginkgo/v2/ginkgo run --label-filter "$LABEL_FILTER" --covermode=atomic --coverprofile=coverage.out -v --race -r $TEST_PATHS
     SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
 version:

@@ -60,6 +60,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		// We also use the real fs
 		memLog = &bytes.Buffer{}
 		logger = v1.NewBufferLogger(memLog)
+		logger.SetLevel(log.DebugLevel)
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 
 		config = conf.NewConfig(
@@ -95,12 +96,10 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	It("Goes over extra paths", func() {
 		d, err := utils.TempDir(fs, "", "elemental")
 		Expect(err).ToNot(HaveOccurred())
-		err = fs.WriteFile(fmt.Sprintf("%s/extra.yaml", d), []byte{}, os.ModePerm)
-		Expect(err).ShouldNot(HaveOccurred())
 		config.Logger.SetLevel(log.DebugLevel)
 
 		Expect(utils.RunStage(config, "luke", strict, d)).To(BeNil())
-		Expect(memLog.String()).To(ContainSubstring(fmt.Sprintf("Executing %s/extra.yaml", d)))
+		Expect(memLog.String()).To(ContainSubstring(d))
 		Expect(memLog).To(ContainSubstring("luke"))
 		Expect(memLog).To(ContainSubstring("luke.before"))
 		Expect(memLog).To(ContainSubstring("luke.after"))

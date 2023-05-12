@@ -47,6 +47,7 @@ var _ = Describe("Runtime Actions", func() {
 	var cleanup func()
 	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
+	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
 		runner = v1mock.NewFakeRunner()
@@ -55,6 +56,8 @@ var _ = Describe("Runtime Actions", func() {
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
 		logger = v1.NewBufferLogger(memLog)
+		logger.SetLevel(logrus.DebugLevel)
+		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
 		Expect(err).Should(BeNil())
@@ -68,16 +71,19 @@ var _ = Describe("Runtime Actions", func() {
 			conf.WithSyscall(syscall),
 			conf.WithClient(client),
 			conf.WithCloudInitRunner(cloudInit),
+			conf.WithImageExtractor(extractor),
+			conf.WithPlatform("linux/amd64"),
 		)
 	})
 
-	AfterEach(func() { cleanup() })
+	AfterEach(func() {
+		cleanup()
+	})
 
 	Describe("Upgrade Action", Label("upgrade"), func() {
 		var spec *v1.UpgradeSpec
 		var upgrade *action.UpgradeAction
 		var memLog *bytes.Buffer
-		var l *v1mock.FakeLuet
 		activeImg := fmt.Sprintf("%s/cOS/%s", constants.RunningStateDir, constants.ActiveImgFile)
 		passiveImg := fmt.Sprintf("%s/cOS/%s", constants.RunningStateDir, constants.PassiveImgFile)
 		recoveryImgSquash := fmt.Sprintf("%s/cOS/%s", constants.LiveDir, constants.RecoverySquashFile)
@@ -86,10 +92,10 @@ var _ = Describe("Runtime Actions", func() {
 		BeforeEach(func() {
 			memLog = &bytes.Buffer{}
 			logger = v1.NewBufferLogger(memLog)
+			extractor = v1mock.NewFakeImageExtractor(logger)
 			config.Logger = logger
+			config.ImageExtractor = extractor
 			logger.SetLevel(logrus.DebugLevel)
-			l = &v1mock.FakeLuet{}
-			config.Luet = l
 
 			// Create paths used by tests
 			utils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
@@ -140,9 +146,6 @@ var _ = Describe("Runtime Actions", func() {
 				spec, err = conf.NewUpgradeSpec(config.Config)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				spec.Active.Source = v1.NewChannelSrc("system/cos-config")
-				spec.Active.Size = 16
-
 				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -152,6 +155,10 @@ var _ = Describe("Runtime Actions", func() {
 					constants.FilePerm,
 				)
 				Expect(err).ShouldNot(HaveOccurred())
+
+				spec.Active.Size = 10
+				spec.Passive.Size = 10
+				spec.Recovery.Size = 10
 
 				runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 					if command == "cat" && args[0] == "/proc/cmdline" {
@@ -181,6 +188,7 @@ var _ = Describe("Runtime Actions", func() {
 			AfterEach(func() {
 				_ = fs.RemoveAll(activeImg)
 				_ = fs.RemoveAll(passiveImg)
+				mounter.Unmount("device2")
 			})
 			It("Fails if some hook fails and strict is set", func() {
 				runner.SideEffect = func(command string, args ...string) ([]byte, error) {
@@ -202,9 +210,6 @@ var _ = Describe("Runtime Actions", func() {
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
-
-				// Check luet was called to unpack a docker image
-				Expect(l.UnpackCalled()).To(BeTrue())
 
 				// Check that the rebrand worked with our os-release value
 				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
@@ -235,15 +240,14 @@ var _ = Describe("Runtime Actions", func() {
 				spec.Active.Source = v1.NewDockerSrc("alpine")
 				config.Reboot = true
 				upgrade = action.NewUpgradeAction(config, spec)
+				By("Upgrading")
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
-
-				// Check luet was called to unpack a docker image
-				Expect(l.UnpackCalled()).To(BeTrue())
-
+				By("Checking the log")
 				// Check that the rebrand worked with our os-release value
 				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
 
+				By("checking active image")
 				// This should be the new image
 				info, err := fs.Stat(activeImg)
 				Expect(err).ToNot(HaveOccurred())
@@ -251,6 +255,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(info.Size()).To(BeNumerically("==", int64(spec.Active.Size*1024*1024)))
 				Expect(info.IsDir()).To(BeFalse())
 
+				By("Checking passive image")
 				// Should have backed up active to passive
 				info, err = fs.Stat(passiveImg)
 				Expect(err).ToNot(HaveOccurred())
@@ -261,10 +266,11 @@ var _ = Describe("Runtime Actions", func() {
 				f, _ := fs.ReadFile(passiveImg)
 				// This should be a backup so it should read active
 				Expect(f).To(ContainSubstring("active"))
-
+				By("checking transition image")
 				// Expect transition image to be gone
 				_, err = fs.Stat(spec.Active.File)
 				Expect(err).To(HaveOccurred())
+				By("checking it called reboot")
 				Expect(runner.IncludesCmds([][]string{{"reboot", "-f"}})).To(BeNil())
 			})
 			It("Successfully powers off after upgrade from docker image", Label("docker"), func() {
@@ -273,9 +279,6 @@ var _ = Describe("Runtime Actions", func() {
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
-
-				// Check luet was called to unpack a docker image
-				Expect(l.UnpackCalled()).To(BeTrue())
 
 				// Check that the rebrand worked with our os-release value
 				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
@@ -343,50 +346,12 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).To(HaveOccurred())
 
 			})
-			It("Successfully upgrades from channel upgrade", Label("channel"), func() {
-				upgrade = action.NewUpgradeAction(config, spec)
-				err := upgrade.Run()
-				Expect(err).ToNot(HaveOccurred())
-
-				// Check that the rebrand worked with our os-release value
-				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
-
-				// Not much that we can create here as the dir copy was done on the real os, but we do the rest of the ops on a mem one
-				// This should be the new image
-				// Should probably do well in mounting the image and checking contents to make sure everything worked
-				info, err := fs.Stat(activeImg)
-				Expect(err).ToNot(HaveOccurred())
-				// Image size should not be empty
-				Expect(info.Size()).To(BeNumerically("==", int64(spec.Active.Size*1024*1024)))
-				Expect(info.IsDir()).To(BeFalse())
-
-				// Should have backed up active to passive
-				info, err = fs.Stat(passiveImg)
-				Expect(err).ToNot(HaveOccurred())
-				// Should be an really small image as it should only contain our text
-				// As this was generated by us at the start test and moved by the upgrade from active.iomg
-				Expect(info.Size()).To(BeNumerically(">", 0))
-				Expect(info.Size()).To(BeNumerically("<", int64(spec.Active.Size*1024*1024)))
-				f, _ := fs.ReadFile(passiveImg)
-				// This should be a backup so it should read active
-				Expect(f).To(ContainSubstring("active"))
-
-				// Expect transition image to be gone
-				_, err = fs.Stat(spec.Active.File)
-				Expect(err).To(HaveOccurred())
-			})
-			It("Successfully upgrades with cosign", Pending, Label("channel", "cosign"), func() {})
-			It("Successfully upgrades with mtree", Pending, Label("channel", "mtree"), func() {})
-			It("Successfully upgrades with strict", Pending, Label("channel", "strict"), func() {})
 		})
 		Describe(fmt.Sprintf("Booting from %s", constants.PassiveLabel), Label("passive_label"), func() {
 			var err error
 			BeforeEach(func() {
 				spec, err = conf.NewUpgradeSpec(config.Config)
 				Expect(err).ShouldNot(HaveOccurred())
-
-				spec.Active.Source = v1.NewChannelSrc("system/cos-config")
-				spec.Active.Size = 16
 
 				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -397,6 +362,10 @@ var _ = Describe("Runtime Actions", func() {
 					constants.FilePerm,
 				)
 				Expect(err).ShouldNot(HaveOccurred())
+
+				spec.Active.Size = 10
+				spec.Passive.Size = 10
+				spec.Recovery.Size = 10
 
 				runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 					if command == "cat" && args[0] == "/proc/cmdline" {
@@ -465,10 +434,11 @@ var _ = Describe("Runtime Actions", func() {
 
 					spec, err = conf.NewUpgradeSpec(config.Config)
 					Expect(err).ShouldNot(HaveOccurred())
+					spec.Active.Size = 10
+					spec.Passive.Size = 10
+					spec.Recovery.Size = 10
 
 					spec.RecoveryUpgrade = true
-					spec.Recovery.Source = v1.NewChannelSrc("system/cos-config")
-					spec.Recovery.Size = 16
 
 					runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 						if command == "cat" && args[0] == "/proc/cmdline" {
@@ -502,8 +472,6 @@ var _ = Describe("Runtime Actions", func() {
 					upgrade = action.NewUpgradeAction(config, spec)
 					err = upgrade.Run()
 					Expect(err).ToNot(HaveOccurred())
-
-					Expect(l.UnpackCalled()).To(BeTrue())
 
 					// This should be the new image
 					info, err = fs.Stat(recoveryImgSquash)
@@ -541,35 +509,6 @@ var _ = Describe("Runtime Actions", func() {
 					Expect(err).To(HaveOccurred())
 
 				})
-				It("Successfully upgrades recovery from channel upgrade", Label("channel"), func() {
-					// This should be the old image
-					info, err := fs.Stat(recoveryImgSquash)
-					Expect(err).ToNot(HaveOccurred())
-					// Image size should be empty
-					Expect(info.Size()).To(BeNumerically(">", 0))
-					Expect(info.IsDir()).To(BeFalse())
-					f, _ := fs.ReadFile(recoveryImgSquash)
-					Expect(f).To(ContainSubstring("recovery"))
-
-					upgrade = action.NewUpgradeAction(config, spec)
-					err = upgrade.Run()
-					Expect(err).ToNot(HaveOccurred())
-
-					Expect(l.UnpackChannelCalled()).To(BeTrue())
-
-					// This should be the new image
-					info, err = fs.Stat(recoveryImgSquash)
-					Expect(err).ToNot(HaveOccurred())
-					// Image size should be empty
-					Expect(info.Size()).To(BeNumerically("==", 0))
-					Expect(info.IsDir()).To(BeFalse())
-					f, _ = fs.ReadFile(recoveryImgSquash)
-					Expect(f).ToNot(ContainSubstring("recovery"))
-
-					// Transition squash should not exist
-					info, err = fs.Stat(spec.Recovery.File)
-					Expect(err).To(HaveOccurred())
-				})
 			})
 			Describe("Not using squashfs", Label("non-squashfs"), func() {
 				var err error
@@ -581,9 +520,11 @@ var _ = Describe("Runtime Actions", func() {
 					spec, err = conf.NewUpgradeSpec(config.Config)
 					Expect(err).ShouldNot(HaveOccurred())
 
+					spec.Active.Size = 10
+					spec.Passive.Size = 10
+					spec.Recovery.Size = 10
+
 					spec.RecoveryUpgrade = true
-					spec.Recovery.Source = v1.NewChannelSrc("system/cos-config")
-					spec.Recovery.Size = 16
 
 					runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 						if command == "cat" && args[0] == "/proc/cmdline" {
@@ -619,8 +560,6 @@ var _ = Describe("Runtime Actions", func() {
 					err = upgrade.Run()
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(l.UnpackCalled()).To(BeTrue())
-
 					// Should have created recovery image
 					info, err = fs.Stat(recoveryImg)
 					Expect(err).ToNot(HaveOccurred())
@@ -654,35 +593,6 @@ var _ = Describe("Runtime Actions", func() {
 					// Transition squash should not exist
 					info, err = fs.Stat(spec.Recovery.File)
 					Expect(err).To(HaveOccurred())
-				})
-				It("Successfully upgrades recovery from channel upgrade", Label("channel"), func() {
-					// This should be the old image
-					info, err := fs.Stat(recoveryImg)
-					Expect(err).ToNot(HaveOccurred())
-					// Image size should not be empty
-					Expect(info.Size()).To(BeNumerically(">", 0))
-					Expect(info.Size()).To(BeNumerically("<", int64(spec.Recovery.Size*1024*1024)))
-					Expect(info.IsDir()).To(BeFalse())
-					f, _ := fs.ReadFile(recoveryImg)
-					Expect(f).To(ContainSubstring("recovery"))
-
-					upgrade = action.NewUpgradeAction(config, spec)
-					err = upgrade.Run()
-					Expect(err).ToNot(HaveOccurred())
-
-					Expect(l.UnpackChannelCalled()).To(BeTrue())
-
-					// Should have created recovery image
-					info, err = fs.Stat(recoveryImg)
-					Expect(err).ToNot(HaveOccurred())
-					// Should have default image size
-					Expect(info.Size()).To(BeNumerically("==", int64(spec.Recovery.Size*1024*1024)))
-
-					// Expect the rest of the images to not be there
-					for _, img := range []string{activeImg, passiveImg, recoveryImgSquash} {
-						_, err := fs.Stat(img)
-						Expect(err).To(HaveOccurred())
-					}
 				})
 			})
 		})

@@ -19,8 +19,6 @@ package constants
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 const (
@@ -50,7 +48,6 @@ const (
 	LinuxImgFs              = "ext2"
 	SquashFs                = "squashfs"
 	EfiFs                   = "vfat"
-	BiosFs                  = ""
 	EfiSize                 = uint(64)
 	OEMSize                 = uint(64)
 	StateSize               = uint(15360)
@@ -59,7 +56,6 @@ const (
 	BiosSize                = uint(1)
 	ImgSize                 = uint(3072)
 	HTTPTimeout             = 60
-	PartStage               = "partitioning"
 	LiveDir                 = "/run/initramfs/live"
 	RecoveryDir             = "/run/cos/recovery"
 	StateDir                = "/run/cos/state"
@@ -75,7 +71,6 @@ const (
 	PassiveImgFile          = "passive.img"
 	RecoveryImgFile         = "recovery.img"
 	IsoBaseTree             = "/run/rootfsbase"
-	CosSetup                = "/usr/bin/cos-setup"
 	AfterInstallChrootHook  = "after-install-chroot"
 	AfterInstallHook        = "after-install"
 	BeforeInstallHook       = "before-install"
@@ -85,16 +80,9 @@ const (
 	AfterUpgradeChrootHook  = "after-upgrade-chroot"
 	AfterUpgradeHook        = "after-upgrade"
 	BeforeUpgradeHook       = "before-upgrade"
-	LuetCosignPlugin        = "luet-cosign"
-	LuetMtreePlugin         = "luet-mtree"
 	LuetDefaultRepoURI      = "quay.io/costoolkit/releases-green"
-	LuetRepoMaxPrio         = 1
 	LuetDefaultRepoPrio     = 90
-	UpgradeActive           = "active"
-	UpgradeRecovery         = "recovery"
-	ChannelSource           = "system/cos"
 	TransitionImgFile       = "transition.img"
-	TransitionSquashFile    = "transition.squashfs"
 	RunningStateDir         = "/run/initramfs/cos-state" // TODO: converge this constant with StateDir/RecoveryDir in dracut module from cos-toolkit
 	RunningRecoveryStateDir = "/run/initramfs/isoscan"   // TODO: converge this constant with StateDir/RecoveryDir in dracut module from cos-toolkit
 	ActiveImgName           = "active"
@@ -142,42 +130,6 @@ func GetDefaultSquashfsCompressionOptions() []string {
 	return []string{"-comp", "gzip"}
 }
 
-func GetDefaultXorrisoBooloaderArgs(root, bootFile, bootCatalog, hybridMBR string) []string {
-	args := []string{}
-	// TODO: make this detection more robust or explicit
-	// Assume ISOLINUX bootloader is used if boot file is includes 'isolinux'
-	// in its name, otherwise assume an eltorito based grub2 setup
-	if strings.Contains(bootFile, "isolinux") {
-		args = append(args, []string{
-			"-boot_image", "isolinux", fmt.Sprintf("bin_path=%s", bootFile),
-			"-boot_image", "isolinux", fmt.Sprintf("system_area=%s/%s", root, hybridMBR),
-			"-boot_image", "isolinux", "partition_table=on",
-		}...)
-	} else {
-		args = append(args, []string{
-			"-boot_image", "grub", fmt.Sprintf("bin_path=%s", bootFile),
-			"-boot_image", "grub", fmt.Sprintf("grub2_mbr=%s/%s", root, hybridMBR),
-			"-boot_image", "grub", "grub2_boot_info=on",
-		}...)
-	}
-
-	args = append(args, []string{
-		"-boot_image", "any", "partition_offset=16",
-		"-boot_image", "any", fmt.Sprintf("cat_path=%s", bootCatalog),
-		"-boot_image", "any", "cat_hidden=on",
-		"-boot_image", "any", "boot_info_table=on",
-		"-boot_image", "any", "platform_id=0x00",
-		"-boot_image", "any", "emul_type=no_emulation",
-		"-boot_image", "any", "load_size=2048",
-		"-append_partition", "2", "0xef", filepath.Join(root, IsoEFIPath),
-		"-boot_image", "any", "next",
-		"-boot_image", "any", "efi_path=--interval:appended_partition_2:all::",
-		"-boot_image", "any", "platform_id=0xef",
-		"-boot_image", "any", "emul_type=no_emulation",
-	}...)
-	return args
-}
-
 func GetBuildDiskDefaultPackages() map[string]string {
 	return map[string]string{
 		"channel:system/grub2-efi-image": "efi",
@@ -185,70 +137,6 @@ func GetBuildDiskDefaultPackages() map[string]string {
 		"channel:system/grub2-artifacts": "root/grub2",
 		"channel:recovery/cos-img":       "root/cOS",
 	}
-}
-
-// GetRunKeyEnvMap returns environment variable bindings to RunConfig data
-func GetRunKeyEnvMap() map[string]string {
-	return map[string]string{
-		"poweroff": "POWEROFF",
-		"reboot":   "REBOOT",
-		"strict":   "STRICT",
-		"eject-cd": "EJECT_CD",
-	}
-}
-
-// GetInstallKeyEnvMap returns environment variable bindings to InstallSpec data
-func GetInstallKeyEnvMap() map[string]string {
-	return map[string]string{
-		"target":              "TARGET",
-		"system.uri":          "SYSTEM",
-		"recovery-system.uri": "RECOVERY_SYSTEM",
-		"cloud-init":          "CLOUD_INIT",
-		"iso":                 "ISO",
-		"firmware":            "FIRMWARE",
-		"part-table":          "PART_TABLE",
-		"no-format":           "NO_FORMAT",
-		"tty":                 "TTY",
-		"grub-entry-name":     "GRUB_ENTRY_NAME",
-	}
-}
-
-// GetResetKeyEnvMap returns environment variable bindings to ResetSpec data
-func GetResetKeyEnvMap() map[string]string {
-	return map[string]string{
-		"target":          "TARGET",
-		"system.uri":      "SYSTEM",
-		"tty":             "TTY",
-		"grub-entry-name": "GRUB_ENTRY_NAME",
-	}
-}
-
-// GetUpgradeKeyEnvMap returns environment variable bindings to UpgradeSpec data
-func GetUpgradeKeyEnvMap() map[string]string {
-	return map[string]string{
-		"recovery":            "RECOVERY",
-		"system.uri":          "SYSTEM",
-		"recovery-system.uri": "RECOVERY_SYSTEM",
-	}
-}
-
-// GetBuildKeyEnvMap returns environment variable bindings to BuildConfig data
-func GetBuildKeyEnvMap() map[string]string {
-	return map[string]string{
-		"name": "NAME",
-	}
-}
-
-// GetISOKeyEnvMap returns environment variable bindings to LiveISO data
-func GetISOKeyEnvMap() map[string]string {
-	// None for the time being
-	return map[string]string{}
-}
-
-// GetDiskKeyEnvMap returns environment variable bindings to RawDisk data
-func GetDiskKeyEnvMap() map[string]string {
-	// None for the time being
-	return map[string]string{}
 }
 
 func GetGrubFilePaths(arch string) []string {

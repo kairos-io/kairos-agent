@@ -19,6 +19,7 @@ package v1
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sort"
 
 	"github.com/kairos-io/kairos/v2/pkg/constants"
@@ -45,8 +46,9 @@ type Config struct {
 	Runner                    Runner
 	Syscall                   SyscallInterface
 	CloudInitRunner           CloudInitRunner
-	Luet                      LuetInterface
+	ImageExtractor            ImageExtractor
 	Client                    HTTPClient
+	Platform                  *Platform    `yaml:"platform,omitempty" mapstructure:"platform"`
 	Cosign                    bool         `yaml:"cosign,omitempty" mapstructure:"cosign"`
 	Verify                    bool         `yaml:"verify,omitempty" mapstructure:"verify"`
 	CosignPubKey              string       `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
@@ -96,18 +98,27 @@ func (c Config) LoadInstallState() (*InstallState, error) {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (c *Config) Sanitize() error {
-	// Set Luet plugins, we only use the mtree plugin for now
-	if c.Verify {
-		c.Luet.SetPlugins(constants.LuetMtreePlugin)
-	}
 	// If no squashcompression is set, zero the compression parameters
 	// By default on NewConfig the SquashFsCompressionConfig is set to the default values, and then override
 	// on config unmarshall.
 	if c.SquashFsNoCompression {
 		c.SquashFsCompressionConfig = []string{}
 	}
-	// Ensure luet arch matches Config.Arch
-	c.Luet.SetArch(c.Arch)
+	if c.Arch != "" {
+		p, err := NewPlatformFromArch(c.Arch)
+		if err != nil {
+			return err
+		}
+		c.Platform = p
+	}
+
+	if c.Platform == nil {
+		p, err := NewPlatformFromArch(runtime.GOARCH)
+		if err != nil {
+			return err
+		}
+		c.Platform = p
+	}
 	return nil
 }
 

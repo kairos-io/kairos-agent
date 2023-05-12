@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Masterminds/semver/v3"
-	"github.com/docker/docker/api/types"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos/v2/internal/bus"
@@ -14,9 +13,7 @@ import (
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	"github.com/kairos-io/kairos/v2/pkg/github"
-	"github.com/kairos-io/kairos/v2/pkg/luet"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
-	elementalUtils "github.com/kairos-io/kairos/v2/pkg/utils"
 	"github.com/mudler/go-pluggable"
 	log "github.com/sirupsen/logrus"
 )
@@ -128,22 +125,6 @@ func Upgrade(
 	if debug {
 		upgradeConfig.Logger.SetLevel(log.DebugLevel)
 	}
-
-	// Generate an auth object
-	auth := &types.AuthConfig{
-		Username:      authUser,
-		Password:      authPass,
-		ServerAddress: authServer,
-		Auth:          authType,
-		IdentityToken: identityToken,
-		RegistryToken: registryToken,
-	}
-
-	// Override the default luet to pass the auth
-	// Remember to create the temp dir when creating a new luet object. Otherwise, things break with no temp dir.
-	tmpDir := elementalUtils.GetTempDir(&upgradeConfig.Config, "")
-	l := luet.NewLuet(luet.WithLogger(upgradeConfig.Logger), luet.WithAuth(auth), luet.WithLuetTempDir(tmpDir))
-	upgradeConfig.Luet = l
 
 	// Generate the upgrade spec
 	upgradeSpec, err := elementalConfig.NewUpgradeSpec(upgradeConfig.Config)

@@ -52,6 +52,7 @@ var _ = Describe("Install action tests", func() {
 	var cleanup func()
 	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
+	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
 		runner = v1mock.NewFakeRunner()
@@ -60,6 +61,7 @@ var _ = Describe("Install action tests", func() {
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
 		logger = v1.NewBufferLogger(memLog)
+		extractor = v1mock.NewFakeImageExtractor(logger)
 		//logger.SetLevel(v1.DebugLevel())
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
@@ -74,6 +76,7 @@ var _ = Describe("Install action tests", func() {
 			conf.WithSyscall(syscall),
 			conf.WithClient(client),
 			conf.WithCloudInitRunner(cloudInit),
+			conf.WithImageExtractor(extractor),
 		)
 	})
 
@@ -259,10 +262,7 @@ var _ = Describe("Install action tests", func() {
 		It("Successfully installs a docker image", Label("docker"), func() {
 			spec.Target = device
 			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			luet := v1mock.NewFakeLuet()
-			config.Luet = luet
 			Expect(installer.Run()).To(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
 		})
 
 		It("Successfully installs and adds remote cloud-config", Label("cloud-config"), func() {
@@ -343,12 +343,11 @@ var _ = Describe("Install action tests", func() {
 
 		It("Fails if luet fails to unpack image", Label("image", "luet", "unpack"), func() {
 			spec.Target = device
+			extractor.SideEffect = func(imageRef, destination, platformRef string, local bool) error {
+				return fmt.Errorf("error")
+			}
 			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			luet := v1mock.NewFakeLuet()
-			luet.OnUnpackError = true
-			config.Luet = luet
 			Expect(installer.Run()).NotTo(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
 		})
 
 		It("Fails if requested remote cloud config can't be downloaded", Label("cloud-config"), func() {

@@ -30,7 +30,6 @@ import (
 	"github.com/kairos-io/kairos/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
 	"github.com/kairos-io/kairos/v2/pkg/http"
-	"github.com/kairos-io/kairos/v2/pkg/luet"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos/v2/pkg/utils"
 	"github.com/mitchellh/mapstructure"
@@ -93,13 +92,6 @@ func WithCloudInitRunner(ci v1.CloudInitRunner) func(r *v1.Config) error {
 	}
 }
 
-func WithLuet(luet v1.LuetInterface) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
-		r.Luet = luet
-		return nil
-	}
-}
-
 func WithArch(arch string) func(r *v1.Config) error {
 	return func(r *v1.Config) error {
 		r.Arch = arch
@@ -107,8 +99,37 @@ func WithArch(arch string) func(r *v1.Config) error {
 	}
 }
 
+func WithPlatform(platform string) func(r *v1.Config) error {
+	return func(r *v1.Config) error {
+		p, err := v1.ParsePlatform(platform)
+		r.Platform = p
+		return err
+	}
+}
+
+func WithOCIImageExtractor() func(r *v1.Config) error {
+	return func(r *v1.Config) error {
+		r.ImageExtractor = v1.OCIImageExtractor{}
+		return nil
+	}
+}
+
+func WithImageExtractor(extractor v1.ImageExtractor) func(r *v1.Config) error {
+	return func(r *v1.Config) error {
+		r.ImageExtractor = extractor
+		return nil
+	}
+}
+
 func NewConfig(opts ...GenericOptions) *v1.Config {
 	log := v1.NewLogger()
+
+	defaultPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
+	if err != nil {
+		log.Errorf("error parsing default platform (%s): %s", runtime.GOARCH, err.Error())
+		return nil
+	}
+
 	arch, err := utils.GolangArchToArch(runtime.GOARCH)
 	if err != nil {
 		log.Errorf("invalid arch: %s", err.Error())
@@ -122,6 +143,7 @@ func NewConfig(opts ...GenericOptions) *v1.Config {
 		Client:                    http.NewClient(),
 		Repos:                     []v1.Repository{},
 		Arch:                      arch,
+		Platform:                  defaultPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 	}
 	for _, o := range opts {
@@ -154,10 +176,6 @@ func NewConfig(opts ...GenericOptions) *v1.Config {
 		c.Mounter = mount.New(constants.MountBinary)
 	}
 
-	if c.Luet == nil {
-		tmpDir := utils.GetTempDir(c, "")
-		c.Luet = luet.NewLuet(luet.WithFs(c.Fs), luet.WithLogger(log), luet.WithLuetTempDir(tmpDir))
-	}
 	return c
 }
 
@@ -167,16 +185,6 @@ func NewRunConfig(opts ...GenericOptions) *v1.RunConfig {
 		Config: *config,
 	}
 	return r
-}
-
-// CoOccurrenceConfig sets further configurations once config files and other
-// runtime configurations are read. This is mostly a method to call once the
-// mapstructure unmarshal already took place.
-func CoOccurrenceConfig(cfg *v1.Config) {
-	// Set Luet plugins, we only use the mtree plugin for now
-	if cfg.Verify {
-		cfg.Luet.SetPlugins(constants.LuetMtreePlugin)
-	}
 }
 
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
@@ -479,20 +487,6 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 	}, nil
 }
 
-func NewRawDisk() *v1.RawDisk {
-	var packages []v1.RawDiskPackage
-	defaultPackages := constants.GetBuildDiskDefaultPackages()
-
-	for pkg, target := range defaultPackages {
-		packages = append(packages, v1.RawDiskPackage{Name: pkg, Target: target})
-	}
-
-	return &v1.RawDisk{
-		X86_64: &v1.RawDiskArchEntry{Packages: packages},
-		Arm64:  &v1.RawDiskArchEntry{Packages: packages},
-	}
-}
-
 func NewISO() *v1.LiveISO {
 	return &v1.LiveISO{
 		Label:     constants.ISOLabel,
@@ -524,7 +518,7 @@ func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
 }
 
 func ReadConfigRun(configDir string) (*v1.RunConfig, error) {
-	cfg := NewRunConfig(WithLogger(v1.NewLogger()))
+	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithOCIImageExtractor())
 
 	configLogger(cfg.Logger, cfg.Fs)
 
