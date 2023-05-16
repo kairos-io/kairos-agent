@@ -4,6 +4,8 @@ FROM alpine
 ARG --global GOLINT_VERSION=1.52.2
 # renovate: datasource=docker depName=golang
 ARG --global GO_VERSION=1.20-alpine3.17
+# renovate: datasource=docker depName=cypress/base
+ARG --global CYPRESS_VERSION=18.16.0
 
 go-deps:
     ARG GO_VERSION
@@ -70,8 +72,7 @@ webui-deps:
     SAVE ARTIFACT node_modules /node_modules AS LOCAL internal/webui/public/node_modules
 
 webui-tests:
-    FROM ubuntu:22.10
-    RUN apt-get update && apt-get install -y libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb golang nodejs npm
+    FROM cypress/base:$CYPRESS_VERSION
     COPY +build-kairos-agent/kairos-agent /usr/bin/kairos-agent
     COPY . src/
     WORKDIR src/
