@@ -22,6 +22,7 @@ import (
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	elementalUtils "github.com/kairos-io/kairos/v2/pkg/utils"
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -251,8 +252,14 @@ func Install(dir ...string) error {
 }
 
 func RunInstall(options map[string]string) error {
-	// TODO: run yip directly
-	utils.SH("elemental run-stage kairos-install.pre")             //nolint:errcheck
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+
+	// Run pre-install stage
+	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 
 	f, _ := os.CreateTemp("", "xxxx")
@@ -277,18 +284,10 @@ func RunInstall(options map[string]string) error {
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
 
-	err := os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
 	if err != nil {
 		fmt.Printf("could not write cloud init: %s\n", err.Error())
 		os.Exit(1)
-	}
-
-	// Load the installation Config from the system
-	// TODO: This uses the default mounter, logger, fs, etc...
-	// Make it configurable?
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
-	if err != nil {
-		return err
 	}
 
 	_, reboot := options["reboot"]
