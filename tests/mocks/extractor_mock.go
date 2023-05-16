@@ -37,7 +37,7 @@ func NewFakeImageExtractor(logger v1.Logger) *FakeImageExtractor {
 func (f FakeImageExtractor) ExtractImage(imageRef, destination, platformRef string, local bool) error {
 	f.Logger.Debugf("extracting %s to %s in platform %s", imageRef, destination, platformRef)
 	if f.SideEffect != nil {
-		f.Logger.Debugf("running sideeffect")
+		f.Logger.Debugf("running side effect")
 		return f.SideEffect(imageRef, destination, platformRef, local)
 	}
 
