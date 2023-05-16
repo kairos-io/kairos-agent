@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos/v2/pkg/utils"
 	"path/filepath"
 	"runtime"
 
@@ -484,8 +485,39 @@ The validate command expects a configuration file as its only argument. Local fi
 		Description: `Prints out Kairos' Cloud Configuration JSON Schema`,
 	},
 	{
+		Name:        "run-stage",
+		Description: "Run stage from cloud-init",
+		Usage:       "Run stage from cloud-init",
+		UsageText:   "run-stage STAGE",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "strict",
+				Usage: "Enable strict mode. Fails and exits on stage errors",
+			},
+		},
+		Before: func(c *cli.Context) error {
+			if c.Args().Len() != 1 {
+				cli.HelpPrinter(c.App.Writer, "Stage to run missing\n\n", c.Command)
+				_ = cli.ShowSubcommandHelp(c)
+				return fmt.Errorf("")
+			}
+			return nil
+		},
+		Action: func(c *cli.Context) error {
+			stage := c.Args().First()
+			cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
+			cfg.Strict = c.Bool("strict")
+
+			if err != nil {
+				cfg.Logger.Errorf("Error reading config: %s\n", err)
+			}
+			return utils.RunStage(&cfg.Config, stage, cfg.Strict, cfg.CloudInitPaths...)
+		},
+	},
+	{
 		Name:        "pull-image",
 		Description: "Pull remote image to local file",
+		Usage:       "Pull remote image to local file",
 		UsageText:   "pull-image [-l] IMAGE TARGET",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
