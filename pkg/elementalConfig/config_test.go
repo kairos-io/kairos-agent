@@ -42,7 +42,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		var sysc *v1mock.FakeSyscall
 		var logger v1.Logger
 		var ci *v1mock.FakeCloudInitRunner
-		var luet *v1mock.FakeLuet
 		var c *v1.Config
 		BeforeEach(func() {
 			fs, cleanup, err = vfst.NewTestFS(nil)
@@ -53,7 +52,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			sysc = &v1mock.FakeSyscall{}
 			logger = v1.NewNullLogger()
 			ci = &v1mock.FakeCloudInitRunner{}
-			luet = &v1mock.FakeLuet{}
 			c = elementalConfig.NewConfig(
 				elementalConfig.WithFs(fs),
 				elementalConfig.WithMounter(mounter),
@@ -62,7 +60,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				elementalConfig.WithLogger(logger),
 				elementalConfig.WithCloudInitRunner(ci),
 				elementalConfig.WithClient(client),
-				elementalConfig.WithLuet(luet),
 			)
 		})
 		AfterEach(func() {
@@ -77,7 +74,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(c.Logger).To(Equal(logger))
 				Expect(c.CloudInitRunner).To(Equal(ci))
 				Expect(c.Client).To(Equal(client))
-				Expect(c.Luet).To(Equal(luet))
 			})
 			It("Sets the runner if we dont pass one", func() {
 				fs, cleanup, err := vfst.NewTestFS(nil)
@@ -399,28 +395,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(spec.Recovery.Source.IsEmpty()).To(BeTrue())
 					Expect(spec.Recovery.FS).To(Equal(constants.SquashFs))
 				})
-			})
-		})
-		Describe("BuildConfig", Label("build"), func() {
-			It("initiates a new build config", func() {
-				build := elementalConfig.NewBuildConfig()
-				Expect(build.Name).To(Equal(constants.BuildImgName))
-				Expect(len(build.Repos)).To(Equal(1))
-				Expect(build.Repos[0].URI).To(ContainSubstring(constants.LuetDefaultRepoURI))
-			})
-		})
-		Describe("LiveISO", Label("iso"), func() {
-			It("initiates a new LiveISO", func() {
-				iso := elementalConfig.NewISO()
-				Expect(iso.Label).To(Equal(constants.ISOLabel))
-				Expect(len(iso.UEFI)).To(Equal(0))
-				Expect(len(iso.Image)).To(Equal(0))
-			})
-		})
-		Describe("RawDisk", Label("disk"), func() {
-			It("initiates a new RawDisk", func() {
-				disk := elementalConfig.NewRawDisk()
-				Expect(len(disk.X86_64.Packages)).To(Equal(len(constants.GetBuildDiskDefaultPackages())))
 			})
 		})
 	})

@@ -63,20 +63,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Size:   23452345,
 				},
 			}
-			channelState = &v1.ImageState{
-				Source: v1.NewChannelSrc("cat/mypkg"),
-				Label:  "active_label",
-				FS:     "ext2",
-				SourceMetadata: &v1.ChannelImageMeta{
-					Category:    "cat",
-					Name:        "mypkg",
-					Version:     "0.2.1",
-					FingerPrint: "mypkg-cat-0.2.1",
-					Repos: []v1.Repository{{
-						Name: "myrepo",
-					}},
-				},
-			}
 			installState = &v1.InstallState{
 				Date: "somedate",
 				Partitions: map[string]*v1.PartitionState{
@@ -338,10 +324,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			cfg := elementalConfig.NewRunConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
 			cfg.Config.Verify = true
 
-			// Sets the luet mtree pluing
 			err := cfg.Sanitize()
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(cfg.Luet.GetPlugins()).To(Equal([]string{constants.LuetMtreePlugin}))
 		})
 	})
 	Describe("BuildConfig", func() {
@@ -349,10 +333,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			cfg := elementalConfig.NewBuildConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
 			cfg.Config.Verify = true
 
-			// Sets the luet mtree pluing
 			err := cfg.Sanitize()
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(cfg.Luet.GetPlugins()).To(Equal([]string{constants.LuetMtreePlugin}))
 		})
 	})
 	Describe("InstallSpec", func() {
@@ -502,14 +484,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			spec := &v1.LiveISO{
 				RootFS: []*v1.ImageSource{
 					v1.NewDirSrc("/system/os"),
-					v1.NewChannelSrc("system/os"),
 				},
-				UEFI: []*v1.ImageSource{
-					v1.NewChannelSrc("live/grub2-efi-image"),
-				},
-				Image: []*v1.ImageSource{
-					v1.NewChannelSrc("live/grub2"),
-				},
+				UEFI:  []*v1.ImageSource{},
+				Image: []*v1.ImageSource{},
 			}
 			Expect(spec.Sanitize()).ShouldNot(HaveOccurred())
 			Expect(iso.Sanitize()).ShouldNot(HaveOccurred())

@@ -23,9 +23,6 @@ jobs:
         with:
           repository: quay.io/kairos/packages
           packages: utils/earthly
-      - name: Run Build
-        run: |
-          earthly +build
       - name: Run tests
         run: |
           earthly -P +test

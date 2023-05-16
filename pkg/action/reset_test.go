@@ -19,6 +19,7 @@ package action_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"regexp"
 
@@ -47,6 +48,7 @@ var _ = Describe("Reset action tests", func() {
 	var cleanup func()
 	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
+	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
 		runner = v1mock.NewFakeRunner()
@@ -55,6 +57,7 @@ var _ = Describe("Reset action tests", func() {
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
 		logger = v1.NewBufferLogger(memLog)
+		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
 		Expect(err).Should(BeNil())
@@ -68,6 +71,7 @@ var _ = Describe("Reset action tests", func() {
 			conf.WithSyscall(syscall),
 			conf.WithClient(client),
 			conf.WithCloudInitRunner(cloudInit),
+			conf.WithImageExtractor(extractor),
 		)
 	})
 
@@ -186,17 +190,8 @@ var _ = Describe("Reset action tests", func() {
 		})
 		It("Successfully resets from a docker image", Label("docker"), func() {
 			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			luet := v1mock.NewFakeLuet()
-			config.Luet = luet
 			Expect(reset.Run()).To(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
-		})
-		It("Successfully resets from a channel package", Label("channel"), func() {
-			spec.Active.Source = v1.NewChannelSrc("system/cos")
-			luet := v1mock.NewFakeLuet()
-			config.Luet = luet
-			Expect(reset.Run()).To(BeNil())
-			Expect(luet.UnpackChannelCalled()).To(BeTrue())
+
 		})
 		It("Fails installing grub", func() {
 			cmdFail = utils.FindCommand("grub2-install", []string{"grub2-install", "grub-install"})
@@ -227,11 +222,10 @@ var _ = Describe("Reset action tests", func() {
 		})
 		It("Fails unpacking docker image ", func() {
 			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			luet := v1mock.NewFakeLuet()
-			luet.OnUnpackError = true
-			config.Luet = luet
+			extractor.SideEffect = func(imageRef, destination, platformRef string, local bool) error {
+				return fmt.Errorf("error")
+			}
 			Expect(reset.Run()).NotTo(BeNil())
-			Expect(luet.UnpackCalled()).To(BeTrue())
 		})
 	})
 })

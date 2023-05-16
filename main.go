@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
+	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	"path/filepath"
+	"runtime"
 
 	"os"
 	"strings"
@@ -62,12 +66,6 @@ var cmds = []*cli.Command{
 				Name:  "image",
 				Usage: "Specify an full image reference, e.g.: quay.io/some/image:tag",
 			},
-			&cli.StringFlag{Name: "auth-username", Usage: "Username to authenticate to registry"},
-			&cli.StringFlag{Name: "auth-password", Usage: "Password to authenticate to registry"},
-			&cli.StringFlag{Name: "auth-server-address", Usage: "Authentication server address"},
-			&cli.StringFlag{Name: "auth-type", Usage: "Auth type"},
-			&cli.StringFlag{Name: "auth-registry-token", Usage: "Authentication registry token"},
-			&cli.StringFlag{Name: "auth-identity-token", Usage: "Authentication identity token"},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 		},
 		Description: `
@@ -116,8 +114,6 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			return agent.Upgrade(
 				v, c.String("image"), c.Bool("force"), c.Bool("debug"),
 				c.Bool("strict-validation"), configScanDir,
-				c.String("auth-username"), c.String("auth-password"), c.String("auth-server-address"),
-				c.String("auth-type"), c.String("auth-registry-token"), c.String("auth-identity-token"),
 				c.Bool("pre"),
 			)
 		},
@@ -141,7 +137,6 @@ Sends a generic event payload with the configuration found in the scanned direct
 			return agent.Notify(c.Args().First(), dirs)
 		},
 	},
-
 	{
 		Name:      "start",
 		Usage:     "Starts the kairos agent",
@@ -343,7 +338,6 @@ enabled: true`,
 			},
 		},
 	},
-
 	{
 		Name: "interactive-install",
 		Description: `
@@ -400,7 +394,6 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			return agent.ManualInstall(config, options, c.Bool("strict-validation"))
 		},
 	},
-
 	{
 		Name:  "install",
 		Usage: "Starts the kairos pairing installation",
@@ -434,7 +427,6 @@ See also https://kairos.io/after_install/recovery_mode/ for documentation.
 
 This command is meant to be used from the boot GRUB menu, but can likely be used standalone`,
 	},
-
 	{
 		Name: "reset",
 		Action: func(c *cli.Context) error {
@@ -490,6 +482,55 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 		Usage:       "Print out Kairos' Cloud Configuration JSON Schema",
 		Description: `Prints out Kairos' Cloud Configuration JSON Schema`,
+	},
+	{
+		Name:        "pull-image",
+		Description: "Pull remote image to local file",
+		UsageText:   "pull-image [-l] IMAGE TARGET",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "local",
+				Usage:   "Use an image from local cache",
+				Aliases: []string{"l"},
+			},
+			&cli.StringFlag{
+				Name:  "platform",
+				Usage: "Platform/arch to pull image from",
+				Value: fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+			},
+		},
+		Before: func(c *cli.Context) error {
+			if c.Args().Len() != 2 {
+				cli.HelpPrinter(c.App.Writer, "Either Image or target argument missing\n\n", c.Command)
+				_ = cli.ShowSubcommandHelp(c)
+				return fmt.Errorf("")
+			}
+
+			if os.Geteuid() != 0 {
+				return fmt.Errorf("this command requires root privileges")
+			}
+
+			return nil
+		},
+		Action: func(c *cli.Context) error {
+			image := c.Args().Get(0)
+			destination, err := filepath.Abs(c.Args().Get(1))
+			if err != nil {
+				return fmt.Errorf("invalid path %s", destination)
+			}
+			cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
+			if err != nil {
+				return err
+			}
+
+			cfg.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
+			e := v1.OCIImageExtractor{}
+			if err = e.ExtractImage(image, destination, c.String("platform"), c.Bool("local")); err != nil {
+				return err
+			}
+			cfg.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)
+			return nil
+		},
 	},
 }
 
