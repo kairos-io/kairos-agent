@@ -66,12 +66,6 @@ var cmds = []*cli.Command{
 				Name:  "image",
 				Usage: "Specify an full image reference, e.g.: quay.io/some/image:tag",
 			},
-			&cli.StringFlag{Name: "auth-username", Usage: "Username to authenticate to registry"},
-			&cli.StringFlag{Name: "auth-password", Usage: "Password to authenticate to registry"},
-			&cli.StringFlag{Name: "auth-server-address", Usage: "Authentication server address"},
-			&cli.StringFlag{Name: "auth-type", Usage: "Auth type"},
-			&cli.StringFlag{Name: "auth-registry-token", Usage: "Authentication registry token"},
-			&cli.StringFlag{Name: "auth-identity-token", Usage: "Authentication identity token"},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 		},
 		Description: `
@@ -120,8 +114,6 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			return agent.Upgrade(
 				v, c.String("image"), c.Bool("force"), c.Bool("debug"),
 				c.Bool("strict-validation"), configScanDir,
-				c.String("auth-username"), c.String("auth-password"), c.String("auth-server-address"),
-				c.String("auth-type"), c.String("auth-registry-token"), c.String("auth-identity-token"),
 				c.Bool("pre"),
 			)
 		},

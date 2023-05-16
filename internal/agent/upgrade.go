@@ -47,8 +47,7 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, image string, force, debug, strictValidations bool, dirs []string, authUser string,
-	authPass string, authServer string, authType string, registryToken string, identityToken string, preReleases bool,
+	version, image string, force, debug, strictValidations bool, dirs []string, preReleases bool,
 ) error {
 	bus.Manager.Initialize()
 
