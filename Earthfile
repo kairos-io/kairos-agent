@@ -43,7 +43,7 @@ build-kairos-agent:
     RUN apk add upx
     COPY . .
     COPY +webui-deps/node_modules ./internal/webui/public/node_modules
-    COPY github.com/kairos-io/kairos:master+docs/public/local ./internal/webui/public/local
+    COPY github.com/kairos-io/kairos-docs:main+docs/public ./internal/webui/public
     COPY +version/VERSION ./
     ARG VERSION=$(cat VERSION)
     RUN echo $(cat VERSION)
