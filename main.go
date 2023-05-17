@@ -494,6 +494,10 @@ The validate command expects a configuration file as its only argument. Local fi
 				Name:  "strict",
 				Usage: "Enable strict mode. Fails and exits on stage errors",
 			},
+			&cli.StringSliceFlag{
+				Name:  "cloud-init-paths",
+				Usage: "Extra paths to add to the run stage",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			if c.Args().Len() != 1 {
@@ -507,6 +511,10 @@ The validate command expects a configuration file as its only argument. Local fi
 			stage := c.Args().First()
 			cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
 			cfg.Strict = c.Bool("strict")
+
+			if len(c.StringSlice("cloud-init-paths")) > 0 {
+				cfg.CloudInitPaths = append(cfg.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
+			}
 
 			if err != nil {
 				cfg.Logger.Errorf("Error reading config: %s\n", err)
