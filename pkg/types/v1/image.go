@@ -17,16 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	"context"
-	"net/http"
-
-	"github.com/containerd/containerd/archive"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/daemon"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 type ImageExtractor interface {
@@ -38,35 +29,5 @@ type OCIImageExtractor struct{}
 var _ ImageExtractor = OCIImageExtractor{}
 
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string, local bool) error {
-	platform, err := v1.ParsePlatform(platformRef)
-	if err != nil {
-		return err
-	}
-
-	ref, err := name.ParseReference(imageRef)
-	if err != nil {
-		return err
-	}
-
-	image, err := image(ref, *platform, local)
-	if err != nil {
-		return err
-	}
-
-	reader := mutate.Extract(image)
-
-	_, err = archive.Apply(context.Background(), destination, reader)
-	return err
-}
-
-func image(ref name.Reference, platform v1.Platform, local bool) (v1.Image, error) {
-	if local {
-		return daemon.Image(ref)
-	}
-
-	return remote.Image(ref,
-		remote.WithTransport(http.DefaultTransport),
-		remote.WithPlatform(platform),
-		remote.WithAuthFromKeychain(authn.DefaultKeychain),
-	)
+	return utils.ExtractOCIImage(imageRef, destination, platformRef, local)
 }
