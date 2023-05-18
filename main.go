@@ -197,6 +197,10 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				EnvVars: []string{"REPOSITORY"},
 				Value:   "docker://quay.io/kairos/packages",
 			},
+			&cli.StringFlag{
+				Name:  "root-path",
+				Value: "/",
+			},
 			&cli.BoolFlag{
 				Name:    "local-file",
 				EnvVars: []string{"LOCAL_FILE"},
@@ -208,7 +212,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				return fmt.Errorf("bundle name required")
 			}
 
-			return bundles.RunBundles([]bundles.BundleOption{bundles.WithRepository(c.String("repository")), bundles.WithTarget(c.Args().First()), bundles.WithLocalFile(c.Bool("local-file"))})
+			return bundles.RunBundles([]bundles.BundleOption{bundles.WithRootFS(c.String("root-path")), bundles.WithRepository(c.String("repository")), bundles.WithTarget(c.Args().First()), bundles.WithLocalFile(c.Bool("local-file"))})
 		},
 	},
 	{
