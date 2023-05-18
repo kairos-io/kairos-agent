@@ -663,7 +663,7 @@ func configLogger(log v1.Logger, vfs v1.FS) {
 	}
 
 	v := common.GetVersion()
-	log.Infof("Starting elemental version %s", v)
+	log.Infof("kairos-agent version %s", v)
 }
 
 var decodeHook = viper.DecodeHook(
