@@ -391,12 +391,8 @@ github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
-github.com/kairos-io/kairos-sdk v0.0.3 h1:V/GJHFZuR7QWvWdxUZ76RXJdrZO8dL1aBJM74oJ0rU4=
-github.com/kairos-io/kairos-sdk v0.0.3/go.mod h1:wAO6aJy/ek/Y/SE/iq5x7M9d8XYUR/jfDXA5DDG/IRU=
-github.com/kairos-io/kairos-sdk v0.0.4-0.20230518101740-f5982c9d5ad0 h1:CwXY/HYotcUerQqQXdbVkjea+yp0p2qlRjqnt7vgHh8=
-github.com/kairos-io/kairos-sdk v0.0.4-0.20230518101740-f5982c9d5ad0/go.mod h1:wAO6aJy/ek/Y/SE/iq5x7M9d8XYUR/jfDXA5DDG/IRU=
-github.com/kairos-io/kairos-sdk v0.0.4 h1:fXjZsW+0Rdpo3uWeoTd/9ovzeMg+WrRI34U21X5GOD4=
-github.com/kairos-io/kairos-sdk v0.0.4/go.mod h1:wAO6aJy/ek/Y/SE/iq5x7M9d8XYUR/jfDXA5DDG/IRU=
+github.com/kairos-io/kairos-sdk v0.0.5 h1:1Yna5kQTzgmM1UpSc50FxYt9vN87IOXjlK7OCuFqYwk=
+github.com/kairos-io/kairos-sdk v0.0.5/go.mod h1:wAO6aJy/ek/Y/SE/iq5x7M9d8XYUR/jfDXA5DDG/IRU=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 h1:qq2nCpSrXrmvDGRxW0ruW9BVEV1CN2a9YDOExdt+U0o=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329/go.mod h1:2VPVQDR4wO7KXHwP+DAypEy67rXf+okUx2zjgpCxZw4=
 github.com/kendru/darwin/go/depgraph v0.0.0-20221105232959-877d6a81060c h1:eKb4PqwAMhlqwXw0W3atpKaYaPGlXE/Fwh+xpCEYaPk=
