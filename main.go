@@ -7,6 +7,7 @@ import (
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos/v2/pkg/utils"
+	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"runtime"
 
@@ -58,10 +59,6 @@ var cmds = []*cli.Command{
 			&cli.BoolFlag{
 				Name:  "force",
 				Usage: "Force an upgrade",
-			},
-			&cli.BoolFlag{
-				Name:  "debug",
-				Usage: "Show debug output",
 			},
 			&cli.StringFlag{
 				Name:  "image",
@@ -360,7 +357,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 		},
 		Usage: "Starts interactive installation",
 		Action: func(c *cli.Context) error {
-			return agent.InteractiveInstall(c.Bool("shell"))
+			return agent.InteractiveInstall(c.Bool("debug"), c.Bool("shell"))
 		},
 	},
 	{
@@ -396,7 +393,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 				options["reboot"] = "true"
 			}
 
-			return agent.ManualInstall(config, options, c.Bool("strict-validation"))
+			return agent.ManualInstall(config, options, c.Bool("strict-validation"), c.Bool("debug"))
 		},
 	},
 	{
@@ -412,7 +409,7 @@ See also https://kairos.io/docs/installation/qrcode/ for documentation.
 This command is meant to be used from the boot GRUB menu, but can be started manually`,
 		Aliases: []string{"i"},
 		Action: func(c *cli.Context) error {
-			return agent.Install(configScanDir...)
+			return agent.Install(c.Bool("debug"), configScanDir...)
 		},
 	},
 	{
@@ -435,7 +432,7 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 	{
 		Name: "reset",
 		Action: func(c *cli.Context) error {
-			return agent.Reset(configScanDir...)
+			return agent.Reset(c.Bool("debug"), configScanDir...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `
@@ -519,6 +516,9 @@ The validate command expects a configuration file as its only argument. Local fi
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
 				cfg.CloudInitPaths = append(cfg.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
 			}
+			if c.Bool("debug") {
+				cfg.Logger.SetLevel(logrus.DebugLevel)
+			}
 
 			if err != nil {
 				cfg.Logger.Errorf("Error reading config: %s\n", err)
@@ -566,6 +566,9 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return err
 			}
+			if c.Bool("debug") {
+				cfg.Logger.SetLevel(logrus.DebugLevel)
+			}
 
 			cfg.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
 			e := v1.OCIImageExtractor{}
@@ -587,6 +590,11 @@ func main() {
 				Name:    "strict-validation",
 				Usage:   "Fail instead of warn on validation errors.",
 				EnvVars: []string{"STRICT_VALIDATIONS"},
+			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Usage:   "enable debug output",
+				EnvVars: []string{"KAIROS_AGENT_DEBUG"},
 			},
 		},
 		Name:    "kairos-agent",

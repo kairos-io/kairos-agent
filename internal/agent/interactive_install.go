@@ -127,7 +127,7 @@ func detectDevice() string {
 	return preferedDevice
 }
 
-func InteractiveInstall(spawnShell bool) error {
+func InteractiveInstall(debug, spawnShell bool) error {
 	bus.Manager.Initialize()
 
 	cmd.PrintBranding(DefaultBanner)
@@ -220,7 +220,7 @@ func InteractiveInstall(spawnShell bool) error {
 	}
 
 	if !isYes(allGood) {
-		return InteractiveInstall(spawnShell)
+		return InteractiveInstall(debug, spawnShell)
 	}
 
 	c := &config.Config{
@@ -261,7 +261,7 @@ func InteractiveInstall(spawnShell bool) error {
 	pterm.Info.Println("Starting installation")
 	pterm.Info.Println(finalCloudConfig)
 
-	err = RunInstall(map[string]string{
+	err = RunInstall(debug, map[string]string{
 		"device": device,
 		"cc":     finalCloudConfig,
 	})
