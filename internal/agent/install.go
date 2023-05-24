@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"strings"
@@ -74,7 +75,7 @@ func mergeOption(cloudConfig string, r map[string]string) {
 	}
 }
 
-func ManualInstall(c string, options map[string]string, strictValidations bool) error {
+func ManualInstall(c string, options map[string]string, strictValidations, debug bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -98,13 +99,17 @@ func ManualInstall(c string, options map[string]string, strictValidations bool) 
 	mergeOption(configStr, options)
 
 	if options["device"] == "" {
-		options["device"] = cc.Install.Device
+		if cc.Install.Device == "" {
+			options["device"] = detectDevice()
+		} else {
+			options["device"] = cc.Install.Device
+		}
 	}
 
-	return RunInstall(options)
+	return RunInstall(debug, options)
 }
 
-func Install(dir ...string) error {
+func Install(debug bool, dir ...string) error {
 	utils.OnSignal(func() {
 		svc, err := machine.Getty(1)
 		if err == nil {
@@ -140,7 +145,7 @@ func Install(dir ...string) error {
 		r["device"] = cc.Install.Device
 		mergeOption(configStr, r)
 
-		err = RunInstall(r)
+		err = RunInstall(debug, r)
 		if err != nil {
 			return err
 		}
@@ -234,7 +239,7 @@ func Install(dir ...string) error {
 
 	pterm.Info.Println("Starting installation")
 
-	if err := RunInstall(r); err != nil {
+	if err := RunInstall(debug, r); err != nil {
 		return err
 	}
 
@@ -251,11 +256,14 @@ func Install(dir ...string) error {
 	return nil
 }
 
-func RunInstall(options map[string]string) error {
+func RunInstall(debug bool, options map[string]string) error {
 	// Load the installation Config from the system
 	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
 		return err
+	}
+	if debug {
+		installConfig.Logger.SetLevel(logrus.DebugLevel)
 	}
 
 	// Run pre-install stage
