@@ -123,6 +123,7 @@ func (c *Config) Sanitize() error {
 }
 
 type RunConfig struct {
+	Debug          bool     `yaml:"strict,omitempty" mapstructure:"debug"`
 	Strict         bool     `yaml:"strict,omitempty" mapstructure:"strict"`
 	Reboot         bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
 	PowerOff       bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
