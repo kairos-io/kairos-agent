@@ -20,6 +20,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"regexp"
+
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
@@ -31,8 +34,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
-	"path/filepath"
-	"regexp"
 )
 
 const printOutput = `BYT;

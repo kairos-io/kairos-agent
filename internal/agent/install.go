@@ -307,6 +307,8 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 		return err
 	}
 
+	installSpec.NoFormat = c.Install.NoFormat
+
 	// Set our cloud-init to the file we just created
 	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
 	// Get the source of the installation if we are overriding it
@@ -334,10 +336,9 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 		return err
 	}
 
-	// TODO: This should be enough to make the whole user's config available to
-	// "elemental". Thus the before-install hook should also be available here:
-	// https://github.com/kairos-io/kairos/issues/209#issuecomment-1457938851
+	// Add user's cloud-config (to run user defined "before-install" stages)
 	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, installSpec.CloudInit...)
+
 	// Run pre-install stage
 	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
