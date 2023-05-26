@@ -162,7 +162,8 @@ func Scan(opts ...collector.Option) (c *Config, err error) {
 type Stage string
 
 const (
-	NetworkStage Stage = "network"
+	NetworkStage   Stage = "network"
+	InitramfsStage Stage = "initramfs"
 )
 
 func (n Stage) String() string {
