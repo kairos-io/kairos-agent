@@ -14,7 +14,7 @@ require (
 	github.com/itchyny/gojq v0.12.12
 	github.com/jaypipes/ghw v0.10.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.0.5
+	github.com/kairos-io/kairos-sdk v0.0.6-0.20230526103201-c90740d747f8
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -23,14 +23,14 @@ require (
 	github.com/mudler/yip v1.1.0
 	github.com/nxadm/tail v1.4.8
 	github.com/onsi/ginkgo/v2 v2.9.5
-	github.com/onsi/gomega v1.27.6
+	github.com/onsi/gomega v1.27.7
 	github.com/pterm/pterm v0.12.61
 	github.com/sanity-io/litter v1.5.5
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.8.1
-	github.com/swaggest/jsonschema-go v0.3.49
+	github.com/swaggest/jsonschema-go v0.3.51
 	github.com/twpayne/go-vfs v1.7.2
 	github.com/urfave/cli/v2 v2.25.1
 	github.com/zloylos/grsync v1.7.0
@@ -147,7 +147,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.37.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
-	github.com/sergi/go-diff v1.2.0 // indirect
+	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/spectrocloud-labs/herd v0.4.2 // indirect
