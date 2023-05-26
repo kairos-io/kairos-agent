@@ -78,15 +78,6 @@ func layoutPlugin(l logger.Interface, s schema.Stage, fs vfs.FS, console plugins
 		return errors.New("Target disk not found")
 	}
 
-	if s.Layout.Expand != nil {
-		l.Infof("Extending last partition up to %d MiB", s.Layout.Expand.Size)
-		out, err := dev.ExpandLastPartition(s.Layout.Expand.Size)
-		if err != nil {
-			l.Error(out)
-			return err
-		}
-	}
-
 	for _, part := range s.Layout.Parts {
 		_, err := utils.GetFullDeviceByLabel(runner, part.FSLabel, 1)
 		if err == nil {
@@ -111,7 +102,16 @@ func layoutPlugin(l logger.Interface, s schema.Stage, fs vfs.FS, console plugins
 				return fmt.Errorf("Formatting partition failed: %s\nError: %w", out, err)
 			}
 		}
-		return nil
 	}
+
+	if s.Layout.Expand != nil {
+		l.Infof("Extending last partition up to %d MiB", s.Layout.Expand.Size)
+		out, err := dev.ExpandLastPartition(s.Layout.Expand.Size)
+		if err != nil {
+			l.Error(out)
+			return err
+		}
+	}
+
 	return nil
 }
