@@ -115,7 +115,7 @@ stages:
 		os.RemoveAll(resultFile.Name())
 	})
 
-	FIt("respects the user defined after-install stages", func() {
+	It("respects the user defined after-install stages", func() {
 		// TODO:
 		// - Refactor RunInstall to accept the installConfig pat (/etc/elemental)
 		//   as part of `options` (caller still passes the default "/etc/elemental")
