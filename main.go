@@ -20,6 +20,7 @@ import (
 
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos/v2/internal/common"
 	"github.com/kairos-io/kairos/v2/pkg/config"
@@ -449,7 +450,7 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 		Name: "validate",
 		Action: func(c *cli.Context) error {
 			config := c.Args().First()
-			return agent.Validate(config)
+			return schema.Validate(config)
 		},
 		Usage: "Validates a cloud config file",
 		Description: `
@@ -472,7 +473,7 @@ The validate command expects a configuration file as its only argument. Local fi
 				version = common.VERSION
 			}
 
-			json, err := agent.JSONSchema(version)
+			json, err := schema.JSONSchema(version)
 
 			if err != nil {
 				return err

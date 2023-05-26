@@ -12,6 +12,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos/v2/internal/agent"
 	"github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/labstack/echo/v4"
@@ -167,7 +168,7 @@ func Start(ctx context.Context) error {
 		}
 		cloudConfig := formData.CloudConfig
 
-		err := agent.Validate(cloudConfig)
+		err := schema.Validate(cloudConfig)
 		if err != nil {
 			return c.String(http.StatusOK, err.Error())
 		}
