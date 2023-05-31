@@ -300,8 +300,12 @@ func RunInstall(debug bool, options map[string]string) error {
 
 	_, reboot := options["reboot"]
 	_, poweroff := options["poweroff"]
-	installConfig.Reboot = reboot
-	installConfig.PowerOff = poweroff
+	if poweroff {
+		c.Install.Poweroff = true
+	}
+	if reboot {
+		c.Install.Reboot = true
+	}
 
 	// Generate the installation spec
 	installSpec, err := elementalConfig.ReadInstallSpec(installConfig)
