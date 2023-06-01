@@ -23,47 +23,49 @@ var _ = Describe("Layout", Label("layout"), func() {
 	var console *cloudInitConsole
 	var runner *v1mock.FakeRunner
 	var ghwTest v1mock.GhwMock
-	var sizeExpand uint
+	var defaultSizeForTest uint
+	var device string
 
-	Describe("Expand partition", func() {
+	BeforeEach(func() {
+		device = "/dev/device"
+		defaultSizeForTest = 100
+		logger = v1.NewLogger()
+		logger.SetLevel(logrus.DebugLevel)
+		fs, _, _ = vfst.NewTestFS(map[string]interface{}{device: ""})
+		runner = v1mock.NewFakeRunner()
+		console = newCloudInitConsole(logger, runner)
+		mainDisk := block.Disk{
+			Name: "device",
+			Partitions: []*block.Partition{
+				{
+					Name:            "device1",
+					FilesystemLabel: "FAKE",
+					Type:            "ext4",
+					MountPoint:      "/mnt/fake",
+					SizeBytes:       0,
+				},
+			},
+		}
+		ghwTest = v1mock.GhwMock{}
+		ghwTest.AddDisk(mainDisk)
+		ghwTest.CreateDevices()
+	})
+
+	Describe("Expand partition", Label("expand"), func() {
 		BeforeEach(func() {
-			logger = v1.NewLogger()
-			logger.SetLevel(logrus.DebugLevel)
-			device := "/dev/device"
 			partition := "/dev/device1"
-			sizeExpand = 100
-
-			fs, _, _ = vfst.NewTestFS(map[string]interface{}{device: ""})
 
 			layout := schema.Layout{
 				Device: &schema.Device{
 					Label: "FAKE",
 					Path:  device,
 				},
-				Expand: &schema.Expand{Size: sizeExpand},
+				Expand: &schema.Expand{Size: defaultSizeForTest},
 				Parts:  []schema.Partition{},
 			}
 			stage = schema.Stage{
 				Layout: layout,
 			}
-
-			runner = v1mock.NewFakeRunner()
-			console = newCloudInitConsole(logger, runner)
-			mainDisk := block.Disk{
-				Name: "device",
-				Partitions: []*block.Partition{
-					{
-						Name:            "device1",
-						FilesystemLabel: "FAKE",
-						Type:            "ext4",
-						MountPoint:      "/mnt/fake",
-						SizeBytes:       0,
-					},
-				},
-			}
-			ghwTest = v1mock.GhwMock{}
-			ghwTest.AddDisk(mainDisk)
-			ghwTest.CreateDevices()
 
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
@@ -120,7 +122,7 @@ BYT;
 			Expect(err).ToNot(HaveOccurred())
 			// This is the sector size that it's going to be passed to parted to increase the new partition size
 			// Remember to remove 1 last sector, don't ask me why
-			Sectors := partitioner.MiBToSectors(sizeExpand, 512) - 1
+			Sectors := partitioner.MiBToSectors(defaultSizeForTest, 512) - 1
 			// Check that it tried to delete+create and check the new fs for the new partition and resize it
 			Expect(runner.IncludesCmds([][]string{
 				{"udevadm", "settle"},
@@ -249,6 +251,130 @@ BYT;
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("could not find partition device"))
 			Expect(err.Error()).To(ContainSubstring("/dev/device1"))
+		})
+	})
+
+	Describe("Add partitions", Label("add", "partitions"), func() {
+		BeforeEach(func() {
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
+					/*
+
+											Getting free sectors is called by running:
+											`parted --script --machine -- /dev/device unit s print`
+											And returns the following:
+						BYT;
+						/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
+						1:2048s:206847s:204800s:fat32:EFI System Partition:boot, esp, no_automount;
+						2:206848s:239615s:32768s::Microsoft reserved partition:msftres, no_automount;
+						3:239616s:2046941183s:2046701568s:ntfs:Basic data partition:msftdata;
+						4:2046941184s:2048237567s:1296384s:ntfs::hidden, diag, no_automount;
+						5:2048237568s:2050334719s:2097152s:ext4::;
+						6:2050334720s:7814035455s:5763700736s:btrfs::;
+
+											So it's the device and its total sectors and picks the last partition and its final sector.
+											In this case:
+											/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
+											^device      ^total sectors
+											6:2050334720s:7814035455s:5763700736s:btrfs::;
+											^partition    ^end sector
+
+											And you rest (total - end secor of last partition) to know how many free sectors there are.
+											At least 20480 sectors are needed to expand properly
+					*/
+					// Return 1.000.000 total sectors - 1000 used by the partition
+					rtn := `
+BYT;
+/dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
+1:0s:1000s:0s:ext4::;`
+					return []byte(rtn), nil
+				}
+				return nil, nil
+			}
+		})
+		AfterEach(func() {
+			ghwTest.Clean()
+		})
+		It("Adds one partition", func() {
+			fslabel := "jojo"
+			fstype := "ext3"
+			plabel := "dio"
+
+			layout := schema.Layout{
+				Device: &schema.Device{
+					Label: "FAKE",
+					Path:  device,
+				},
+				Parts: []schema.Partition{
+					{
+						Size:       defaultSizeForTest,
+						FSLabel:    fslabel,
+						FileSystem: fstype,
+						PLabel:     plabel,
+					},
+				},
+			}
+			stage = schema.Stage{
+				Layout: layout,
+			}
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
+					/*
+
+											Getting free sectors is called by running:
+											`parted --script --machine -- /dev/device unit s print`
+											And returns the following:
+						BYT;
+						/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
+						1:2048s:206847s:204800s:fat32:EFI System Partition:boot, esp, no_automount;
+						2:206848s:239615s:32768s::Microsoft reserved partition:msftres, no_automount;
+						3:239616s:2046941183s:2046701568s:ntfs:Basic data partition:msftdata;
+						4:2046941184s:2048237567s:1296384s:ntfs::hidden, diag, no_automount;
+						5:2048237568s:2050334719s:2097152s:ext4::;
+						6:2050334720s:7814035455s:5763700736s:btrfs::;
+
+											So it's the device and its total sectors and picks the last partition and its final sector.
+											In this case:
+											/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
+											^device      ^total sectors
+											6:2050334720s:7814035455s:5763700736s:btrfs::;
+											^partition    ^end sector
+
+											And you rest (total - end secor of last partition) to know how many free sectors there are.
+											At least 20480 sectors are needed to expand properly
+					*/
+					// Return 1.000.000 total sectors - 1000 used by the partition
+					rtn := `
+BYT;
+/dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
+1:0s:1000s:0s:ext4::;`
+					return []byte(rtn), nil
+				}
+				// removing the first partition and creating a new one
+				if command == "parted" && len(args) == 11 {
+					// creating partition with our given label and fs type
+					if args[6] == "mkpart" && args[7] == plabel && args[8] == fstype {
+						logger.Info("Creating part")
+						//Create the device
+						_, err := fs.Create("/dev/device2")
+						Expect(err).ToNot(HaveOccurred())
+						return nil, nil
+					}
+				}
+				return nil, nil
+			}
+			err := layoutPlugin(logger, stage, fs, console)
+			Expect(err).ToNot(HaveOccurred())
+			// Because this is adding a new partition and according to our fake parted the first partitions occupies 1000 sectors
+			// We need to sum 1000 sectors to this number to calculate the sectors passed to parted
+			// As parted will create the new partition from sector 1001 to MBsToSectors+1001
+			Sectors := partitioner.MiBToSectors(defaultSizeForTest, 512) - 1 + 1001
+			// Checks that commands to create the new partition were called with the proper fs, size and labels
+			Expect(runner.IncludesCmds([][]string{
+				{"udevadm", "settle"},
+				{"parted", "--script", "--machine", "--", "/dev/device", "unit", "s", "mkpart", plabel, fstype, "1001", strconv.Itoa(int(Sectors))},
+				{"mkfs.ext3", "-L", fslabel, "/dev/device2"},
+			})).ToNot(HaveOccurred())
 		})
 	})
 })
