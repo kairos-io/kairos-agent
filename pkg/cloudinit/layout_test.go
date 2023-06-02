@@ -45,6 +45,13 @@ var _ = Describe("Layout", Label("layout"), func() {
 					MountPoint:      "/mnt/fake",
 					SizeBytes:       0,
 				},
+				{
+					Name:            "device2",
+					FilesystemLabel: "FAKE",
+					Type:            "ext4",
+					MountPoint:      "/mnt/fake",
+					SizeBytes:       0,
+				},
 			},
 		}
 		ghwTest = v1mock.GhwMock{}
@@ -160,31 +167,6 @@ BYT;
 			// Override runner side effect to return error when partition is recreated
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
-					/*
-
-											Getting free sectors is called by running:
-											`parted --script --machine -- /dev/device unit s print`
-											And returns the following:
-						BYT;
-						/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-						1:2048s:206847s:204800s:fat32:EFI System Partition:boot, esp, no_automount;
-						2:206848s:239615s:32768s::Microsoft reserved partition:msftres, no_automount;
-						3:239616s:2046941183s:2046701568s:ntfs:Basic data partition:msftdata;
-						4:2046941184s:2048237567s:1296384s:ntfs::hidden, diag, no_automount;
-						5:2048237568s:2050334719s:2097152s:ext4::;
-						6:2050334720s:7814035455s:5763700736s:btrfs::;
-
-											So it's the device and its total sectors and picks the last partition and its final sector.
-											In this case:
-											/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-											^device      ^total sectors
-											6:2050334720s:7814035455s:5763700736s:btrfs::;
-											^partition    ^end sector
-
-											And you rest (total - end secor of last partition) to know how many free sectors there are.
-											At least 20480 sectors are needed to expand properly
-					*/
-					// Return 1.000.000 total sectors - 1000 used by the partition
 					rtn := `
 BYT;
 /dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
@@ -208,31 +190,6 @@ BYT;
 			// Override runner side effect to return error when partition is recreated
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
-					/*
-
-											Getting free sectors is called by running:
-											`parted --script --machine -- /dev/device unit s print`
-											And returns the following:
-						BYT;
-						/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-						1:2048s:206847s:204800s:fat32:EFI System Partition:boot, esp, no_automount;
-						2:206848s:239615s:32768s::Microsoft reserved partition:msftres, no_automount;
-						3:239616s:2046941183s:2046701568s:ntfs:Basic data partition:msftdata;
-						4:2046941184s:2048237567s:1296384s:ntfs::hidden, diag, no_automount;
-						5:2048237568s:2050334719s:2097152s:ext4::;
-						6:2050334720s:7814035455s:5763700736s:btrfs::;
-
-											So it's the device and its total sectors and picks the last partition and its final sector.
-											In this case:
-											/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-											^device      ^total sectors
-											6:2050334720s:7814035455s:5763700736s:btrfs::;
-											^partition    ^end sector
-
-											And you rest (total - end secor of last partition) to know how many free sectors there are.
-											At least 20480 sectors are needed to expand properly
-					*/
-					// Return 1.000.000 total sectors - 1000 used by the partition
 					rtn := `
 BYT;
 /dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
@@ -259,31 +216,6 @@ BYT;
 		BeforeEach(func() {
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
-					/*
-
-											Getting free sectors is called by running:
-											`parted --script --machine -- /dev/device unit s print`
-											And returns the following:
-						BYT;
-						/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-						1:2048s:206847s:204800s:fat32:EFI System Partition:boot, esp, no_automount;
-						2:206848s:239615s:32768s::Microsoft reserved partition:msftres, no_automount;
-						3:239616s:2046941183s:2046701568s:ntfs:Basic data partition:msftdata;
-						4:2046941184s:2048237567s:1296384s:ntfs::hidden, diag, no_automount;
-						5:2048237568s:2050334719s:2097152s:ext4::;
-						6:2050334720s:7814035455s:5763700736s:btrfs::;
-
-											So it's the device and its total sectors and picks the last partition and its final sector.
-											In this case:
-											/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-											^device      ^total sectors
-											6:2050334720s:7814035455s:5763700736s:btrfs::;
-											^partition    ^end sector
-
-											And you rest (total - end secor of last partition) to know how many free sectors there are.
-											At least 20480 sectors are needed to expand properly
-					*/
-					// Return 1.000.000 total sectors - 1000 used by the partition
 					rtn := `
 BYT;
 /dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
@@ -320,31 +252,6 @@ BYT;
 			}
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
-					/*
-
-											Getting free sectors is called by running:
-											`parted --script --machine -- /dev/device unit s print`
-											And returns the following:
-						BYT;
-						/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-						1:2048s:206847s:204800s:fat32:EFI System Partition:boot, esp, no_automount;
-						2:206848s:239615s:32768s::Microsoft reserved partition:msftres, no_automount;
-						3:239616s:2046941183s:2046701568s:ntfs:Basic data partition:msftdata;
-						4:2046941184s:2048237567s:1296384s:ntfs::hidden, diag, no_automount;
-						5:2048237568s:2050334719s:2097152s:ext4::;
-						6:2050334720s:7814035455s:5763700736s:btrfs::;
-
-											So it's the device and its total sectors and picks the last partition and its final sector.
-											In this case:
-											/dev/nvme0n1:7814037168s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
-											^device      ^total sectors
-											6:2050334720s:7814035455s:5763700736s:btrfs::;
-											^partition    ^end sector
-
-											And you rest (total - end secor of last partition) to know how many free sectors there are.
-											At least 20480 sectors are needed to expand properly
-					*/
-					// Return 1.000.000 total sectors - 1000 used by the partition
 					rtn := `
 BYT;
 /dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;
@@ -399,7 +306,8 @@ BYT;
 					Label: "FAKE",
 					Path:  device,
 				},
-				Parts: partitions,
+				Parts:  partitions,
+				Expand: &schema.Expand{Size: 0}, // Expand to the end of disk
 			}
 			stage = schema.Stage{
 				Layout: layout,
@@ -451,6 +359,21 @@ BYT;
 						return nil, nil
 					}
 				}
+				// removing the first partition and creating a new one (expand)
+				if command == "parted" && len(args) == 13 {
+					if args[6] == "rm" && args[7] == "2" && args[8] == "mkpart" {
+						// Create the device
+						_, err := fs.Create("/dev/device2")
+						Expect(err).ToNot(HaveOccurred())
+						// Normally we would update these to match the truth:
+						//createdPartitions[1].EndSector = 1000000
+						//createdPartitions[1].TotalSectors = createdPartitions[1].EndSector - createdPartitions[1].StartSector
+						// but the test below, needs the old value to check if the command
+						// that created the first version of the partition was run (using the old EndSector)
+
+						return nil, err
+					}
+				}
 				return nil, nil
 			}
 			err := layoutPlugin(logger, stage, fs, console)
@@ -469,6 +392,12 @@ BYT;
 			}
 
 			Expect(runner.IncludesCmds(partedCmds)).ToNot(HaveOccurred())
+
+			Expect(runner.IncludesCmds([][]string{
+				{"parted", "--script", "--machine", "--", "/dev/device", "unit", "s", "rm", "2", "mkpart", "part2", "", strconv.Itoa(createdPartitions[1].StartSector), "100%"},
+				{"e2fsck", "-fy", "/dev/device2"},
+				{"resize2fs", "/dev/device2"},
+			})).ToNot(HaveOccurred())
 		})
 	})
 })
