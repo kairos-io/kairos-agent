@@ -48,8 +48,19 @@ type Disk struct {
 	logger  v1.Logger
 }
 
-func MiBToSectors(size uint, sectorSize uint) uint {
-	return size * 1048576 / sectorSize
+// MiBToSectors returns the number of sectors that correspond to the given amount
+// of MB.
+func MiBToSectors(totalMB uint, sectorSize uint) uint {
+	bytes := totalMB * 1024 * 1024
+	return bytes / sectorSize
+}
+
+// SectorsToMiB returns the number of MBs that correspond to the given amount
+// of sectors.
+func SectorsToMiB(totalSectors uint, sectorSize uint) uint {
+	bytes := totalSectors * sectorSize
+
+	return bytes / (1024 * 1024) // Mb
 }
 
 func NewDisk(device string, opts ...DiskOptions) *Disk {

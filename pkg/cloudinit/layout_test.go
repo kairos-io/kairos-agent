@@ -2,6 +2,8 @@ package cloudinit
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos/v2/pkg/partitioner"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
@@ -12,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
-	"strconv"
 )
 
 var _ = Describe("Layout", Label("layout"), func() {
@@ -375,6 +376,99 @@ BYT;
 				{"parted", "--script", "--machine", "--", "/dev/device", "unit", "s", "mkpart", plabel, fstype, "1001", strconv.Itoa(int(Sectors))},
 				{"mkfs.ext3", "-L", fslabel, "/dev/device2"},
 			})).ToNot(HaveOccurred())
+		})
+
+		It("Adds multiple partitions", func() {
+			partitions := []schema.Partition{
+				{
+					Size:       100,
+					FSLabel:    "fs-label-part-1",
+					FileSystem: "ext3",
+					PLabel:     "label-part-1",
+				},
+				{
+					Size:       120,
+					FSLabel:    "fs-label-part-2",
+					FileSystem: "ext4",
+					PLabel:     "label-part-2",
+				},
+			}
+
+			layout := schema.Layout{
+				Device: &schema.Device{
+					Label: "FAKE",
+					Path:  device,
+				},
+				Parts: partitions,
+			}
+			stage = schema.Stage{
+				Layout: layout,
+			}
+
+			type partitionData struct {
+				StartSector     int
+				EndSector       int
+				TotalSectors    int
+				PartitionNumber int
+				Filesystem      string
+				PLabel          string
+			}
+			createdPartitions := []partitionData{}
+
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
+					rtn := `
+BYT;
+/dev/device:1000000s:nvme:512:512:gpt:KINGSTON SFYRD4000G:;`
+					for _, p := range createdPartitions {
+						rtn += fmt.Sprintf("\n%d:%ds:%ds:%ds:%s::;", p.PartitionNumber, p.StartSector, p.EndSector, p.TotalSectors, p.Filesystem)
+					}
+
+					return []byte(rtn), nil
+				}
+
+				// removing the first partition and creating a new one
+				if command == "parted" && len(args) == 11 {
+					// creating partition with our given label and fs type
+					if args[6] == "mkpart" {
+						endSector, err := strconv.Atoi(args[10])
+						Expect(err).ToNot(HaveOccurred())
+						startSector, err := strconv.Atoi(args[9])
+						Expect(err).ToNot(HaveOccurred())
+
+						newPart := partitionData{
+							StartSector:     startSector,
+							EndSector:       endSector,
+							TotalSectors:    endSector - startSector,
+							PartitionNumber: len(createdPartitions) + 1,
+							Filesystem:      args[8],
+							PLabel:          args[7],
+						}
+
+						createdPartitions = append(createdPartitions, newPart)
+						_, err = fs.Create(fmt.Sprintf("/dev/device%d", newPart.PartitionNumber))
+						Expect(err).ToNot(HaveOccurred())
+						return nil, nil
+					}
+				}
+				return nil, nil
+			}
+			err := layoutPlugin(logger, stage, fs, console)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(createdPartitions)).To(Equal(len(partitions)))
+			// Checks that commands to create the new partition were called with the proper fs, size and labels
+			partedCmds := [][]string{}
+			for _, p := range createdPartitions {
+				partedCmds = append(partedCmds, []string{
+					"parted", "--script", "--machine", "--", "/dev/device", "unit", "s", "mkpart", p.PLabel, p.Filesystem, strconv.Itoa(p.StartSector), strconv.Itoa(p.EndSector),
+				})
+				partedCmds = append(partedCmds, []string{
+					fmt.Sprintf("mkfs.%s", p.Filesystem), "-L", fmt.Sprintf("fs-%s", p.PLabel), fmt.Sprintf("/dev/device%d", p.PartitionNumber),
+				})
+			}
+
+			Expect(runner.IncludesCmds(partedCmds)).ToNot(HaveOccurred())
 		})
 	})
 })
