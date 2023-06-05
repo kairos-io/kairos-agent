@@ -581,6 +581,26 @@ The validate command expects a configuration file as its only argument. Local fi
 			return nil
 		},
 	},
+	{
+		Name:        "version",
+		Description: "Print kairos-agent version",
+		Usage:       "Print kairos-agent version",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "long",
+				Usage:   "Print long version info",
+				Aliases: []string{"l"},
+			},
+		},
+		Action: func(c *cli.Context) error {
+			if c.Bool("long") {
+				fmt.Printf("%+v\n", common.Get())
+			} else {
+				fmt.Println(common.VERSION)
+			}
+			return nil
+		},
+	},
 }
 
 func main() {
