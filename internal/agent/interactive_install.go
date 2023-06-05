@@ -128,6 +128,7 @@ func detectDevice() string {
 }
 
 func InteractiveInstall(debug, spawnShell bool) error {
+	var sshUsers []string
 	bus.Manager.Initialize()
 
 	cmd.PrintBranding(DefaultBanner)
@@ -183,12 +184,14 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Cleanup the users if we selected the default values as they are not valid users
 	if users == "github:someuser,github:someuser2" {
 		users = ""
 	}
-	sshUsers := strings.Split(users, ",")
+	if users != "" {
+		sshUsers = strings.Split(users, ",")
+	}
 
 	// Prompt the user by prompts defined by the provider
 	r := []events.YAMLPrompt{}
@@ -246,7 +249,7 @@ func InteractiveInstall(debug, spawnShell bool) error {
 		}
 
 		// If we got no ssh keys, we don't need network, do the user as soon as possible
-		if len(user.SSHAuthorizedKeys) == 0 {
+		if len(sshUsers) == 0 {
 			stage = config.InitramfsStage.String()
 		}
 
