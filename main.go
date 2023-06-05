@@ -112,12 +112,12 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 		Before: func(c *cli.Context) error {
 			source := c.String("source")
 			if source != "" {
-				r, err := regexp.Compile(`^oci:|docker:|dir:|file:`)
+				r, err := regexp.Compile(`^oci:|dir:|file:`)
 				if err != nil {
 					return nil
 				}
 				if !r.MatchString(source) {
-					return fmt.Errorf("source %s does not match any of oci:, docker:, dir: or file: ", source)
+					return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
 				}
 			}
 			return nil
