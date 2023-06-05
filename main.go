@@ -64,7 +64,7 @@ var cmds = []*cli.Command{
 			},
 			&cli.StringFlag{
 				Name:  "image",
-				Usage: "[DEPRECATED] Specify an full image reference, e.g.: quay.io/some/image:tag",
+				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
 			},
 			&cli.StringFlag{
 				Name:  "source",
