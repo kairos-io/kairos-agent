@@ -47,11 +47,11 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, image string, force, debug, strictValidations bool, dirs []string, preReleases bool,
+	version, source string, force, debug, strictValidations bool, dirs []string, preReleases, isLocal bool,
 ) error {
 	bus.Manager.Initialize()
 
-	if version == "" && image == "" {
+	if version == "" && source == "" {
 		fmt.Println("Searching for releases")
 		if preReleases {
 			fmt.Println("Including pre-releases")
@@ -101,12 +101,12 @@ func Upgrade(
 	if discoveredImage != "" {
 		img = discoveredImage
 	}
-	if image != "" {
-		img = image
+	if source != "" {
+		img = source
 	}
 
 	if debug {
-		fmt.Printf("Upgrading to image: '%s'\n", img)
+		fmt.Printf("Upgrading to source: '%s'\n", img)
 	}
 
 	c, err := config.Scan(collector.Directories(dirs...), collector.StrictValidation(strictValidations))
@@ -125,13 +125,16 @@ func Upgrade(
 		upgradeConfig.Logger.SetLevel(log.DebugLevel)
 	}
 
+	// Set image to local if true
+	upgradeConfig.LocalImage = isLocal
+
 	// Generate the upgrade spec
 	upgradeSpec, err := elementalConfig.NewUpgradeSpec(upgradeConfig.Config)
 	if err != nil {
 		return err
 	}
 	// Add the image source
-	imgSource, err := v1.NewSrcFromURI(fmt.Sprintf("docker:%s", img))
+	imgSource, err := v1.NewSrcFromURI(img)
 	if err != nil {
 		return err
 	}
