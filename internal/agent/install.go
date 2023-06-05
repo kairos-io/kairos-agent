@@ -302,10 +302,7 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	}
 
 	// Generate the installation spec
-	installSpec, err := elementalConfig.ReadInstallSpec(installConfig)
-	if err != nil {
-		return err
-	}
+	installSpec := elementalConfig.NewInstallSpec(installConfig.Config)
 
 	installSpec.NoFormat = c.Install.NoFormat
 
