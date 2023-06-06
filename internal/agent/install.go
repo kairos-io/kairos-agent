@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
 	"strings"
@@ -339,7 +340,8 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	// Run pre-install stage
 	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
-
+	fmt.Println(litter.Sdump(installConfig))
+	fmt.Println(litter.Sdump(installSpec))
 	// Create the action
 	installAction := action.NewInstallAction(installConfig, installSpec)
 	// Run it

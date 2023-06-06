@@ -393,6 +393,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 func (e *Elemental) CopyCloudConfig(cloudInit []string) (err error) {
 	for i, ci := range cloudInit {
 		customConfig := filepath.Join(cnst.OEMDir, fmt.Sprintf("9%d_custom.yaml", i))
+		e.config.Logger.Infof("Starting copying cloud config file %s to %s", cloudInit, customConfig)
 		err = utils.GetSource(e.config, ci, customConfig)
 		if err != nil {
 			return err
