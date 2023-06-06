@@ -11,6 +11,9 @@ import (
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos/v2/pkg/utils"
 	"github.com/sirupsen/logrus"
+	"path/filepath"
+	"regexp"
+	"runtime"
 
 	"os"
 	"strings"
@@ -64,9 +67,14 @@ var cmds = []*cli.Command{
 			},
 			&cli.StringFlag{
 				Name:  "image",
-				Usage: "Specify an full image reference, e.g.: quay.io/some/image:tag",
+				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
+			},
+			&cli.StringFlag{
+				Name:  "source",
+				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 			},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
+			&cli.BoolFlag{Name: "local", Usage: "Get the upgrade source image from local daemon"},
 		},
 		Description: `
 Manually upgrade a kairos node.
@@ -104,17 +112,39 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				},
 			},
 		},
-
+		Before: func(c *cli.Context) error {
+			source := c.String("source")
+			if source != "" {
+				r, err := regexp.Compile(`^oci:|dir:|file:`)
+				if err != nil {
+					return nil
+				}
+				if !r.MatchString(source) {
+					return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
+				}
+			}
+			return nil
+		},
 		Action: func(c *cli.Context) error {
 			var v string
 			if c.Args().Len() == 1 {
 				v = c.Args().First()
 			}
 
+			image := c.String("image")
+			source := c.String("source")
+
+			if image != "" {
+				fmt.Println("--image flag is deprecated, please use --source")
+				// override source with image for now until we drop it
+				source = fmt.Sprintf("oci:%s", image)
+			}
+
+			isLocal := c.Bool("local")
 			return agent.Upgrade(
-				v, c.String("image"), c.Bool("force"), c.Bool("debug"),
+				v, source, c.Bool("force"), c.Bool("debug"),
 				c.Bool("strict-validation"), configScanDir,
-				c.Bool("pre"),
+				c.Bool("pre"), isLocal,
 			)
 		},
 	},
