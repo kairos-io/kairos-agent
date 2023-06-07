@@ -8,8 +8,8 @@ import (
 	"unicode"
 
 	"github.com/kairos-io/kairos-sdk/bundles"
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos/v2/pkg/config/collector"
-	schema "github.com/kairos-io/kairos/v2/pkg/config/schemas"
 	yip "github.com/mudler/yip/pkg/schema"
 
 	"gopkg.in/yaml.v3"
@@ -23,6 +23,7 @@ const (
 type Install struct {
 	Auto                   bool              `yaml:"auto,omitempty"`
 	Reboot                 bool              `yaml:"reboot,omitempty"`
+	NoFormat               bool              `yaml:"no_format,omitempty"`
 	Device                 string            `yaml:"device,omitempty"`
 	Poweroff               bool              `yaml:"poweroff,omitempty"`
 	GrubOptions            map[string]string `yaml:"grub_options,omitempty"`
@@ -162,7 +163,8 @@ func Scan(opts ...collector.Option) (c *Config, err error) {
 type Stage string
 
 const (
-	NetworkStage Stage = "network"
+	NetworkStage   Stage = "network"
+	InitramfsStage Stage = "initramfs"
 )
 
 func (n Stage) String() string {

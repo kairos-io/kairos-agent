@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"runtime"
+
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos/v2/pkg/utils"
-	"path/filepath"
-	"runtime"
+	"github.com/sirupsen/logrus"
+	"regexp"
 
 	"os"
 	"strings"
@@ -19,6 +22,7 @@ import (
 
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos/v2/internal/common"
 	"github.com/kairos-io/kairos/v2/pkg/config"
@@ -59,15 +63,16 @@ var cmds = []*cli.Command{
 				Name:  "force",
 				Usage: "Force an upgrade",
 			},
-			&cli.BoolFlag{
-				Name:  "debug",
-				Usage: "Show debug output",
-			},
 			&cli.StringFlag{
 				Name:  "image",
-				Usage: "Specify an full image reference, e.g.: quay.io/some/image:tag",
+				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
+			},
+			&cli.StringFlag{
+				Name:  "source",
+				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 			},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
+			&cli.BoolFlag{Name: "local", Usage: "Get the upgrade source image from local daemon"},
 		},
 		Description: `
 Manually upgrade a kairos node.
@@ -105,17 +110,39 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				},
 			},
 		},
-
+		Before: func(c *cli.Context) error {
+			source := c.String("source")
+			if source != "" {
+				r, err := regexp.Compile(`^oci:|dir:|file:`)
+				if err != nil {
+					return nil
+				}
+				if !r.MatchString(source) {
+					return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
+				}
+			}
+			return nil
+		},
 		Action: func(c *cli.Context) error {
 			var v string
 			if c.Args().Len() == 1 {
 				v = c.Args().First()
 			}
 
+			image := c.String("image")
+			source := c.String("source")
+
+			if image != "" {
+				fmt.Println("--image flag is deprecated, please use --source")
+				// override source with image for now until we drop it
+				source = fmt.Sprintf("oci:%s", image)
+			}
+
+			isLocal := c.Bool("local")
 			return agent.Upgrade(
-				v, c.String("image"), c.Bool("force"), c.Bool("debug"),
+				v, source, c.Bool("force"), c.Bool("debug"),
 				c.Bool("strict-validation"), configScanDir,
-				c.Bool("pre"),
+				c.Bool("pre"), isLocal,
 			)
 		},
 	},
@@ -197,6 +224,10 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				EnvVars: []string{"REPOSITORY"},
 				Value:   "docker://quay.io/kairos/packages",
 			},
+			&cli.StringFlag{
+				Name:  "root-path",
+				Value: "/",
+			},
 			&cli.BoolFlag{
 				Name:    "local-file",
 				EnvVars: []string{"LOCAL_FILE"},
@@ -208,7 +239,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				return fmt.Errorf("bundle name required")
 			}
 
-			return bundles.RunBundles([]bundles.BundleOption{bundles.WithRepository(c.String("repository")), bundles.WithTarget(c.Args().First()), bundles.WithLocalFile(c.Bool("local-file"))})
+			return bundles.RunBundles([]bundles.BundleOption{bundles.WithRootFS(c.String("root-path")), bundles.WithRepository(c.String("repository")), bundles.WithTarget(c.Args().First()), bundles.WithLocalFile(c.Bool("local-file"))})
 		},
 	},
 	{
@@ -356,7 +387,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 		},
 		Usage: "Starts interactive installation",
 		Action: func(c *cli.Context) error {
-			return agent.InteractiveInstall(c.Bool("shell"))
+			return agent.InteractiveInstall(c.Bool("debug"), c.Bool("shell"))
 		},
 	},
 	{
@@ -392,7 +423,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 				options["reboot"] = "true"
 			}
 
-			return agent.ManualInstall(config, options, c.Bool("strict-validation"))
+			return agent.ManualInstall(config, options, c.Bool("strict-validation"), c.Bool("debug"))
 		},
 	},
 	{
@@ -408,7 +439,7 @@ See also https://kairos.io/docs/installation/qrcode/ for documentation.
 This command is meant to be used from the boot GRUB menu, but can be started manually`,
 		Aliases: []string{"i"},
 		Action: func(c *cli.Context) error {
-			return agent.Install(configScanDir...)
+			return agent.Install(c.Bool("debug"), configScanDir...)
 		},
 	},
 	{
@@ -431,7 +462,7 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 	{
 		Name: "reset",
 		Action: func(c *cli.Context) error {
-			return agent.Reset(configScanDir...)
+			return agent.Reset(c.Bool("debug"), configScanDir...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `
@@ -448,7 +479,7 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 		Name: "validate",
 		Action: func(c *cli.Context) error {
 			config := c.Args().First()
-			return agent.Validate(config)
+			return schema.Validate(config)
 		},
 		Usage: "Validates a cloud config file",
 		Description: `
@@ -471,7 +502,7 @@ The validate command expects a configuration file as its only argument. Local fi
 				version = common.VERSION
 			}
 
-			json, err := agent.JSONSchema(version)
+			json, err := schema.JSONSchema(version)
 
 			if err != nil {
 				return err
@@ -494,6 +525,10 @@ The validate command expects a configuration file as its only argument. Local fi
 				Name:  "strict",
 				Usage: "Enable strict mode. Fails and exits on stage errors",
 			},
+			&cli.StringSliceFlag{
+				Name:  "cloud-init-paths",
+				Usage: "Extra paths to add to the run stage",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			if c.Args().Len() != 1 {
@@ -507,6 +542,13 @@ The validate command expects a configuration file as its only argument. Local fi
 			stage := c.Args().First()
 			cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
 			cfg.Strict = c.Bool("strict")
+
+			if len(c.StringSlice("cloud-init-paths")) > 0 {
+				cfg.CloudInitPaths = append(cfg.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
+			}
+			if c.Bool("debug") {
+				cfg.Logger.SetLevel(logrus.DebugLevel)
+			}
 
 			if err != nil {
 				cfg.Logger.Errorf("Error reading config: %s\n", err)
@@ -554,6 +596,9 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return err
 			}
+			if c.Bool("debug") {
+				cfg.Logger.SetLevel(logrus.DebugLevel)
+			}
 
 			cfg.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
 			e := v1.OCIImageExtractor{}
@@ -561,6 +606,26 @@ The validate command expects a configuration file as its only argument. Local fi
 				return err
 			}
 			cfg.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)
+			return nil
+		},
+	},
+	{
+		Name:        "version",
+		Description: "Print kairos-agent version",
+		Usage:       "Print kairos-agent version",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "long",
+				Usage:   "Print long version info",
+				Aliases: []string{"l"},
+			},
+		},
+		Action: func(c *cli.Context) error {
+			if c.Bool("long") {
+				fmt.Printf("%+v\n", common.Get())
+			} else {
+				fmt.Println(common.VERSION)
+			}
 			return nil
 		},
 	},
@@ -575,6 +640,11 @@ func main() {
 				Name:    "strict-validation",
 				Usage:   "Fail instead of warn on validation errors.",
 				EnvVars: []string{"STRICT_VALIDATIONS"},
+			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Usage:   "enable debug output",
+				EnvVars: []string{"KAIROS_AGENT_DEBUG"},
 			},
 		},
 		Name:    "kairos-agent",

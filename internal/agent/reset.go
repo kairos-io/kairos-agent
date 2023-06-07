@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"sync"
 	"time"
@@ -22,7 +23,7 @@ import (
 	"github.com/pterm/pterm"
 )
 
-func Reset(dir ...string) error {
+func Reset(debug bool, dir ...string) error {
 	// TODO: Enable args? No args for now so no possibility of reset persistent or overriding the source for the reset
 	// Nor the auto-reboot via cmd?
 	// This comment pertains calling reset via cmdline when wanting to override configs
@@ -84,6 +85,9 @@ func Reset(dir ...string) error {
 	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
 		return err
+	}
+	if debug {
+		resetConfig.Logger.SetLevel(logrus.DebugLevel)
 	}
 	resetSpec, err := elementalConfig.ReadResetSpec(resetConfig)
 	if err != nil {
