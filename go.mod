@@ -22,8 +22,8 @@ require (
 	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
 	github.com/mudler/yip v1.1.0
 	github.com/nxadm/tail v1.4.8
-	github.com/onsi/ginkgo/v2 v2.9.5
-	github.com/onsi/gomega v1.27.7
+	github.com/onsi/ginkgo/v2 v2.9.7
+	github.com/onsi/gomega v1.27.8
 	github.com/pterm/pterm v0.12.61
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.0
