@@ -8,6 +8,7 @@ import (
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
 	config "github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/unstructured"
@@ -128,6 +129,7 @@ func detectDevice() string {
 }
 
 func InteractiveInstall(debug, spawnShell bool) error {
+	var sshUsers []string
 	bus.Manager.Initialize()
 
 	cmd.PrintBranding(DefaultBanner)
@@ -183,12 +185,14 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Cleanup the users if we selected the default values as they are not valid users
 	if users == "github:someuser,github:someuser2" {
 		users = ""
 	}
-	sshUsers := strings.Split(users, ",")
+	if users != "" {
+		sshUsers = strings.Split(users, ",")
+	}
 
 	// Prompt the user by prompts defined by the provider
 	r := []events.YAMLPrompt{}
@@ -246,7 +250,7 @@ func InteractiveInstall(debug, spawnShell bool) error {
 		}
 
 		// If we got no ssh keys, we don't need network, do the user as soon as possible
-		if len(user.SSHAuthorizedKeys) == 0 {
+		if len(sshUsers) == 0 {
 			stage = config.InitramfsStage.String()
 		}
 
@@ -272,7 +276,14 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	pterm.Info.Println("Starting installation")
 	pterm.Info.Println(finalCloudConfig)
 
-	err = RunInstall(debug, map[string]string{
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+	installConfig.Debug = debug
+
+	err = RunInstall(installConfig, map[string]string{
 		"device": device,
 		"cc":     finalCloudConfig,
 	})

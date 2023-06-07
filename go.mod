@@ -11,10 +11,10 @@ require (
 	github.com/google/go-containerregistry v0.15.2
 	github.com/google/go-github/v40 v40.0.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/itchyny/gojq v0.12.12
+	github.com/itchyny/gojq v0.12.13
 	github.com/jaypipes/ghw v0.10.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.0.6-0.20230526103201-c90740d747f8
+	github.com/kairos-io/kairos-sdk v0.0.6
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -32,7 +32,7 @@ require (
 	github.com/twpayne/go-vfs v1.7.2
 	github.com/urfave/cli/v2 v2.25.1
 	github.com/zloylos/grsync v1.7.0
-	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.7.0
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
@@ -115,7 +115,7 @@ require (
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/makiuchi-d/gozxing v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect

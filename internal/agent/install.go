@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/machine"
@@ -29,18 +30,6 @@ import (
 	"github.com/pterm/pterm"
 	"gopkg.in/yaml.v2"
 )
-
-func optsToArgs(options map[string]string) (res []string) {
-	for k, v := range options {
-		if k != "device" && k != "cc" && k != "reboot" && k != "poweroff" {
-			res = append(res, fmt.Sprintf("--%s", k))
-			if v != "" {
-				res = append(res, v)
-			}
-		}
-	}
-	return
-}
 
 func displayInfo(agentConfig *Config) {
 	fmt.Println("--------------------------")
@@ -106,7 +95,14 @@ func ManualInstall(c string, options map[string]string, strictValidations, debug
 		}
 	}
 
-	return RunInstall(debug, options)
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+	installConfig.Debug = debug
+
+	return RunInstall(installConfig, options)
 }
 
 func Install(debug bool, dir ...string) error {
@@ -133,6 +129,13 @@ func Install(debug bool, dir ...string) error {
 
 	ensureDataSourceReady()
 
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+	installConfig.Debug = debug
+
 	// Reads config, and if present and offline is defined,
 	// runs the installation
 	cc, err := config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
@@ -145,7 +148,7 @@ func Install(debug bool, dir ...string) error {
 		r["device"] = cc.Install.Device
 		mergeOption(configStr, r)
 
-		err = RunInstall(debug, r)
+		err = RunInstall(installConfig, r)
 		if err != nil {
 			return err
 		}
@@ -239,7 +242,7 @@ func Install(debug bool, dir ...string) error {
 
 	pterm.Info.Println("Starting installation")
 
-	if err := RunInstall(debug, r); err != nil {
+	if err := RunInstall(installConfig, r); err != nil {
 		return err
 	}
 
@@ -256,19 +259,10 @@ func Install(debug bool, dir ...string) error {
 	return nil
 }
 
-func RunInstall(debug bool, options map[string]string) error {
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
-	if err != nil {
-		return err
-	}
-	if debug {
+func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
+	if installConfig.Debug {
 		installConfig.Logger.SetLevel(logrus.DebugLevel)
 	}
-
-	// Run pre-install stage
-	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
-	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 
 	f, _ := os.CreateTemp("", "xxxx")
 	defer os.RemoveAll(f.Name())
@@ -292,7 +286,7 @@ func RunInstall(debug bool, options map[string]string) error {
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
 
-	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	err := os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
 	if err != nil {
 		fmt.Printf("could not write cloud init: %s\n", err.Error())
 		os.Exit(1)
@@ -308,10 +302,10 @@ func RunInstall(debug bool, options map[string]string) error {
 	}
 
 	// Generate the installation spec
-	installSpec, err := elementalConfig.ReadInstallSpec(installConfig)
-	if err != nil {
-		return err
-	}
+	installSpec := elementalConfig.NewInstallSpec(installConfig.Config)
+
+	installSpec.NoFormat = c.Install.NoFormat
+
 	// Set our cloud-init to the file we just created
 	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
 	// Get the source of the installation if we are overriding it
@@ -338,6 +332,13 @@ func RunInstall(debug bool, options map[string]string) error {
 	if err != nil {
 		return err
 	}
+
+	// Add user's cloud-config (to run user defined "before-install" stages)
+	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, installSpec.CloudInit...)
+
+	// Run pre-install stage
+	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
+	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 	// Create the action
 	installAction := action.NewInstallAction(installConfig, installSpec)
 	// Run it

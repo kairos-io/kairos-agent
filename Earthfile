@@ -30,13 +30,13 @@ test:
 version:
     FROM alpine
     RUN apk add git
-
     COPY . ./
-
     RUN --no-cache echo $(git describe --always --tags --dirty) > VERSION
-
+    RUN --no-cache echo $(git describe --always --dirty) > COMMIT
     ARG VERSION=$(cat VERSION)
+    ARG COMMIT=$(cat COMMIT)
     SAVE ARTIFACT VERSION VERSION
+    SAVE ARTIFACT COMMIT COMMIT
 
 build-kairos-agent:
     FROM +go-deps
@@ -45,9 +45,11 @@ build-kairos-agent:
     COPY +webui-deps/node_modules ./internal/webui/public/node_modules
     COPY github.com/kairos-io/kairos-docs:main+docs/public ./internal/webui/public
     COPY +version/VERSION ./
+    COPY +version/COMMIT ./
     ARG VERSION=$(cat VERSION)
-    RUN echo $(cat VERSION)
-    ARG LDFLAGS="-s -w -X 'github.com/kairos-io/kairos/v2/internal/common.VERSION=${VERSION}'"
+    ARG COMMIT=$(cat COMMIT)
+    RUN --no-cache echo "Building Version: ${VERSION} and Commit: ${COMMIT}"
+    ARG LDFLAGS="-s -w -X github.com/kairos-io/kairos/v2/internal/common.VERSION=${VERSION} -X github.com/kairos-io/kairos/v2/internal/common.gitCommit=$COMMIT"
     ENV CGO_ENABLED=${CGO_ENABLED}
     RUN go build -o kairos-agent -ldflags "${LDFLAGS}" main.go && upx kairos-agent
     SAVE ARTIFACT kairos-agent kairos-agent AS LOCAL build/kairos-agent
