@@ -8,6 +8,7 @@ import (
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
 	config "github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/unstructured"
@@ -275,7 +276,14 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	pterm.Info.Println("Starting installation")
 	pterm.Info.Println(finalCloudConfig)
 
-	err = RunInstall(debug, map[string]string{
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	if err != nil {
+		return err
+	}
+	installConfig.Debug = debug
+
+	err = RunInstall(installConfig, map[string]string{
 		"device": device,
 		"cc":     finalCloudConfig,
 	})

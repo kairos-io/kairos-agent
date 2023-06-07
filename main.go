@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"runtime"
+
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos/v2/pkg/utils"
 	"github.com/sirupsen/logrus"
-	"path/filepath"
 	"regexp"
-	"runtime"
 
 	"os"
 	"strings"
