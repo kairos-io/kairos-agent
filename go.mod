@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/cavaliergopher/grab/v3 v3.0.1
-	github.com/distribution/distribution v2.8.1+incompatible
+	github.com/distribution/distribution v2.8.2+incompatible
 	github.com/erikgeiser/promptkit v0.8.0
 	github.com/google/go-containerregistry v0.15.2
 	github.com/google/go-github/v40 v40.0.0
@@ -32,7 +32,7 @@ require (
 	github.com/twpayne/go-vfs v1.7.2
 	github.com/urfave/cli/v2 v2.25.1
 	github.com/zloylos/grsync v1.7.0
-	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.7.0
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
