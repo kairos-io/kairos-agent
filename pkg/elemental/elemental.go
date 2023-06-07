@@ -391,9 +391,10 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 
 // CopyCloudConfig will check if there is a cloud init in the config and store it on the target
 func (e *Elemental) CopyCloudConfig(cloudInit []string) (err error) {
+	e.config.Logger.Infof("List of cloud inits to copy: %+v\n", cloudInit)
 	for i, ci := range cloudInit {
 		customConfig := filepath.Join(cnst.OEMDir, fmt.Sprintf("9%d_custom.yaml", i))
-		e.config.Logger.Infof("Starting copying cloud config file %s to %s", cloudInit, customConfig)
+		e.config.Logger.Infof("Starting copying cloud config file %s to %s", ci, customConfig)
 		err = utils.GetSource(e.config, ci, customConfig)
 		if err != nil {
 			return err

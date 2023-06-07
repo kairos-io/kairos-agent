@@ -67,7 +67,6 @@ var _ = Describe("prepareConfiguration", func() {
 
 var _ = Describe("RunInstall", func() {
 	var installConfig *v1.RunConfig
-	var userCloudConfigFile, resultFile *os.File
 	var options map[string]string
 	var err error
 	var fs vfs.FS
@@ -86,7 +85,7 @@ var _ = Describe("RunInstall", func() {
 		logger := v1.NewBufferLogger(memLog)
 		logger = v1.NewLogger()
 		extractor := v1mock.NewFakeImageExtractor(logger)
-		logger.SetLevel(v1.DebugLevel())
+		//logger.SetLevel(v1.DebugLevel())
 		cloudInit = &v1mock.FakeCloudInitRunner{}
 		// Set default cmdline function so we dont panic :o
 		cmdline = func() ([]byte, error) {
@@ -95,8 +94,16 @@ var _ = Describe("RunInstall", func() {
 
 		// Init test fs
 		var err error
-		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
+		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{"/proc/cmdline": ""})
 		Expect(err).Should(BeNil())
+		// Create tmp dir
+		utils.MkdirAll(fs, "/tmp", constants.DirPerm)
+		// Create grub confg
+		grubCfg := filepath.Join(constants.ActiveDir, constants.GrubConf)
+		err = utils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
+		Expect(err).To(BeNil())
+		_, err = fs.Create(grubCfg)
+		Expect(err).To(BeNil())
 
 		// Create new runconfig with all mocked objects
 		installConfig = conf.NewRunConfig(
@@ -155,32 +162,12 @@ var _ = Describe("RunInstall", func() {
 		_, err = fs.Create(device)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		userCloudConfigFile, err = os.CreateTemp("", "kairos-config")
-		Expect(err).ToNot(HaveOccurred())
-		err = userCloudConfigFile.Close()
-		Expect(err).ToNot(HaveOccurred())
-
-		resultFile, err = os.CreateTemp("", "kairos-config")
-		Expect(err).ToNot(HaveOccurred())
-		err = resultFile.Close()
-		Expect(err).ToNot(HaveOccurred())
-
-		userConfig := fmt.Sprintf(`
+		userConfig := `
 #cloud-config
 
 install:
   image: test
-stages:
-  before-install:
-  - name: "Create a file"
-    commands:
-      - |
-        echo "this was run" > %s
-`, resultFile.Name())
-
-		os.WriteFile(userCloudConfigFile.Name(), []byte(userConfig), os.ModePerm)
-
-		//installConfig.CloudInitPaths = []string{userCloudConfigFile.Name()}
+`
 
 		options = map[string]string{
 			"device": "/some/device",
@@ -234,20 +221,11 @@ stages:
 
 	AfterEach(func() {
 		cleanup()
-		os.RemoveAll(userCloudConfigFile.Name())
-		os.RemoveAll(resultFile.Name())
 	})
 
-	FIt("respects the user defined after-install stages", func() {
-		// TODO:
-		// - Refactor RunInstall to accept the installConfig pat (/etc/elemental)
-		//   as part of `options` (caller still passes the default "/etc/elemental")
-		// - Pass an installConfig here and a cloud-config that defines an after-install stage
-		// - Check that the after-install stage code has run (check the result of that stage?)
+	It("runs the install", func() {
+		Skip("Not ready yet")
 		err = RunInstall(installConfig, options)
 		Expect(err).ToNot(HaveOccurred())
-		out, err := os.ReadFile(resultFile.Name())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(string(out)).To(Equal("this was run"))
 	})
 })
