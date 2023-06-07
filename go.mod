@@ -26,7 +26,7 @@ require (
 	github.com/onsi/gomega v1.27.8
 	github.com/pterm/pterm v0.12.62
 	github.com/sanity-io/litter v1.5.5
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.8.1
 	github.com/twpayne/go-vfs v1.7.2
