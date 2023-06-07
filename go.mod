@@ -24,7 +24,7 @@ require (
 	github.com/nxadm/tail v1.4.8
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.8
-	github.com/pterm/pterm v0.12.61
+	github.com/pterm/pterm v0.12.62
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.7.0
@@ -109,7 +109,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
-	github.com/lithammer/fuzzysearch v1.1.7 // indirect
+	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
