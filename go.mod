@@ -11,7 +11,7 @@ require (
 	github.com/google/go-containerregistry v0.15.2
 	github.com/google/go-github/v40 v40.0.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/itchyny/gojq v0.12.12
+	github.com/itchyny/gojq v0.12.13
 	github.com/jaypipes/ghw v0.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.0.6
@@ -115,7 +115,7 @@ require (
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/makiuchi-d/gozxing v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
