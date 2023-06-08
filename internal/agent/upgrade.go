@@ -15,6 +15,7 @@ import (
 	"github.com/kairos-io/kairos/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/mudler/go-pluggable"
+	"github.com/sanity-io/litter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -127,12 +128,10 @@ func Upgrade(
 
 	// Set image to local if true
 	upgradeConfig.LocalImage = isLocal
+	upgradeConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(upgradeConfig))
 
 	// Generate the upgrade spec
-	upgradeSpec, err := elementalConfig.NewUpgradeSpec(upgradeConfig.Config)
-	if err != nil {
-		return err
-	}
+	upgradeSpec, _ := elementalConfig.ReadUpgradeSpec(upgradeConfig)
 	// Add the image source
 	imgSource, err := v1.NewSrcFromURI(img)
 	if err != nil {
