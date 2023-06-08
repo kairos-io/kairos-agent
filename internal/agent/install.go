@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
 	"strings"
@@ -101,6 +102,7 @@ func ManualInstall(c string, options map[string]string, strictValidations, debug
 		return err
 	}
 	installConfig.Debug = debug
+	installConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(installConfig))
 
 	return RunInstall(installConfig, options)
 }
@@ -135,6 +137,7 @@ func Install(debug bool, dir ...string) error {
 		return err
 	}
 	installConfig.Debug = debug
+	installConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(installConfig))
 
 	// Reads config, and if present and offline is defined,
 	// runs the installation
@@ -302,7 +305,7 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	}
 
 	// Generate the installation spec
-	installSpec := elementalConfig.NewInstallSpec(installConfig.Config)
+	installSpec, _ := elementalConfig.ReadInstallSpec(installConfig)
 
 	installSpec.NoFormat = c.Install.NoFormat
 

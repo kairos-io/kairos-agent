@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
 	"os"
 	"sync"
@@ -89,6 +90,7 @@ func Reset(debug bool, dir ...string) error {
 	if debug {
 		resetConfig.Logger.SetLevel(logrus.DebugLevel)
 	}
+	resetConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(resetConfig))
 	resetSpec, err := elementalConfig.ReadResetSpec(resetConfig)
 	if err != nil {
 		return err
