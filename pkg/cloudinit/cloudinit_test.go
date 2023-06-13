@@ -115,6 +115,9 @@ stages:
 			runner = v1mock.NewFakeRunner()
 
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+				if cmd == "lsblk" && args[0] == "--list" {
+					return lsblkMockOutput(), nil
+				}
 				if cmd == cmdFail {
 					return []byte{}, errors.New("command error")
 				}
@@ -250,7 +253,8 @@ stages:
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
 			cloudRunner := NewYipCloudInitRunner(logger, runner, afs)
-			Expect(cloudRunner.Run("test", "/some/yip")).NotTo(BeNil())
+			res := cloudRunner.Run("test", "/some/yip")
+			Expect(res).NotTo(BeNil())
 		})
 		It("Fails to find device by path", func() {
 			err := afs.WriteFile("/some/yip/layout.yaml", []byte(`
@@ -280,3 +284,28 @@ stages:
 		})
 	})
 })
+
+func lsblkMockOutput() []byte {
+	return []byte(`{ "blockdevices":
+	[
+		{
+			"name": "device",
+			"pkname": "",
+			"path": "/dev/device",
+			"fstype": "",
+			"mountpoint": "",
+			"size": 0,
+			"ro": false,
+			"label": ""
+		},{
+			"name": "device1",
+			"pkname": "device",
+			"path": "/dev/device1",
+			"fstype": "ext4",
+			"mountpoint": "/mnt/fake1",
+			"size": 0,
+			"ro": false,
+			"label": "DEV_LABEL"
+		}
+	]}`)
+}

@@ -17,8 +17,10 @@ limitations under the License.
 package elementalConfig_test
 
 import (
-	"k8s.io/mount-utils"
+	"fmt"
 	"path/filepath"
+
+	"k8s.io/mount-utils"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
@@ -212,9 +214,12 @@ var _ = Describe("Types", Label("types", "config"), func() {
 						switch cmd {
 						case "cat":
 							return []byte(constants.SystemLabel), nil
-						default:
-							return []byte{}, nil
+						case "lsblk":
+							if args[0] == "--list" {
+								return lsblkMockOutput(), nil
+							}
 						}
+						return []byte{}, nil
 					}
 				})
 				AfterEach(func() {
@@ -265,9 +270,12 @@ var _ = Describe("Types", Label("types", "config"), func() {
 						switch cmd {
 						case "cat":
 							return []byte(bootedFrom), nil
-						default:
-							return []byte{}, nil
+						case "lsblk":
+							if args[0] == "--list" {
+								return lsblkMockOutput(), nil
+							}
 						}
+						return []byte{}, nil
 					}
 
 					// Set an empty disk for tests, otherwise reads the hosts hardware
@@ -294,12 +302,47 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err.Error()).To(ContainSubstring("reset can only be called from the recovery system"))
 				})
 				It("fails to set defaults if no recovery partition detected", func() {
+					runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+						switch cmd {
+						case "cat":
+							return []byte(bootedFrom), nil
+						case "lsblk":
+							if args[0] == "--list" {
+								return []byte(`{ "blockdevices": [
+									{
+										"name": "mmcblk0p2",
+										"pkname": "mmcblk0",
+										"path": "/dev/mmcblk0p2",
+										"fstype": "ext4",
+										"mountpoint": "%s",
+										"size": 6501171200,
+										"ro": false,
+										"label": "COS_STATE"
+									}
+								] }`), nil
+							}
+						}
+						return []byte{}, nil
+					}
+
 					bootedFrom = constants.SystemLabel
 					_, err := elementalConfig.NewResetSpec(*c)
 					Expect(err).Should(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("recovery partition not found"))
 				})
 				It("fails to set defaults if no state partition detected", func() {
+					runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+						switch cmd {
+						case "cat":
+							return []byte(bootedFrom), nil
+						case "lsblk":
+							if args[0] == "--list" {
+								return []byte(`{ "blockdevices": [] }`), nil
+							}
+						}
+						return []byte{}, nil
+					}
+
 					mainDisk := block.Disk{
 						Name:       "device",
 						Partitions: []*block.Partition{},
@@ -315,6 +358,29 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err.Error()).To(ContainSubstring("state partition not found"))
 				})
 				It("fails to set defaults if no efi partition on efi firmware", func() {
+					runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+						switch cmd {
+						case "cat":
+							return []byte(bootedFrom), nil
+						case "lsblk":
+							if args[0] == "--list" {
+								return []byte(`{ "blockdevices": [
+									{
+										"name": "mmcblk0p2",
+										"pkname": "mmcblk0",
+										"path": "/dev/mmcblk0p2",
+										"fstype": "ext4",
+										"mountpoint": "%s",
+										"size": 6501171200,
+										"ro": false,
+										"label": "COS_STATE"
+									}
+								] }`), nil
+							}
+						}
+						return []byte{}, nil
+					}
+
 					// Set EFI firmware detection
 					err = utils.MkdirAll(fs, filepath.Dir(constants.EfiDevice), constants.DirPerm)
 					Expect(err).ShouldNot(HaveOccurred())
@@ -366,6 +432,16 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					ghwTest = v1mock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
 					ghwTest.CreateDevices()
+
+					runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+						switch cmd {
+						case "lsblk":
+							if args[0] == "--list" {
+								return lsblkMockOutput(), nil
+							}
+						}
+						return []byte{}, nil
+					}
 				})
 				AfterEach(func() {
 					ghwTest.Clean()
@@ -399,3 +475,76 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 	})
 })
+
+func lsblkMockOutput() []byte {
+	return []byte(fmt.Sprintf(
+		`{
+			"blockdevices": [
+					{
+						"name": "mmcblk0",
+						"pkname": null,
+						"path": "/dev/mmcblk0",
+						"fstype": null,
+						"mountpoint": null,
+						"size": 64088965120,
+						"ro": false,
+						"label": null
+					},{
+						"name": "mmcblk0p1",
+						"pkname": "mmcblk0",
+						"path": "/dev/mmcblk0p1",
+						"fstype": "vfat",
+						"mountpoint": null,
+						"size": 100663296,
+						"ro": false,
+						"label": "COS_GRUB"
+					},{
+						"name": "mmcblk0p2",
+						"pkname": "mmcblk0",
+						"path": "/dev/mmcblk0p2",
+						"fstype": "ext4",
+						"mountpoint": "%s",
+						"size": 6501171200,
+						"ro": false,
+						"label": "COS_STATE"
+					},{
+						"name": "mmcblk0p3",
+						"pkname": "mmcblk0",
+						"path": "/dev/mmcblk0p3",
+						"fstype": "LVM2_member",
+						"mountpoint": null,
+						"size": 4471128064,
+						"ro": false,
+						"label": null
+					},{
+						"name": "mmcblk0p4",
+						"pkname": "mmcblk0",
+						"path": "/dev/mmcblk0p4",
+						"fstype": "ext4",
+						"mountpoint": "/usr/local",
+						"size": 67108864,
+						"ro": false,
+						"label": "COS_PERSISTENT"
+					},{
+						"name": "KairosVG-oem",
+						"pkname": "mmcblk0p3",
+						"path": "/dev/mapper/KairosVG-oem",
+						"fstype": "ext4",
+						"mountpoint": "/oem",
+						"size": 67108864,
+						"ro": false,
+						"label": "COS_OEM"
+					},{
+						"name": "KairosVG-recovery",
+						"pkname": "mmcblk0p3",
+						"path": "/dev/mapper/KairosVG-recovery",
+						"fstype": "ext4",
+						"mountpoint": null,
+						"mountpoint": "%s",
+						"size": 4399824896,
+						"ro": false,
+						"label": "COS_RECOVERY"
+					}
+			]
+		}`, constants.RunningStateDir, constants.LiveDir))
+}

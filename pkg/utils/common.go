@@ -64,7 +64,7 @@ func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, err
 func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = runner.Run("udevadm", "settle")
-		parts, err := GetAllPartitions()
+		parts, err := GetAllPartitions(runner)
 		if err != nil {
 			return nil, err
 		}
@@ -360,7 +360,7 @@ func GetTempDir(config *v1.Config, suffix string) string {
 		config.Logger.Debugf("Got tmpdir from TMPDIR var: %s", dir)
 		return filepath.Join(dir, elementalTmpDir)
 	}
-	parts, err := GetAllPartitions()
+	parts, err := GetAllPartitions(config.Runner)
 	if err != nil {
 		config.Logger.Debug("Could not get partitions, defaulting to /tmp")
 		return filepath.Join("/", "tmp", elementalTmpDir)
