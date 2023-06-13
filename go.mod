@@ -17,7 +17,7 @@ require (
 	github.com/kairos-io/kairos-sdk v0.0.7
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/mitchellh/mapstructure v1.4.2
-	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
+	github.com/mudler/go-nodepair 8eb2c1d2cc49
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
 	github.com/mudler/yip v1.1.0
