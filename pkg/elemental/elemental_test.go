@@ -575,7 +575,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			}))
 		})
 		It("Fails formatting the image", func() {
-			cmdFail = "mkfs.ext2"
+			cmdFail = "mkfs.ext4"
 			_, err := el.DeployImage(img, true)
 			Expect(err).NotTo(BeNil())
 		})

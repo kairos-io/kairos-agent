@@ -57,7 +57,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			dockerState = &v1.ImageState{
 				Source: v1.NewDockerSrc("registry.org/my/image:tag"),
 				Label:  "active_label",
-				FS:     "ext2",
+				FS:     "ext4",
 				SourceMetadata: &v1.DockerImageMeta{
 					Digest: "adadgadg",
 					Size:   23452345,
