@@ -10,6 +10,7 @@ import (
 	"time"
 
 	sdk "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos/v2/internal/agent/hooks"
@@ -17,7 +18,6 @@ import (
 	"github.com/kairos-io/kairos/v2/internal/cmd"
 	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/config"
-	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 
 	"github.com/mudler/go-pluggable"

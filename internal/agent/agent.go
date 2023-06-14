@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	config "github.com/kairos-io/kairos/v2/pkg/config"
-	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	"github.com/nxadm/tail"
 )
 
