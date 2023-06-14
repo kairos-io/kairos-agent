@@ -8,8 +8,8 @@ import (
 	"unicode"
 
 	"github.com/kairos-io/kairos-sdk/bundles"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/schema"
-	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	yip "github.com/mudler/yip/pkg/schema"
 
 	"gopkg.in/yaml.v3"
