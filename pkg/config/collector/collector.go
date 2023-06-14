@@ -14,8 +14,6 @@ import (
 	"time"
 	"unicode"
 
-	"golang.org/x/exp/slices"
-
 	"github.com/kairos-io/kairos-sdk/machine"
 
 	"github.com/avast/retry-go"
@@ -145,11 +143,25 @@ func deepMergeSlices(sliceA, sliceB []interface{}) ([]interface{}, error) {
 		return []interface{}{temp}, nil
 	}
 
-	// for simple slices
-	for _, v := range sliceB {
-		i := slices.Index(sliceA, v)
-		if i < 0 {
-			sliceA = append(sliceA, v)
+	// This implementation is needed because Go 1.19 does not implement compare for {}interface. Once
+	// FIPS can be upgraded to 1.20, we should be able to use this other code:
+	// // for simple slices
+	// for _, v := range sliceB {
+	// 	i := slices.Index(sliceA, v)
+	// 	if i < 0 {
+	// 		sliceA = append(sliceA, v)
+	// 	}
+	// }
+	for _, vB := range sliceB {
+		found := false
+		for _, vA := range sliceA {
+			if vA == vB {
+				found = true
+			}
+		}
+
+		if !found {
+			sliceA = append(sliceA, vB)
 		}
 	}
 
