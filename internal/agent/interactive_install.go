@@ -7,7 +7,7 @@ import (
 
 	"github.com/kairos-io/kairos/v2/internal/bus"
 	"github.com/kairos-io/kairos/v2/internal/cmd"
-	config "github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos/v2/pkg/config"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 
 	events "github.com/kairos-io/kairos-sdk/bus"

@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos/v2/internal/agent/hooks"
@@ -22,7 +23,6 @@ import (
 	"github.com/kairos-io/kairos/v2/internal/cmd"
 	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/config"
-	"github.com/kairos-io/kairos/v2/pkg/config/collector"
 	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos/v2/pkg/utils"
