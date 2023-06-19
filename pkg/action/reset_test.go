@@ -222,7 +222,7 @@ var _ = Describe("Reset action tests", func() {
 		})
 		It("Fails unpacking docker image ", func() {
 			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			extractor.SideEffect = func(imageRef, destination, platformRef string, local bool) error {
+			extractor.SideEffect = func(imageRef, destination, platformRef string) error {
 				return fmt.Errorf("error")
 			}
 			Expect(reset.Run()).NotTo(BeNil())

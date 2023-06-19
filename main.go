@@ -69,7 +69,6 @@ var cmds = []*cli.Command{
 				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 			},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
-			&cli.BoolFlag{Name: "local", Usage: "Get the upgrade source image from local daemon"},
 		},
 		Description: `
 Manually upgrade a kairos node.
@@ -135,11 +134,10 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				source = fmt.Sprintf("oci:%s", image)
 			}
 
-			isLocal := c.Bool("local")
 			return agent.Upgrade(
 				v, source, c.Bool("force"), c.Bool("debug"),
 				c.Bool("strict-validation"), configScanDir,
-				c.Bool("pre"), isLocal,
+				c.Bool("pre"),
 			)
 		},
 	},
@@ -559,11 +557,6 @@ The validate command expects a configuration file as its only argument. Local fi
 		Usage:       "Pull remote image to local file",
 		UsageText:   "pull-image [-l] IMAGE TARGET",
 		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:    "local",
-				Usage:   "Use an image from local cache",
-				Aliases: []string{"l"},
-			},
 			&cli.StringFlag{
 				Name:  "platform",
 				Usage: "Platform/arch to pull image from",
@@ -599,7 +592,7 @@ The validate command expects a configuration file as its only argument. Local fi
 
 			cfg.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
 			e := v1.OCIImageExtractor{}
-			if err = e.ExtractImage(image, destination, c.String("platform"), c.Bool("local")); err != nil {
+			if err = e.ExtractImage(image, destination, c.String("platform")); err != nil {
 				return err
 			}
 			cfg.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)

@@ -20,7 +20,7 @@ import v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 
 type FakeImageExtractor struct {
 	Logger     v1.Logger
-	SideEffect func(imageRef, destination, platformRef string, local bool) error
+	SideEffect func(imageRef, destination, platformRef string) error
 }
 
 var _ v1.ImageExtractor = FakeImageExtractor{}
@@ -34,11 +34,11 @@ func NewFakeImageExtractor(logger v1.Logger) *FakeImageExtractor {
 	}
 }
 
-func (f FakeImageExtractor) ExtractImage(imageRef, destination, platformRef string, local bool) error {
+func (f FakeImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
 	f.Logger.Debugf("extracting %s to %s in platform %s", imageRef, destination, platformRef)
 	if f.SideEffect != nil {
 		f.Logger.Debugf("running side effect")
-		return f.SideEffect(imageRef, destination, platformRef, local)
+		return f.SideEffect(imageRef, destination, platformRef)
 	}
 
 	return nil
