@@ -604,7 +604,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			src := ""
 			dest := ""
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
-				if cmd == "rsync" {
+				if cmd == constants.Rsync {
 					rsyncCount += 1
 					src = args[len(args)-2]
 					dest = args[len(args)-1]
@@ -642,7 +642,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).To(BeNil())
 			_, err = e.DumpSource(destFile, v1.NewFileSrc(sourceImg))
 			Expect(err).To(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"rsync"}}))
+			Expect(runner.IncludesCmds([][]string{{constants.Rsync}}))
 		})
 		It("Fails to copy, source file is not present", func() {
 			_, err := e.DumpSource("whatever", v1.NewFileSrc("/source.img"))
