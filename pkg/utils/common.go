@@ -32,11 +32,9 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	"github.com/joho/godotenv"
-	"github.com/twpayne/go-vfs"
-	"github.com/zloylos/grsync"
-
 	cnst "github.com/kairos-io/kairos/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	"github.com/twpayne/go-vfs"
 )
 
 func CommandExists(command string) bool {
@@ -156,7 +154,7 @@ func CreateDirStructure(fs v1.FS, target string) error {
 
 // SyncData rsync's source folder contents to a target folder content,
 // both are expected to exist beforehand.
-func SyncData(log v1.Logger, fs v1.FS, source string, target string, excludes ...string) error {
+func SyncData(log v1.Logger, runner v1.Runner, fs v1.FS, source string, target string, excludes ...string) error {
 	if fs != nil {
 		if s, err := fs.RawPath(source); err == nil {
 			source = s
@@ -174,46 +172,46 @@ func SyncData(log v1.Logger, fs v1.FS, source string, target string, excludes ..
 		target = fmt.Sprintf("%s/", target)
 	}
 
-	task := grsync.NewTask(
-		source,
-		target,
-		grsync.RsyncOptions{
-			Quiet:   false,
-			Archive: true,
-			XAttrs:  true,
-			ACLs:    true,
-			Exclude: excludes,
-		},
-	)
+	log.Infof("Starting rsync...")
+	args := []string{"--progress", "--partial", "--human-readable", "--archive", "--xattrs", "--acls"}
 
-	quit := make(chan bool)
+	for _, e := range excludes {
+		args = append(args, fmt.Sprintf("--exclude=%s", e))
+	}
+
+	args = append(args, source, target)
+
+	done := displayProgress(log, 5*time.Second, "Syncing data...")
+
+	_, err := runner.Run(cnst.Rsync, args...)
+
+	close(done)
+	if err != nil {
+		log.Errorf("rsync finished with errors: %s", err.Error())
+		return err
+	}
+	log.Info("Finished syncing")
+
+	return nil
+}
+
+func displayProgress(log v1.Logger, tick time.Duration, message string) chan bool {
+	ticker := time.NewTicker(tick)
+	done := make(chan bool)
+
 	go func() {
 		for {
 			select {
-			case <-quit:
+			case <-done:
+				ticker.Stop()
 				return
-			case <-time.After(5 * time.Second):
-				state := task.State()
-				log.Debugf(
-					"progress rsync %s to %s: %.2f / rem. %d / tot. %d / sp. %s",
-					source,
-					target,
-					state.Progress,
-					state.Remain,
-					state.Total,
-					state.Speed,
-				)
+			case <-ticker.C:
+				log.Debug(message)
 			}
 		}
 	}()
 
-	err := task.Run()
-	quit <- true
-	if err != nil {
-		return fmt.Errorf("%w: %s", err, strings.Join([]string{task.Log().Stderr, task.Log().Stdout}, "\n"))
-	}
-
-	return nil
+	return done
 }
 
 // Reboot reboots the system afater the given delay (in seconds) time passed.

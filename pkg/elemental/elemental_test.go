@@ -584,11 +584,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			_, err := el.DeployImage(img, true)
 			Expect(err).NotTo(BeNil())
 		})
-		It("Fails copying the image if source does not exist", func() {
-			img.Source = v1.NewDirSrc("/welp")
-			_, err := el.DeployImage(img, true)
-			Expect(err).NotTo(BeNil())
-		})
 		It("Fails unmounting the image after copying", func() {
 			mounter.ErrorOnUnmount = true
 			_, err := el.DeployImage(img, false)
@@ -605,14 +600,23 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("Copies files from a directory source", func() {
-			sourceDir, err := utils.TempDir(fs, "", "elemental")
+			rsyncCount := 0
+			src := ""
+			dest := ""
+			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+				if cmd == "rsync" {
+					rsyncCount += 1
+					src = args[len(args)-2]
+					dest = args[len(args)-1]
+
+				}
+				return []byte{}, nil
+			}
+			_, err := e.DumpSource("/dest", v1.NewDirSrc("/source"))
 			Expect(err).ShouldNot(HaveOccurred())
-			_, err = e.DumpSource(destDir, v1.NewDirSrc(sourceDir))
-			Expect(err).To(BeNil())
-		})
-		It("Fails if source directory does not exist", func() {
-			_, err := e.DumpSource(destDir, v1.NewDirSrc("/welp"))
-			Expect(err).ToNot(BeNil())
+			Expect(rsyncCount).To(Equal(1))
+			Expect(src).To(HaveSuffix("/source/"))
+			Expect(dest).To(HaveSuffix("/dest/"))
 		})
 		It("Unpacks a docker image to target", Label("docker"), func() {
 			_, err := e.DumpSource(destDir, v1.NewDockerSrc("docker/image:latest"))
@@ -633,15 +637,12 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 		It("Copies image file to target", func() {
 			sourceImg := "/source.img"
+			destFile := filepath.Join(destDir, "active.img")
 			_, err := fs.Create(sourceImg)
 			Expect(err).To(BeNil())
-			destFile := filepath.Join(destDir, "active.img")
-			_, err = fs.Stat(destFile)
-			Expect(err).NotTo(BeNil())
 			_, err = e.DumpSource(destFile, v1.NewFileSrc(sourceImg))
 			Expect(err).To(BeNil())
-			_, err = fs.Stat(destFile)
-			Expect(err).To(BeNil())
+			Expect(runner.IncludesCmds([][]string{{"rsync"}}))
 		})
 		It("Fails to copy, source file is not present", func() {
 			_, err := e.DumpSource("whatever", v1.NewFileSrc("/source.img"))
