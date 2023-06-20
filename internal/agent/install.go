@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -29,6 +26,7 @@ import (
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
 
@@ -89,20 +87,24 @@ func ManualInstall(c string, options map[string]string, strictValidations, debug
 	mergeOption(configStr, options)
 
 	if options["device"] == "" {
-		if cc.Install.Device == "" {
-			options["device"] = detectDevice()
-		} else {
-			options["device"] = cc.Install.Device
+		// IF cc is nil we will panic, check beforehand.
+		// If we set no device then we will exit later down the line anyway
+		if cc.Install != nil {
+			if cc.Install.Device == "" {
+				options["device"] = detectDevice()
+			} else {
+				options["device"] = cc.Install.Device
+			}
 		}
 	}
 
+	// Set debug from here already, so it's loaded by the ReadConfigRun
+	viper.Set("debug", debug)
 	// Load the installation Config from the system
 	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
 		return err
 	}
-	installConfig.Debug = debug
-	installConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(installConfig))
 
 	return RunInstall(installConfig, options)
 }
@@ -131,13 +133,13 @@ func Install(debug bool, dir ...string) error {
 
 	ensureDataSourceReady()
 
+	// Set debug from here already, so it's loaded by the ReadConfigRun
+	viper.Set("debug", debug)
 	// Load the installation Config from the system
 	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
 		return err
 	}
-	installConfig.Debug = debug
-	installConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(installConfig))
 
 	// Reads config, and if present and offline is defined,
 	// runs the installation
@@ -263,11 +265,11 @@ func Install(debug bool, dir ...string) error {
 }
 
 func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
-	if installConfig.Debug {
-		installConfig.Logger.SetLevel(logrus.DebugLevel)
+	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
+	if err != nil {
+		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		return err
 	}
-
-	f, _ := os.CreateTemp("", "xxxx")
 	defer os.RemoveAll(f.Name())
 
 	cloudInit, ok := options["cc"]
@@ -289,10 +291,10 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
 
-	err := os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
 	if err != nil {
-		fmt.Printf("could not write cloud init: %s\n", err.Error())
-		os.Exit(1)
+		fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
+		return err
 	}
 
 	_, reboot := options["reboot"]
@@ -323,7 +325,7 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	device, ok := options["device"]
 	if !ok {
 		fmt.Println("device must be specified among options")
-		os.Exit(1)
+		return fmt.Errorf("device must be specified among options")
 	}
 
 	if device == "auto" {

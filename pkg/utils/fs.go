@@ -114,7 +114,7 @@ func nextRandom() string {
 	return strconv.Itoa(int(1e9 + r%1e9))[1:]
 }
 
-// TempDir creates a temp file in the virtual fs
+// TempDir creates a temp dir in the virtual fs
 // Took from afero.FS code and adapted
 func TempDir(fs v1.FS, dir, prefix string) (name string, err error) {
 	if dir == "" {

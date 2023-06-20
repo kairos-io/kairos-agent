@@ -425,12 +425,14 @@ func GetSource(config *v1.Config, source string, destination string) error {
 
 	err = vfs.MkdirAll(config.Fs, filepath.Dir(destination), cnst.DirPerm)
 	if err != nil {
+		config.Logger.Debugf("Failed creating dir %s: %s\n", filepath.Dir(destination), err.Error())
 		return err
 	}
 	if local {
 		u, _ := url.Parse(source)
 		err = CopyFile(config.Fs, u.Path, destination)
 		if err != nil {
+			config.Logger.Debugf("error copying source from %s to %s: %s\n", source, destination, err.Error())
 			return err
 		}
 	} else {

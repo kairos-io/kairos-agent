@@ -400,9 +400,10 @@ func (e *Elemental) CopyCloudConfig(cloudInit []string) (err error) {
 			return err
 		}
 		if err = e.config.Fs.Chmod(customConfig, cnst.FilePerm); err != nil {
+			e.config.Logger.Debugf("Error on chmod %s: %s\n", customConfig, err.Error())
 			return err
 		}
-		e.config.Logger.Infof("Finished copying cloud config file %s to %s", cloudInit, customConfig)
+		e.config.Logger.Infof("Finished copying cloud config file %s to %s", ci, customConfig)
 	}
 	return nil
 }
