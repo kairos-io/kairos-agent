@@ -369,7 +369,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 		}
 	} else if imgSrc.IsDir() {
 		excludes := []string{"/mnt", "/proc", "/sys", "/dev", "/tmp", "/host", "/run"}
-		err = utils.SyncData(e.config.Logger, e.config.Fs, imgSrc.Value(), target, excludes...)
+		err = utils.SyncData(e.config.Logger, e.config.Runner, e.config.Fs, imgSrc.Value(), target, excludes...)
 		if err != nil {
 			return nil, err
 		}

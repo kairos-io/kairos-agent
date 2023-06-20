@@ -53,6 +53,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
+	var realRunner *v1.RealRunner
 	var fs vfs.FS
 	var cleanup func()
 
@@ -62,6 +63,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		logger = v1.NewNullLogger()
+		realRunner = &v1.RealRunner{Logger: logger}
 		// Ensure /tmp exists in the VFS
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 		fs.Mkdir("/tmp", constants.DirPerm)
@@ -455,7 +457,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				_, _ = utils.TempFile(fs, sourceDir, "file*")
 			}
 
-			Expect(utils.SyncData(logger, fs, sourceDir, destDir)).To(BeNil())
+			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir)).To(BeNil())
 
 			filesDest, err := fs.ReadDir(destDir)
 			Expect(err).To(BeNil())
@@ -486,7 +488,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				_, _ = utils.TempFile(fs, sourceDir, "file*")
 			}
 
-			Expect(utils.SyncData(logger, fs, sourceDir, destDir, "host", "run")).To(BeNil())
+			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir, "host", "run")).To(BeNil())
 
 			filesDest, err := fs.ReadDir(destDir)
 			Expect(err).To(BeNil())
@@ -524,7 +526,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			utils.MkdirAll(fs, filepath.Join(sourceDir, "var", "run"), constants.DirPerm)
 			utils.MkdirAll(fs, filepath.Join(sourceDir, "tmp", "host"), constants.DirPerm)
 
-			Expect(utils.SyncData(logger, fs, sourceDir, destDir, "/host", "/run")).To(BeNil())
+			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir, "/host", "/run")).To(BeNil())
 
 			filesDest, err := fs.ReadDir(destDir)
 			Expect(err).To(BeNil())
@@ -550,17 +552,17 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			destDir, err := utils.TempDir(fs, "", "elementaltarget")
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(utils.SyncData(logger, fs, sourceDir, destDir)).To(BeNil())
+			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir)).To(BeNil())
 		})
 		It("should NOT fail if destination does not exist", func() {
 			sourceDir, err := os.MkdirTemp("", "elemental")
 			err = os.WriteFile(filepath.Join(sourceDir, "testfile"), []byte("sdjfnsdjkfjkdsanfkjsnda"), os.ModePerm)
 			Expect(err).ToNot(HaveOccurred())
-			err = utils.SyncData(logger, nil, sourceDir, "/welp")
+			err = utils.SyncData(logger, realRunner, nil, sourceDir, "/welp")
 			Expect(err).To(BeNil())
 		})
 		It("should fail if source does not exist", func() {
-			Expect(utils.SyncData(logger, fs, "/welp", "/walp")).NotTo(BeNil())
+			Expect(utils.SyncData(logger, realRunner, fs, "/welp", "/walp")).NotTo(BeNil())
 		})
 	})
 	Describe("IsLocalURI", Label("uri"), func() {
