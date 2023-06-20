@@ -26,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -419,8 +420,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			if c.Bool("reboot") {
 				options["reboot"] = "true"
 			}
-
-			return agent.ManualInstall(config, options, c.Bool("strict-validation"), c.Bool("debug"))
+			return agent.ManualInstall(config, options, c.Bool("strict-validation"))
 		},
 	},
 	{
@@ -436,7 +436,7 @@ See also https://kairos.io/docs/installation/qrcode/ for documentation.
 This command is meant to be used from the boot GRUB menu, but can be started manually`,
 		Aliases: []string{"i"},
 		Action: func(c *cli.Context) error {
-			return agent.Install(c.Bool("debug"), configScanDir...)
+			return agent.Install(configScanDir...)
 		},
 	},
 	{
@@ -657,7 +657,11 @@ The kairos agent is a component to abstract away node ops, providing a common fe
 `,
 		UsageText: ``,
 		Copyright: "kairos authors",
-
+		Before: func(c *cli.Context) error {
+			// Set debug from here already, so it's loaded by the ReadConfigRun
+			viper.Set("debug", c.Bool("debug"))
+			return nil
+		},
 		Commands: cmds,
 	}
 
