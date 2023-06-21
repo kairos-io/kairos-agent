@@ -52,7 +52,6 @@ type Config struct {
 	Cosign                    bool         `yaml:"cosign,omitempty" mapstructure:"cosign"`
 	Verify                    bool         `yaml:"verify,omitempty" mapstructure:"verify"`
 	CosignPubKey              string       `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
-	LocalImage                bool         `yaml:"local,omitempty" mapstructure:"local"`
 	Repos                     []Repository `yaml:"repositories,omitempty" mapstructure:"repositories"`
 	Arch                      string       `yaml:"arch,omitempty" mapstructure:"arch"`
 	SquashFsCompressionConfig []string     `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`

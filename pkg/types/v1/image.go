@@ -21,13 +21,13 @@ import (
 )
 
 type ImageExtractor interface {
-	ExtractImage(imageRef, destination, platformRef string, local bool) error
+	ExtractImage(imageRef, destination, platformRef string) error
 }
 
 type OCIImageExtractor struct{}
 
 var _ ImageExtractor = OCIImageExtractor{}
 
-func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string, local bool) error {
-	return utils.ExtractOCIImage(imageRef, destination, platformRef, local)
+func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
+	return utils.ExtractOCIImage(imageRef, destination, platformRef)
 }

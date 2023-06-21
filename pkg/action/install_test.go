@@ -344,7 +344,7 @@ var _ = Describe("Install action tests", func() {
 
 		It("Fails if luet fails to unpack image", Label("image", "luet", "unpack"), func() {
 			spec.Target = device
-			extractor.SideEffect = func(imageRef, destination, platformRef string, local bool) error {
+			extractor.SideEffect = func(imageRef, destination, platformRef string) error {
 				return fmt.Errorf("error")
 			}
 			spec.Active.Source = v1.NewDockerSrc("my/image:latest")

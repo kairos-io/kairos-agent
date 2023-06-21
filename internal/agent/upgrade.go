@@ -48,8 +48,7 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, source string, force, debug, strictValidations bool, dirs []string, preReleases, isLocal bool,
-) error {
+	version, source string, force, debug, strictValidations bool, dirs []string, preReleases bool) error {
 	bus.Manager.Initialize()
 
 	if version == "" && source == "" {
@@ -126,8 +125,6 @@ func Upgrade(
 		upgradeConfig.Logger.SetLevel(log.DebugLevel)
 	}
 
-	// Set image to local if true
-	upgradeConfig.LocalImage = isLocal
 	upgradeConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(upgradeConfig))
 
 	// Generate the upgrade spec
