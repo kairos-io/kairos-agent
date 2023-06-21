@@ -26,7 +26,6 @@ import (
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
 
@@ -63,7 +62,7 @@ func mergeOption(cloudConfig string, r map[string]string) {
 	}
 }
 
-func ManualInstall(c string, options map[string]string, strictValidations, debug bool) error {
+func ManualInstall(c string, options map[string]string, strictValidations bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -98,8 +97,6 @@ func ManualInstall(c string, options map[string]string, strictValidations, debug
 		}
 	}
 
-	// Set debug from here already, so it's loaded by the ReadConfigRun
-	viper.Set("debug", debug)
 	// Load the installation Config from the system
 	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
@@ -109,7 +106,7 @@ func ManualInstall(c string, options map[string]string, strictValidations, debug
 	return RunInstall(installConfig, options)
 }
 
-func Install(debug bool, dir ...string) error {
+func Install(dir ...string) error {
 	utils.OnSignal(func() {
 		svc, err := machine.Getty(1)
 		if err == nil {
@@ -133,8 +130,6 @@ func Install(debug bool, dir ...string) error {
 
 	ensureDataSourceReady()
 
-	// Set debug from here already, so it's loaded by the ReadConfigRun
-	viper.Set("debug", debug)
 	// Load the installation Config from the system
 	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
 	if err != nil {
