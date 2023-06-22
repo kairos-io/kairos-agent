@@ -15,8 +15,6 @@ import (
 	"github.com/kairos-io/kairos/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 	"github.com/mudler/go-pluggable"
-	"github.com/sanity-io/litter"
-	log "github.com/sirupsen/logrus"
 )
 
 func ListReleases(includePrereleases bool) semver.Collection {
@@ -50,6 +48,8 @@ func ListReleases(includePrereleases bool) semver.Collection {
 func Upgrade(
 	version, source string, force, debug, strictValidations bool, dirs []string, preReleases bool) error {
 	bus.Manager.Initialize()
+
+	var img string
 
 	if version == "" && source == "" {
 		fmt.Println("Searching for releases")
@@ -96,17 +96,13 @@ func Upgrade(
 		fmt.Printf("Cant find IMAGE_REPO key under /etc/os-release\n")
 		return err
 	}
+	img = fmt.Sprintf("%s:%s", registry, version)
 
-	img := fmt.Sprintf("%s:%s", registry, version)
 	if discoveredImage != "" {
 		img = discoveredImage
 	}
 	if source != "" {
 		img = source
-	}
-
-	if debug {
-		fmt.Printf("Upgrading to source: '%s'\n", img)
 	}
 
 	c, err := config.Scan(collector.Directories(dirs...), collector.StrictValidation(strictValidations))
@@ -121,12 +117,8 @@ func Upgrade(
 	if err != nil {
 		return err
 	}
-	if debug {
-		upgradeConfig.Logger.SetLevel(log.DebugLevel)
-	}
 
-	upgradeConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(upgradeConfig))
-
+	upgradeConfig.Logger.Debugf("Upgrading to source: '%s'", img)
 	// Generate the upgrade spec
 	upgradeSpec, _ := elementalConfig.ReadUpgradeSpec(upgradeConfig)
 	// Add the image source

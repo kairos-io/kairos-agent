@@ -53,13 +53,49 @@ func GetAllPartitions(runner v1.Runner) (v1.PartitionList, error) {
 
 	// --list : show each partition only once
 	// --bytes: don't show sizes in human readable format but rather number of bytes
-	out, err := runner.Run("lsblk", "--list", "--bytes",
-		"/dev/disk/by-path/*", "-o", "NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL", "-J")
+	devices, err := filepath.Glob("/dev/disk/by-path/*")
 	if err != nil {
-		return parts, fmt.Errorf("lsblk failed with: %w\nOutput: %s", err, string(out))
+		return parts, fmt.Errorf("lsblk failed with: %w", err)
+	}
+	for _, dev := range devices {
+		out, err := runner.Run("lsblk", "--list", "--bytes",
+			dev, "-o", "NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL", "-J")
+		if err != nil {
+			return parts, fmt.Errorf("lsblk failed with: %w\nOutput: %s", err, string(out))
+		}
+		p := PartitionFromLsblk(string(out))
+		if p != nil {
+			parts = append(parts, p)
+		}
+
 	}
 
-	return PartitionsFromLsblk(string(out))
+	return parts, err
+}
+
+func PartitionFromLsblk(lsblkOutput string) *v1.Partition {
+	var part = &v1.Partition{}
+	lsblk := &Lsblk{}
+
+	err := json.Unmarshal([]byte(lsblkOutput), lsblk)
+	if err != nil {
+		return part
+	}
+	if len(lsblk.BlockDevices) == 1 {
+		b := lsblk.BlockDevices[0]
+		part.Name = b.Name
+		part.FilesystemLabel = b.Label
+		part.Size = b.Size / (1024 * 1024) // Converts B to MB
+		part.Flags = nil
+		part.MountPoint = b.Mountpoint
+		part.FS = b.FsType
+		part.Path = b.Path
+		if b.PkName != "" {
+			part.Disk = filepath.Join("/dev", b.PkName)
+		}
+	}
+
+	return part
 }
 
 func PartitionsFromLsblk(lsblkOutput string) (v1.PartitionList, error) {
