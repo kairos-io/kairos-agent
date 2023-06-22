@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -128,7 +129,11 @@ func Upgrade(
 	upgradeConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(upgradeConfig))
 
 	// Generate the upgrade spec
-	upgradeSpec, _ := elementalConfig.ReadUpgradeSpec(upgradeConfig)
+	upgradeSpec, err := elementalConfig.ReadUpgradeSpec(upgradeConfig)
+	if err != nil {
+		return fmt.Errorf("generating the upgrade spec: %w", err)
+	}
+
 	// Add the image source
 	imgSource, err := v1.NewSrcFromURI(img)
 	if err != nil {
