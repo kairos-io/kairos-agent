@@ -27,7 +27,6 @@ import (
 	"github.com/jaypipes/ghw/pkg/context"
 	"github.com/jaypipes/ghw/pkg/linuxpath"
 	ghwUtil "github.com/jaypipes/ghw/pkg/util"
-	cnst "github.com/kairos-io/kairos/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 )
 
@@ -129,12 +128,12 @@ func GetPartitionFS(partition string) (string, error) {
 	return "", fmt.Errorf("could not find filesystem for partition %s", partition)
 }
 
-// GetPersistentViaDM tries to get the persistent partition via devicemapper for reset
+// GetPartitionViaDM tries to get the partition via devicemapper for reset
 // We only need to get all this info due to the fS that we need to use to format the partition
 // Otherwise we could just format with the label ¯\_(ツ)_/¯
 // TODO: store info about persistent and oem in the state.yaml so we can directly load it
-func GetPersistentViaDM(fs v1.FS) *v1.Partition {
-	var persistent *v1.Partition
+func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
+	var part *v1.Partition
 	rootPath, _ := fs.RawPath("/")
 	ctx := context.New(ghw.WithDisableTools(), ghw.WithDisableWarnings(), ghw.WithChroot(rootPath))
 	lp := linuxpath.New(ctx)
@@ -161,16 +160,17 @@ func GetPersistentViaDM(fs v1.FS) *v1.Partition {
 				}
 			}
 		}
-		if udevInfo["ID_FS_LABEL"] == cnst.PersistentLabel {
+		if udevInfo["ID_FS_LABEL"] == label {
 			// Found it!
-			persistentFS := udevInfo["ID_FS_TYPE"]
+			partitionFS := udevInfo["ID_FS_TYPE"]
+			partitionName := udevInfo["DM_LV_NAME"]
 			return &v1.Partition{
-				Name:            cnst.PersistentPartName,
-				FilesystemLabel: cnst.PersistentLabel,
-				FS:              persistentFS,
-				Path:            filepath.Join("/dev/disk/by-label/", cnst.PersistentLabel),
+				Name:            partitionName,
+				FilesystemLabel: label,
+				FS:              partitionFS,
+				Path:            filepath.Join("/dev/disk/by-label/", label),
 			}
 		}
 	}
-	return persistent
+	return part
 }
