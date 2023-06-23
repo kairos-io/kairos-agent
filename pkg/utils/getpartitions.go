@@ -19,6 +19,7 @@ package utils
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jaypipes/ghw"
@@ -27,6 +28,7 @@ import (
 	"github.com/jaypipes/ghw/pkg/linuxpath"
 	ghwUtil "github.com/jaypipes/ghw/pkg/util"
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	log "github.com/sirupsen/logrus"
 )
 
 // ghwPartitionToInternalPartition transforms a block.Partition from ghw lib to our v1.Partition type
@@ -118,12 +120,70 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 			// Found it!
 			partitionFS := udevInfo["ID_FS_TYPE"]
 			partitionName := udevInfo["DM_LV_NAME"]
-			return &v1.Partition{
+
+			part = &v1.Partition{
 				Name:            partitionName,
 				FilesystemLabel: label,
 				FS:              partitionFS,
 				Path:            filepath.Join("/dev/disk/by-label/", label),
 			}
+			// Read size
+			sizeInSectors, err1 := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "size"))
+			sectorSize, err2 := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "queue", "logical_block_size"))
+			if err1 == nil && err2 == nil {
+				sizeInSectorsInt, err1 := strconv.Atoi(strings.TrimSpace(string(sizeInSectors)))
+				sectorSizeInt, err2 := strconv.Atoi(strings.TrimSpace(string(sectorSize)))
+				if err1 == nil && err2 == nil {
+					// Multiply size in sectors by sector size
+					// Although according to the source this will always be 512: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/types.h?#n120
+					finalSize := sizeInSectorsInt * sectorSizeInt
+					part.Size = uint(finalSize)
+				}
+			}
+			// Read slaves to get the device
+			slaves, err := fs.ReadDir(filepath.Join(lp.SysBlock, dev.Name(), "slaves"))
+			if err != nil {
+				log.Debugf("Error getting slaves for %s\n", filepath.Join(lp.SysBlock, dev.Name()))
+			}
+			if len(slaves) == 1 {
+				// We got the partition this dm is associated to, now lets read that partition udev identifier
+				partNumber, err := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "slaves", slaves[0].Name(), "dev"))
+				fmt.Println(string(partNumber))
+				// If no errors and partNumber not empty read the device from udev
+				if err == nil || string(partNumber) != "" {
+					// Now for some magic!
+					// If udev partition identifier is bXXX:5 then the parent disk should be on bXXX:0
+					// At least for block devices that seems to be the pattern
+					// So let's get just the first part of the id and append a 0 at the end
+					// If we wanted to make this safer we could read the udev data of the partNumber and
+					// extract the udevInfo called ID_PART_ENTRY_DISK which gives us the udev ID of the parent disk
+					baseID := strings.Split(strings.TrimSpace(string(partNumber)), ":")
+					udevID = fmt.Sprintf("b%s:0", baseID[0])
+					fmt.Printf("Reading udevdata of device: %s\n", filepath.Join(lp.RunUdevData, udevID))
+					// Read udev info about this device
+					udevBytes, _ = fs.ReadFile(filepath.Join(lp.RunUdevData, udevID))
+					udevInfo = make(map[string]string)
+					for _, udevLine := range strings.Split(string(udevBytes), "\n") {
+						if strings.HasPrefix(udevLine, "E:") {
+							if s := strings.SplitN(udevLine[2:], "=", 2); len(s) == 2 {
+								udevInfo[s[0]] = s[1]
+								continue
+							}
+						}
+					}
+					// Read the disk path.
+					// This is the only decent info that udev provides in this case that we can use to identify the device :/
+					diskPath := udevInfo["ID_PATH"]
+					// Read the full path to the disk using the path
+					parentDiskFullPath, err := filepath.EvalSymlinks(filepath.Join("/dev/disk/by-path/", diskPath))
+					if err == nil {
+						part.Disk = parentDiskFullPath
+					}
+				}
+
+			}
+
+			return part
 		}
 	}
 	return part
