@@ -143,7 +143,7 @@ func (e Elemental) UnmountPartitions(parts v1.PartitionList) error {
 		if part.MountPoint != "" {
 			err = e.UnmountPartition(part)
 			if err != nil {
-				errMsg += fmt.Sprintf("Failed to unmount %s\n", part.MountPoint)
+				errMsg += fmt.Sprintf("Failed to unmount %s\n Error: %s\n", part.MountPoint, err.Error())
 				failure = true
 			}
 		}
