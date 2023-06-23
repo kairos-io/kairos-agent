@@ -191,80 +191,62 @@ var _ = Describe("Utils", Label("utils"), func() {
 		BeforeEach(func() {
 			cmds = [][]string{
 				{"udevadm", "settle"},
-				{"lsblk --list --bytes /dev/disk/by-path/* -o NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL -J"},
 			}
 		})
 		It("returns found device", func() {
-			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
-				return []byte{}, nil
-			}
-
+			ghwTest := v1mock.GhwMock{}
+			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+				{
+					Name:            "device1",
+					FilesystemLabel: "FAKE",
+				},
+			}}
+			ghwTest.AddDisk(disk)
+			ghwTest.CreateDevices()
+			defer ghwTest.Clean()
 			out, err := utils.GetDeviceByLabel(runner, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out).To(Equal("/dev/device1"))
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails if no device is found in two attempts", func() {
-			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return []byte("{}"), nil
-				}
-				return []byte{}, nil
-			}
-
 			_, err := utils.GetDeviceByLabel(runner, "FAKE", 2)
 			Expect(err).NotTo(BeNil())
 			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})
 	})
-
 	Describe("GetAllPartitions", Label("lsblk", "partitions"), func() {
+		var ghwTest v1mock.GhwMock
 		BeforeEach(func() {
-			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return []byte(`{
-							"blockdevices": [
-									{
-										"name": "sda1Test",
-										"pkname": "",
-										"path": "/dev/sda1",
-										"fstype": "fakefs",
-										"mountpoint": "/mnt/fake",
-										"size": 0,
-										"ro": false,
-										"label": "FAKE"
-									},
-									{
-										"name": "sda2Test",
-										"pkname": "",
-										"path": "/dev/sda2",
-										"fstype": "fakefs",
-										"mountpoint": "/mnt/fake",
-										"size": 0,
-										"ro": false,
-										"label": "FAKE"
-									},
-									{
-										"name": "sdb1Test",
-										"pkname": "",
-										"path": "/dev/sdb1",
-										"fstype": "fakefs",
-										"mountpoint": "/mnt/fake",
-										"size": 0,
-										"ro": false,
-										"label": "FAKE"
-									}
-							]
-						}`), nil
-				}
-				return []byte{}, nil
+			ghwTest = v1mock.GhwMock{}
+			disk1 := block.Disk{
+				Name: "sda",
+				Partitions: []*block.Partition{
+					{
+						Name: "sda1Test",
+					},
+					{
+						Name: "sda2Test",
+					},
+				},
 			}
+			disk2 := block.Disk{
+				Name: "sdb",
+				Partitions: []*block.Partition{
+					{
+						Name: "sdb1Test",
+					},
+				},
+			}
+			ghwTest.AddDisk(disk1)
+			ghwTest.AddDisk(disk2)
+			ghwTest.CreateDevices()
+		})
+		AfterEach(func() {
+			ghwTest.Clean()
 		})
 		It("returns all found partitions", func() {
-			parts, err := utils.GetAllPartitions(runner)
+			parts, err := utils.GetAllPartitions()
 			Expect(err).To(BeNil())
 			var partNames []string
 			for _, p := range parts {
@@ -348,7 +330,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 		BeforeEach(func() {
 			cmds = [][]string{
 				{"udevadm", "settle"},
-				{"lsblk --list --bytes /dev/disk/by-path/* -o NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL -J"},
 			}
 		})
 		It("returns found v1.Partition", func() {
@@ -366,14 +347,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.AddDisk(disk)
 			ghwTest.CreateDevices()
 			defer ghwTest.Clean()
-
-			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
-				return []byte{}, nil
-			}
-
 			out, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out.FilesystemLabel).To(Equal("FAKE"))
@@ -583,8 +556,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		It("should NOT fail if destination does not exist", func() {
 			sourceDir, err := os.MkdirTemp("", "elemental")
-			defer os.RemoveAll(sourceDir)
-			Expect(err).ShouldNot(HaveOccurred())
 			err = os.WriteFile(filepath.Join(sourceDir, "testfile"), []byte("sdjfnsdjkfjkdsanfkjsnda"), os.ModePerm)
 			Expect(err).ToNot(HaveOccurred())
 			err = utils.SyncData(logger, realRunner, nil, sourceDir, "/welp")
@@ -1156,20 +1127,3 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 	})
 })
-
-func lsblkMockOutput() []byte {
-	return []byte(`{
-			"blockdevices": [
-					{
-						"name": "device1",
-						"pkname": "",
-						"path": "/dev/device1",
-						"fstype": "fakefs",
-						"mountpoint": "/mnt/fake",
-						"size": 0,
-						"ro": false,
-						"label": "FAKE"
-					}
-			]
-		}`)
-}

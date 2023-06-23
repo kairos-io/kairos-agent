@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
 	conf "github.com/kairos-io/kairos/v2/pkg/elementalConfig"
@@ -46,6 +47,7 @@ var _ = Describe("Reset action tests", func() {
 	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
 	var memLog *bytes.Buffer
+	var ghwTest v1mock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
@@ -58,7 +60,7 @@ var _ = Describe("Reset action tests", func() {
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
 		config = conf.NewRunConfig(
@@ -80,14 +82,49 @@ var _ = Describe("Reset action tests", func() {
 		var reset *action.ResetAction
 		var cmdFail, bootedFrom string
 		var err error
-
 		BeforeEach(func() {
+
+			Expect(err).ShouldNot(HaveOccurred())
 			cmdFail = ""
 			recoveryImg := filepath.Join(constants.RunningStateDir, "cOS", constants.RecoveryImgFile)
 			err = utils.MkdirAll(fs, filepath.Dir(recoveryImg), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(recoveryImg)
 			Expect(err).To(BeNil())
+
+			mainDisk := block.Disk{
+				Name: "device",
+				Partitions: []*block.Partition{
+					{
+						Name:            "device1",
+						FilesystemLabel: "COS_GRUB",
+						Type:            "ext4",
+					},
+					{
+						Name:            "device2",
+						FilesystemLabel: "COS_STATE",
+						Type:            "ext4",
+					},
+					{
+						Name:            "device3",
+						FilesystemLabel: "COS_PERSISTENT",
+						Type:            "ext4",
+					},
+					{
+						Name:            "device4",
+						FilesystemLabel: "COS_OEM",
+						Type:            "ext4",
+					},
+					{
+						Name:            "device5",
+						FilesystemLabel: "COS_RECOVERY",
+						Type:            "ext4",
+					},
+				},
+			}
+			ghwTest = v1mock.GhwMock{}
+			ghwTest.AddDisk(mainDisk)
+			ghwTest.CreateDevices()
 
 			fs.Create(constants.EfiDevice)
 			bootedFrom = constants.SystemLabel
@@ -98,13 +135,9 @@ var _ = Describe("Reset action tests", func() {
 				switch cmd {
 				case "cat":
 					return []byte(bootedFrom), nil
-				case "lsblk":
-					if args[0] == "--list" {
-						return lsblkMockOutput(), nil
-					}
+				default:
+					return []byte{}, nil
 				}
-
-				return []byte{}, nil
 			}
 
 			spec, err = conf.NewResetSpec(config.Config)
@@ -127,6 +160,10 @@ var _ = Describe("Reset action tests", func() {
 				return []byte{}, nil
 			}
 			reset = action.NewResetAction(config, spec)
+		})
+
+		AfterEach(func() {
+			ghwTest.Clean()
 		})
 
 		It("Successfully resets on non-squashfs recovery", func() {

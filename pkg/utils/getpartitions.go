@@ -17,7 +17,6 @@ limitations under the License.
 package utils
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -30,78 +29,33 @@ import (
 	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
 )
 
-type PartInfo struct {
-	Name       string `json:"name,omitempty"`
-	PkName     string `json:"pkname,omitempty"`
-	Path       string `json:"path,omitempty"`
-	Mountpoint string `json:"mountpoint,omitempty"`
-	FsType     string `json:"fstype,omitempty"`
-	Size       uint   `json:"size,omitempty"`
-	Label      string `json:"label,omitempty"`
-	RO         bool   `json:"ro,omitempty"`
-}
-
-// Lsblk is the struct to marshal the output of lsblk
-type Lsblk struct {
-	BlockDevices []PartInfo `json:"blockdevices,omitempty"`
+// ghwPartitionToInternalPartition transforms a block.Partition from ghw lib to our v1.Partition type
+func ghwPartitionToInternalPartition(partition *block.Partition) *v1.Partition {
+	return &v1.Partition{
+		FilesystemLabel: partition.FilesystemLabel,
+		Size:            uint(partition.SizeBytes / (1024 * 1024)), // Converts B to MB
+		Name:            partition.Name,
+		FS:              partition.Type,
+		Flags:           nil,
+		MountPoint:      partition.MountPoint,
+		Path:            filepath.Join("/dev", partition.Name),
+		Disk:            filepath.Join("/dev", partition.Disk.Name),
+	}
 }
 
 // GetAllPartitions returns all partitions in the system for all disks
-func GetAllPartitions(runner v1.Runner) (v1.PartitionList, error) {
-	parts := v1.PartitionList{}
-
-	// --list : show each partition only once
-	// --bytes: don't show sizes in human readable format but rather number of bytes
-	out, err := runner.Run("lsblk", "--list", "--bytes",
-		"/dev/disk/by-path/*", "-o", "NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL", "-J")
+func GetAllPartitions() (v1.PartitionList, error) {
+	var parts []*v1.Partition
+	blockDevices, err := block.New(ghw.WithDisableTools(), ghw.WithDisableWarnings())
 	if err != nil {
-		return parts, fmt.Errorf("lsblk failed with: %w\nOutput: %s", err, string(out))
+		return nil, err
 	}
-
-	return PartitionsFromLsblk(string(out))
-}
-
-func PartitionsFromLsblk(lsblkOutput string) (v1.PartitionList, error) {
-	lsblk := &Lsblk{}
-	parts := v1.PartitionList{}
-	parentsLookup := map[string]string{}
-
-	err := json.Unmarshal([]byte(lsblkOutput), lsblk)
-	if err != nil {
-		return parts, err
-	}
-
-	for _, p := range lsblk.BlockDevices {
-		part := v1.Partition{}
-		parentsLookup[p.Name] = p.PkName
-		part.Name = p.Name
-		part.FilesystemLabel = p.Label
-		part.Size = p.Size / (1024 * 1024) // Converts B to MB
-		part.Flags = nil
-		part.MountPoint = p.Mountpoint
-		part.FS = p.FsType
-		part.Path = p.Path
-		parts = append(parts, &part)
-	}
-
-	// Add `Disk` field to all partitions
-	for _, p := range parts {
-		disk := findDisk(parentsLookup, p.Name)
-		if disk != "" {
-			p.Disk = filepath.Join("/dev", disk)
+	for _, d := range blockDevices.Disks {
+		for _, part := range d.Partitions {
+			parts = append(parts, ghwPartitionToInternalPartition(part))
 		}
 	}
-
 	return parts, nil
-}
-
-func findDisk(parentsLookup map[string]string, pName string) string {
-	parent, hasParent := parentsLookup[pName]
-	if !hasParent || parent == "" {
-		return pName // A disk's disk is itself
-	}
-
-	return findDisk(parentsLookup, parent)
 }
 
 // GetPartitionFS gets the FS of a partition given
