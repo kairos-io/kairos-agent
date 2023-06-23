@@ -20,9 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"regexp"
-
 	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
 	conf "github.com/kairos-io/kairos/v2/pkg/elementalConfig"
@@ -33,6 +30,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
+	"os"
+	"path/filepath"
 )
 
 var _ = Describe("Reset action tests", func() {
@@ -73,7 +72,9 @@ var _ = Describe("Reset action tests", func() {
 		)
 	})
 
-	AfterEach(func() { cleanup() })
+	AfterEach(func() {
+		cleanup()
+	})
 
 	Describe("Reset Action", Label("reset"), func() {
 		var spec *v1.ResetSpec
@@ -89,6 +90,18 @@ var _ = Describe("Reset action tests", func() {
 			_, err = fs.Create(recoveryImg)
 			Expect(err).To(BeNil())
 
+			err := fs.Mkdir("/dev", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk/by-path", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device1", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device2", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device3", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device4", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device5", []byte{}, os.ModePerm)
+
 			fs.Create(constants.EfiDevice)
 			bootedFrom = constants.SystemLabel
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
@@ -99,8 +112,80 @@ var _ = Describe("Reset action tests", func() {
 				case "cat":
 					return []byte(bootedFrom), nil
 				case "lsblk":
-					if args[0] == "--list" {
-						return lsblkMockOutput(), nil
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device1" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device1",
+										"pkname": null,
+										"path": "/dev/device1",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_STATE"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device2" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device2",
+										"pkname": null,
+										"path": "/dev/device2",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_RECOVERY"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device3" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device3",
+										"pkname": null,
+										"path": "/dev/device3",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_ACTIVE"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device4" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device4",
+										"pkname": null,
+										"path": "/dev/device4",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_OEM"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device5" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device5",
+										"pkname": null,
+										"path": "/dev/device5",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_PERSISTENT"
+									}
+							]}`), nil
 					}
 				}
 
@@ -119,13 +204,6 @@ var _ = Describe("Reset action tests", func() {
 			_, err = fs.Create(grubCfg)
 			Expect(err).To(BeNil())
 
-			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
-				regexCmd := regexp.MustCompile(cmdFail)
-				if cmdFail != "" && regexCmd.MatchString(cmd) {
-					return []byte{}, errors.New("command failed")
-				}
-				return []byte{}, nil
-			}
 			reset = action.NewResetAction(config, spec)
 		})
 

@@ -50,7 +50,7 @@ func layoutPlugin(l logger.Interface, s schema.Stage, fs vfs.FS, console plugins
 	}
 
 	if len(strings.TrimSpace(s.Layout.Device.Label)) > 0 {
-		partDevice, err := utils.GetFullDeviceByLabel(runner, s.Layout.Device.Label, 5)
+		partDevice, err := utils.GetFullDeviceByLabel(runner, fs, s.Layout.Device.Label, 5)
 		if err != nil {
 			l.Errorf("Exiting, disk not found:\n %s", err.Error())
 			return err
@@ -79,7 +79,7 @@ func layoutPlugin(l logger.Interface, s schema.Stage, fs vfs.FS, console plugins
 	}
 
 	for _, part := range s.Layout.Parts {
-		_, err := utils.GetFullDeviceByLabel(runner, part.FSLabel, 1)
+		_, err := utils.GetFullDeviceByLabel(runner, fs, part.FSLabel, 1)
 		if err == nil {
 			l.Warnf("Partition with FSLabel: %s already exists, ignoring", part.FSLabel)
 			continue

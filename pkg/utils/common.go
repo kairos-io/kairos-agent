@@ -51,8 +51,8 @@ func BootedFrom(runner v1.Runner, label string) bool {
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
-func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, error) {
-	part, err := GetFullDeviceByLabel(runner, label, attempts)
+func GetDeviceByLabel(runner v1.Runner, fs v1.FS, label string, attempts int) (string, error) {
+	part, err := GetFullDeviceByLabel(runner, fs, label, attempts)
 	if err != nil {
 		return "", err
 	}
@@ -61,10 +61,10 @@ func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, err
 
 // GetFullDeviceByLabel works like GetDeviceByLabel, but it will try to get as much info as possible from the existing
 // partition and return a v1.Partition object
-func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Partition, error) {
+func GetFullDeviceByLabel(runner v1.Runner, fs v1.FS, label string, attempts int) (*v1.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = runner.Run("udevadm", "settle")
-		parts, err := GetAllPartitions(runner)
+		parts, err := GetAllPartitions(runner, fs)
 		if err != nil {
 			return nil, err
 		}
@@ -360,7 +360,7 @@ func GetTempDir(config *v1.Config, suffix string) string {
 		config.Logger.Debugf("Got tmpdir from TMPDIR var: %s", dir)
 		return filepath.Join(dir, elementalTmpDir)
 	}
-	parts, err := GetAllPartitions(config.Runner)
+	parts, err := GetAllPartitions(config.Runner, config.Fs)
 	if err != nil {
 		config.Logger.Debug("Could not get partitions, defaulting to /tmp")
 		return filepath.Join("/", "tmp", elementalTmpDir)

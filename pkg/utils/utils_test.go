@@ -191,8 +191,16 @@ var _ = Describe("Utils", Label("utils"), func() {
 		BeforeEach(func() {
 			cmds = [][]string{
 				{"udevadm", "settle"},
-				{"lsblk --list --bytes /dev/disk/by-path/* -o NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL -J"},
+				{"lsblk --list --bytes /dev/disk/by-path/device1 -o NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL -J"},
 			}
+			err := fs.Mkdir("/dev", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk/by-path", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device1", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("returns found device", func() {
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
@@ -202,7 +210,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				return []byte{}, nil
 			}
 
-			out, err := utils.GetDeviceByLabel(runner, "FAKE", 1)
+			out, err := utils.GetDeviceByLabel(runner, fs, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out).To(Equal("/dev/device1"))
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
@@ -215,7 +223,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				return []byte{}, nil
 			}
 
-			_, err := utils.GetDeviceByLabel(runner, "FAKE", 2)
+			_, err := utils.GetDeviceByLabel(runner, fs, "FAKE", 2)
 			Expect(err).NotTo(BeNil())
 			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})
@@ -223,9 +231,21 @@ var _ = Describe("Utils", Label("utils"), func() {
 
 	Describe("GetAllPartitions", Label("lsblk", "partitions"), func() {
 		BeforeEach(func() {
+			err := fs.Mkdir("/dev", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk/by-path", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/sda1Test", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/sda2Test", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/sdb1Test", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "lsblk" && args[0] == "--list" {
-					return []byte(`{
+					switch {
+					case args[2] == "/dev/disk/by-path/sda1Test":
+						return []byte(`{
 							"blockdevices": [
 									{
 										"name": "sda1Test",
@@ -236,7 +256,11 @@ var _ = Describe("Utils", Label("utils"), func() {
 										"size": 0,
 										"ro": false,
 										"label": "FAKE"
-									},
+									}
+							]}`), nil
+					case args[2] == "/dev/disk/by-path/sda2Test":
+						return []byte(`{
+							"blockdevices": [
 									{
 										"name": "sda2Test",
 										"pkname": "",
@@ -246,7 +270,11 @@ var _ = Describe("Utils", Label("utils"), func() {
 										"size": 0,
 										"ro": false,
 										"label": "FAKE"
-									},
+									}
+							]}`), nil
+					case args[2] == "/dev/disk/by-path/sdb1Test":
+						return []byte(`{
+							"blockdevices": [
 									{
 										"name": "sdb1Test",
 										"pkname": "",
@@ -257,14 +285,14 @@ var _ = Describe("Utils", Label("utils"), func() {
 										"ro": false,
 										"label": "FAKE"
 									}
-							]
-						}`), nil
+							]}`), nil
+					}
 				}
 				return []byte{}, nil
 			}
 		})
 		It("returns all found partitions", func() {
-			parts, err := utils.GetAllPartitions(runner)
+			parts, err := utils.GetAllPartitions(runner, fs)
 			Expect(err).To(BeNil())
 			var partNames []string
 			for _, p := range parts {
@@ -346,9 +374,16 @@ var _ = Describe("Utils", Label("utils"), func() {
 	Describe("GetFullDeviceByLabel", Label("lsblk", "partitions"), func() {
 		var cmds [][]string
 		BeforeEach(func() {
+			err := fs.Mkdir("/dev", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk/by-path", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device1", []byte{}, os.ModePerm)
 			cmds = [][]string{
 				{"udevadm", "settle"},
-				{"lsblk --list --bytes /dev/disk/by-path/* -o NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL -J"},
+				{"lsblk --list --bytes /dev/disk/by-path/device1 -o NAME,PKNAME,PATH,FSTYPE,MOUNTPOINT,SIZE,RO,LABEL -J"},
 			}
 		})
 		It("returns found v1.Partition", func() {
@@ -374,7 +409,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				return []byte{}, nil
 			}
 
-			out, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
+			out, err := utils.GetFullDeviceByLabel(runner, fs, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out.FilesystemLabel).To(Equal("FAKE"))
 			Expect(out.Size).To(Equal(uint(0)))
@@ -385,19 +420,19 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		It("fails to run lsblk", func() {
 			runner.ReturnError = errors.New("failed running lsblk")
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
+			_, err := utils.GetFullDeviceByLabel(runner, fs, "FAKE", 1)
 			Expect(err).To(HaveOccurred())
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails to parse json output", func() {
 			runner.ReturnValue = []byte(`{"invalidobject": []}`)
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
+			_, err := utils.GetFullDeviceByLabel(runner, fs, "FAKE", 1)
 			Expect(err).To(HaveOccurred())
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails if no device is found in two attempts", func() {
 			runner.ReturnValue = []byte(`{"blockdevices":[{"label":"something","type": "part"}]}`)
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 2)
+			_, err := utils.GetFullDeviceByLabel(runner, fs, "FAKE", 2)
 			Expect(err).To(HaveOccurred())
 			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})

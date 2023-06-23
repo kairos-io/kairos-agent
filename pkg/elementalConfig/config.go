@@ -298,7 +298,7 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := utils.GetAllPartitions(cfg.Runner)
+	parts, err := utils.GetAllPartitions(cfg.Runner, cfg.Fs)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions %w", err)
 	}
@@ -389,7 +389,7 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := utils.GetAllPartitions(cfg.Runner)
+	parts, err := utils.GetAllPartitions(cfg.Runner, cfg.Fs)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions %w", err)
 	}

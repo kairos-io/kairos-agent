@@ -48,12 +48,13 @@ type Lsblk struct {
 }
 
 // GetAllPartitions returns all partitions in the system for all disks
-func GetAllPartitions(runner v1.Runner) (v1.PartitionList, error) {
+func GetAllPartitions(runner v1.Runner, fs v1.FS) (v1.PartitionList, error) {
 	parts := v1.PartitionList{}
 
 	// --list : show each partition only once
 	// --bytes: don't show sizes in human readable format but rather number of bytes
-	devices, err := filepath.Glob("/dev/disk/by-path/*")
+	devices, err := fs.Glob("/dev/disk/by-path/*")
+
 	if err != nil {
 		return parts, fmt.Errorf("lsblk failed with: %w", err)
 	}

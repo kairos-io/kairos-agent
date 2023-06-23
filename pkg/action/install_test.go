@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 
@@ -98,6 +99,13 @@ var _ = Describe("Install action tests", func() {
 			Expect(err).To(BeNil())
 			_, err = fs.Create(device)
 			Expect(err).ShouldNot(HaveOccurred())
+			err := fs.Mkdir("/dev", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk/by-path", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device", []byte{}, os.ModePerm)
 
 			partNum := 0
 			partedOut := printOutput
@@ -256,7 +264,99 @@ var _ = Describe("Install action tests", func() {
 		It("Successfully installs without formatting despite detecting a previous installation", Label("no-format", "disk"), func() {
 			spec.NoFormat = true
 			spec.Force = true
-			spec.Target = device
+			spec.Target = "device1"
+
+			// For no format we need to fake like the whole system is already in place, so we need to create all devices
+			// And return the proper lsblk for each call to fake an already installed system
+			err = fs.WriteFile("/dev/disk/by-path/device1", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device2", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device3", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device4", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device5", []byte{}, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "lsblk" && args[0] == "--list" && args[2] == "/dev/disk/by-path/device1" {
+					return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device1",
+										"pkname": null,
+										"path": "/dev/device1",
+										"fstype": "ext4",
+										"mountpoint": "/run/cos/active",
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_ACTIVE"
+									}
+							]}`), nil
+				}
+				if command == "lsblk" && args[0] == "--list" && args[2] == "/dev/disk/by-path/device2" {
+					return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device2",
+										"pkname": null,
+										"path": "/dev/device2",
+										"fstype": "ext4",
+										"mountpoint": "/run/cos/active",
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_OEM"
+									}
+							]}`), nil
+				}
+				if command == "lsblk" && args[0] == "--list" && args[2] == "/dev/disk/by-path/device3" {
+					return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device3",
+										"pkname": null,
+										"path": "/dev/device3",
+										"fstype": "ext4",
+										"mountpoint": "/run/cos/active",
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_STATE"
+									}
+							]}`), nil
+				}
+				if command == "lsblk" && args[0] == "--list" && args[2] == "/dev/disk/by-path/device4" {
+					return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device4",
+										"pkname": null,
+										"path": "/dev/device4",
+										"fstype": "ext4",
+										"mountpoint": "/run/cos/active",
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_PERSISTENT"
+									}
+							]}`), nil
+				}
+				if command == "lsblk" && args[0] == "--list" && args[2] == "/dev/disk/by-path/device5" {
+					return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device5",
+										"pkname": null,
+										"path": "/dev/device5",
+										"fstype": "ext4",
+										"mountpoint": "/run/cos/active",
+										"size": 64088965120,
+										"ro": false,
+										"label": "COS_RECOVERY"
+									}
+							]}`), nil
+				}
+				return []byte{}, nil
+			}
 			Expect(installer.Run()).To(BeNil())
 		})
 

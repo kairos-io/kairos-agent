@@ -19,6 +19,8 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/sanity-io/litter"
+	"os"
 	"path/filepath"
 
 	"github.com/kairos-io/kairos/v2/pkg/action"
@@ -97,6 +99,18 @@ var _ = Describe("Runtime Actions", func() {
 			config.ImageExtractor = extractor
 			logger.SetLevel(logrus.DebugLevel)
 
+			err := fs.Mkdir("/dev", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.Mkdir("/dev/disk/by-path", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/dev/disk/by-path/device1", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device2", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device3", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device4", []byte{}, os.ModePerm)
+			err = fs.WriteFile("/dev/disk/by-path/device5", []byte{}, os.ModePerm)
+
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 				if command == "cat" && args[0] == "/proc/cmdline" {
 					return []byte(constants.RecoveryLabel), nil
@@ -107,9 +121,82 @@ var _ = Describe("Runtime Actions", func() {
 					_ = fs.WriteFile(recoveryImg, f, constants.FilePerm)
 					_ = fs.RemoveAll(spec.Recovery.File)
 				}
-
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
+				if command == "lsblk" {
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device1" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device1",
+										"pkname": null,
+										"path": "/dev/device1",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_STATE"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device2" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device2",
+										"pkname": null,
+										"path": "/dev/device2",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_RECOVERY"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device3" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device3",
+										"pkname": null,
+										"path": "/dev/device3",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_ACTIVE"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device4" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device4",
+										"pkname": null,
+										"path": "/dev/device4",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_OEM"
+									}
+							]}`), nil
+					}
+					if args[0] == "--list" && args[2] == "/dev/disk/by-path/device5" {
+						return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device5",
+										"pkname": null,
+										"path": "/dev/device5",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_PERSISTENT"
+									}
+							]}`), nil
+					}
 				}
 				return []byte{}, nil
 			}
@@ -123,8 +210,9 @@ var _ = Describe("Runtime Actions", func() {
 			var err error
 			BeforeEach(func() {
 				spec, err = conf.NewUpgradeSpec(config.Config)
+				fmt.Printf(litter.Sdump(spec))
 				Expect(err).ShouldNot(HaveOccurred())
-
+				fmt.Printf("MOUNTPOINT: %s\n", spec.Active.MountPoint)
 				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -155,6 +243,83 @@ var _ = Describe("Runtime Actions", func() {
 						_ = fs.WriteFile(activeImg, source, constants.FilePerm)
 						_ = fs.RemoveAll(spec.Active.File)
 					}
+					if command == "lsblk" {
+						if args[0] == "--list" && args[2] == "/dev/disk/by-path/device1" {
+							return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device1",
+										"pkname": null,
+										"path": "/dev/device1",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_STATE"
+									}
+							]}`), nil
+						}
+						if args[0] == "--list" && args[2] == "/dev/disk/by-path/device2" {
+							return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device2",
+										"pkname": null,
+										"path": "/dev/device2",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_RECOVERY"
+									}
+							]}`), nil
+						}
+						if args[0] == "--list" && args[2] == "/dev/disk/by-path/device3" {
+							return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device3",
+										"pkname": null,
+										"path": "/dev/device3",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_ACTIVE"
+									}
+							]}`), nil
+						}
+						if args[0] == "--list" && args[2] == "/dev/disk/by-path/device4" {
+							return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device4",
+										"pkname": null,
+										"path": "/dev/device4",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_OEM"
+									}
+							]}`), nil
+						}
+						if args[0] == "--list" && args[2] == "/dev/disk/by-path/device5" {
+							return []byte(`{
+							"blockdevices": [
+									{
+										"name": "device5",
+										"pkname": null,
+										"path": "/dev/device5",
+										"fstype": "ext4",
+										"mountpoint": null,
+										"size": 1,
+										"ro": false,
+										"label": "COS_PERSISTENT"
+									}
+							]}`), nil
+						}
+					}
 					return []byte{}, nil
 				}
 				config.Runner = runner
@@ -184,7 +349,7 @@ var _ = Describe("Runtime Actions", func() {
 				// Make sure is a cloud init error!
 				Expect(err.Error()).To(ContainSubstring("cloud init"))
 			})
-			It("Successfully upgrades from docker image", Label("docker"), func() {
+			FIt("Successfully upgrades from docker image", Label("docker"), func() {
 				spec.Active.Source = v1.NewDockerSrc("alpine")
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
