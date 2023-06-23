@@ -40,14 +40,14 @@ var _ = Describe("Layout", Label("layout"), func() {
 			Partitions: []*block.Partition{
 				{
 					Name:            "device1",
-					FilesystemLabel: "FAKE1",
+					FilesystemLabel: "FAKE",
 					Type:            "ext4",
 					MountPoint:      "/mnt/fake",
 					SizeBytes:       0,
 				},
 				{
 					Name:            "device2",
-					FilesystemLabel: "FAKE2",
+					FilesystemLabel: "FAKE",
 					Type:            "ext4",
 					MountPoint:      "/mnt/fake",
 					SizeBytes:       0,
@@ -65,7 +65,7 @@ var _ = Describe("Layout", Label("layout"), func() {
 
 			layout := schema.Layout{
 				Device: &schema.Device{
-					Label: "FAKE1",
+					Label: "FAKE",
 					Path:  device,
 				},
 				Expand: &schema.Expand{Size: defaultSizeForTest},
@@ -76,9 +76,6 @@ var _ = Describe("Layout", Label("layout"), func() {
 			}
 
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					/*
 
@@ -146,9 +143,6 @@ BYT;
 		It("Fails if there is not enough space", func() {
 			// Override runner side effect to return 0 sectors when asked
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					rtn := `
 BYT;
@@ -172,9 +166,6 @@ BYT;
 		It("Fails if new device didnt get created", func() {
 			// Override runner side effect to return error when partition is recreated
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					rtn := `
 BYT;
@@ -198,9 +189,6 @@ BYT;
 		It("Fails if new device didnt get created, even when command didnt return an error", func() {
 			// Override runner side effect to return error when partition is recreated
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					rtn := `
 BYT;
@@ -227,9 +215,6 @@ BYT;
 	Describe("Add partitions", Label("add", "partitions"), func() {
 		BeforeEach(func() {
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					rtn := `
 BYT;
@@ -250,7 +235,7 @@ BYT;
 
 			layout := schema.Layout{
 				Device: &schema.Device{
-					Label: "FAKE1",
+					Label: "FAKE",
 					Path:  device,
 				},
 				Parts: []schema.Partition{
@@ -266,9 +251,6 @@ BYT;
 				Layout: layout,
 			}
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					rtn := `
 BYT;
@@ -321,7 +303,7 @@ BYT;
 
 			layout := schema.Layout{
 				Device: &schema.Device{
-					Label: "FAKE1",
+					Label: "FAKE",
 					Path:  device,
 				},
 				Parts:  partitions,
@@ -342,10 +324,6 @@ BYT;
 			createdPartitions := []partitionData{}
 
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
-
 				if command == "parted" && args[4] == "unit" && args[5] == "s" && args[6] == "print" {
 					rtn := `
 BYT;
@@ -423,37 +401,3 @@ BYT;
 		})
 	})
 })
-
-func lsblkMockOutput() []byte {
-	return []byte(`{ "blockdevices":
-	[
-		{
-			"name": "device",
-			"pkname": "",
-			"path": "/dev/device",
-			"fstype": "",
-			"mountpoint": "",
-			"size": 0,
-			"ro": false,
-			"label": ""
-		},{
-			"name": "device1",
-			"pkname": "device",
-			"path": "/dev/device1",
-			"fstype": "ext4",
-			"mountpoint": "/mnt/fake1",
-			"size": 0,
-			"ro": false,
-			"label": "FAKE1"
-		},{
-			"name": "device2",
-			"pkname": "device",
-			"path": "/dev/device2",
-			"fstype": "ext4",
-			"mountpoint": "/mnt/fake2",
-			"size": 0,
-			"ro": false,
-			"label": "FAKE2"
-		}
-	]}`)
-}

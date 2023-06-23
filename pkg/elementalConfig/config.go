@@ -298,9 +298,9 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := utils.GetAllPartitions(cfg.Runner)
+	parts, err := utils.GetAllPartitions()
 	if err != nil {
-		return nil, fmt.Errorf("could not read host partitions %w", err)
+		return nil, fmt.Errorf("could not read host partitions")
 	}
 	ep := v1.NewElementalPartitionsFromList(parts)
 
@@ -389,9 +389,9 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := utils.GetAllPartitions(cfg.Runner)
+	parts, err := utils.GetAllPartitions()
 	if err != nil {
-		return nil, fmt.Errorf("could not read host partitions %w", err)
+		return nil, fmt.Errorf("could not read host partitions")
 	}
 	ep := v1.NewElementalPartitionsFromList(parts)
 
@@ -414,7 +414,11 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 	ep.State.Name = constants.StatePartName
 
 	if ep.Recovery == nil {
-		return nil, fmt.Errorf("recovery partition not found")
+		// We could have recovery in lvm which won't appear in ghw list
+		ep.Recovery = utils.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
+		if ep.Recovery == nil {
+			return nil, fmt.Errorf("recovery partition not found")
+		}
 	}
 	if ep.Recovery.MountPoint == "" {
 		ep.Recovery.MountPoint = constants.RecoveryDir
@@ -429,6 +433,11 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		}
 		ep.OEM.Name = constants.OEMPartName
 	} else {
+		// We could have oem in lvm which won't appear in ghw list
+		ep.OEM = utils.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+	}
+
+	if ep.OEM == nil {
 		cfg.Logger.Warnf("no OEM partition found")
 	}
 
@@ -439,10 +448,8 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		}
 		ep.Persistent.Name = constants.PersistentPartName
 	} else {
-		// We could have persistent encrypted which won't appear in ghw list
-		if ep.Persistent == nil {
-			ep.Persistent = utils.GetPersistentViaDM(cfg.Fs)
-		}
+		// We could have persistent encrypted or in lvm which won't appear in ghw list
+		ep.Persistent = utils.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
 	}
 	if ep.Persistent == nil {
 		cfg.Logger.Warnf("no Persistent partition found")

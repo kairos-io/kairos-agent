@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos/v2/pkg/action"
 	"github.com/kairos-io/kairos/v2/pkg/constants"
 	conf "github.com/kairos-io/kairos/v2/pkg/elementalConfig"
@@ -45,6 +46,7 @@ var _ = Describe("Runtime Actions", func() {
 	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
 	var memLog *bytes.Buffer
+	var ghwTest v1mock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
@@ -82,14 +84,12 @@ var _ = Describe("Runtime Actions", func() {
 		var spec *v1.UpgradeSpec
 		var upgrade *action.UpgradeAction
 		var memLog *bytes.Buffer
-		var activeImg, passiveImg, recoveryImgSquash, recoveryImg string
+		activeImg := fmt.Sprintf("%s/cOS/%s", constants.RunningStateDir, constants.ActiveImgFile)
+		passiveImg := fmt.Sprintf("%s/cOS/%s", constants.RunningStateDir, constants.PassiveImgFile)
+		recoveryImgSquash := fmt.Sprintf("%s/cOS/%s", constants.LiveDir, constants.RecoverySquashFile)
+		recoveryImg := fmt.Sprintf("%s/cOS/%s", constants.LiveDir, constants.RecoveryImgFile)
 
 		BeforeEach(func() {
-			activeImg = fmt.Sprintf("%s/cOS/%s", constants.RunningStateDir, constants.ActiveImgFile)
-			passiveImg = fmt.Sprintf("%s/cOS/%s", constants.RunningStateDir, constants.PassiveImgFile)
-			recoveryImgSquash = fmt.Sprintf("%s/cOS/%s", constants.LiveDir, constants.RecoverySquashFile)
-			recoveryImg = fmt.Sprintf("%s/cOS/%s", constants.LiveDir, constants.RecoveryImgFile)
-
 			memLog = &bytes.Buffer{}
 			logger = v1.NewBufferLogger(memLog)
 			extractor = v1mock.NewFakeImageExtractor(logger)
@@ -97,28 +97,49 @@ var _ = Describe("Runtime Actions", func() {
 			config.ImageExtractor = extractor
 			logger.SetLevel(logrus.DebugLevel)
 
-			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-				if command == "cat" && args[0] == "/proc/cmdline" {
-					return []byte(constants.RecoveryLabel), nil
-				}
-				if command == "mv" && args[0] == "-f" && args[1] == spec.Recovery.File && args[2] == recoveryImg {
-					// fake "move"
-					f, _ := fs.ReadFile(spec.Recovery.File)
-					_ = fs.WriteFile(recoveryImg, f, constants.FilePerm)
-					_ = fs.RemoveAll(spec.Recovery.File)
-				}
-
-				if command == "lsblk" && args[0] == "--list" {
-					return lsblkMockOutput(), nil
-				}
-				return []byte{}, nil
-			}
-
 			// Create paths used by tests
 			utils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
 			utils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.LiveDir), constants.DirPerm)
-		})
 
+			mainDisk := block.Disk{
+				Name: "device",
+				Partitions: []*block.Partition{
+					{
+						Name:            "device1",
+						FilesystemLabel: "COS_GRUB",
+						Type:            "ext4",
+					},
+					{
+						Name:            "device2",
+						FilesystemLabel: "COS_STATE",
+						Type:            "ext4",
+						MountPoint:      constants.RunningStateDir,
+					},
+					{
+						Name:            "loop0",
+						FilesystemLabel: "COS_ACTIVE",
+						Type:            "ext4",
+					},
+					{
+						Name:            "device5",
+						FilesystemLabel: "COS_RECOVERY",
+						Type:            "ext4",
+						MountPoint:      constants.LiveDir,
+					},
+					{
+						Name:            "device6",
+						FilesystemLabel: "COS_OEM",
+						Type:            "ext4",
+					},
+				},
+			}
+			ghwTest = v1mock.GhwMock{}
+			ghwTest.AddDisk(mainDisk)
+			ghwTest.CreateDevices()
+		})
+		AfterEach(func() {
+			ghwTest.Clean()
+		})
 		Describe(fmt.Sprintf("Booting from %s", constants.ActiveLabel), Label("active_label"), func() {
 			var err error
 			BeforeEach(func() {
@@ -486,6 +507,7 @@ var _ = Describe("Runtime Actions", func() {
 					// Transition squash should not exist
 					info, err = fs.Stat(spec.Recovery.File)
 					Expect(err).To(HaveOccurred())
+
 				})
 			})
 			Describe("Not using squashfs", Label("non-squashfs"), func() {
@@ -495,16 +517,28 @@ var _ = Describe("Runtime Actions", func() {
 					err = fs.WriteFile(recoveryImg, []byte("recovery"), constants.FilePerm)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					config.Runner = runner
-
 					spec, err = conf.NewUpgradeSpec(config.Config)
 					Expect(err).ShouldNot(HaveOccurred())
 
 					spec.Active.Size = 10
 					spec.Passive.Size = 10
 					spec.Recovery.Size = 10
+
 					spec.RecoveryUpgrade = true
 
+					runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+						if command == "cat" && args[0] == "/proc/cmdline" {
+							return []byte(constants.RecoveryLabel), nil
+						}
+						if command == "mv" && args[0] == "-f" && args[1] == spec.Recovery.File && args[2] == recoveryImg {
+							// fake "move"
+							f, _ := fs.ReadFile(spec.Recovery.File)
+							_ = fs.WriteFile(recoveryImg, f, constants.FilePerm)
+							_ = fs.RemoveAll(spec.Recovery.File)
+						}
+						return []byte{}, nil
+					}
+					config.Runner = runner
 					_ = fs.WriteFile(recoveryImg, []byte("recovery"), constants.FilePerm)
 					// Mount recovery partition as it is expected to be mounted when booting from recovery
 					mounter.Mount("device5", constants.LiveDir, "auto", []string{"ro"})

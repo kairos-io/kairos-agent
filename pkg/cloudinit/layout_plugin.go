@@ -74,7 +74,7 @@ func layoutPlugin(l logger.Interface, s schema.Stage, fs vfs.FS, console plugins
 	}
 
 	if !dev.Exists() {
-		l.Errorf("Exiting, disk not found: %s", s.Layout.Device.Path)
+		l.Errorf("Exiting, disk not found:\n %s", s.Layout.Device.Path)
 		return errors.New("Target disk not found")
 	}
 
