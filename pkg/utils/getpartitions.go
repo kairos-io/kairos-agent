@@ -100,7 +100,7 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 		}
 		// read dev number
 		devNo, err := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "dev"))
-		// No slaves, empty dm?
+		// No device number, empty dm?
 		if err != nil || string(devNo) == "" {
 			continue
 		}
@@ -140,6 +140,7 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 					part.Size = uint(finalSize)
 				}
 			}
+
 			// Read slaves to get the device
 			slaves, err := fs.ReadDir(filepath.Join(lp.SysBlock, dev.Name(), "slaves"))
 			if err != nil {
@@ -181,6 +182,26 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 					}
 				}
 
+			}
+
+			// Read /proc/mounts to get the mountpoint if any
+			// We need the disk to be filled to get the mountpoint
+			if part.Disk != "" {
+				mounts, err := fs.ReadFile("/proc/mounts")
+				if err == nil {
+					for _, l := range strings.Split(string(mounts), "\n") {
+						entry := strings.Split(l, " ")
+						// entry is `device mountpoint fstype options unused unused`
+						// The unused fields are there for compatibility with mtab
+						if len(entry) > 1 {
+							// Check against the path as lvm devices are not mounted against /dev, they are mounted via label
+							if entry[0] == part.Path {
+								part.MountPoint = entry[1]
+								break
+							}
+						}
+					}
+				}
 			}
 
 			return part
