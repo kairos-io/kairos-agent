@@ -79,10 +79,13 @@ func Upgrade(
 		}
 	}
 
-	discoveredImage := ""
-	bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
-		discoveredImage = r.Data
-	})
+	img := source
+
+	if img == "" {
+		bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+			img = r.Data
+		})
+	}
 
 	_, err := bus.Manager.Publish(events.EventVersionImage, &events.VersionImagePayload{
 		Version: version,
@@ -91,18 +94,14 @@ func Upgrade(
 		return err
 	}
 
-	registry, err := utils.OSRelease("IMAGE_REPO")
-	if err != nil {
-		fmt.Printf("Cant find IMAGE_REPO key under /etc/os-release\n")
-		return err
-	}
+	if img == "" {
+		registry, err := utils.OSRelease("IMAGE_REPO")
+		if err != nil {
+			fmt.Printf("Can't find IMAGE_REPO key under /etc/os-release\n")
+			return err
+		}
 
-	img := fmt.Sprintf("%s:%s", registry, version)
-	if discoveredImage != "" {
-		img = discoveredImage
-	}
-	if source != "" {
-		img = source
+		img = fmt.Sprintf("%s:%s", registry, version)
 	}
 
 	if debug {
