@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -80,28 +81,13 @@ func Upgrade(
 	}
 
 	img := source
-
+	var err error
 	if img == "" {
-		bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
-			img = r.Data
-		})
-	}
-
-	_, err := bus.Manager.Publish(events.EventVersionImage, &events.VersionImagePayload{
-		Version: version,
-	})
-	if err != nil {
-		return err
-	}
-
-	if img == "" {
-		registry, err := utils.OSRelease("IMAGE_REPO")
+		img, err = determineUpgradeImage(version)
 		if err != nil {
-			fmt.Printf("Can't find IMAGE_REPO key under /etc/os-release\n")
+			fmt.Println(err.Error())
 			return err
 		}
-
-		img = fmt.Sprintf("%s:%s", registry, version)
 	}
 
 	if debug {
@@ -144,4 +130,31 @@ func Upgrade(
 	upgradeAction := action.NewUpgradeAction(upgradeConfig, upgradeSpec)
 
 	return upgradeAction.Run()
+}
+
+// determineUpgradeImage asks the provider plugin for an image or constructs
+// it using version and data from /etc/os-release
+func determineUpgradeImage(version string) (string, error) {
+	var img string
+	bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+		img = r.Data
+	})
+
+	_, err := bus.Manager.Publish(events.EventVersionImage, &events.VersionImagePayload{
+		Version: version,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if img != "" {
+		return img, nil
+	}
+
+	registry, err := utils.OSRelease("IMAGE_REPO")
+	if err != nil {
+		return "", fmt.Errorf("can't find IMAGE_REPO key under /etc/os-release %w", err)
+	}
+
+	return fmt.Sprintf("%s:%s", registry, version), nil
 }
