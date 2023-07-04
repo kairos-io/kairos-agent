@@ -367,18 +367,19 @@ func (dev *Disk) ExpandLastPartition(size uint) (string, error) {
 	}
 
 	part := dev.parts[len(dev.parts)-1]
+	var sizeSectors uint
 	if size > 0 {
-		size = MiBToSectors(size, dev.sectorS)
+		sizeSectors = MiBToSectors(size, dev.sectorS)
 		part := dev.parts[len(dev.parts)-1]
-		if size < part.SizeS {
+		if sizeSectors < part.SizeS {
 			return "", errors.New("Layout plugin can only expand a partition, not shrink it")
 		}
 		freeS := dev.computeFreeSpaceWithoutLast()
-		if size > freeS {
+		if sizeSectors > freeS {
 			return "", fmt.Errorf("not enough free space for to expand last partition up to %d sectors", size)
 		}
 	}
-	part.SizeS = size
+	part.SizeS = sizeSectors
 	pc.DeletePartition(part.Number)
 	pc.CreatePartition(&part)
 	out, err := pc.WriteChanges()

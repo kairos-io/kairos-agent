@@ -17,6 +17,7 @@ limitations under the License.
 package cloudinit_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -102,8 +103,12 @@ stages:
 		var device, cmdFail string
 		var partNum int
 		var cleanup func()
-		logger := v1.NewNullLogger()
+		var logs *bytes.Buffer
+		var logger v1.Logger
 		BeforeEach(func() {
+			logs = &bytes.Buffer{}
+			logger = v1.NewBufferLogger(logs)
+
 			afs, cleanup, _ = vfst.NewTestFS(nil)
 			err := utils.MkdirAll(afs, "/some/yip", constants.DirPerm)
 			Expect(err).To(BeNil())
@@ -231,7 +236,9 @@ stages:
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
 			cloudRunner := NewYipCloudInitRunner(logger, runner, afs)
-			Expect(cloudRunner.Run("test", "/some/yip")).NotTo(BeNil())
+			err = cloudRunner.Run("test", "/some/yip")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(logs.String()).To(MatchRegexp("Could not verify /dev/device is a block device"))
 		})
 		It("Fails to expand last partition", func() {
 			partNum = 3
@@ -250,7 +257,10 @@ stages:
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
 			cloudRunner := NewYipCloudInitRunner(logger, runner, afs)
-			Expect(cloudRunner.Run("test", "/some/yip")).NotTo(BeNil())
+			err = cloudRunner.Run("test", "/some/yip")
+			Expect(err).ToNot(HaveOccurred())
+			// TODO: Is this the error we should be expecting?
+			Expect(logs.String()).To(MatchRegexp("Could not verify /dev/device is a block device"))
 		})
 		It("Fails to find device by path", func() {
 			err := afs.WriteFile("/some/yip/layout.yaml", []byte(`
@@ -263,7 +273,9 @@ stages:
 `), constants.FilePerm)
 			Expect(err).To(BeNil())
 			cloudRunner := NewYipCloudInitRunner(logger, runner, afs)
-			Expect(cloudRunner.Run("test", "/some/yip")).NotTo(BeNil())
+			err = cloudRunner.Run("test", "/some/yip")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(logs.String()).To(MatchRegexp("Could not verify /whatever is a block device"))
 		})
 		It("Fails to find device by label", func() {
 			err := afs.WriteFile("/some/yip/layout.yaml", []byte(`
@@ -276,7 +288,9 @@ stages:
 `), constants.FilePerm)
 			Expect(err).To(BeNil())
 			cloudRunner := NewYipCloudInitRunner(logger, runner, afs)
-			Expect(cloudRunner.Run("test", "/some/yip")).NotTo(BeNil())
+			err = cloudRunner.Run("test", "/some/yip")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(logs.String()).To(MatchRegexp("Could not find device for the given label"))
 		})
 	})
 })

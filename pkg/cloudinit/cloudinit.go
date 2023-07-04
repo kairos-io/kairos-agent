@@ -59,7 +59,7 @@ func NewYipCloudInitRunner(l v1.Logger, r v1.Runner, fs vfs.FS) *YipCloudInitRun
 			plugins.Environment,
 			plugins.SystemdFirstboot,
 			plugins.DataSources,
-			layoutPlugin,
+			plugins.Layout,
 		),
 	)
 	return &YipCloudInitRunner{
