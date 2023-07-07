@@ -304,6 +304,21 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 	}
 	ep := v1.NewElementalPartitionsFromList(parts)
 
+	if ep.Recovery == nil {
+		// We could have recovery in lvm which won't appear in ghw list
+		ep.Recovery = utils.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
+	}
+
+	if ep.OEM == nil {
+		// We could have OEM in lvm which won't appear in ghw list
+		ep.OEM = utils.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+	}
+
+	if ep.Persistent == nil {
+		// We could have persistent encrypted or in lvm which won't appear in ghw list
+		ep.Persistent = utils.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
+	}
+
 	if ep.Recovery != nil {
 		if ep.Recovery.MountPoint == "" {
 			ep.Recovery.MountPoint = constants.RecoveryDir
