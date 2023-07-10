@@ -22,7 +22,7 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/kairos-io/kairos/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
 )

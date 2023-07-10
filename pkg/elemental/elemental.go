@@ -22,10 +22,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	cnst "github.com/kairos-io/kairos/v2/pkg/constants"
-	"github.com/kairos-io/kairos/v2/pkg/partitioner"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos/v2/pkg/utils"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 )
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux

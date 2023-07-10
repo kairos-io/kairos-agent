@@ -21,10 +21,10 @@ import (
 	"path/filepath"
 	"time"
 
-	cnst "github.com/kairos-io/kairos/v2/pkg/constants"
-	"github.com/kairos-io/kairos/v2/pkg/elemental"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos/v2/pkg/utils"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 )
 
 func (r *ResetAction) resetHook(hook string, chroot bool) error {

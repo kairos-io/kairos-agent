@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/kairos-io/kairos-sdk/utils"
-	"github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 )
 
 type Kcrypt struct{}

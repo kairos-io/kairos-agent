@@ -30,7 +30,7 @@ import (
 	"syscall"
 	"time"
 
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
 )

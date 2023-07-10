@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kairos-io/kairos/v2/pkg/github"
+	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

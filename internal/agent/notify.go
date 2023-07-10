@@ -5,8 +5,8 @@ import (
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos/v2/internal/bus"
-	"github.com/kairos-io/kairos/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/internal/bus"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/mudler/go-pluggable"
 )
 

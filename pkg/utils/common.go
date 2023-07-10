@@ -32,8 +32,8 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	"github.com/joho/godotenv"
-	cnst "github.com/kairos-io/kairos/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/twpayne/go-vfs"
 )
 

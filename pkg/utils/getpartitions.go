@@ -27,7 +27,7 @@ import (
 	"github.com/jaypipes/ghw/pkg/context"
 	"github.com/jaypipes/ghw/pkg/linuxpath"
 	ghwUtil "github.com/jaypipes/ghw/pkg/util"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	log "github.com/sirupsen/logrus"
 )
 

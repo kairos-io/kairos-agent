@@ -1,4 +1,4 @@
-module github.com/kairos-io/kairos/v2
+module github.com/kairos-io/kairos-agent/v2
 
 go 1.20
 

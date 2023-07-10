@@ -27,11 +27,11 @@ import (
 
 	"github.com/jaypipes/ghw/pkg/block"
 
-	"github.com/kairos-io/kairos/v2/pkg/constants"
-	conf "github.com/kairos-io/kairos/v2/pkg/elementalConfig"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos/v2/pkg/utils"
-	v1mock "github.com/kairos-io/kairos/v2/tests/mocks"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs"

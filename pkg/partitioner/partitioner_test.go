@@ -22,10 +22,10 @@ import (
 
 	"github.com/jaypipes/ghw/pkg/block"
 
-	"github.com/kairos-io/kairos/v2/pkg/constants"
-	part "github.com/kairos-io/kairos/v2/pkg/partitioner"
-	"github.com/kairos-io/kairos/v2/pkg/utils"
-	mocks "github.com/kairos-io/kairos/v2/tests/mocks"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	part "github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs"

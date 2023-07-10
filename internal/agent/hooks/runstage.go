@@ -1,9 +1,9 @@
 package hook
 
 import (
-	"github.com/kairos-io/kairos/v2/pkg/config"
-	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
-	"github.com/kairos-io/kairos/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 )
