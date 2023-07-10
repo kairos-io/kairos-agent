@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kairos-io/kairos/v2/pkg/constants"
-	cnst "github.com/kairos-io/kairos/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 )
 
 // Grub is the struct that will allow us to install grub to the target device

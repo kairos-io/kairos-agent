@@ -23,7 +23,7 @@ import (
 	registry "github.com/google/go-containerregistry/pkg/v1"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kairos-io/kairos/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 )
 
 type Platform struct {

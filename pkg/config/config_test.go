@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	. "github.com/kairos-io/kairos-sdk/schema"
-	. "github.com/kairos-io/kairos/v2/pkg/config"
+	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kairos-io/kairos/v2/internal/bus"
-	"github.com/kairos-io/kairos/v2/internal/cmd"
-	"github.com/kairos-io/kairos/v2/pkg/config"
-	"github.com/kairos-io/kairos/v2/pkg/elementalConfig"
+	"github.com/kairos-io/kairos-agent/v2/internal/bus"
+	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/unstructured"

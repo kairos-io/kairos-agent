@@ -21,10 +21,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kairos-io/kairos/v2/pkg/constants"
-	"github.com/kairos-io/kairos/v2/pkg/elemental"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 )
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish

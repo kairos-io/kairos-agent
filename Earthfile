@@ -49,7 +49,7 @@ build-kairos-agent:
     ARG VERSION=$(cat VERSION)
     ARG COMMIT=$(cat COMMIT)
     RUN --no-cache echo "Building Version: ${VERSION} and Commit: ${COMMIT}"
-    ARG LDFLAGS="-s -w -X github.com/kairos-io/kairos/v2/internal/common.VERSION=${VERSION} -X github.com/kairos-io/kairos/v2/internal/common.gitCommit=$COMMIT"
+    ARG LDFLAGS="-s -w -X github.com/kairos-io/kairos-agent/v2/internal/common.VERSION=${VERSION} -X github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit=$COMMIT"
     ENV CGO_ENABLED=${CGO_ENABLED}
     RUN go build -o kairos-agent -ldflags "${LDFLAGS}" main.go && upx kairos-agent
     SAVE ARTIFACT kairos-agent kairos-agent AS LOCAL build/kairos-agent

@@ -17,7 +17,7 @@ limitations under the License.
 package v1_test
 
 import (
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

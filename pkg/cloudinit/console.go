@@ -21,7 +21,7 @@ import (
 	"os/exec"
 
 	"github.com/hashicorp/go-multierror"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 )
 
 // cloudInitConsole represents a yip's Console implementations using

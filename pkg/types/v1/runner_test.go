@@ -18,8 +18,8 @@ package v1_test
 
 import (
 	"bytes"
-	v1 "github.com/kairos-io/kairos/v2/pkg/types/v1"
-	v1mock "github.com/kairos-io/kairos/v2/tests/mocks"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
