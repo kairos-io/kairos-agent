@@ -42,7 +42,6 @@ func Reset(debug bool, dir ...string) error {
 
 	// This loads yet another config ¬_¬
 	// TODO: merge this somehow with the rest so there is no 5 places to configure stuff?
-	// Also this reads the elemental config.yaml
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
