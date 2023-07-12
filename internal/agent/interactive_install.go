@@ -8,8 +8,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
-
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/unstructured"
 
@@ -279,14 +277,8 @@ func InteractiveInstall(debug, spawnShell bool) error {
 
 	// Set debug from here already, so it's loaded by the ReadConfigRun
 	viper.Set("debug", debug)
-
-	// Load the installation Config from the cloud-config data
-	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(finalCloudConfig)
-	if err != nil {
-		return err
-	}
-
-	err = RunInstall(installConfig, map[string]string{
+	
+	err = RunInstall(map[string]string{
 		"device": device,
 		"cc":     finalCloudConfig,
 	})

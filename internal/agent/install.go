@@ -96,11 +96,7 @@ func ManualInstall(c string, options map[string]string, strictValidations bool) 
 			}
 		}
 	}
-	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(configStr)
-	if err != nil {
-		return err
-	}
-	return RunInstall(installConfig, options)
+	return RunInstall(options)
 }
 
 func Install(dir ...string) error {
@@ -139,13 +135,7 @@ func Install(dir ...string) error {
 		r["device"] = cc.Install.Device
 		mergeOption(configStr, r)
 
-		// Load the installation Config from the system
-		installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(configStr)
-		if err != nil {
-			return err
-		}
-
-		err = RunInstall(installConfig, r)
+		err = RunInstall(r)
 		if err != nil {
 			return err
 		}
@@ -237,15 +227,9 @@ func Install(dir ...string) error {
 
 	r["cc"] = config.AddHeader(header, string(out))
 
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(r["cc"])
-	if err != nil {
-		return err
-	}
-
 	pterm.Info.Println("Starting installation")
 
-	if err := RunInstall(installConfig, r); err != nil {
+	if err := RunInstall(r); err != nil {
 		return err
 	}
 
@@ -262,14 +246,7 @@ func Install(dir ...string) error {
 	return nil
 }
 
-func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
-	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
-	if err != nil {
-		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
-		return err
-	}
-	defer os.RemoveAll(f.Name())
-
+func RunInstall(options map[string]string) error {
 	cloudInit, ok := options["cc"]
 	if !ok {
 		fmt.Println("cloudInit must be specified among options")
@@ -288,6 +265,19 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	// Does it make sense anymore? We can now expose the whole options of elemental directly
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
+
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(cloudInit)
+	if err != nil {
+		return err
+	}
+
+	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
+	if err != nil {
+		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		return err
+	}
+	defer os.RemoveAll(f.Name())
 
 	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
 	if err != nil {
