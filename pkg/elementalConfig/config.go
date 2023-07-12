@@ -18,6 +18,7 @@ package elementalConfig
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"io"
 	"io/fs"
 	"os"
@@ -35,7 +36,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/twpayne/go-vfs"
 	"k8s.io/mount-utils"
@@ -222,11 +222,13 @@ func NewInstallSpec(cfg v1.Config) *v1.InstallSpec {
 		recoveryImg.Source = v1.NewFileSrc(recoveryImgFile)
 		recoveryImg.FS = constants.SquashFs
 		recoveryImg.File = filepath.Join(constants.RecoveryDir, "cOS", constants.RecoverySquashFile)
+		recoveryImg.Size = constants.ImgSize
 	} else {
 		recoveryImg.Source = v1.NewFileSrc(activeImg.File)
 		recoveryImg.FS = constants.LinuxImgFs
 		recoveryImg.Label = constants.SystemLabel
 		recoveryImg.File = filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)
+		recoveryImg.Size = constants.ImgSize
 	}
 
 	passiveImg = v1.Image{
@@ -234,6 +236,7 @@ func NewInstallSpec(cfg v1.Config) *v1.InstallSpec {
 		Label:  constants.PassiveLabel,
 		Source: v1.NewFileSrc(activeImg.File),
 		FS:     constants.LinuxImgFs,
+		Size:   constants.ImgSize,
 	}
 
 	return &v1.InstallSpec{
@@ -364,6 +367,7 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 		passive = v1.Image{
 			File:   filepath.Join(ep.State.MountPoint, "cOS", constants.PassiveImgFile),
 			Label:  constants.PassiveLabel,
+			Size:   constants.ImgSize,
 			Source: v1.NewFileSrc(active.File),
 			FS:     active.FS,
 		}
@@ -502,6 +506,7 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		Passive: v1.Image{
 			File:   filepath.Join(ep.State.MountPoint, "cOS", constants.PassiveImgFile),
 			Label:  constants.PassiveLabel,
+			Size:   constants.ImgSize,
 			Source: v1.NewFileSrc(activeFile),
 			FS:     constants.LinuxImgFs,
 		},
@@ -539,62 +544,31 @@ func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
 	return b
 }
 
-func ReadConfigRun(configDir string) (*v1.RunConfig, error) {
+// ReadConfigRunFromCloudConfig reads the configuration directly from a given cloud config string
+func ReadConfigRunFromCloudConfig(cc string) (*v1.RunConfig, error) {
 	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithOCIImageExtractor())
+	var err error
 
 	configLogger(cfg.Logger, cfg.Fs)
-
-	// TODO: is this really needed? It feels quite wrong, shouldn't it be loaded
-	// as regular environment variables?
-	// IMHO loading os-release as env variables should be sufficient here
-	cfgDefault := []string{"/etc/os-release"}
-	for _, c := range cfgDefault {
-		if exists, _ := utils.Exists(cfg.Fs, c); exists {
-			viper.SetConfigFile(c)
-			viper.SetConfigType("env")
-			cobra.CheckErr(viper.MergeInConfig())
-		}
-	}
-
-	// merge yaml config files on top of default runconfig
-	if exists, _ := utils.Exists(cfg.Fs, configDir); exists {
-		viper.AddConfigPath(configDir)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName("config")
-		// If a config file is found, read it in.
-		err := viper.MergeInConfig()
-		if err != nil {
-			cfg.Logger.Warnf("error merging config files: %s", err)
-		}
-	}
-
-	// Load extra config files on configdir/config.d/ so we can override config values
-	cfgExtra := fmt.Sprintf("%s/config.d/", strings.TrimSuffix(configDir, "/"))
-	if exists, _ := utils.Exists(cfg.Fs, cfgExtra); exists {
-		viper.AddConfigPath(cfgExtra)
-		_ = filepath.WalkDir(cfgExtra, func(path string, d fs.DirEntry, err error) error {
-			if !d.IsDir() && filepath.Ext(d.Name()) == ".yaml" {
-				viper.SetConfigType("yaml")
-				viper.SetConfigName(strings.TrimSuffix(d.Name(), ".yaml"))
-				cobra.CheckErr(viper.MergeInConfig())
-			}
-			return nil
-		})
-	}
-
-	// unmarshal all the vars into the RunConfig object
-	err := viper.Unmarshal(cfg, setDecoder, decodeHook)
+	err = yaml.Unmarshal([]byte(cc), &cfg)
 	if err != nil {
-		cfg.Logger.Warnf("error unmarshalling RunConfig: %s", err)
+		return nil, err
 	}
-
+	// Store the full cloud-config in here so we can reuse it afterwards
+	cfg.FullCloudConfig = cc
 	err = cfg.Sanitize()
 	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
 	return cfg, err
 }
 
-func ReadInstallSpec(r *v1.RunConfig) (*v1.InstallSpec, error) {
+// ReadInstallSpecFromCloudConfig generates an installation spec from the raw cloud-config data
+func ReadInstallSpecFromCloudConfig(r *v1.RunConfig) (*v1.InstallSpec, error) {
 	install := NewInstallSpec(r.Config)
+
+	// Load the config into viper from the raw cloud config string
+	viper.SetConfigType("yaml")
+	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
+	// Get the install subkey so we only use those values
 	vp := viper.Sub("install")
 	if vp == nil {
 		vp = viper.New()
@@ -609,11 +583,15 @@ func ReadInstallSpec(r *v1.RunConfig) (*v1.InstallSpec, error) {
 	return install, err
 }
 
-func ReadUpgradeSpec(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
+func ReadUpgradeSpecFromCloudConfig(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
 	upgrade, err := NewUpgradeSpec(r.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed initializing upgrade spec: %v", err)
 	}
+
+	// Load the config into viper from the raw cloud config string
+	viper.SetConfigType("yaml")
+	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
 	vp := viper.Sub("upgrade")
 	if vp == nil {
 		vp = viper.New()
@@ -628,11 +606,14 @@ func ReadUpgradeSpec(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
 	return upgrade, err
 }
 
-func ReadResetSpec(r *v1.RunConfig) (*v1.ResetSpec, error) {
+func ReadResetSpecFromCloudConfig(r *v1.RunConfig) (*v1.ResetSpec, error) {
 	reset, err := NewResetSpec(r.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed initializing reset spec: %v", err)
 	}
+	// Load the config into viper from the raw cloud config string
+	viper.SetConfigType("yaml")
+	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
 	vp := viper.Sub("reset")
 	if vp == nil {
 		vp = viper.New()

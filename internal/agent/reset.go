@@ -3,22 +3,21 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
 	"os"
 	"sync"
 	"time"
 
-	sdk "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/machine"
-	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
+	sdk "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/utils"
 
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -51,29 +50,32 @@ func Reset(debug bool, dir ...string) error {
 
 	cmd.PrintText(agentConfig.Branding.Reset, "Reset")
 
-	// We don't close the lock, as none of the following actions are expected to return
-	lock := sync.Mutex{}
-	go func() {
-		// Wait for user input and go back to shell
-		utils.Prompt("") //nolint:errcheck
-		// give tty1 back
-		svc, err := machine.Getty(1)
-		if err == nil {
-			svc.Start() //nolint:errcheck
+	/*
+		// We don't close the lock, as none of the following actions are expected to return
+		lock := sync.Mutex{}
+		go func() {
+			// Wait for user input and go back to shell
+			utils.Prompt("") //nolint:errcheck
+			// give tty1 back
+			svc, err := machine.Getty(1)
+			if err == nil {
+				svc.Start() //nolint:errcheck
+			}
+
+			lock.Lock()
+			fmt.Println("Reset aborted")
+			panic(utils.Shell().Run())
+		}()
+
+		if !agentConfig.Fast {
+			time.Sleep(60 * time.Second)
 		}
-
 		lock.Lock()
-		fmt.Println("Reset aborted")
-		panic(utils.Shell().Run())
-	}()
 
-	if !agentConfig.Fast {
-		time.Sleep(60 * time.Second)
-	}
-	lock.Lock()
+		ensureDataSourceReady()
 
-	ensureDataSourceReady()
 
+	*/
 	bus.Manager.Publish(sdk.EventBeforeReset, sdk.EventPayload{}) //nolint:errcheck
 
 	c, err := config.Scan(collector.Directories(dir...))
@@ -83,15 +85,20 @@ func Reset(debug bool, dir ...string) error {
 
 	utils.SetEnv(c.Env)
 
-	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	cc, err := c.String()
 	if err != nil {
 		return err
 	}
+	// Load the installation Config from the cloud-config data
+	resetConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
+	if err != nil {
+		return err
+	}
+
 	if debug {
 		resetConfig.Logger.SetLevel(logrus.DebugLevel)
 	}
-	resetConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(resetConfig))
-	resetSpec, err := elementalConfig.ReadResetSpec(resetConfig)
+	resetSpec, err := elementalConfig.ReadResetSpecFromCloudConfig(resetConfig)
 	if err != nil {
 		return err
 	}

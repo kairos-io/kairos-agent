@@ -280,8 +280,8 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	// Set debug from here already, so it's loaded by the ReadConfigRun
 	viper.Set("debug", debug)
 
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	// Load the installation Config from the cloud-config data
+	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(finalCloudConfig)
 	if err != nil {
 		return err
 	}

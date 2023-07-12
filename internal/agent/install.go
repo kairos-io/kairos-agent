@@ -11,10 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/machine"
-	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
@@ -23,6 +19,10 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/utils"
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -96,13 +96,10 @@ func ManualInstall(c string, options map[string]string, strictValidations bool) 
 			}
 		}
 	}
-
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(configStr)
 	if err != nil {
 		return err
 	}
-
 	return RunInstall(installConfig, options)
 }
 
@@ -130,12 +127,6 @@ func Install(dir ...string) error {
 
 	ensureDataSourceReady()
 
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
-	if err != nil {
-		return err
-	}
-
 	// Reads config, and if present and offline is defined,
 	// runs the installation
 	cc, err := config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
@@ -147,6 +138,12 @@ func Install(dir ...string) error {
 		r["cc"] = configStr
 		r["device"] = cc.Install.Device
 		mergeOption(configStr, r)
+
+		// Load the installation Config from the system
+		installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(configStr)
+		if err != nil {
+			return err
+		}
 
 		err = RunInstall(installConfig, r)
 		if err != nil {
@@ -240,6 +237,12 @@ func Install(dir ...string) error {
 
 	r["cc"] = config.AddHeader(header, string(out))
 
+	// Load the installation Config from the system
+	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(r["cc"])
+	if err != nil {
+		return err
+	}
+
 	pterm.Info.Println("Starting installation")
 
 	if err := RunInstall(installConfig, r); err != nil {
@@ -302,8 +305,7 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	}
 
 	// Generate the installation spec
-	installSpec, _ := elementalConfig.ReadInstallSpec(installConfig)
-
+	installSpec, _ := elementalConfig.ReadInstallSpecFromCloudConfig(installConfig)
 	installSpec.NoFormat = c.Install.NoFormat
 
 	// Set our cloud-init to the file we just created

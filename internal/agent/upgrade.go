@@ -6,17 +6,16 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
-	"github.com/sanity-io/litter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -102,7 +101,11 @@ func Upgrade(
 	utils.SetEnv(c.Env)
 
 	// Load the upgrade Config from the system
-	upgradeConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	cc, err := c.String()
+	if err != nil {
+		return err
+	}
+	upgradeConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
 	if err != nil {
 		return err
 	}
@@ -110,10 +113,8 @@ func Upgrade(
 		upgradeConfig.Logger.SetLevel(log.DebugLevel)
 	}
 
-	upgradeConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(upgradeConfig))
-
 	// Generate the upgrade spec
-	upgradeSpec, _ := elementalConfig.ReadUpgradeSpec(upgradeConfig)
+	upgradeSpec, _ := elementalConfig.ReadUpgradeSpecFromCloudConfig(upgradeConfig)
 	// Add the image source
 	imgSource, err := v1.NewSrcFromURI(img)
 	if err != nil {
