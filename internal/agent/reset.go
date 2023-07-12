@@ -49,32 +49,29 @@ func Reset(debug bool, dir ...string) error {
 
 	cmd.PrintText(agentConfig.Branding.Reset, "Reset")
 
-	/*
-		// We don't close the lock, as none of the following actions are expected to return
-		lock := sync.Mutex{}
-		go func() {
-			// Wait for user input and go back to shell
-			utils.Prompt("") //nolint:errcheck
-			// give tty1 back
-			svc, err := machine.Getty(1)
-			if err == nil {
-				svc.Start() //nolint:errcheck
-			}
-
-			lock.Lock()
-			fmt.Println("Reset aborted")
-			panic(utils.Shell().Run())
-		}()
-
-		if !agentConfig.Fast {
-			time.Sleep(60 * time.Second)
+	// We don't close the lock, as none of the following actions are expected to return
+	lock := sync.Mutex{}
+	go func() {
+		// Wait for user input and go back to shell
+		utils.Prompt("") //nolint:errcheck
+		// give tty1 back
+		svc, err := machine.Getty(1)
+		if err == nil {
+			svc.Start() //nolint:errcheck
 		}
+
 		lock.Lock()
+		fmt.Println("Reset aborted")
+		panic(utils.Shell().Run())
+	}()
 
-		ensureDataSourceReady()
+	if !agentConfig.Fast {
+		time.Sleep(60 * time.Second)
+	}
+	lock.Lock()
 
+	ensureDataSourceReady()
 
-	*/
 	bus.Manager.Publish(sdk.EventBeforeReset, sdk.EventPayload{}) //nolint:errcheck
 
 	c, err := config.Scan(collector.Directories(dir...))
