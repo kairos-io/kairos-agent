@@ -266,8 +266,17 @@ func RunInstall(options map[string]string) error {
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
 
+	_, reboot := options["reboot"]
+	_, poweroff := options["poweroff"]
+	if poweroff {
+		c.Install.Poweroff = true
+	}
+	if reboot {
+		c.Install.Reboot = true
+	}
+
 	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(cloudInit)
+	installConfig, installSpec, err := elementalConfig.ReadInstallConfigFromAgentConfig(c)
 	if err != nil {
 		return err
 	}
@@ -285,17 +294,6 @@ func RunInstall(options map[string]string) error {
 		return err
 	}
 
-	_, reboot := options["reboot"]
-	_, poweroff := options["poweroff"]
-	if poweroff {
-		c.Install.Poweroff = true
-	}
-	if reboot {
-		c.Install.Reboot = true
-	}
-
-	// Generate the installation spec
-	installSpec, _ := elementalConfig.ReadInstallSpecFromCloudConfig(installConfig)
 	installSpec.NoFormat = c.Install.NoFormat
 
 	// Set our cloud-init to the file we just created

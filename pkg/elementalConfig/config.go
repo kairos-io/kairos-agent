@@ -29,6 +29,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/http"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -544,10 +545,15 @@ func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
 	return b
 }
 
-// ReadConfigRunFromCloudConfig reads the configuration directly from a given cloud config string
-func ReadConfigRunFromCloudConfig(cc string) (*v1.RunConfig, error) {
+// ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string
+func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) {
 	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithOCIImageExtractor())
 	var err error
+
+	cc, err := c.String()
+	if err != nil {
+		return nil, err
+	}
 
 	configLogger(cfg.Logger, cfg.Fs)
 	err = yaml.Unmarshal([]byte(cc), &cfg)
@@ -561,34 +567,7 @@ func ReadConfigRunFromCloudConfig(cc string) (*v1.RunConfig, error) {
 	return cfg, err
 }
 
-// ReadInstallSpecFromCloudConfig generates an installation spec from the raw cloud-config data
-func ReadInstallSpecFromCloudConfig(r *v1.RunConfig) (*v1.InstallSpec, error) {
-	install, err := readSpecFromCloudConfig(r, "install")
-	if err != nil {
-		return nil, err
-	}
-	installSpec := install.(*v1.InstallSpec)
-	return installSpec, err
-}
-
-func ReadUpgradeSpecFromCloudConfig(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
-	upgrade, err := readSpecFromCloudConfig(r, "upgrade")
-	if err != nil {
-		return nil, err
-	}
-	upgradeSpec := upgrade.(*v1.UpgradeSpec)
-	return upgradeSpec, err
-}
-
-func ReadResetSpecFromCloudConfig(r *v1.RunConfig) (*v1.ResetSpec, error) {
-	reset, err := readSpecFromCloudConfig(r, "reset")
-	if err != nil {
-		return nil, err
-	}
-	resetSpec := reset.(*v1.ResetSpec)
-	return resetSpec, err
-}
-
+// readSpecFromCloudConfig returns a v1.Spec for the given spec
 func readSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 	var sp v1.Spec
 	var err error
@@ -619,9 +598,49 @@ func readSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 	if err != nil {
 		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
-	err = sp.Sanitize()
 	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
 	return sp, err
+}
+
+// readConfigAndSpecFromAgentConfig will return the config and spec for the given action based off the agent Config
+func readConfigAndSpecFromAgentConfig(c *agentConfig.Config, action string) (*v1.RunConfig, v1.Spec, error) {
+	runConfig, err := ReadConfigRunFromAgentConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	spec, err := readSpecFromCloudConfig(runConfig, action)
+	if err != nil {
+		return nil, nil, err
+	}
+	return runConfig, spec, nil
+}
+
+// ReadResetConfigFromAgentConfig will return a proper v1.RunConfig and v1.ResetSpec based on an agent Config
+func ReadResetConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.ResetSpec, error) {
+	config, spec, err := readConfigAndSpecFromAgentConfig(c, "reset")
+	if err != nil {
+		return nil, nil, err
+	}
+	resetSpec := spec.(*v1.ResetSpec)
+	return config, resetSpec, nil
+}
+
+func ReadInstallConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.InstallSpec, error) {
+	config, spec, err := readConfigAndSpecFromAgentConfig(c, "install")
+	if err != nil {
+		return nil, nil, err
+	}
+	installSpec := spec.(*v1.InstallSpec)
+	return config, installSpec, nil
+}
+
+func ReadUpgradeConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.UpgradeSpec, error) {
+	config, spec, err := readConfigAndSpecFromAgentConfig(c, "upgrade")
+	if err != nil {
+		return nil, nil, err
+	}
+	upgradeSpec := spec.(*v1.UpgradeSpec)
+	return config, upgradeSpec, nil
 }
 
 func configLogger(log v1.Logger, vfs v1.FS) {

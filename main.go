@@ -136,7 +136,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			}
 
 			return agent.Upgrade(
-				v, source, c.Bool("force"), c.Bool("debug"),
+				v, source, c.Bool("force"),
 				c.Bool("strict-validation"), configScanDir,
 				c.Bool("pre"),
 			)
@@ -457,7 +457,8 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 	{
 		Name: "reset",
 		Action: func(c *cli.Context) error {
-			return agent.Reset(c.Bool("debug"), configScanDir...)
+
+			return agent.Reset(configScanDir...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `
@@ -539,11 +540,7 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return err
 			}
-			cc, err := config.String()
-			if err != nil {
-				return err
-			}
-			cfg, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
+			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
 			cfg.Strict = c.Bool("strict")
 
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
@@ -594,11 +591,7 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return err
 			}
-			cc, err := config.String()
-			if err != nil {
-				return err
-			}
-			cfg, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
+			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
 			if err != nil {
 				return err
 			}

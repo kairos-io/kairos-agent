@@ -16,7 +16,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
-	log "github.com/sirupsen/logrus"
 )
 
 func ListReleases(includePrereleases bool) semver.Collection {
@@ -48,7 +47,7 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, source string, force, debug, strictValidations bool, dirs []string, preReleases bool) error {
+	version, source string, force, strictValidations bool, dirs []string, preReleases bool) error {
 	bus.Manager.Initialize()
 
 	if version == "" && source == "" {
@@ -89,10 +88,6 @@ func Upgrade(
 		}
 	}
 
-	if debug {
-		fmt.Printf("Upgrading to source: '%s'\n", img)
-	}
-
 	c, err := config.Scan(collector.Directories(dirs...), collector.StrictValidation(strictValidations))
 	if err != nil {
 		return err
@@ -101,20 +96,11 @@ func Upgrade(
 	utils.SetEnv(c.Env)
 
 	// Load the upgrade Config from the system
-	cc, err := c.String()
+	upgradeConfig, upgradeSpec, err := elementalConfig.ReadUpgradeConfigFromAgentConfig(c)
 	if err != nil {
 		return err
-	}
-	upgradeConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
-	if err != nil {
-		return err
-	}
-	if debug {
-		upgradeConfig.Logger.SetLevel(log.DebugLevel)
 	}
 
-	// Generate the upgrade spec
-	upgradeSpec, _ := elementalConfig.ReadUpgradeSpecFromCloudConfig(upgradeConfig)
 	// Add the image source
 	imgSource, err := v1.NewSrcFromURI(img)
 	if err != nil {
@@ -122,7 +108,7 @@ func Upgrade(
 	}
 	upgradeSpec.Active.Source = imgSource
 
-	// Sanitize (this is not required but good to do
+	// Sanitize
 	err = upgradeSpec.Sanitize()
 	if err != nil {
 		return err

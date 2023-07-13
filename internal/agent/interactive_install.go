@@ -17,7 +17,6 @@ import (
 	"github.com/mudler/go-pluggable"
 	"github.com/mudler/yip/pkg/schema"
 	"github.com/pterm/pterm"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -275,9 +274,6 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	pterm.Info.Println("Starting installation")
 	pterm.Info.Println(finalCloudConfig)
 
-	// Set debug from here already, so it's loaded by the ReadConfigRun
-	viper.Set("debug", debug)
-	
 	err = RunInstall(map[string]string{
 		"device": device,
 		"cc":     finalCloudConfig,

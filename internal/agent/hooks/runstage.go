@@ -11,11 +11,7 @@ import (
 type RunStage struct{}
 
 func (r RunStage) Run(c config.Config) error {
-	cc, err := c.String()
-	if err != nil {
-		return err
-	}
-	cfg, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
+	cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(&c)
 	if err != nil {
 		cfg.Logger.Errorf("Error reading config: %s\n", err)
 	}

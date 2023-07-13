@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
 	"sync"
 	"time"
@@ -23,7 +22,7 @@ import (
 	"github.com/pterm/pterm"
 )
 
-func Reset(debug bool, dir ...string) error {
+func Reset(dir ...string) error {
 	// TODO: Enable args? No args for now so no possibility of reset persistent or overriding the source for the reset
 	// Nor the auto-reboot via cmd?
 	// This comment pertains calling reset via cmdline when wanting to override configs
@@ -81,23 +80,12 @@ func Reset(debug bool, dir ...string) error {
 
 	utils.SetEnv(c.Env)
 
-	cc, err := c.String()
-	if err != nil {
-		return err
-	}
 	// Load the installation Config from the cloud-config data
-	resetConfig, err := elementalConfig.ReadConfigRunFromCloudConfig(cc)
+	resetConfig, resetSpec, err := elementalConfig.ReadResetConfigFromAgentConfig(c)
 	if err != nil {
 		return err
 	}
 
-	if debug {
-		resetConfig.Logger.SetLevel(logrus.DebugLevel)
-	}
-	resetSpec, err := elementalConfig.ReadResetSpecFromCloudConfig(resetConfig)
-	if err != nil {
-		return err
-	}
 	// Not even sure what opts can come from here to be honest. Where is the struct that supports this options?
 	// Where is the docs to support this? This is generic af and not easily identifiable
 	if len(options) == 0 {
