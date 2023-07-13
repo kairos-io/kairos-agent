@@ -122,12 +122,13 @@ func (c *Config) Sanitize() error {
 }
 
 type RunConfig struct {
-	Debug          bool     `yaml:"strict,omitempty" mapstructure:"debug"`
-	Strict         bool     `yaml:"strict,omitempty" mapstructure:"strict"`
-	Reboot         bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff       bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	CloudInitPaths []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
-	EjectCD        bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
+	Debug           bool     `yaml:"debug,omitempty" mapstructure:"debug"`
+	Strict          bool     `yaml:"strict,omitempty" mapstructure:"strict"`
+	Reboot          bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	CloudInitPaths  []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
+	EjectCD         bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
+	FullCloudConfig string   // Stores the full cloud config used to generate the spec afterwards
 
 	// 'inline' and 'squash' labels ensure config fields
 	// are embedded from a yaml and map PoV
@@ -195,6 +196,10 @@ func (i *InstallSpec) Sanitize() error {
 		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
 	}
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
+}
+
+type Spec interface {
+	Sanitize() error
 }
 
 // ResetSpec struct represents all the reset action details

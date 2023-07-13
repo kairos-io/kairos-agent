@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,7 +18,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
@@ -136,7 +136,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			}
 
 			return agent.Upgrade(
-				v, source, c.Bool("force"), c.Bool("debug"),
+				v, source, c.Bool("force"),
 				c.Bool("strict-validation"), configScanDir,
 				c.Bool("pre"),
 			)
@@ -457,7 +457,8 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 	{
 		Name: "reset",
 		Action: func(c *cli.Context) error {
-			return agent.Reset(c.Bool("debug"), configScanDir...)
+
+			return agent.Reset(configScanDir...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `
@@ -535,7 +536,11 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 		Action: func(c *cli.Context) error {
 			stage := c.Args().First()
-			cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
+			config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			if err != nil {
+				return err
+			}
+			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
 			cfg.Strict = c.Bool("strict")
 
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
@@ -582,7 +587,11 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return fmt.Errorf("invalid path %s", destination)
 			}
-			cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
+			config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			if err != nil {
+				return err
+			}
+			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
 			if err != nil {
 				return err
 			}

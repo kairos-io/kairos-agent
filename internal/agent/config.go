@@ -31,7 +31,7 @@ type Config struct {
 
 func LoadConfig(path ...string) (*Config, error) {
 	if len(path) == 0 {
-		path = append(path, "/etc/kairos/agent.yaml", "/etc/elemental/config.yaml")
+		path = append(path, "/etc/kairos/agent.yaml")
 	}
 
 	cfg := &Config{}

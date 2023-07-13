@@ -1,18 +1,15 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"path/filepath"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
@@ -66,27 +63,17 @@ var _ = Describe("prepareConfiguration", func() {
 })
 
 var _ = Describe("RunInstall", func() {
-	var installConfig *v1.RunConfig
 	var options map[string]string
 	var err error
 	var fs vfs.FS
-	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
-	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
 	var cmdline func() ([]byte, error)
 
 	BeforeEach(func() {
 		// Default mock objects
 		runner := v1mock.NewFakeRunner()
-		syscall := &v1mock.FakeSyscall{}
-		mounter := v1mock.NewErrorMounter()
-		memLog = &bytes.Buffer{}
-		logger := v1.NewBufferLogger(memLog)
-		logger = v1.NewLogger()
-		extractor := v1mock.NewFakeImageExtractor(logger)
 		//logger.SetLevel(v1.DebugLevel())
-		cloudInit = &v1mock.FakeCloudInitRunner{}
 		// Set default cmdline function so we dont panic :o
 		cmdline = func() ([]byte, error) {
 			return []byte{}, nil
@@ -104,17 +91,6 @@ var _ = Describe("RunInstall", func() {
 		Expect(err).To(BeNil())
 		_, err = fs.Create(grubCfg)
 		Expect(err).To(BeNil())
-
-		// Create new runconfig with all mocked objects
-		installConfig = conf.NewRunConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithCloudInitRunner(cloudInit),
-			conf.WithImageExtractor(extractor),
-		)
 
 		// Side effect of runners, hijack calls to commands and return our stuff
 		partNum := 0
@@ -225,7 +201,7 @@ install:
 
 	It("runs the install", func() {
 		Skip("Not ready yet")
-		err = RunInstall(installConfig, options)
+		err = RunInstall(options)
 		Expect(err).ToNot(HaveOccurred())
 	})
 })

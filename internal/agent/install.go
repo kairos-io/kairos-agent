@@ -11,10 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/machine"
-	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
@@ -23,6 +19,10 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/utils"
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -96,14 +96,7 @@ func ManualInstall(c string, options map[string]string, strictValidations bool) 
 			}
 		}
 	}
-
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
-	if err != nil {
-		return err
-	}
-
-	return RunInstall(installConfig, options)
+	return RunInstall(options)
 }
 
 func Install(dir ...string) error {
@@ -130,12 +123,6 @@ func Install(dir ...string) error {
 
 	ensureDataSourceReady()
 
-	// Load the installation Config from the system
-	installConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
-	if err != nil {
-		return err
-	}
-
 	// Reads config, and if present and offline is defined,
 	// runs the installation
 	cc, err := config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
@@ -148,7 +135,7 @@ func Install(dir ...string) error {
 		r["device"] = cc.Install.Device
 		mergeOption(configStr, r)
 
-		err = RunInstall(installConfig, r)
+		err = RunInstall(r)
 		if err != nil {
 			return err
 		}
@@ -242,7 +229,7 @@ func Install(dir ...string) error {
 
 	pterm.Info.Println("Starting installation")
 
-	if err := RunInstall(installConfig, r); err != nil {
+	if err := RunInstall(r); err != nil {
 		return err
 	}
 
@@ -259,14 +246,7 @@ func Install(dir ...string) error {
 	return nil
 }
 
-func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
-	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
-	if err != nil {
-		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
-		return err
-	}
-	defer os.RemoveAll(f.Name())
-
+func RunInstall(options map[string]string) error {
 	cloudInit, ok := options["cc"]
 	if !ok {
 		fmt.Println("cloudInit must be specified among options")
@@ -286,12 +266,6 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 	env := append(c.Install.Env, c.Env...)
 	utils.SetEnv(env)
 
-	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
-	if err != nil {
-		fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
-		return err
-	}
-
 	_, reboot := options["reboot"]
 	_, poweroff := options["poweroff"]
 	if poweroff {
@@ -301,8 +275,24 @@ func RunInstall(installConfig *v1.RunConfig, options map[string]string) error {
 		c.Install.Reboot = true
 	}
 
-	// Generate the installation spec
-	installSpec, _ := elementalConfig.ReadInstallSpec(installConfig)
+	// Load the installation Config from the system
+	installConfig, installSpec, err := elementalConfig.ReadInstallConfigFromAgentConfig(c)
+	if err != nil {
+		return err
+	}
+
+	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
+	if err != nil {
+		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		return err
+	}
+	defer os.RemoveAll(f.Name())
+
+	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	if err != nil {
+		fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
+		return err
+	}
 
 	installSpec.NoFormat = c.Install.NoFormat
 

@@ -3,28 +3,26 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sanity-io/litter"
-	"github.com/sirupsen/logrus"
 	"os"
 	"sync"
 	"time"
 
-	sdk "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/machine"
-	"github.com/kairos-io/kairos-sdk/utils"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
+	sdk "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/utils"
 
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
 )
 
-func Reset(debug bool, dir ...string) error {
+func Reset(dir ...string) error {
 	// TODO: Enable args? No args for now so no possibility of reset persistent or overriding the source for the reset
 	// Nor the auto-reboot via cmd?
 	// This comment pertains calling reset via cmdline when wanting to override configs
@@ -43,7 +41,6 @@ func Reset(debug bool, dir ...string) error {
 
 	// This loads yet another config ¬_¬
 	// TODO: merge this somehow with the rest so there is no 5 places to configure stuff?
-	// Also this reads the elemental config.yaml
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
@@ -83,18 +80,12 @@ func Reset(debug bool, dir ...string) error {
 
 	utils.SetEnv(c.Env)
 
-	resetConfig, err := elementalConfig.ReadConfigRun("/etc/elemental")
+	// Load the installation Config from the cloud-config data
+	resetConfig, resetSpec, err := elementalConfig.ReadResetConfigFromAgentConfig(c)
 	if err != nil {
 		return err
 	}
-	if debug {
-		resetConfig.Logger.SetLevel(logrus.DebugLevel)
-	}
-	resetConfig.Logger.Debugf("Full config: %s\n", litter.Sdump(resetConfig))
-	resetSpec, err := elementalConfig.ReadResetSpec(resetConfig)
-	if err != nil {
-		return err
-	}
+
 	// Not even sure what opts can come from here to be honest. Where is the struct that supports this options?
 	// Where is the docs to support this? This is generic af and not easily identifiable
 	if len(options) == 0 {

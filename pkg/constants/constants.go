@@ -24,7 +24,7 @@ import (
 const (
 	GrubConf                = "/etc/cos/grub.cfg"
 	GrubOEMEnv              = "grub_oem_env"
-	GrubDefEntry            = "cOS"
+	GrubDefEntry            = "Kairos"
 	DefaultTty              = "tty1"
 	BiosPartName            = "bios"
 	EfiLabel                = "COS_GRUB"

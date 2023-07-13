@@ -10,8 +10,8 @@ import (
 
 type RunStage struct{}
 
-func (r RunStage) Run(_ config.Config) error {
-	cfg, err := elementalConfig.ReadConfigRun("/etc/elemental")
+func (r RunStage) Run(c config.Config) error {
+	cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(&c)
 	if err != nil {
 		cfg.Logger.Errorf("Error reading config: %s\n", err)
 	}
