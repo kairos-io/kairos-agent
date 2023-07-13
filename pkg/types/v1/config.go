@@ -198,6 +198,10 @@ func (i *InstallSpec) Sanitize() error {
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
+type Spec interface {
+	Sanitize() error
+}
+
 // ResetSpec struct represents all the reset action details
 type ResetSpec struct {
 	FormatPersistent bool `yaml:"reset-persistent,omitempty" mapstructure:"reset-persistent"`

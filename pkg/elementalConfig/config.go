@@ -563,69 +563,65 @@ func ReadConfigRunFromCloudConfig(cc string) (*v1.RunConfig, error) {
 
 // ReadInstallSpecFromCloudConfig generates an installation spec from the raw cloud-config data
 func ReadInstallSpecFromCloudConfig(r *v1.RunConfig) (*v1.InstallSpec, error) {
-	install := NewInstallSpec(r.Config)
-
-	// Load the config into viper from the raw cloud config string
-	viper.SetConfigType("yaml")
-	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
-	// Get the install subkey so we only use those values
-	vp := viper.Sub("install")
-	if vp == nil {
-		vp = viper.New()
-	}
-
-	err := vp.Unmarshal(install, setDecoder, decodeHook)
+	install, err := readSpecFromCloudConfig(r, "install")
 	if err != nil {
-		r.Logger.Warnf("error unmarshalling InstallSpec: %s", err)
+		return nil, err
 	}
-	err = install.Sanitize()
-	r.Logger.Debugf("Loaded install spec: %s", litter.Sdump(install))
-	return install, err
+	installSpec := install.(*v1.InstallSpec)
+	return installSpec, err
 }
 
 func ReadUpgradeSpecFromCloudConfig(r *v1.RunConfig) (*v1.UpgradeSpec, error) {
-	upgrade, err := NewUpgradeSpec(r.Config)
+	upgrade, err := readSpecFromCloudConfig(r, "upgrade")
 	if err != nil {
-		return nil, fmt.Errorf("failed initializing upgrade spec: %v", err)
+		return nil, err
 	}
-
-	// Load the config into viper from the raw cloud config string
-	viper.SetConfigType("yaml")
-	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
-	vp := viper.Sub("upgrade")
-	if vp == nil {
-		vp = viper.New()
-	}
-
-	err = vp.Unmarshal(upgrade, setDecoder, decodeHook)
-	if err != nil {
-		r.Logger.Warnf("error unmarshalling UpgradeSpec: %s", err)
-	}
-	err = upgrade.Sanitize()
-	r.Logger.Debugf("Loaded upgrade UpgradeSpec: %s", litter.Sdump(upgrade))
-	return upgrade, err
+	upgradeSpec := upgrade.(*v1.UpgradeSpec)
+	return upgradeSpec, err
 }
 
 func ReadResetSpecFromCloudConfig(r *v1.RunConfig) (*v1.ResetSpec, error) {
-	reset, err := NewResetSpec(r.Config)
+	reset, err := readSpecFromCloudConfig(r, "reset")
+	if err != nil {
+		return nil, err
+	}
+	resetSpec := reset.(*v1.ResetSpec)
+	return resetSpec, err
+}
+
+func readSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
+	var sp v1.Spec
+	var err error
+
+	switch spec {
+	case "install":
+		sp = NewInstallSpec(r.Config)
+	case "upgrade":
+		sp, err = NewUpgradeSpec(r.Config)
+	case "reset":
+		sp, err = NewResetSpec(r.Config)
+	default:
+		return nil, fmt.Errorf("spec not valid: %s", spec)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed initializing reset spec: %v", err)
 	}
+
 	// Load the config into viper from the raw cloud config string
 	viper.SetConfigType("yaml")
 	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
-	vp := viper.Sub("reset")
+	vp := viper.Sub(spec)
 	if vp == nil {
 		vp = viper.New()
 	}
 
-	err = vp.Unmarshal(reset, setDecoder, decodeHook)
+	err = vp.Unmarshal(sp, setDecoder, decodeHook)
 	if err != nil {
-		r.Logger.Warnf("error unmarshalling ResetSpec: %s", err)
+		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
-	err = reset.Sanitize()
-	r.Logger.Debugf("Loaded reset spec: %s", litter.Sdump(reset))
-	return reset, err
+	err = sp.Sanitize()
+	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
+	return sp, err
 }
 
 func configLogger(log v1.Logger, vfs v1.FS) {
