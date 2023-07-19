@@ -19,17 +19,13 @@ package action
 import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/sirupsen/logrus"
 )
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
 // in case v1.RunConfig.Strict is set to false
 func Hook(config *v1.Config, hook string, strict bool, cloudInitPaths ...string) error {
 	config.Logger.Infof("Running %s hook", hook)
-	oldLevel := config.Logger.GetLevel()
-	config.Logger.SetLevel(logrus.ErrorLevel)
 	err := utils.RunStage(config, hook, strict, cloudInitPaths...)
-	config.Logger.SetLevel(oldLevel)
 	if !strict {
 		err = nil
 	}
