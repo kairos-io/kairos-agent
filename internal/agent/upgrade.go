@@ -4,17 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
-	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
 	"github.com/sanity-io/litter"
 	log "github.com/sirupsen/logrus"
@@ -43,8 +44,10 @@ func ListReleases(includePrereleases bool) semver.Collection {
 			fmt.Println("Including pre-releases")
 		}
 		releases, _ = github.FindReleases(context.Background(), "", githubRepo, includePrereleases)
+	} else {
+		// We got the release list from the bus manager and we don't know if they are sorted, so sort them in reverse to get the latest first
+		sort.Sort(sort.Reverse(releases))
 	}
-
 	return releases
 }
 
