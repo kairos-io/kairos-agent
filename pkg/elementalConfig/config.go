@@ -495,12 +495,13 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 
 	activeFile := filepath.Join(ep.State.MountPoint, "cOS", constants.ActiveImgFile)
 	return &v1.ResetSpec{
-		Target:       target,
-		Partitions:   ep,
-		Efi:          efiExists,
-		GrubDefEntry: constants.GrubDefEntry,
-		GrubConf:     constants.GrubConf,
-		Tty:          constants.DefaultTty,
+		Target:           target,
+		Partitions:       ep,
+		Efi:              efiExists,
+		GrubDefEntry:     constants.GrubDefEntry,
+		GrubConf:         constants.GrubConf,
+		Tty:              constants.DefaultTty,
+		FormatPersistent: true,
 		Active: v1.Image{
 			Label:      constants.ActiveLabel,
 			Size:       constants.ImgSize,
