@@ -167,16 +167,12 @@ var _ = Describe("Reset action tests", func() {
 		})
 
 		It("Successfully resets on non-squashfs recovery", func() {
-			config.Reboot = true
 			Expect(reset.Run()).To(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"reboot", "-f"}}))
 		})
 		It("Successfully resets on non-squashfs recovery including persistent data", func() {
-			config.PowerOff = true
 			spec.FormatPersistent = true
 			spec.FormatOEM = true
 			Expect(reset.Run()).To(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"poweroff", "-f"}}))
 		})
 		It("Successfully resets from a squashfs recovery image", Label("channel"), func() {
 			err := utils.MkdirAll(config.Fs, constants.IsoBaseTree, constants.DirPerm)
