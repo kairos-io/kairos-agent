@@ -133,7 +133,7 @@ func Upgrade(
 		utils.PowerOFF()
 	}
 
-	return hook.Run(*c, hook.AfterUpgrade...)
+	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
 }
 
 // determineUpgradeImage asks the provider plugin for an image or constructs
