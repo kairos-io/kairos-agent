@@ -17,7 +17,12 @@ limitations under the License.
 package elementalConfig_test
 
 import (
+	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/sanity-io/litter"
 	"k8s.io/mount-utils"
+	"os"
 	"path/filepath"
 
 	"github.com/jaypipes/ghw/pkg/block"
@@ -396,6 +401,132 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(spec.Recovery.FS).To(Equal(constants.SquashFs))
 				})
 			})
+		})
+		Describe("Config from cloudconfig", Label("cloud-config"), func() {
+			var bootedFrom string
+			var dir string
+			var ghwTest v1mock.GhwMock
+
+			BeforeEach(func() {
+				bootedFrom = ""
+				runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+					switch cmd {
+					case "cat":
+						return []byte(bootedFrom), nil
+					default:
+						return []byte{}, nil
+					}
+				}
+
+				dir, err = os.MkdirTemp("", "test-config")
+				Expect(err).ToNot(HaveOccurred())
+				ccdata := []byte(`#cloud-config
+debug: true
+install:
+  grub-entry-name: "MyCustomOS"
+  system:
+    size: 666
+reset:
+  reset-persistent: true
+  reset-oem: true
+  passive:
+    label: MY_LABEL
+upgrade:
+  recovery: true
+  system:
+    uri: docker:test/image:latest
+cloud-init-paths:
+- /what
+`)
+				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				mainDisk := block.Disk{
+					Name: "device",
+					Partitions: []*block.Partition{
+						{
+							Name:            "device1",
+							FilesystemLabel: constants.EfiLabel,
+							Type:            "vfat",
+						},
+						{
+							Name:            "device2",
+							FilesystemLabel: constants.OEMLabel,
+							Type:            "ext4",
+						},
+						{
+							Name:            "device3",
+							FilesystemLabel: constants.RecoveryLabel,
+							Type:            "ext4",
+						},
+						{
+							Name:            "device4",
+							FilesystemLabel: constants.StateLabel,
+							Type:            "ext4",
+						},
+						{
+							Name:            "device5",
+							FilesystemLabel: constants.PersistentLabel,
+							Type:            "ext4",
+						},
+					},
+				}
+				ghwTest = v1mock.GhwMock{}
+				ghwTest.AddDisk(mainDisk)
+				ghwTest.CreateDevices()
+			})
+
+			AfterEach(func() {
+				os.RemoveAll(dir)
+				ghwTest.Clean()
+			})
+			It("Reads properly the cloud config for install", func() {
+				cfg, err := config.Scan(collector.Directories([]string{dir}...))
+				Expect(err).ToNot(HaveOccurred())
+				installConfig, installSpec, err := elementalConfig.ReadInstallConfigFromAgentConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installConfig.Debug).To(BeTrue())
+				Expect(installSpec.GrubDefEntry).To(Equal("MyCustomOS"))
+				Expect(installSpec.Active.Size).To(Equal(uint(666)))
+				Expect(installConfig.CloudInitPaths).To(ContainElement("/what"))
+
+			})
+			It("Reads properly the cloud config for reset", func() {
+				bootedFrom = constants.SystemLabel
+				cfg, err := config.Scan(collector.Directories([]string{dir}...))
+				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				// Override the runconfig with our test params
+				runconfig.Runner = runner
+				runconfig.Logger = logger
+				runconfig.Fs = fs
+				runconfig.Mounter = mounter
+				runconfig.CloudInitRunner = ci
+				spec, err := elementalConfig.ReadSpecFromCloudConfig(runconfig, "reset")
+				Expect(err).ToNot(HaveOccurred())
+				resetSpec := spec.(*v1.ResetSpec)
+				fmt.Print(litter.Sdump(resetSpec))
+				Expect(resetSpec.FormatPersistent).To(BeTrue())
+				Expect(resetSpec.FormatOEM).To(BeTrue())
+				Expect(resetSpec.Passive.Label).To(Equal("MY_LABEL"))
+			})
+			It("Reads properly the cloud config for upgrade", func() {
+				cfg, err := config.Scan(collector.Directories([]string{dir}...))
+				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				// Override the runconfig with our test params
+				runconfig.Runner = runner
+				runconfig.Logger = logger
+				runconfig.Fs = fs
+				runconfig.Mounter = mounter
+				runconfig.CloudInitRunner = ci
+				spec, err := elementalConfig.ReadSpecFromCloudConfig(runconfig, "upgrade")
+				Expect(err).ToNot(HaveOccurred())
+				upgradeSpec := spec.(*v1.UpgradeSpec)
+				fmt.Print(litter.Sdump(upgradeSpec.Active.Source))
+				Expect(upgradeSpec.RecoveryUpgrade).To(BeTrue())
+			})
+
 		})
 	})
 })
