@@ -19,9 +19,6 @@ package elementalConfig
 import (
 	"fmt"
 	"gopkg.in/yaml.v3"
-	"io"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -528,7 +525,7 @@ func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
 
 // ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string
 func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) {
-	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithImageExtractor())
+	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
 	var err error
 
 	cc, err := c.String()
@@ -536,12 +533,16 @@ func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) 
 		return nil, err
 	}
 
-	configLogger(cfg.Logger, cfg.Fs)
 	err = yaml.Unmarshal([]byte(cc), &cfg)
 	if err != nil {
 		return nil, err
 	}
-	// Store the full cloud-config in here so we can reuse it afterwards
+	// If we got debug enabled via cloud config, set it on viper so its available everywhere
+	if cfg.Debug {
+		viper.Set("debug", true)
+	}
+	configLogger(cfg.Logger, cfg.Fs)
+	// Store the full cloud-config in here, so we can reuse it afterward
 	cfg.FullCloudConfig = cc
 	err = cfg.Sanitize()
 	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
@@ -564,7 +565,7 @@ func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed initializing reset spec: %v", err)
+		return nil, fmt.Errorf("failed initializing spec: %v", err)
 	}
 
 	// Load the config into viper from the raw cloud config string
@@ -639,27 +640,30 @@ func configLogger(log v1.Logger, vfs v1.FS) {
 	})
 
 	// Logfile
-	logfile := viper.GetString("logfile")
-	if logfile != "" {
-		o, err := vfs.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModePerm)
+	// Not being used for now, disable it until we plug it again in our cli
+	/*
+		logfile := viper.GetString("logfile")
+		if logfile != "" {
+			o, err := vfs.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModePerm)
 
-		if err != nil {
-			log.Errorf("Could not open %s for logging to file: %s", logfile, err.Error())
-		}
+			if err != nil {
+				log.Errorf("Could not open %s for logging to file: %s", logfile, err.Error())
+			}
 
-		if viper.GetBool("quiet") { // if quiet is set, only set the log to the file
-			log.SetOutput(o)
-		} else { // else set it to both stdout and the file
-			mw := io.MultiWriter(os.Stdout, o)
-			log.SetOutput(mw)
+			if viper.GetBool("quiet") { // if quiet is set, only set the log to the file
+				log.SetOutput(o)
+			} else { // else set it to both stdout and the file
+				mw := io.MultiWriter(os.Stdout, o)
+				log.SetOutput(mw)
+			}
+		} else { // no logfile
+			if viper.GetBool("quiet") { // quiet is enabled so discard all logging
+				log.SetOutput(io.Discard)
+			} else { // default to stdout
+				log.SetOutput(os.Stdout)
+			}
 		}
-	} else { // no logfile
-		if viper.GetBool("quiet") { // quiet is enabled so discard all logging
-			log.SetOutput(io.Discard)
-		} else { // default to stdout
-			log.SetOutput(os.Stdout)
-		}
-	}
+	*/
 
 	v := common.GetVersion()
 	log.Infof("kairos-agent version %s", v)
