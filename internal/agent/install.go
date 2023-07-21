@@ -337,7 +337,7 @@ func RunInstall(options map[string]string) error {
 		os.Exit(1)
 	}
 
-	return hook.Run(*c, hook.AfterInstall...)
+	return hook.Run(*c, installSpec, hook.AfterInstall...)
 }
 
 func ensureDataSourceReady() {

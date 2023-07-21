@@ -37,6 +37,12 @@ const (
 	boot  = "boot"
 )
 
+type Spec interface {
+	Sanitize() error
+	ShouldReboot() bool
+	ShouldShutdown() bool
+}
+
 // Config is the struct that includes basic and generic configuration of elemental binary runtime.
 // It mostly includes the interfaces used around many methods in elemental code
 type Config struct {
@@ -124,8 +130,6 @@ func (c *Config) Sanitize() error {
 type RunConfig struct {
 	Debug           bool     `yaml:"debug,omitempty" mapstructure:"debug"`
 	Strict          bool     `yaml:"strict,omitempty" mapstructure:"strict"`
-	Reboot          bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	CloudInitPaths  []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
 	EjectCD         bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
 	FullCloudConfig string   // Stores the full cloud config used to generate the spec afterwards
@@ -154,6 +158,8 @@ type InstallSpec struct {
 	Iso             string              `yaml:"iso,omitempty" mapstructure:"iso"`
 	GrubDefEntry    string              `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
 	Tty             string              `yaml:"tty,omitempty" mapstructure:"tty"`
+	Reboot          bool                `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Active          Image               `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery        Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	Passive         Image
@@ -198,14 +204,15 @@ func (i *InstallSpec) Sanitize() error {
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
-type Spec interface {
-	Sanitize() error
-}
+func (i *InstallSpec) ShouldReboot() bool   { return i.Reboot }
+func (i *InstallSpec) ShouldShutdown() bool { return i.PowerOff }
 
 // ResetSpec struct represents all the reset action details
 type ResetSpec struct {
 	FormatPersistent bool `yaml:"reset-persistent,omitempty" mapstructure:"reset-persistent"`
 	FormatOEM        bool `yaml:"reset-oem,omitempty" mapstructure:"reset-oem"`
+	Reboot           bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff         bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 
 	GrubDefEntry string `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
 	Tty          string `yaml:"tty,omitempty" mapstructure:"tty"`
@@ -230,11 +237,16 @@ func (r *ResetSpec) Sanitize() error {
 	return nil
 }
 
+func (r *ResetSpec) ShouldReboot() bool   { return r.Reboot }
+func (r *ResetSpec) ShouldShutdown() bool { return r.PowerOff }
+
 type UpgradeSpec struct {
 	RecoveryUpgrade bool   `yaml:"recovery,omitempty" mapstructure:"recovery"`
 	Active          Image  `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery        Image  `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	GrubDefEntry    string `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Reboot          bool   `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool   `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Passive         Image
 	Partitions      ElementalPartitions
 	State           *InstallState
@@ -260,6 +272,20 @@ func (u *UpgradeSpec) Sanitize() error {
 	}
 	return nil
 }
+
+func (u *UpgradeSpec) ShouldReboot() bool   { return u.Reboot }
+func (u *UpgradeSpec) ShouldShutdown() bool { return u.PowerOff }
+
+// EmptySpec is an empty spec for places that may need to inject a spec but doent really have one associated like firstboot
+type EmptySpec struct {
+}
+
+func (r *EmptySpec) Sanitize() error {
+	return nil
+}
+
+func (r *EmptySpec) ShouldReboot() bool   { return false }
+func (r *EmptySpec) ShouldShutdown() bool { return false }
 
 // Partition struct represents a partition with its commonly configurable values, size in MiB
 type Partition struct {

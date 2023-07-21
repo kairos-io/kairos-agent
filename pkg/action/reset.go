@@ -243,13 +243,5 @@ func (r ResetAction) Run() (err error) {
 		return err
 	}
 
-	// Reboot, poweroff or nothing
-	if r.cfg.Reboot {
-		r.cfg.Logger.Infof("Rebooting in 5 seconds")
-		return utils.Reboot(r.cfg.Runner, 5)
-	} else if r.cfg.PowerOff {
-		r.cfg.Logger.Infof("Shutting down in 5 seconds")
-		return utils.Shutdown(r.cfg.Runner, 5)
-	}
 	return err
 }

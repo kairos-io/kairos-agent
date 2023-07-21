@@ -19,7 +19,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/utils"
 
 	"github.com/mudler/go-pluggable"
-	"github.com/pterm/pterm"
 )
 
 func Reset(dir ...string) error {
@@ -100,37 +99,7 @@ func Reset(dir ...string) error {
 		os.Exit(1)
 	}
 
-	if err := hook.Run(*c, hook.AfterReset...); err != nil {
-		return err
-	}
-
 	bus.Manager.Publish(sdk.EventAfterReset, sdk.EventPayload{}) //nolint:errcheck
 
-	if !agentConfig.Fast {
-		pterm.Info.Println("Rebooting in 60 seconds, press Enter to abort...")
-	}
-
-	// We don't close the lock, as none of the following actions are expected to return
-	lock2 := sync.Mutex{}
-	go func() {
-		// Wait for user input and go back to shell
-		utils.Prompt("") //nolint:errcheck
-		// give tty1 back
-		svc, err := machine.Getty(1)
-		if err == nil {
-			svc.Start() //nolint:errcheck
-		}
-
-		lock2.Lock()
-		fmt.Println("Reboot aborted")
-		panic(utils.Shell().Run())
-	}()
-
-	if !agentConfig.Fast {
-		time.Sleep(60 * time.Second)
-	}
-	lock2.Lock()
-	utils.Reboot()
-
-	return nil
+	return hook.Run(*c, resetSpec, hook.AfterReset...)
 }

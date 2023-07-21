@@ -1,14 +1,15 @@
 package hook
 
 import (
+	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 )
 
 type BundleOption struct{}
 
-func (b BundleOption) Run(c config.Config) error {
+func (b BundleOption) Run(c config.Config, _ v1.Spec) error {
 
 	machine.Mount("COS_PERSISTENT", "/usr/local") //nolint:errcheck
 	defer func() {
@@ -31,7 +32,7 @@ func (b BundleOption) Run(c config.Config) error {
 
 type BundlePostInstall struct{}
 
-func (b BundlePostInstall) Run(c config.Config) error {
+func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	opts := c.Bundles.Options()
 	err := bundles.RunBundles(opts...)
 	if c.FailOnBundleErrors && err != nil {

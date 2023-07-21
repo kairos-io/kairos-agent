@@ -2,14 +2,15 @@ package hook
 
 import (
 	"fmt"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 
-	"github.com/kairos-io/kairos-sdk/system"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/system"
 )
 
 type GrubOptions struct{}
 
-func (b GrubOptions) Run(c config.Config) error {
+func (b GrubOptions) Run(c config.Config, _ v1.Spec) error {
 	err := system.Apply(system.SetGRUBOptions(c.Install.GrubOptions))
 	if err != nil {
 		fmt.Println(err)
@@ -19,7 +20,7 @@ func (b GrubOptions) Run(c config.Config) error {
 
 type GrubPostInstallOptions struct{}
 
-func (b GrubPostInstallOptions) Run(c config.Config) error {
+func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 	err := system.Apply(system.SetGRUBOptions(c.GrubOptions))
 	if err != nil {
 		fmt.Println(err)

@@ -276,14 +276,6 @@ func (u *UpgradeAction) Run() (err error) {
 		u.config.Logger.Debug(cleanErr.Error())
 	}
 
-	if u.config.Reboot {
-		u.Info("Rebooting in 5 seconds")
-		return utils.Reboot(u.config.Runner, 5)
-	} else if u.config.PowerOff {
-		u.Info("Shutting down in 5 seconds")
-		return utils.Shutdown(u.config.Runner, 5)
-	}
-
 	return nil
 }
 
