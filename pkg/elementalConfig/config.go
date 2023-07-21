@@ -142,7 +142,6 @@ func NewConfig(opts ...GenericOptions) *v1.Config {
 		Logger:                    log,
 		Syscall:                   &v1.RealSyscall{},
 		Client:                    http.NewClient(),
-		Repos:                     []v1.Repository{},
 		Arch:                      arch,
 		Platform:                  defaultPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
@@ -518,36 +517,6 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		},
 		State: installState,
 	}, nil
-}
-
-func NewISO() *v1.LiveISO {
-	return &v1.LiveISO{
-		Label:     constants.ISOLabel,
-		GrubEntry: constants.GrubDefEntry,
-		UEFI:      []*v1.ImageSource{},
-		Image:     []*v1.ImageSource{},
-	}
-}
-
-func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
-	b := &v1.BuildConfig{
-		Config: *NewConfig(opts...),
-		Name:   constants.BuildImgName,
-	}
-	if len(b.Repos) == 0 {
-		repo := constants.LuetDefaultRepoURI
-		if b.Arch != constants.Archx86 {
-			repo = fmt.Sprintf("%s-%s", constants.LuetDefaultRepoURI, b.Arch)
-		}
-		b.Repos = []v1.Repository{{
-			Name:     "cos",
-			Type:     "docker",
-			URI:      repo,
-			Arch:     b.Arch,
-			Priority: constants.LuetDefaultRepoPrio,
-		}}
-	}
-	return b
 }
 
 // ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string

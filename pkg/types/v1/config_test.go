@@ -328,15 +328,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
-	Describe("BuildConfig", func() {
-		It("runs sanitize method", func() {
-			cfg := elementalConfig.NewBuildConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
-			cfg.Config.Verify = true
-
-			err := cfg.Sanitize()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-	})
 	Describe("InstallSpec", func() {
 		var spec *v1.InstallSpec
 
@@ -473,43 +464,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			spec.Partitions.Recovery = nil
 			err = spec.Sanitize()
 			Expect(err).Should(HaveOccurred())
-		})
-	})
-	Describe("LiveISO", func() {
-		It("runs sanitize method", func() {
-			iso := elementalConfig.NewISO()
-			Expect(iso.Sanitize()).ShouldNot(HaveOccurred())
-
-			//Success when properly provided source packages
-			spec := &v1.LiveISO{
-				RootFS: []*v1.ImageSource{
-					v1.NewDirSrc("/system/os"),
-				},
-				UEFI:  []*v1.ImageSource{},
-				Image: []*v1.ImageSource{},
-			}
-			Expect(spec.Sanitize()).ShouldNot(HaveOccurred())
-			Expect(iso.Sanitize()).ShouldNot(HaveOccurred())
-
-			//Fails when packages were provided in incorrect format
-			spec = &v1.LiveISO{
-				RootFS: []*v1.ImageSource{
-					nil,
-				},
-				UEFI: []*v1.ImageSource{
-					nil,
-				},
-				Image: []*v1.ImageSource{
-					nil,
-				},
-			}
-			Expect(spec.Sanitize()).Should(HaveOccurred())
-		})
-	})
-	Describe("RawDisk", func() {
-		It("runs sanitize method", func() {
-			disk := &v1.RawDisk{}
-			Expect(disk.Sanitize()).ShouldNot(HaveOccurred())
 		})
 	})
 })
