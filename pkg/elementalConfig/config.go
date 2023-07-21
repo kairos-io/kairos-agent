@@ -573,8 +573,8 @@ func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) 
 	return cfg, err
 }
 
-// readSpecFromCloudConfig returns a v1.Spec for the given spec
-func readSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
+// ReadSpecFromCloudConfig returns a v1.Spec for the given spec
+func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 	var sp v1.Spec
 	var err error
 
@@ -614,7 +614,7 @@ func readConfigAndSpecFromAgentConfig(c *agentConfig.Config, action string) (*v1
 	if err != nil {
 		return nil, nil, err
 	}
-	spec, err := readSpecFromCloudConfig(runConfig, action)
+	spec, err := ReadSpecFromCloudConfig(runConfig, action)
 	if err != nil {
 		return nil, nil, err
 	}
