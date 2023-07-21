@@ -22,24 +22,11 @@ import (
 )
 
 func Reset(dir ...string) error {
-	// TODO: Enable args? No args for now so no possibility of reset persistent or overriding the source for the reset
-	// Nor the auto-reboot via cmd?
-	// This comment pertains calling reset via cmdline when wanting to override configs
 	bus.Manager.Initialize()
-
-	options := map[string]string{}
-
-	bus.Manager.Response(sdk.EventBeforeReset, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
-		err := json.Unmarshal([]byte(r.Data), &options)
-		if err != nil {
-			fmt.Println(err)
-		}
-	})
 
 	cmd.PrintBranding(DefaultBanner)
 
-	// This loads yet another config ¬_¬
-	// TODO: merge this somehow with the rest so there is no 5 places to configure stuff?
+	// This config is only for reset branding.
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
@@ -70,6 +57,17 @@ func Reset(dir ...string) error {
 
 	ensureDataSourceReady()
 
+	optionsFromEvent := map[string]string{}
+
+	// This gets the options from an event that can be sent by anyone.
+	// This should override the default config as it's much more dynamic
+	bus.Manager.Response(sdk.EventBeforeReset, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+		err := json.Unmarshal([]byte(r.Data), &optionsFromEvent)
+		if err != nil {
+			fmt.Println(err)
+		}
+	})
+
 	bus.Manager.Publish(sdk.EventBeforeReset, sdk.EventPayload{}) //nolint:errcheck
 
 	c, err := config.Scan(collector.Directories(dir...))
@@ -85,12 +83,17 @@ func Reset(dir ...string) error {
 		return err
 	}
 
-	// Not even sure what opts can come from here to be honest. Where is the struct that supports this options?
-	// Where is the docs to support this? This is generic af and not easily identifiable
-	if len(options) == 0 {
-		resetSpec.FormatPersistent = true
-	} else {
-		fmt.Println(options)
+	// Go over the possible options sent via event
+	if len(optionsFromEvent) > 0 {
+		if p := optionsFromEvent["reset-persistent"]; p != "" {
+			resetSpec.FormatPersistent = p == "true"
+		}
+		if o := optionsFromEvent["reset-oem"]; o != "" {
+			resetSpec.FormatOEM = o == "true"
+		}
+		if s := optionsFromEvent["strict"]; s != "" {
+			resetConfig.Strict = s == "true"
+		}
 	}
 
 	resetAction := action.NewResetAction(resetConfig, resetSpec)
