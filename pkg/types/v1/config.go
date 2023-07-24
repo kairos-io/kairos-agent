@@ -46,6 +46,11 @@ type Spec interface {
 // Config is the struct that includes basic and generic configuration of elemental binary runtime.
 // It mostly includes the interfaces used around many methods in elemental code
 type Config struct {
+	Debug                     bool     `yaml:"debug,omitempty" mapstructure:"debug"`
+	Strict                    bool     `yaml:"strict,omitempty" mapstructure:"strict"`
+	CloudInitPaths            []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
+	EjectCD                   bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
+	FullCloudConfig           string   // Stores the full cloud config used to generate the spec afterwards
 	Logger                    Logger
 	Fs                        FS
 	Mounter                   mount.Interface
@@ -124,24 +129,6 @@ func (c *Config) Sanitize() error {
 		c.Platform = p
 	}
 	return nil
-}
-
-type RunConfig struct {
-	Debug           bool     `yaml:"debug,omitempty" mapstructure:"debug"`
-	Strict          bool     `yaml:"strict,omitempty" mapstructure:"strict"`
-	CloudInitPaths  []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
-	EjectCD         bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
-	FullCloudConfig string   // Stores the full cloud config used to generate the spec afterwards
-
-	// 'inline' and 'squash' labels ensure config fields
-	// are embedded from a yaml and map PoV
-	Config `yaml:",inline" mapstructure:",squash"`
-}
-
-// Sanitize checks the consistency of the struct, returns error
-// if unsolvable inconsistencies are found
-func (r *RunConfig) Sanitize() error {
-	return r.Config.Sanitize()
 }
 
 // InstallSpec struct represents all the installation action details

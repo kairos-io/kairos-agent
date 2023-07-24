@@ -29,11 +29,11 @@ import (
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish
 type UpgradeAction struct {
-	config *v1.RunConfig
+	config *v1.Config
 	spec   *v1.UpgradeSpec
 }
 
-func NewUpgradeAction(config *v1.RunConfig, spec *v1.UpgradeSpec) *UpgradeAction {
+func NewUpgradeAction(config *v1.Config, spec *v1.UpgradeSpec) *UpgradeAction {
 	return &UpgradeAction{config: config, spec: spec}
 }
 
@@ -64,9 +64,9 @@ func (u UpgradeAction) upgradeHook(hook string, chroot bool) error {
 			mountPoints[persistentDevice.MountPoint] = constants.UsrLocalPath
 		}
 
-		return ChrootHook(&u.config.Config, hook, u.config.Strict, u.spec.Active.MountPoint, mountPoints, u.config.CloudInitPaths...)
+		return ChrootHook(u.config, hook, u.config.Strict, u.spec.Active.MountPoint, mountPoints, u.config.CloudInitPaths...)
 	}
-	return Hook(&u.config.Config, hook, u.config.Strict, u.config.CloudInitPaths...)
+	return Hook(u.config, hook, u.config.Strict, u.config.CloudInitPaths...)
 }
 
 func (u *UpgradeAction) upgradeInstallStateYaml(meta interface{}, img v1.Image) error {
@@ -122,7 +122,7 @@ func (u *UpgradeAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
-	e := elemental.NewElemental(&u.config.Config)
+	e := elemental.NewElemental(u.config)
 
 	if u.spec.RecoveryUpgrade {
 		upgradeImg = u.spec.Recovery
@@ -155,7 +155,7 @@ func (u *UpgradeAction) Run() (err error) {
 	if persistentPart != nil {
 		// Create the dir otherwise the check for mounted dir fails
 		_ = utils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
-		if mnt, err := utils.IsMounted(&u.config.Config, persistentPart); !mnt && err == nil {
+		if mnt, err := utils.IsMounted(u.config, persistentPart); !mnt && err == nil {
 			u.Debug("mounting persistent partition")
 			umount, err = e.MountRWPartition(persistentPart)
 			if err != nil {
@@ -186,14 +186,14 @@ func (u *UpgradeAction) Run() (err error) {
 		// TODO probably relabelling persistent volumes should be an opt in feature, it could
 		// have undesired effects in case of failures
 		binds := map[string]string{}
-		if mnt, _ := utils.IsMounted(&u.config.Config, u.spec.Partitions.Persistent); mnt {
+		if mnt, _ := utils.IsMounted(u.config, u.spec.Partitions.Persistent); mnt {
 			binds[u.spec.Partitions.Persistent.MountPoint] = constants.UsrLocalPath
 		}
-		if mnt, _ := utils.IsMounted(&u.config.Config, u.spec.Partitions.OEM); mnt {
+		if mnt, _ := utils.IsMounted(u.config, u.spec.Partitions.OEM); mnt {
 			binds[u.spec.Partitions.OEM.MountPoint] = constants.OEMPath
 		}
 		err = utils.ChrootedCallback(
-			&u.config.Config, upgradeImg.MountPoint, binds,
+			u.config, upgradeImg.MountPoint, binds,
 			func() error { return e.SelinuxRelabel("/", true) },
 		)
 		if err != nil {

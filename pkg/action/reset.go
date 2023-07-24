@@ -38,17 +38,17 @@ func (r *ResetAction) resetHook(hook string, chroot bool) error {
 		if oem != nil && oem.MountPoint != "" {
 			extraMounts[oem.MountPoint] = cnst.OEMPath
 		}
-		return ChrootHook(&r.cfg.Config, hook, r.cfg.Strict, r.spec.Active.MountPoint, extraMounts, r.cfg.CloudInitPaths...)
+		return ChrootHook(r.cfg, hook, r.cfg.Strict, r.spec.Active.MountPoint, extraMounts, r.cfg.CloudInitPaths...)
 	}
-	return Hook(&r.cfg.Config, hook, r.cfg.Strict, r.cfg.CloudInitPaths...)
+	return Hook(r.cfg, hook, r.cfg.Strict, r.cfg.CloudInitPaths...)
 }
 
 type ResetAction struct {
-	cfg  *v1.RunConfig
+	cfg  *v1.Config
 	spec *v1.ResetSpec
 }
 
-func NewResetAction(cfg *v1.RunConfig, spec *v1.ResetSpec) *ResetAction {
+func NewResetAction(cfg *v1.Config, spec *v1.ResetSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 
@@ -108,7 +108,7 @@ func (r *ResetAction) updateInstallState(e *elemental.Elemental, cleanup *utils.
 
 // ResetRun will reset the cos system to by following several steps
 func (r ResetAction) Run() (err error) {
-	e := elemental.NewElemental(&r.cfg.Config)
+	e := elemental.NewElemental(r.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
@@ -168,7 +168,7 @@ func (r ResetAction) Run() (err error) {
 	cleanup.Push(func() error { return e.UnmountImage(&r.spec.Active) })
 
 	// install grub
-	grub := utils.NewGrub(&r.cfg.Config)
+	grub := utils.NewGrub(r.cfg)
 	err = grub.Install(
 		r.spec.Target,
 		r.spec.Active.MountPoint,
@@ -186,14 +186,14 @@ func (r ResetAction) Run() (err error) {
 	// TODO probably relabelling persistent volumes should be an opt in feature, it could
 	// have undesired effects in case of failures
 	binds := map[string]string{}
-	if mnt, _ := utils.IsMounted(&r.cfg.Config, r.spec.Partitions.Persistent); mnt {
+	if mnt, _ := utils.IsMounted(r.cfg, r.spec.Partitions.Persistent); mnt {
 		binds[r.spec.Partitions.Persistent.MountPoint] = cnst.UsrLocalPath
 	}
-	if mnt, _ := utils.IsMounted(&r.cfg.Config, r.spec.Partitions.OEM); mnt {
+	if mnt, _ := utils.IsMounted(r.cfg, r.spec.Partitions.OEM); mnt {
 		binds[r.spec.Partitions.OEM.MountPoint] = cnst.OEMPath
 	}
 	err = utils.ChrootedCallback(
-		&r.cfg.Config, r.spec.Active.MountPoint, binds,
+		r.cfg, r.spec.Active.MountPoint, binds,
 		func() error { return e.SelinuxRelabel("/", true) },
 	)
 	if err != nil {

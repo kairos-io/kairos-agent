@@ -22,7 +22,7 @@ import (
 )
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
-// in case v1.RunConfig.Strict is set to false
+// in case v1.Config.Strict is set to false
 func Hook(config *v1.Config, hook string, strict bool, cloudInitPaths ...string) error {
 	config.Logger.Infof("Running %s hook", hook)
 	err := utils.RunStage(config, hook, strict, cloudInitPaths...)

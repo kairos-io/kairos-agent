@@ -16,7 +16,7 @@ func (r RunStage) Run(c config.Config, _ v1.Spec) error {
 	if err != nil {
 		cfg.Logger.Errorf("Error reading config: %s\n", err)
 	}
-	_ = utils.RunStage(&cfg.Config, "kairos-install.after", cfg.Strict, cfg.CloudInitPaths...)
+	_ = utils.RunStage(cfg, "kairos-install.after", cfg.Strict, cfg.CloudInitPaths...)
 	events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
 	return nil
 }

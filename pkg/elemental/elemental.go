@@ -522,7 +522,7 @@ func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *v1.
 	return nil
 }
 
-// SetDefaultGrubEntry Sets the default_meny_entry value in RunConfig.GrubOEMEnv file at in
+// SetDefaultGrubEntry Sets the default_meny_entry value in Config.GrubOEMEnv file at in
 // State partition mountpoint. If there is not a custom value in the os-release file, we do nothing
 // As the grub config already has a sane default
 func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint string, defaultEntry string) error {
