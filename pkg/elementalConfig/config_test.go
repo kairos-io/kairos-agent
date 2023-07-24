@@ -95,7 +95,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(c.Mounter).To(Equal(mounter))
 				Expect(c.Runner).ToNot(BeNil())
 			})
-			It("defaults to sane platform is the platform is broken", func() {
+			It("defaults to sane platform if the platform is broken", func() {
 				c = elementalConfig.NewConfig(
 					elementalConfig.WithFs(fs),
 					elementalConfig.WithMounter(mounter),
