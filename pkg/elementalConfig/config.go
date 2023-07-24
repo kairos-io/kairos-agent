@@ -19,9 +19,6 @@ package elementalConfig
 import (
 	"fmt"
 	"gopkg.in/yaml.v3"
-	"io"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -42,83 +39,62 @@ import (
 	"k8s.io/mount-utils"
 )
 
-type GenericOptions func(a *v1.Config) error
+type GenericOptions func(a *v1.Config)
 
-func WithFs(fs v1.FS) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithFs(fs v1.FS) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.Fs = fs
-		return nil
 	}
 }
 
-func WithLogger(logger v1.Logger) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithLogger(logger v1.Logger) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.Logger = logger
-		return nil
 	}
 }
 
-func WithSyscall(syscall v1.SyscallInterface) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithSyscall(syscall v1.SyscallInterface) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.Syscall = syscall
-		return nil
 	}
 }
 
-func WithMounter(mounter mount.Interface) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithMounter(mounter mount.Interface) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.Mounter = mounter
-		return nil
 	}
 }
 
-func WithRunner(runner v1.Runner) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithRunner(runner v1.Runner) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.Runner = runner
-		return nil
 	}
 }
 
-func WithClient(client v1.HTTPClient) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithClient(client v1.HTTPClient) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.Client = client
-		return nil
 	}
 }
 
-func WithCloudInitRunner(ci v1.CloudInitRunner) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithCloudInitRunner(ci v1.CloudInitRunner) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.CloudInitRunner = ci
-		return nil
 	}
 }
 
-func WithArch(arch string) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
-		r.Arch = arch
-		return nil
-	}
-}
-
-func WithPlatform(platform string) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithPlatform(platform string) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		p, err := v1.ParsePlatform(platform)
-		r.Platform = p
-		return err
+		if err == nil {
+			r.Platform = p
+		}
 	}
 }
 
-func WithOCIImageExtractor() func(r *v1.Config) error {
-	return func(r *v1.Config) error {
-		r.ImageExtractor = v1.OCIImageExtractor{}
-		return nil
-	}
-}
-
-func WithImageExtractor(extractor v1.ImageExtractor) func(r *v1.Config) error {
-	return func(r *v1.Config) error {
+func WithImageExtractor(extractor v1.ImageExtractor) func(r *v1.Config) {
+	return func(r *v1.Config) {
 		r.ImageExtractor = extractor
-		return nil
 	}
 }
 
@@ -148,11 +124,7 @@ func NewConfig(opts ...GenericOptions) *v1.Config {
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 	}
 	for _, o := range opts {
-		err := o(c)
-		if err != nil {
-			log.Errorf("error applying config option: %s", err.Error())
-			return nil
-		}
+		o(c)
 	}
 
 	// delay runner creation after we have run over the options in case we use WithRunner
@@ -553,7 +525,7 @@ func NewBuildConfig(opts ...GenericOptions) *v1.BuildConfig {
 
 // ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string
 func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) {
-	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithOCIImageExtractor())
+	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
 	var err error
 
 	cc, err := c.String()
@@ -561,12 +533,16 @@ func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) 
 		return nil, err
 	}
 
-	configLogger(cfg.Logger, cfg.Fs)
 	err = yaml.Unmarshal([]byte(cc), &cfg)
 	if err != nil {
 		return nil, err
 	}
-	// Store the full cloud-config in here so we can reuse it afterwards
+	// If we got debug enabled via cloud config, set it on viper so its available everywhere
+	if cfg.Debug {
+		viper.Set("debug", true)
+	}
+	configLogger(cfg.Logger, cfg.Fs)
+	// Store the full cloud-config in here, so we can reuse it afterward
 	cfg.FullCloudConfig = cc
 	err = cfg.Sanitize()
 	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
@@ -589,7 +565,7 @@ func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed initializing reset spec: %v", err)
+		return nil, fmt.Errorf("failed initializing spec: %v", err)
 	}
 
 	// Load the config into viper from the raw cloud config string
@@ -664,27 +640,30 @@ func configLogger(log v1.Logger, vfs v1.FS) {
 	})
 
 	// Logfile
-	logfile := viper.GetString("logfile")
-	if logfile != "" {
-		o, err := vfs.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModePerm)
+	// Not being used for now, disable it until we plug it again in our cli
+	/*
+		logfile := viper.GetString("logfile")
+		if logfile != "" {
+			o, err := vfs.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModePerm)
 
-		if err != nil {
-			log.Errorf("Could not open %s for logging to file: %s", logfile, err.Error())
-		}
+			if err != nil {
+				log.Errorf("Could not open %s for logging to file: %s", logfile, err.Error())
+			}
 
-		if viper.GetBool("quiet") { // if quiet is set, only set the log to the file
-			log.SetOutput(o)
-		} else { // else set it to both stdout and the file
-			mw := io.MultiWriter(os.Stdout, o)
-			log.SetOutput(mw)
+			if viper.GetBool("quiet") { // if quiet is set, only set the log to the file
+				log.SetOutput(o)
+			} else { // else set it to both stdout and the file
+				mw := io.MultiWriter(os.Stdout, o)
+				log.SetOutput(mw)
+			}
+		} else { // no logfile
+			if viper.GetBool("quiet") { // quiet is enabled so discard all logging
+				log.SetOutput(io.Discard)
+			} else { // default to stdout
+				log.SetOutput(os.Stdout)
+			}
 		}
-	} else { // no logfile
-		if viper.GetBool("quiet") { // quiet is enabled so discard all logging
-			log.SetOutput(io.Discard)
-		} else { // default to stdout
-			log.SetOutput(os.Stdout)
-		}
-	}
+	*/
 
 	v := common.GetVersion()
 	log.Infof("kairos-agent version %s", v)
