@@ -17,10 +17,9 @@ limitations under the License.
 package elementalConfig_test
 
 import (
-	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/sanity-io/litter"
+	"github.com/sirupsen/logrus"
 	"k8s.io/mount-utils"
 	"os"
 	"path/filepath"
@@ -65,6 +64,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				elementalConfig.WithLogger(logger),
 				elementalConfig.WithCloudInitRunner(ci),
 				elementalConfig.WithClient(client),
+				elementalConfig.WithPlatform("linux/arm64"),
 			)
 		})
 		AfterEach(func() {
@@ -79,6 +79,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(c.Logger).To(Equal(logger))
 				Expect(c.CloudInitRunner).To(Equal(ci))
 				Expect(c.Client).To(Equal(client))
+				Expect(c.Platform.OS).To(Equal("linux"))
+				Expect(c.Platform.Arch).To(Equal("arm64"))
+				Expect(c.Platform.GolangArch).To(Equal("arm64"))
 			})
 			It("Sets the runner if we dont pass one", func() {
 				fs, cleanup, err := vfst.NewTestFS(nil)
@@ -91,6 +94,21 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(c.Fs).To(Equal(fs))
 				Expect(c.Mounter).To(Equal(mounter))
 				Expect(c.Runner).ToNot(BeNil())
+			})
+			It("defaults to sane platform if the platform is broken", func() {
+				c = elementalConfig.NewConfig(
+					elementalConfig.WithFs(fs),
+					elementalConfig.WithMounter(mounter),
+					elementalConfig.WithRunner(runner),
+					elementalConfig.WithSyscall(sysc),
+					elementalConfig.WithLogger(logger),
+					elementalConfig.WithCloudInitRunner(ci),
+					elementalConfig.WithClient(client),
+					elementalConfig.WithPlatform("wwwwwww"),
+				)
+				Expect(c.Platform.OS).To(Equal("linux"))
+				Expect(c.Platform.Arch).To(Equal("x86_64"))
+				Expect(c.Platform.GolangArch).To(Equal("amd64"))
 			})
 		})
 		Describe("ConfigOptions no mounter specified", Label("mount", "mounter"), func() {
@@ -421,7 +439,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				dir, err = os.MkdirTemp("", "test-config")
 				Expect(err).ToNot(HaveOccurred())
 				ccdata := []byte(`#cloud-config
-debug: true
+strict: true
 install:
   grub-entry-name: "MyCustomOS"
   system:
@@ -481,11 +499,11 @@ cloud-init-paths:
 				ghwTest.Clean()
 			})
 			It("Reads properly the cloud config for install", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...))
+				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
 				installConfig, installSpec, err := elementalConfig.ReadInstallConfigFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(installConfig.Debug).To(BeTrue())
+				Expect(installConfig.Strict).To(BeTrue())
 				Expect(installSpec.GrubDefEntry).To(Equal("MyCustomOS"))
 				Expect(installSpec.Active.Size).To(Equal(uint(666)))
 				Expect(installConfig.CloudInitPaths).To(ContainElement("/what"))
@@ -493,40 +511,63 @@ cloud-init-paths:
 			})
 			It("Reads properly the cloud config for reset", func() {
 				bootedFrom = constants.SystemLabel
-				cfg, err := config.Scan(collector.Directories([]string{dir}...))
+				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				// Override the runconfig with our test params
 				runconfig.Runner = runner
-				runconfig.Logger = logger
 				runconfig.Fs = fs
 				runconfig.Mounter = mounter
 				runconfig.CloudInitRunner = ci
 				spec, err := elementalConfig.ReadSpecFromCloudConfig(runconfig, "reset")
 				Expect(err).ToNot(HaveOccurred())
 				resetSpec := spec.(*v1.ResetSpec)
-				fmt.Print(litter.Sdump(resetSpec))
 				Expect(resetSpec.FormatPersistent).To(BeTrue())
 				Expect(resetSpec.FormatOEM).To(BeTrue())
 				Expect(resetSpec.Passive.Label).To(Equal("MY_LABEL"))
 			})
 			It("Reads properly the cloud config for upgrade", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...))
+				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				// Override the runconfig with our test params
 				runconfig.Runner = runner
-				runconfig.Logger = logger
 				runconfig.Fs = fs
 				runconfig.Mounter = mounter
 				runconfig.CloudInitRunner = ci
 				spec, err := elementalConfig.ReadSpecFromCloudConfig(runconfig, "upgrade")
 				Expect(err).ToNot(HaveOccurred())
 				upgradeSpec := spec.(*v1.UpgradeSpec)
-				fmt.Print(litter.Sdump(upgradeSpec.Active.Source))
 				Expect(upgradeSpec.RecoveryUpgrade).To(BeTrue())
 			})
+			It("Fails when a wrong action is read", func() {
+				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = elementalConfig.ReadSpecFromCloudConfig(runconfig, "nope")
+				Expect(err).To(HaveOccurred())
+			})
+			It("Sets info level if its not on the cloud-config", func() {
+				// Now again but with no config
+				cfg, err := config.Scan(collector.Directories([]string{""}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				installConfig, _, err := elementalConfig.ReadInstallConfigFromAgentConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installConfig.Logger.GetLevel()).To(Equal(logrus.InfoLevel))
+			})
+			It("Sets debug level if its on the cloud-config", func() {
+				ccdata := []byte(`#cloud-config
+debug: true
+`)
+				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				installConfig, _, err := elementalConfig.ReadInstallConfigFromAgentConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installConfig.Logger.GetLevel()).To(Equal(logrus.DebugLevel))
 
+			})
 		})
 	})
 })
