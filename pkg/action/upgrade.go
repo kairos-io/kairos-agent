@@ -52,21 +52,21 @@ func (u UpgradeAction) Error(s string, args ...interface{}) {
 func (u UpgradeAction) upgradeHook(hook string, chroot bool) error {
 	u.Info("Applying '%s' hook", hook)
 	if chroot {
-		mountPoints := map[string]string{}
+		extraMounts := map[string]string{}
 
 		oemDevice := u.spec.Partitions.OEM
 		if oemDevice != nil && oemDevice.MountPoint != "" {
-			mountPoints[oemDevice.MountPoint] = constants.OEMPath
+			extraMounts[oemDevice.MountPoint] = constants.OEMPath
 		}
 
 		persistentDevice := u.spec.Partitions.Persistent
 		if persistentDevice != nil && persistentDevice.MountPoint != "" {
-			mountPoints[persistentDevice.MountPoint] = constants.UsrLocalPath
+			extraMounts[persistentDevice.MountPoint] = constants.UsrLocalPath
 		}
 
-		return ChrootHook(u.config, hook, u.config.Strict, u.spec.Active.MountPoint, mountPoints, u.config.CloudInitPaths...)
+		return ChrootHook(u.config, hook, u.spec.Active.MountPoint, extraMounts)
 	}
-	return Hook(u.config, hook, u.config.Strict, u.config.CloudInitPaths...)
+	return Hook(u.config, hook)
 }
 
 func (u *UpgradeAction) upgradeInstallStateYaml(meta interface{}, img v1.Image) error {

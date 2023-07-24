@@ -38,9 +38,9 @@ func (r *ResetAction) resetHook(hook string, chroot bool) error {
 		if oem != nil && oem.MountPoint != "" {
 			extraMounts[oem.MountPoint] = cnst.OEMPath
 		}
-		return ChrootHook(r.cfg, hook, r.cfg.Strict, r.spec.Active.MountPoint, extraMounts, r.cfg.CloudInitPaths...)
+		return ChrootHook(r.cfg, hook, r.spec.Active.MountPoint, extraMounts)
 	}
-	return Hook(r.cfg, hook, r.cfg.Strict, r.cfg.CloudInitPaths...)
+	return Hook(r.cfg, hook)
 }
 
 type ResetAction struct {

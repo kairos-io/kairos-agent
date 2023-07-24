@@ -38,9 +38,9 @@ func (i *InstallAction) installHook(hook string, chroot bool) error {
 		if oem != nil && oem.MountPoint != "" {
 			extraMounts[oem.MountPoint] = cnst.OEMPath
 		}
-		return ChrootHook(i.cfg, hook, i.cfg.Strict, i.spec.Active.MountPoint, extraMounts, i.cfg.CloudInitPaths...)
+		return ChrootHook(i.cfg, hook, i.spec.Active.MountPoint, extraMounts)
 	}
-	return Hook(i.cfg, hook, i.cfg.Strict, i.cfg.CloudInitPaths...)
+	return Hook(i.cfg, hook)
 }
 
 func (i *InstallAction) createInstallStateYaml(sysMeta, recMeta interface{}) error {

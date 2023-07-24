@@ -23,19 +23,19 @@ import (
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
 // in case v1.Config.Strict is set to false
-func Hook(config *v1.Config, hook string, strict bool, cloudInitPaths ...string) error {
+func Hook(config *v1.Config, hook string) error {
 	config.Logger.Infof("Running %s hook", hook)
-	err := utils.RunStage(config, hook, strict, cloudInitPaths...)
-	if !strict {
+	err := utils.RunStage(config, hook)
+	if !config.Strict {
 		err = nil
 	}
 	return err
 }
 
 // ChrootHook executes Hook inside a chroot environment
-func ChrootHook(config *v1.Config, hook string, strict bool, chrootDir string, bindMounts map[string]string, cloudInitPaths ...string) (err error) {
+func ChrootHook(config *v1.Config, hook string, chrootDir string, bindMounts map[string]string) (err error) {
 	callback := func() error {
-		return Hook(config, hook, strict, cloudInitPaths...)
+		return Hook(config, hook)
 	}
 	return utils.ChrootedCallback(config, chrootDir, bindMounts, callback)
 }
