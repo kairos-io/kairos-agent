@@ -18,6 +18,7 @@ package action
 
 import (
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"path/filepath"
 	"time"
 
@@ -44,11 +45,11 @@ func (r *ResetAction) resetHook(hook string, chroot bool) error {
 }
 
 type ResetAction struct {
-	cfg  *v1.Config
+	cfg  *agentConfig.Config
 	spec *v1.ResetSpec
 }
 
-func NewResetAction(cfg *v1.Config, spec *v1.ResetSpec) *ResetAction {
+func NewResetAction(cfg *agentConfig.Config, spec *v1.ResetSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 

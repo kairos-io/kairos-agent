@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"regexp"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -37,7 +38,7 @@ import (
 )
 
 var _ = Describe("Reset action tests", func() {
-	var config *v1.Config
+	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger v1.Logger
@@ -63,15 +64,15 @@ var _ = Describe("Reset action tests", func() {
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
-		config = conf.NewConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithClient(client),
-			conf.WithCloudInitRunner(cloudInit),
-			conf.WithImageExtractor(extractor),
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
+			agentConfig.WithCloudInitRunner(cloudInit),
+			agentConfig.WithImageExtractor(extractor),
 		)
 	})
 
@@ -87,7 +88,7 @@ var _ = Describe("Reset action tests", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			cmdFail = ""
 			recoveryImg := filepath.Join(constants.RunningStateDir, "cOS", constants.RecoveryImgFile)
-			err = utils.MkdirAll(fs, filepath.Dir(recoveryImg), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Dir(recoveryImg), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(recoveryImg)
 			Expect(err).To(BeNil())
@@ -140,14 +141,14 @@ var _ = Describe("Reset action tests", func() {
 				}
 			}
 
-			spec, err = conf.NewResetSpec(config)
+			spec, err = agentConfig.NewResetSpec(config)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(spec.Active.Source.IsEmpty()).To(BeFalse())
 
 			spec.Active.Size = 16
 
 			grubCfg := filepath.Join(spec.Active.MountPoint, spec.GrubConf)
-			err = utils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(grubCfg)
 			Expect(err).To(BeNil())
@@ -175,7 +176,7 @@ var _ = Describe("Reset action tests", func() {
 			Expect(reset.Run()).To(BeNil())
 		})
 		It("Successfully resets from a squashfs recovery image", Label("channel"), func() {
-			err := utils.MkdirAll(config.Fs, constants.IsoBaseTree, constants.DirPerm)
+			err := fsutils.MkdirAll(config.Fs, constants.IsoBaseTree, constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			spec.Active.Source = v1.NewDirSrc(constants.IsoBaseTree)
 			Expect(reset.Run()).To(BeNil())

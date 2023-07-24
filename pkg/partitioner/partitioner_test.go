@@ -18,13 +18,13 @@ package partitioner_test
 
 import (
 	"errors"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"testing"
 
 	"github.com/jaypipes/ghw/pkg/block"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	part "github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -211,7 +211,7 @@ var _ = Describe("Partitioner", Label("disk", "partition", "partitioner"), func(
 		BeforeEach(func() {
 			fs, cleanup, _ = vfst.NewTestFS(nil)
 
-			err := utils.MkdirAll(fs, "/dev", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/dev", constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create("/dev/device")
 			Expect(err).To(BeNil())

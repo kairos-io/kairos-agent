@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,8 +29,8 @@ import (
 
 	"github.com/jaypipes/ghw/pkg/block"
 
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -47,7 +49,7 @@ func getNamesFromListFiles(list []os.FileInfo) []string {
 }
 
 var _ = Describe("Utils", Label("utils"), func() {
-	var config *v1.Config
+	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger v1.Logger
 	var syscall *v1mock.FakeSyscall
@@ -70,13 +72,13 @@ var _ = Describe("Utils", Label("utils"), func() {
 		fs.Mkdir("/run", constants.DirPerm)
 		fs.Mkdir("/etc", constants.DirPerm)
 
-		config = conf.NewConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithClient(client),
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
 		)
 	})
 	AfterEach(func() { cleanup() })
@@ -176,16 +178,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 			})
 		})
 	})
-	Describe("TestBootedFrom", Label("BootedFrom"), func() {
-		It("returns true if we are booting from label FAKELABEL", func() {
-			runner.ReturnValue = []byte("")
-			Expect(utils.BootedFrom(runner, "FAKELABEL")).To(BeFalse())
-		})
-		It("returns false if we are not booting from label FAKELABEL", func() {
-			runner.ReturnValue = []byte("FAKELABEL")
-			Expect(utils.BootedFrom(runner, "FAKELABEL")).To(BeTrue())
-		})
-	})
 	Describe("GetDeviceByLabel", Label("lsblk", "partitions"), func() {
 		var cmds [][]string
 		BeforeEach(func() {
@@ -246,7 +238,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.Clean()
 		})
 		It("returns all found partitions", func() {
-			parts, err := utils.GetAllPartitions()
+			parts, err := partitions.GetAllPartitions()
 			Expect(err).To(BeNil())
 			var partNames []string
 			for _, p := range parts {
@@ -277,17 +269,17 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.Clean()
 		})
 		It("returns found device with plain partition device", func() {
-			pFS, err := utils.GetPartitionFS("device1")
+			pFS, err := partitions.GetPartitionFS("device1")
 			Expect(err).To(BeNil())
 			Expect(pFS).To(Equal("xfs"))
 		})
 		It("returns found device with full partition device", func() {
-			pFS, err := utils.GetPartitionFS("/dev/device1")
+			pFS, err := partitions.GetPartitionFS("/dev/device1")
 			Expect(err).To(BeNil())
 			Expect(pFS).To(Equal("xfs"))
 		})
 		It("fails if no partition is found", func() {
-			_, err := utils.GetPartitionFS("device2")
+			_, err := partitions.GetPartitionFS("device2")
 			Expect(err).NotTo(BeNil())
 		})
 	})
@@ -377,40 +369,40 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("CopyFile", Label("CopyFile"), func() {
 		It("Copies source file to target file", func() {
-			err := utils.MkdirAll(fs, "/some", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create("/some/file")
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Stat("/some/otherfile")
 			Expect(err).Should(HaveOccurred())
 			Expect(utils.CopyFile(fs, "/some/file", "/some/otherfile")).ShouldNot(HaveOccurred())
-			e, err := utils.Exists(fs, "/some/otherfile")
+			e, err := fsutils.Exists(fs, "/some/otherfile")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(e).To(BeTrue())
 		})
 		It("Copies source file to target folder", func() {
-			err := utils.MkdirAll(fs, "/some", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
-			err = utils.MkdirAll(fs, "/someotherfolder", constants.DirPerm)
+			err = fsutils.MkdirAll(fs, "/someotherfolder", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create("/some/file")
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Stat("/someotherfolder/file")
 			Expect(err).Should(HaveOccurred())
 			Expect(utils.CopyFile(fs, "/some/file", "/someotherfolder")).ShouldNot(HaveOccurred())
-			e, err := utils.Exists(fs, "/someotherfolder/file")
+			e, err := fsutils.Exists(fs, "/someotherfolder/file")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(e).To(BeTrue())
 		})
 		It("Fails to open non existing file", func() {
-			err := utils.MkdirAll(fs, "/some", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(utils.CopyFile(fs, "/some/file", "/some/otherfile")).NotTo(BeNil())
 			_, err = fs.Stat("/some/otherfile")
 			Expect(err).NotTo(BeNil())
 		})
 		It("Fails to copy on non writable target", func() {
-			err := utils.MkdirAll(fs, "/some", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			fs.Create("/some/file")
 			_, err = fs.Stat("/some/otherfile")
@@ -448,13 +440,13 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("SyncData", Label("SyncData"), func() {
 		It("Copies all files from source to target", func() {
-			sourceDir, err := utils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := utils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
 			Expect(err).ShouldNot(HaveOccurred())
 
 			for i := 0; i < 5; i++ {
-				_, _ = utils.TempFile(fs, sourceDir, "file*")
+				_, _ = fsutils.TempFile(fs, sourceDir, "file*")
 			}
 
 			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir)).To(BeNil())
@@ -473,19 +465,19 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 
 		It("Copies all files from source to target respecting excludes", func() {
-			sourceDir, err := utils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := utils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
 			Expect(err).ShouldNot(HaveOccurred())
 
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "host"), constants.DirPerm)
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "run"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "host"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "run"), constants.DirPerm)
 
 			// /tmp/run would be excluded as well, as we define an exclude without the "/" prefix
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "tmp", "run"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "tmp", "run"), constants.DirPerm)
 
 			for i := 0; i < 5; i++ {
-				_, _ = utils.TempFile(fs, sourceDir, "file*")
+				_, _ = fsutils.TempFile(fs, sourceDir, "file*")
 			}
 
 			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir, "host", "run")).To(BeNil())
@@ -512,19 +504,19 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(destNames).To(Equal(expected))
 
 			// /tmp/run is not copied over
-			Expect(utils.Exists(fs, filepath.Join(destDir, "tmp", "run"))).To(BeFalse())
+			Expect(fsutils.Exists(fs, filepath.Join(destDir, "tmp", "run"))).To(BeFalse())
 		})
 
 		It("Copies all files from source to target respecting excludes with '/' prefix", func() {
-			sourceDir, err := utils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := utils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
 			Expect(err).ShouldNot(HaveOccurred())
 
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "host"), constants.DirPerm)
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "run"), constants.DirPerm)
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "var", "run"), constants.DirPerm)
-			utils.MkdirAll(fs, filepath.Join(sourceDir, "tmp", "host"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "host"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "run"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "var", "run"), constants.DirPerm)
+			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "tmp", "host"), constants.DirPerm)
 
 			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir, "/host", "/run")).To(BeNil())
 
@@ -541,16 +533,16 @@ var _ = Describe("Utils", Label("utils"), func() {
 			// Shouldn't be the same
 			Expect(destNames).ToNot(Equal(SourceNames))
 
-			Expect(utils.Exists(fs, filepath.Join(destDir, "var", "run"))).To(BeTrue())
-			Expect(utils.Exists(fs, filepath.Join(destDir, "tmp", "host"))).To(BeTrue())
-			Expect(utils.Exists(fs, filepath.Join(destDir, "host"))).To(BeFalse())
-			Expect(utils.Exists(fs, filepath.Join(destDir, "run"))).To(BeFalse())
+			Expect(fsutils.Exists(fs, filepath.Join(destDir, "var", "run"))).To(BeTrue())
+			Expect(fsutils.Exists(fs, filepath.Join(destDir, "tmp", "host"))).To(BeTrue())
+			Expect(fsutils.Exists(fs, filepath.Join(destDir, "host"))).To(BeFalse())
+			Expect(fsutils.Exists(fs, filepath.Join(destDir, "run"))).To(BeFalse())
 		})
 
 		It("should not fail if dirs are empty", func() {
-			sourceDir, err := utils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := utils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir)).To(BeNil())
 		})
@@ -672,7 +664,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("DirSize", Label("fs"), func() {
 		BeforeEach(func() {
-			err := utils.MkdirAll(fs, "/folder/subfolder", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/folder/subfolder", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			f, err := fs.Create("/folder/file")
 			Expect(err).ShouldNot(HaveOccurred())
@@ -684,14 +676,14 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("Returns the expected size of a test folder", func() {
-			size, err := utils.DirSize(fs, "/folder")
+			size, err := fsutils.DirSize(fs, "/folder")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(size).To(Equal(int64(3072)))
 		})
 	})
 	Describe("FindFileWithPrefix", Label("find"), func() {
 		BeforeEach(func() {
-			err := utils.MkdirAll(fs, "/path/inner", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/path/inner", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			_, err = fs.Create("/path/onefile")
@@ -740,7 +732,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(err).Should(HaveOccurred())
 		})
 		It("doesn't find any matching file in path", func() {
-			utils.MkdirAll(fs, "/path", constants.DirPerm)
+			fsutils.MkdirAll(fs, "/path", constants.DirPerm)
 			_, err := utils.FindFileWithPrefix(fs, "/path", "prefix", "anotherprefix")
 			Expect(err).Should(HaveOccurred())
 		})
@@ -773,10 +765,10 @@ var _ = Describe("Utils", Label("utils"), func() {
 				logger.SetLevel(v1.DebugLevel())
 				config.Logger = logger
 
-				err := utils.MkdirAll(fs, filepath.Join(bootDir, "grub2"), constants.DirPerm)
+				err := fsutils.MkdirAll(fs, filepath.Join(bootDir, "grub2"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				err = utils.MkdirAll(fs, filepath.Dir(filepath.Join(rootDir, constants.GrubConf)), constants.DirPerm)
+				err = fsutils.MkdirAll(fs, filepath.Dir(filepath.Join(rootDir, constants.GrubConf)), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = fs.WriteFile(filepath.Join(rootDir, constants.GrubConf), []byte("console=tty1"), 0644)
@@ -798,17 +790,17 @@ var _ = Describe("Utils", Label("utils"), func() {
 
 			})
 			It("installs with efi firmware", Label("efi"), func() {
-				err := utils.MkdirAll(fs, filepath.Join(rootDir, "/usr/share/efi/x86_64/"), constants.DirPerm)
+				err := fsutils.MkdirAll(fs, filepath.Join(rootDir, "/usr/share/efi/x86_64/"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 				err = fs.WriteFile(filepath.Join(rootDir, "/usr/share/efi/x86_64/", constants.SignedShim), []byte(""), constants.FilePerm)
 				Expect(err).ShouldNot(HaveOccurred())
 				err = fs.WriteFile(filepath.Join(rootDir, "/usr/share/efi/x86_64/grub.efi"), []byte(""), constants.FilePerm)
 				Expect(err).ShouldNot(HaveOccurred())
-				err = utils.MkdirAll(fs, filepath.Join(rootDir, "/x86_64/"), constants.DirPerm)
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "/x86_64/"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 				err = fs.WriteFile(filepath.Join(rootDir, "/x86_64/loopback.mod"), []byte(""), constants.FilePerm)
 				Expect(err).ShouldNot(HaveOccurred())
-				err = utils.MkdirAll(fs, filepath.Join(rootDir, "/etc/"), constants.DirPerm)
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "/etc/"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 				err = fs.WriteFile(filepath.Join(rootDir, "/etc/os-release"), []byte("ID=\"suse\""), constants.FilePerm)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -839,7 +831,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				Expect(err.Error()).To(ContainSubstring("modules"))
 			})
 			It("fails with efi if no grub files exist", Label("efi"), func() {
-				err := utils.MkdirAll(fs, filepath.Join(rootDir, "/x86_64/"), constants.DirPerm)
+				err := fsutils.MkdirAll(fs, filepath.Join(rootDir, "/x86_64/"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 				err = fs.WriteFile(filepath.Join(rootDir, "/x86_64/loopback.mod"), []byte(""), constants.FilePerm)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -1009,7 +1001,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			// create squashfs
-			err = utils.MkdirAll(config.Fs, filepath.Dir(squashedImg), constants.DirPerm)
+			err = fsutils.MkdirAll(config.Fs, filepath.Dir(squashedImg), constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = config.Fs.Create(squashedImg)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -1031,7 +1023,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			// squashed image on temp dir
 			squashedImg = filepath.Join("/tmp/elemental", "cOS", constants.RecoverySquashFile)
 			// create squashfs
-			err := utils.MkdirAll(config.Fs, filepath.Dir(squashedImg), constants.DirPerm)
+			err := fsutils.MkdirAll(config.Fs, filepath.Dir(squashedImg), constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = config.Fs.Create(squashedImg)
 			Expect(err).ShouldNot(HaveOccurred())

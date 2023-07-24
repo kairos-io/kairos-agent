@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"regexp"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -42,7 +43,7 @@ const partTmpl = `
 %d:%ss:%ss:2048s:ext4::type=83;`
 
 var _ = Describe("Install action tests", func() {
-	var config *v1.Config
+	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger v1.Logger
@@ -69,15 +70,15 @@ var _ = Describe("Install action tests", func() {
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
-		config = conf.NewConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithClient(client),
-			conf.WithCloudInitRunner(cloudInit),
-			conf.WithImageExtractor(extractor),
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
+			agentConfig.WithCloudInitRunner(cloudInit),
+			agentConfig.WithImageExtractor(extractor),
 		)
 	})
 
@@ -94,7 +95,7 @@ var _ = Describe("Install action tests", func() {
 
 		BeforeEach(func() {
 			device = "/some/device"
-			err = utils.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(device)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -143,14 +144,14 @@ var _ = Describe("Install action tests", func() {
 				}
 			}
 			// Need to create the IsoBaseTree, like if we are booting from iso
-			err = utils.MkdirAll(fs, constants.IsoBaseTree, constants.DirPerm)
+			err = fsutils.MkdirAll(fs, constants.IsoBaseTree, constants.DirPerm)
 			Expect(err).To(BeNil())
 
-			spec = conf.NewInstallSpec(config)
+			spec = agentConfig.NewInstallSpec(config)
 			spec.Active.Size = 16
 
 			grubCfg := filepath.Join(spec.Active.MountPoint, constants.GrubConf)
-			err = utils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(grubCfg)
 			Expect(err).To(BeNil())
@@ -215,7 +216,7 @@ var _ = Describe("Install action tests", func() {
 		})
 
 		It("Sets the executable /run/cos/ejectcd so systemd can eject the cd on restart", func() {
-			_ = utils.MkdirAll(fs, "/usr/lib/systemd/system-shutdown", constants.DirPerm)
+			_ = fsutils.MkdirAll(fs, "/usr/lib/systemd/system-shutdown", constants.DirPerm)
 			_, err := fs.Stat("/usr/lib/systemd/system-shutdown/eject")
 			Expect(err).To(HaveOccurred())
 			// Override cmdline to return like we are booting from cd
@@ -233,7 +234,7 @@ var _ = Describe("Install action tests", func() {
 		})
 
 		It("ejectcd does nothing if we are not booting from cd", func() {
-			_ = utils.MkdirAll(fs, "/usr/lib/systemd/system-shutdown", constants.DirPerm)
+			_ = fsutils.MkdirAll(fs, "/usr/lib/systemd/system-shutdown", constants.DirPerm)
 			_, err := fs.Stat("/usr/lib/systemd/system-shutdown/eject")
 			Expect(err).To(HaveOccurred())
 			spec.Target = device
@@ -265,7 +266,7 @@ var _ = Describe("Install action tests", func() {
 		It("Successfully installs and adds remote cloud-config", Label("cloud-config"), func() {
 			spec.Target = device
 			spec.CloudInit = []string{"http://my.config.org"}
-			utils.MkdirAll(fs, constants.OEMDir, constants.DirPerm)
+			fsutils.MkdirAll(fs, constants.OEMDir, constants.DirPerm)
 			_, err := fs.Create(filepath.Join(constants.OEMDir, "90_custom.yaml"))
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(installer.Run()).To(BeNil())

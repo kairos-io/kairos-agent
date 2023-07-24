@@ -19,6 +19,8 @@ package elemental_test
 import (
 	"errors"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +30,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -49,7 +50,7 @@ func TestElementalSuite(t *testing.T) {
 }
 
 var _ = Describe("Elemental", Label("elemental"), func() {
-	var config *v1.Config
+	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger v1.Logger
 	var syscall v1.SyscallInterface
@@ -67,14 +68,14 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		logger = v1.NewNullLogger()
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 		extractor = v1mock.NewFakeImageExtractor(logger)
-		config = conf.NewConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithClient(client),
-			conf.WithImageExtractor(extractor),
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
+			agentConfig.WithImageExtractor(extractor),
 		)
 	})
 	AfterEach(func() { cleanup() })
@@ -82,9 +83,9 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
-			parts = conf.NewInstallElementalParitions()
+			parts = agentConfig.NewInstallElementalParitions()
 
-			err := utils.MkdirAll(fs, "/some", cnst.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = fs.Create("/some/device")
 			Expect(err).ToNot(HaveOccurred())
@@ -146,9 +147,9 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
-			parts = conf.NewInstallElementalParitions()
+			parts = agentConfig.NewInstallElementalParitions()
 
-			err := utils.MkdirAll(fs, "/some", cnst.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = fs.Create("/some/device")
 			Expect(err).ToNot(HaveOccurred())
@@ -194,9 +195,9 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
-			parts = conf.NewInstallElementalParitions()
+			parts = agentConfig.NewInstallElementalParitions()
 
-			err := utils.MkdirAll(fs, "/some", cnst.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = fs.Create("/some/device")
 			Expect(err).ToNot(HaveOccurred())
@@ -292,7 +293,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				MountPoint: cnst.ActiveDir,
 				Source:     v1.NewDirSrc(cnst.IsoBaseTree),
 			}
-			_ = utils.MkdirAll(fs, cnst.IsoBaseTree, cnst.DirPerm)
+			_ = fsutils.MkdirAll(fs, cnst.IsoBaseTree, cnst.DirPerm)
 			el = elemental.NewElemental(config)
 		})
 
@@ -341,10 +342,10 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
 			el = elemental.NewElemental(config)
-			install = conf.NewInstallSpec(config)
+			install = agentConfig.NewInstallSpec(config)
 			install.Target = "/some/device"
 
-			err := utils.MkdirAll(fs, "/some", cnst.DirPerm)
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = fs.Create("/some/device")
 			Expect(err).ToNot(HaveOccurred())
@@ -355,7 +356,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			var efiPartCmds, partCmds, biosPartCmds [][]string
 			BeforeEach(func() {
 				partNum, printOut = 0, printOutput
-				err := utils.MkdirAll(fs, "/some", cnst.DirPerm)
+				err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 				Expect(err).To(BeNil())
 				efiPartCmds = [][]string{
 					{
@@ -435,7 +436,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		Describe("Run with failures", func() {
 			var runFunc func(cmd string, args ...string) ([]byte, error)
 			BeforeEach(func() {
-				err := utils.MkdirAll(fs, "/some", cnst.DirPerm)
+				err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 				Expect(err).To(BeNil())
 				partNum, printOut = 0, printOutput
 				runFunc = func(cmd string, args ...string) ([]byte, error) {
@@ -486,9 +487,9 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var img *v1.Image
 		var cmdFail string
 		BeforeEach(func() {
-			sourceDir, err := utils.TempDir(fs, "", "elemental")
+			sourceDir, err := fsutils.TempDir(fs, "", "elemental")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := utils.TempDir(fs, "", "elemental")
+			destDir, err := fsutils.TempDir(fs, "", "elemental")
 			Expect(err).ShouldNot(HaveOccurred())
 			cmdFail = ""
 			el = elemental.NewElemental(config)
@@ -532,7 +533,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			sourceImg := "/source.img"
 			_, err := fs.Create(sourceImg)
 			Expect(err).To(BeNil())
-			destDir, err := utils.TempDir(fs, "", "elemental")
+			destDir, err := fsutils.TempDir(fs, "", "elemental")
 			Expect(err).To(BeNil())
 			img.Source = v1.NewFileSrc(sourceImg)
 			img.MountPoint = destDir
@@ -542,7 +543,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			sourceImg := "/source.img"
 			_, err := fs.Create(sourceImg)
 			Expect(err).To(BeNil())
-			destDir, err := utils.TempDir(fs, "", "elemental")
+			destDir, err := fsutils.TempDir(fs, "", "elemental")
 			Expect(err).To(BeNil())
 			img.Source = v1.NewFileSrc(sourceImg)
 			img.MountPoint = destDir
@@ -554,7 +555,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			sourceImg := "/source.img"
 			_, err := fs.Create(sourceImg)
 			Expect(err).To(BeNil())
-			destDir, err := utils.TempDir(fs, "", "elemental")
+			destDir, err := fsutils.TempDir(fs, "", "elemental")
 			Expect(err).To(BeNil())
 			img.Source = v1.NewFileSrc(sourceImg)
 			img.MountPoint = destDir
@@ -596,7 +597,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		BeforeEach(func() {
 			var err error
 			e = elemental.NewElemental(config)
-			destDir, err = utils.TempDir(fs, "", "elemental")
+			destDir, err = fsutils.TempDir(fs, "", "elemental")
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("Copies files from a directory source", func() {
@@ -682,7 +683,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var relabelCmd []string
 		BeforeEach(func() {
 			// to mock the existance of setfiles command on non selinux hosts
-			err := utils.MkdirAll(fs, "/usr/sbin", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/usr/sbin", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			sbin, err := fs.RawPath("/usr/sbin")
 			Expect(err).ShouldNot(HaveOccurred())
@@ -696,11 +697,11 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 
 			// to mock SELinux policy files
 			policyFile = filepath.Join(constants.SELinuxTargetedPolicyPath, "policy.31")
-			err = utils.MkdirAll(fs, filepath.Dir(constants.SELinuxTargetedContextFile), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Dir(constants.SELinuxTargetedContextFile), constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(constants.SELinuxTargetedContextFile)
 			Expect(err).ShouldNot(HaveOccurred())
-			err = utils.MkdirAll(fs, constants.SELinuxTargetedPolicyPath, constants.DirPerm)
+			err = fsutils.MkdirAll(fs, constants.SELinuxTargetedPolicyPath, constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(policyFile)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -749,12 +750,12 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 		It("relabels the given root-tree path", func() {
 			contextFile := filepath.Join("/root", constants.SELinuxTargetedContextFile)
-			err := utils.MkdirAll(fs, filepath.Dir(contextFile), constants.DirPerm)
+			err := fsutils.MkdirAll(fs, filepath.Dir(contextFile), constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(contextFile)
 			Expect(err).ShouldNot(HaveOccurred())
 			policyFile = filepath.Join("/root", policyFile)
-			err = utils.MkdirAll(fs, filepath.Join("/root", constants.SELinuxTargetedPolicyPath), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Join("/root", constants.SELinuxTargetedPolicyPath), constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(policyFile)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -774,7 +775,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			e = elemental.NewElemental(config)
 		})
 		It("Gets the iso and returns the temporary where it is stored", func() {
-			tmpDir, err := utils.TempDir(fs, "", "elemental-test")
+			tmpDir, err := fsutils.TempDir(fs, "", "elemental-test")
 			Expect(err).To(BeNil())
 			err = fs.WriteFile(fmt.Sprintf("%s/fake.iso", tmpDir), []byte("Hi"), cnst.FilePerm)
 			Expect(err).To(BeNil())
@@ -782,7 +783,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			isoDir, err := e.GetIso(iso)
 			Expect(err).To(BeNil())
 			// Confirm that the iso is stored in isoDir
-			utils.Exists(fs, filepath.Join(isoDir, "cOs.iso"))
+			fsutils.Exists(fs, filepath.Join(isoDir, "cOs.iso"))
 		})
 		It("Fails if it cant find the iso", func() {
 			iso := "whatever"
@@ -792,7 +793,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 		It("Fails if it cannot mount the iso", func() {
 			mounter.ErrorOnMount = true
-			tmpDir, err := utils.TempDir(fs, "", "elemental-test")
+			tmpDir, err := fsutils.TempDir(fs, "", "elemental-test")
 			Expect(err).To(BeNil())
 			err = fs.WriteFile(fmt.Sprintf("%s/fake.iso", tmpDir), []byte("Hi"), cnst.FilePerm)
 			Expect(err).To(BeNil())
@@ -831,7 +832,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		It("updates recovery only image", func() {
 			recoveryImg = &v1.Image{}
 			isoMnt := "/some/dir/iso"
-			err := utils.MkdirAll(fs, isoMnt, cnst.DirPerm)
+			err := fsutils.MkdirAll(fs, isoMnt, cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			recoverySquash := filepath.Join(isoMnt, cnst.RecoverySquashFile)
 			_, err = fs.Create(recoverySquash)
@@ -883,7 +884,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(runner.CmdsMatch([][]string{{"grub2-editenv"}})).NotTo(BeNil())
 		})
 		It("loads /etc/os-release on empty default entry", func() {
-			err := utils.MkdirAll(config.Fs, "/imgMountPoint/etc", constants.DirPerm)
+			err := fsutils.MkdirAll(config.Fs, "/imgMountPoint/etc", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			err = config.Fs.WriteFile("/imgMountPoint/etc/os-release", []byte("GRUB_ENTRY_NAME=test"), constants.FilePerm)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -904,7 +905,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	})
 	Describe("FindKernelInitrd", Label("find"), func() {
 		BeforeEach(func() {
-			err := utils.MkdirAll(fs, "/path/boot", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/path/boot", constants.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("finds kernel and initrd files", func() {

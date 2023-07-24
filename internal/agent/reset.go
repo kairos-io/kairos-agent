@@ -12,7 +12,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	sdk "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
@@ -78,7 +77,7 @@ func Reset(dir ...string) error {
 	utils.SetEnv(c.Env)
 
 	// Load the installation Config from the cloud-config data
-	resetConfig, resetSpec, err := elementalConfig.ReadResetConfigFromAgentConfig(c)
+	resetSpec, err := config.ReadResetSpecFromConfig(c)
 	if err != nil {
 		return err
 	}
@@ -92,11 +91,11 @@ func Reset(dir ...string) error {
 			resetSpec.FormatOEM = o == "true"
 		}
 		if s := optionsFromEvent["strict"]; s != "" {
-			resetConfig.Strict = s == "true"
+			c.Strict = s == "true"
 		}
 	}
 
-	resetAction := action.NewResetAction(resetConfig, resetSpec)
+	resetAction := action.NewResetAction(c, resetSpec)
 	if err := resetAction.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

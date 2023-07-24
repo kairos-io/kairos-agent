@@ -18,7 +18,9 @@ package action
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"path/filepath"
+	"strings"
 	"time"
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -107,11 +109,11 @@ func (i *InstallAction) createInstallStateYaml(sysMeta, recMeta interface{}) err
 }
 
 type InstallAction struct {
-	cfg  *v1.Config
+	cfg  *config.Config
 	spec *v1.InstallSpec
 }
 
-func NewInstallAction(cfg *v1.Config, spec *v1.InstallSpec) *InstallAction {
+func NewInstallAction(cfg *config.Config, spec *v1.InstallSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 
@@ -259,7 +261,10 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// If we want to eject the cd, create the required executable so the cd is ejected at shutdown
-	if i.cfg.EjectCD && utils.BootedFrom(i.cfg.Runner, "cdroot") {
+	out, _ := i.cfg.Runner.Run("cat", "/proc/cmdline")
+	bootedFromCD := strings.Contains(string(out), "cdroot")
+
+	if i.cfg.EjectCD && bootedFromCD {
 		i.cfg.Logger.Infof("Writing eject script")
 		err = i.cfg.Fs.WriteFile("/usr/lib/systemd/system-shutdown/eject", []byte(cnst.EjectScript), 0744)
 		if err != nil {

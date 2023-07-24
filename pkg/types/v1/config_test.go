@@ -17,108 +17,17 @@ limitations under the License.
 package v1_test
 
 import (
-	"path/filepath"
-
+	conf "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
-	Describe("Write and load installation state", func() {
-		var config *v1.Config
-		var runner *v1mocks.FakeRunner
-		var fs vfs.FS
-		var mounter *v1mocks.ErrorMounter
-		var cleanup func()
-		var err error
-		var dockerState, channelState *v1.ImageState
-		var installState *v1.InstallState
-		var statePath, recoveryPath string
 
-		BeforeEach(func() {
-			runner = v1mocks.NewFakeRunner()
-			mounter = v1mocks.NewErrorMounter()
-			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
-			Expect(err).Should(BeNil())
-
-			config = conf.NewConfig(
-				conf.WithFs(fs),
-				conf.WithRunner(runner),
-				conf.WithMounter(mounter),
-			)
-			dockerState = &v1.ImageState{
-				Source: v1.NewDockerSrc("registry.org/my/image:tag"),
-				Label:  "active_label",
-				FS:     "ext2",
-				SourceMetadata: &v1.DockerImageMeta{
-					Digest: "adadgadg",
-					Size:   23452345,
-				},
-			}
-			installState = &v1.InstallState{
-				Date: "somedate",
-				Partitions: map[string]*v1.PartitionState{
-					"state": {
-						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
-							"active": dockerState,
-						},
-					},
-					"recovery": {
-						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
-							"recovery": channelState,
-						},
-					},
-				},
-			}
-
-			statePath = filepath.Join(constants.RunningStateDir, constants.InstallStateFile)
-			recoveryPath = "/recoverypart/state.yaml"
-			err = utils.MkdirAll(fs, filepath.Dir(recoveryPath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = utils.MkdirAll(fs, filepath.Dir(statePath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-		AfterEach(func() {
-			cleanup()
-		})
-		It("Writes and loads an installation data", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			loadedInstallState, err := config.LoadInstallState()
-			Expect(err).ShouldNot(HaveOccurred())
-
-			Expect(*loadedInstallState).To(Equal(*installState))
-		})
-		It("Fails writing to state partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails writing to recovery partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails loading state file", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			_, err = config.LoadInstallState()
-			Expect(err).Should(HaveOccurred())
-		})
-	})
 	Describe("ElementalPartitions", func() {
 		var p v1.PartitionList
 		var ep v1.ElementalPartitions
@@ -333,7 +242,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 
 		BeforeEach(func() {
 			cfg := elementalConfig.NewConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
-			spec = elementalConfig.NewInstallSpec(cfg)
+			spec = conf.NewInstallSpec(cfg)
 		})
 		Describe("sanitize", func() {
 			It("runs method", func() {

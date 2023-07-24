@@ -15,8 +15,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -279,7 +278,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
 				Aliases:     []string{"s"},
 				Action: func(c *cli.Context) error {
-					config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {
 						return err
 					}
@@ -308,7 +307,7 @@ enabled: true`,
 				Description: "It allows to navigate the YAML config file by searching with 'yq' style keywords as `config get k3s` to retrieve the k3s config block",
 				Aliases:     []string{"g"},
 				Action: func(c *cli.Context) error {
-					config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
 						return err
 					}
@@ -527,11 +526,11 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 		Action: func(c *cli.Context) error {
 			stage := c.Args().First()
-			config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 			if err != nil {
 				return err
 			}
-			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
+			cfg, err := agentConfig.ReadConfigRunFromAgentConfig(config)
 			cfg.Strict = c.Bool("strict")
 
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
@@ -578,11 +577,11 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return fmt.Errorf("invalid path %s", destination)
 			}
-			config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 			if err != nil {
 				return err
 			}
-			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
+			cfg, err := agentConfig.ReadConfigRunFromAgentConfig(config)
 			if err != nil {
 				return err
 			}

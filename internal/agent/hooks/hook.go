@@ -10,7 +10,6 @@ type Interface interface {
 }
 
 var AfterInstall = []Interface{
-	&RunStage{},    // Shells out to stages defined from the container image
 	&GrubOptions{}, // Set custom GRUB options
 	&BundleOption{},
 	&CustomMounts{},

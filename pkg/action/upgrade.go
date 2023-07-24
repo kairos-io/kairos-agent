@@ -18,6 +18,8 @@ package action
 
 import (
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"time"
 
@@ -29,11 +31,11 @@ import (
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish
 type UpgradeAction struct {
-	config *v1.Config
+	config *agentConfig.Config
 	spec   *v1.UpgradeSpec
 }
 
-func NewUpgradeAction(config *v1.Config, spec *v1.UpgradeSpec) *UpgradeAction {
+func NewUpgradeAction(config *agentConfig.Config, spec *v1.UpgradeSpec) *UpgradeAction {
 	return &UpgradeAction{config: config, spec: spec}
 }
 
@@ -154,7 +156,7 @@ func (u *UpgradeAction) Run() (err error) {
 	persistentPart := u.spec.Partitions.Persistent
 	if persistentPart != nil {
 		// Create the dir otherwise the check for mounted dir fails
-		_ = utils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
+		_ = fsutils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
 		if mnt, err := utils.IsMounted(u.config, persistentPart); !mnt && err == nil {
 			u.Debug("mounting persistent partition")
 			umount, err = e.MountRWPartition(persistentPart)
@@ -281,7 +283,7 @@ func (u *UpgradeAction) Run() (err error) {
 
 // remove attempts to remove the given path. Does nothing if it doesn't exist
 func (u *UpgradeAction) remove(path string) error {
-	if exists, _ := utils.Exists(u.config.Fs, path); exists {
+	if exists, _ := fsutils.Exists(u.config.Fs, path); exists {
 		u.Debug("[Cleanup] Removing %s", path)
 		return u.config.Fs.RemoveAll(path)
 	}

@@ -18,11 +18,12 @@ package utils
 
 import (
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/mudler/yip/pkg/schema"
 	"gopkg.in/yaml.v3"
 )
@@ -43,7 +44,7 @@ func onlyYAMLPartialErrors(er error) bool {
 	return true
 }
 
-func checkYAMLError(cfg *v1.Config, allErrors, err error) error {
+func checkYAMLError(cfg *agentConfig.Config, allErrors, err error) error {
 	if !onlyYAMLPartialErrors(err) {
 		// here we absorb errors only if are related to YAML unmarshalling
 		// As cmdline is parsed out as a yaml file
@@ -57,7 +58,7 @@ func checkYAMLError(cfg *v1.Config, allErrors, err error) error {
 }
 
 // RunStage will run yip
-func RunStage(cfg *v1.Config, stage string) error {
+func RunStage(cfg *agentConfig.Config, stage string) error {
 	var cmdLineYipURI string
 	var allErrors error
 	var cloudInitPaths []string
@@ -67,7 +68,7 @@ func RunStage(cfg *v1.Config, stage string) error {
 
 	// Make sure cloud init path specified are existing in the system
 	for _, cp := range cloudInitPaths {
-		err := MkdirAll(cfg.Fs, cp, constants.DirPerm)
+		err := fsutils.MkdirAll(cfg.Fs, cp, constants.DirPerm)
 		if err != nil {
 			cfg.Logger.Debugf("Failed creating cloud-init config path: %s %s", cp, err.Error())
 		}
