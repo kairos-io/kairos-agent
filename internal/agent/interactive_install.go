@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -229,12 +230,6 @@ func InteractiveInstall(debug, spawnShell bool) error {
 		return InteractiveInstall(debug, spawnShell)
 	}
 
-	c := &config.Config{
-		Install: &config.Install{
-			Device: device,
-		},
-	}
-
 	usersToSet := map[string]schema.User{}
 
 	stage := config.NetworkStage.String()
@@ -264,6 +259,12 @@ func InteractiveInstall(debug, spawnShell bool) error {
 			},
 		}}}
 
+	c := &config.Config{
+		Install: &config.Install{
+			Device: device,
+		},
+	}
+	// Merge all yamls into one
 	dat, err := config.MergeYAML(cloudConfig, c, result)
 	if err != nil {
 		return err
@@ -272,12 +273,14 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	finalCloudConfig := config.AddHeader("#cloud-config", string(dat))
 
 	pterm.Info.Println("Starting installation")
+	// Generate final config
+
+	cc := &config.Config{}
+	yaml.Unmarshal([]byte(finalCloudConfig), cc)
+
 	pterm.Info.Println(finalCloudConfig)
 
-	err = RunInstall(map[string]string{
-		"device": device,
-		"cc":     finalCloudConfig,
-	})
+	err = RunInstall(cc)
 	if err != nil {
 		pterm.Error.Println(err.Error())
 	}

@@ -146,7 +146,7 @@ func (r *RunConfig) Sanitize() error {
 
 // InstallSpec struct represents all the installation action details
 type InstallSpec struct {
-	Target          string              `yaml:"target,omitempty" mapstructure:"target"`
+	Target          string              `yaml:"device,omitempty" mapstructure:"device"`
 	Firmware        string              `yaml:"firmware,omitempty" mapstructure:"firmware"`
 	PartTable       string              `yaml:"part-table,omitempty" mapstructure:"part-table"`
 	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`

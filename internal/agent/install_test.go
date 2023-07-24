@@ -63,7 +63,7 @@ var _ = Describe("prepareConfiguration", func() {
 })
 
 var _ = Describe("RunInstall", func() {
-	var options map[string]string
+	var options *config.Config
 	var err error
 	var fs vfs.FS
 	var cleanup func()
@@ -138,16 +138,11 @@ var _ = Describe("RunInstall", func() {
 		_, err = fs.Create(device)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		userConfig := `
-#cloud-config
-
-install:
-  image: test
-`
-
-		options = map[string]string{
-			"device": "/some/device",
-			"cc":     userConfig,
+		options = &config.Config{
+			Install: &config.Install{
+				Device: "/some/device",
+				Image:  "test",
+			},
 		}
 
 		mainDisk := block.Disk{

@@ -62,7 +62,7 @@ func mergeOption(cloudConfig string, r map[string]string) {
 	}
 }
 
-func ManualInstall(c string, options map[string]string, strictValidations bool) error {
+func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -75,28 +75,21 @@ func ManualInstall(c string, options map[string]string, strictValidations bool) 
 	if err != nil {
 		return err
 	}
-	configStr, err := cc.String()
-	if err != nil {
-		return err
-	}
-	options["cc"] = configStr
-	// unlike Install device is already set
-	// options["device"] = cc.Install.Device
 
-	mergeOption(configStr, options)
-
-	if options["device"] == "" {
-		// IF cc is nil we will panic, check beforehand.
-		// If we set no device then we will exit later down the line anyway
-		if cc.Install != nil {
-			if cc.Install.Device == "" {
-				options["device"] = detectDevice()
-			} else {
-				options["device"] = cc.Install.Device
-			}
-		}
+	if reboot {
+		// Override from flags!
+		cc.Install.Reboot = true
 	}
-	return RunInstall(options)
+
+	if poweroff {
+		// Override from flags!
+		cc.Install.Poweroff = true
+	}
+	if device != "" {
+		// Override from flags!
+		cc.Install.Device = device
+	}
+	return RunInstall(cc)
 }
 
 func Install(dir ...string) error {
@@ -127,22 +120,18 @@ func Install(dir ...string) error {
 	// runs the installation
 	cc, err := config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
 	if err == nil && cc.Install != nil && cc.Install.Auto {
-		configStr, err := cc.String()
-		if err != nil {
-			return err
-		}
-		r["cc"] = configStr
-		r["device"] = cc.Install.Device
-		mergeOption(configStr, r)
-
-		err = RunInstall(r)
+		err = RunInstall(cc)
 		if err != nil {
 			return err
 		}
 
-		svc, err := machine.Getty(1)
-		if err == nil {
-			svc.Start() //nolint:errcheck
+		if cc.Install.Reboot == false && cc.Install.Poweroff == false {
+			pterm.DefaultInteractiveContinue.Options = []string{}
+			pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
+			svc, err := machine.Getty(1)
+			if err == nil {
+				svc.Start() //nolint:errcheck
+			}
 		}
 
 		return nil
@@ -196,83 +185,42 @@ func Install(dir ...string) error {
 
 	// we receive a cloud config at this point
 	cloudConfig, exists := r["cc"]
-
-	// merge any options defined in it
-	mergeOption(cloudConfig, r)
-
-	// now merge cloud config from system and
-	// the one received from the agent-provider
-	ccData := map[string]interface{}{}
-
-	// make sure the config we write has at least the #cloud-config header,
-	// if any other was defined beforeahead
-	header := "#cloud-config"
-	if hasHeader, head := config.HasHeader(configStr, ""); hasHeader {
-		header = head
-	}
-
-	// What we receive take precedence over the one in the system. best-effort
-	yaml.Unmarshal([]byte(configStr), &ccData) //nolint:errcheck
 	if exists {
-		yaml.Unmarshal([]byte(cloudConfig), &ccData) //nolint:errcheck
-		if hasHeader, head := config.HasHeader(cloudConfig, ""); hasHeader {
-			header = head
-		}
+		yaml.Unmarshal([]byte(cloudConfig), cc)
 	}
-
-	out, err := yaml.Marshal(ccData)
-	if err != nil {
-		return fmt.Errorf("failed marshalling cc: %w", err)
-	}
-
-	r["cc"] = config.AddHeader(header, string(out))
 
 	pterm.Info.Println("Starting installation")
 
-	if err := RunInstall(r); err != nil {
+	if err := RunInstall(cc); err != nil {
 		return err
 	}
 
-	pterm.Info.Println("Installation completed, press enter to go back to the shell.")
+	if cc.Install.Reboot {
+		pterm.Info.Println("Installation completed, powering off in 5 seconds.")
 
-	utils.Prompt("") //nolint:errcheck
+	}
+	if cc.Install.Poweroff {
+		pterm.Info.Println("Installation completed, rebooting in 5 seconds.")
+	}
 
-	// give tty1 back
-	svc, err := machine.Getty(1)
-	if err == nil {
-		svc.Start() //nolint: errcheck
+	if cc.Install.Reboot == false && cc.Install.Poweroff == false {
+		pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
+
+		utils.Prompt("") //nolint:errcheck
+
+		// give tty1 back
+		svc, err := machine.Getty(1)
+		if err == nil {
+			svc.Start() //nolint: errcheck
+		}
 	}
 
 	return nil
 }
 
-func RunInstall(options map[string]string) error {
-	cloudInit, ok := options["cc"]
-	if !ok {
-		fmt.Println("cloudInit must be specified among options")
-		os.Exit(1)
-	}
-
-	// TODO: Drop this and make a more straighforward way of getting the cloud-init and options?
-	c := &config.Config{}
-	yaml.Unmarshal([]byte(cloudInit), c) //nolint:errcheck
-
-	if c.Install == nil {
-		c.Install = &config.Install{}
-	}
-
-	// TODO: Im guessing this was used to try to override elemental values from env vars
-	// Does it make sense anymore? We can now expose the whole options of elemental directly
-	env := append(c.Install.Env, c.Env...)
-	utils.SetEnv(env)
-
-	_, reboot := options["reboot"]
-	_, poweroff := options["poweroff"]
-	if poweroff {
-		c.Install.Poweroff = true
-	}
-	if reboot {
-		c.Install.Reboot = true
+func RunInstall(c *config.Config) error {
+	if c.Install.Device == "" || c.Install.Device == "auto" {
+		c.Install.Device = detectDevice()
 	}
 
 	// Load the installation Config from the system
@@ -288,7 +236,12 @@ func RunInstall(options map[string]string) error {
 	}
 	defer os.RemoveAll(f.Name())
 
-	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	ccstring, err := c.String()
+	if err != nil {
+		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		return err
+	}
+	err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
 	if err != nil {
 		fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
 		return err
@@ -306,17 +259,7 @@ func RunInstall(options map[string]string) error {
 		}
 		installSpec.Active.Source = imgSource
 	}
-	// Set the target device
-	device, ok := options["device"]
-	if !ok {
-		fmt.Println("device must be specified among options")
-		return fmt.Errorf("device must be specified among options")
-	}
 
-	if device == "auto" {
-		device = detectDevice()
-	}
-	installSpec.Target = device
 	// Check if values are correct
 	err = installSpec.Sanitize()
 	if err != nil {
