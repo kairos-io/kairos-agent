@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"sort"
 
 	"github.com/Masterminds/semver/v3"
@@ -119,7 +120,20 @@ func Upgrade(
 
 	upgradeAction := action.NewUpgradeAction(upgradeConfig, upgradeSpec)
 
-	return upgradeAction.Run()
+	err = upgradeAction.Run()
+	if err != nil {
+		return err
+	}
+
+	if upgradeSpec.Reboot {
+		utils.Reboot()
+	}
+
+	if upgradeSpec.PowerOff {
+		utils.PowerOFF()
+	}
+
+	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
 }
 
 // determineUpgradeImage asks the provider plugin for an image or constructs

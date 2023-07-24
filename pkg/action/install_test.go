@@ -211,9 +211,7 @@ var _ = Describe("Install action tests", func() {
 
 		It("Successfully installs", func() {
 			spec.Target = device
-			config.Reboot = true
 			Expect(installer.Run()).To(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"reboot", "-f"}}))
 		})
 
 		It("Sets the executable /run/cos/ejectcd so systemd can eject the cd on restart", func() {
@@ -248,9 +246,7 @@ var _ = Describe("Install action tests", func() {
 		It("Successfully installs despite hooks failure", Label("hooks"), func() {
 			cloudInit.Error = true
 			spec.Target = device
-			config.PowerOff = true
 			Expect(installer.Run()).To(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"poweroff", "-f"}}))
 		})
 
 		It("Successfully installs without formatting despite detecting a previous installation", Label("no-format", "disk"), func() {

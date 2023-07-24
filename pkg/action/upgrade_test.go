@@ -238,7 +238,6 @@ var _ = Describe("Runtime Actions", func() {
 			})
 			It("Successfully reboots after upgrade from docker image", Label("docker"), func() {
 				spec.Active.Source = v1.NewDockerSrc("alpine")
-				config.Reboot = true
 				upgrade = action.NewUpgradeAction(config, spec)
 				By("Upgrading")
 				err := upgrade.Run()
@@ -271,11 +270,9 @@ var _ = Describe("Runtime Actions", func() {
 				_, err = fs.Stat(spec.Active.File)
 				Expect(err).To(HaveOccurred())
 				By("checking it called reboot")
-				Expect(runner.IncludesCmds([][]string{{"reboot", "-f"}})).To(BeNil())
 			})
 			It("Successfully powers off after upgrade from docker image", Label("docker"), func() {
 				spec.Active.Source = v1.NewDockerSrc("alpine")
-				config.PowerOff = true
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
@@ -304,7 +301,6 @@ var _ = Describe("Runtime Actions", func() {
 				// Expect transition image to be gone
 				_, err = fs.Stat(spec.Active.File)
 				Expect(err).To(HaveOccurred())
-				Expect(runner.IncludesCmds([][]string{{"poweroff", "-f"}})).To(BeNil())
 			})
 			It("Successfully upgrades from directory", Label("directory"), func() {
 				dirSrc, _ := utils.TempDir(fs, "", "elementalupgrade")

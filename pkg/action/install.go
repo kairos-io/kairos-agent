@@ -267,13 +267,5 @@ func (i InstallAction) Run() (err error) {
 		}
 	}
 
-	// Reboot, poweroff or nothing
-	if i.cfg.Reboot {
-		i.cfg.Logger.Infof("Rebooting in 5 seconds")
-		return utils.Reboot(i.cfg.Runner, 5)
-	} else if i.cfg.PowerOff {
-		i.cfg.Logger.Infof("Shutting down in 5 seconds")
-		return utils.Shutdown(i.cfg.Runner, 5)
-	}
 	return err
 }

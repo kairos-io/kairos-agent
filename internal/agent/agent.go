@@ -2,16 +2,17 @@ package agent
 
 import (
 	"fmt"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
 	"path/filepath"
 
+	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
+	"github.com/kairos-io/kairos-agent/v2/internal/bus"
+	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
-	"github.com/kairos-io/kairos-agent/v2/internal/bus"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/nxadm/tail"
 )
 
@@ -63,8 +64,8 @@ func Run(opts ...Option) error {
 	}()
 
 	if !machine.SentinelExist("firstboot") {
-
-		if err := hook.Run(*c, hook.FirstBoot...); err != nil {
+		spec := v1.EmptySpec{}
+		if err := hook.Run(*c, &spec, hook.FirstBoot...); err != nil {
 			return err
 		}
 

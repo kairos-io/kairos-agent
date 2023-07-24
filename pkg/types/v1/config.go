@@ -37,6 +37,12 @@ const (
 	boot  = "boot"
 )
 
+type Spec interface {
+	Sanitize() error
+	ShouldReboot() bool
+	ShouldShutdown() bool
+}
+
 // Config is the struct that includes basic and generic configuration of elemental binary runtime.
 // It mostly includes the interfaces used around many methods in elemental code
 type Config struct {
@@ -48,14 +54,13 @@ type Config struct {
 	CloudInitRunner           CloudInitRunner
 	ImageExtractor            ImageExtractor
 	Client                    HTTPClient
-	Platform                  *Platform    `yaml:"platform,omitempty" mapstructure:"platform"`
-	Cosign                    bool         `yaml:"cosign,omitempty" mapstructure:"cosign"`
-	Verify                    bool         `yaml:"verify,omitempty" mapstructure:"verify"`
-	CosignPubKey              string       `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
-	Repos                     []Repository `yaml:"repositories,omitempty" mapstructure:"repositories"`
-	Arch                      string       `yaml:"arch,omitempty" mapstructure:"arch"`
-	SquashFsCompressionConfig []string     `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
-	SquashFsNoCompression     bool         `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
+	Platform                  *Platform `yaml:"platform,omitempty" mapstructure:"platform"`
+	Cosign                    bool      `yaml:"cosign,omitempty" mapstructure:"cosign"`
+	Verify                    bool      `yaml:"verify,omitempty" mapstructure:"verify"`
+	CosignPubKey              string    `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
+	Arch                      string    `yaml:"arch,omitempty" mapstructure:"arch"`
+	SquashFsCompressionConfig []string  `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
+	SquashFsNoCompression     bool      `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
 }
 
 // WriteInstallState writes the state.yaml file to the given state and recovery paths
@@ -124,8 +129,6 @@ func (c *Config) Sanitize() error {
 type RunConfig struct {
 	Debug           bool     `yaml:"debug,omitempty" mapstructure:"debug"`
 	Strict          bool     `yaml:"strict,omitempty" mapstructure:"strict"`
-	Reboot          bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	CloudInitPaths  []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
 	EjectCD         bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
 	FullCloudConfig string   // Stores the full cloud config used to generate the spec afterwards
@@ -154,6 +157,8 @@ type InstallSpec struct {
 	Iso             string              `yaml:"iso,omitempty" mapstructure:"iso"`
 	GrubDefEntry    string              `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
 	Tty             string              `yaml:"tty,omitempty" mapstructure:"tty"`
+	Reboot          bool                `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Active          Image               `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery        Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	Passive         Image
@@ -198,14 +203,15 @@ func (i *InstallSpec) Sanitize() error {
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
-type Spec interface {
-	Sanitize() error
-}
+func (i *InstallSpec) ShouldReboot() bool   { return i.Reboot }
+func (i *InstallSpec) ShouldShutdown() bool { return i.PowerOff }
 
 // ResetSpec struct represents all the reset action details
 type ResetSpec struct {
 	FormatPersistent bool `yaml:"reset-persistent,omitempty" mapstructure:"reset-persistent"`
 	FormatOEM        bool `yaml:"reset-oem,omitempty" mapstructure:"reset-oem"`
+	Reboot           bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff         bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 
 	GrubDefEntry string `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
 	Tty          string `yaml:"tty,omitempty" mapstructure:"tty"`
@@ -230,11 +236,16 @@ func (r *ResetSpec) Sanitize() error {
 	return nil
 }
 
+func (r *ResetSpec) ShouldReboot() bool   { return r.Reboot }
+func (r *ResetSpec) ShouldShutdown() bool { return r.PowerOff }
+
 type UpgradeSpec struct {
 	RecoveryUpgrade bool   `yaml:"recovery,omitempty" mapstructure:"recovery"`
 	Active          Image  `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery        Image  `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	GrubDefEntry    string `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Reboot          bool   `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool   `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Passive         Image
 	Partitions      ElementalPartitions
 	State           *InstallState
@@ -260,6 +271,20 @@ func (u *UpgradeSpec) Sanitize() error {
 	}
 	return nil
 }
+
+func (u *UpgradeSpec) ShouldReboot() bool   { return u.Reboot }
+func (u *UpgradeSpec) ShouldShutdown() bool { return u.PowerOff }
+
+// EmptySpec is an empty spec for places that may need to inject a spec but doent really have one associated like firstboot
+type EmptySpec struct {
+}
+
+func (r *EmptySpec) Sanitize() error {
+	return nil
+}
+
+func (r *EmptySpec) ShouldReboot() bool   { return false }
+func (r *EmptySpec) ShouldShutdown() bool { return false }
 
 // Partition struct represents a partition with its commonly configurable values, size in MiB
 type Partition struct {
@@ -378,7 +403,7 @@ func NewElementalPartitionsFromList(pl PartitionList) ElementalPartitions {
 }
 
 // PartitionsByInstallOrder sorts partitions according to the default layout
-// nil partitons are ignored
+// nil partitions are ignored
 // partition with 0 size is set last
 func (ep ElementalPartitions) PartitionsByInstallOrder(extraPartitions PartitionList, excludes ...*Partition) PartitionList {
 	partitions := PartitionList{}
@@ -476,95 +501,13 @@ type Image struct {
 	LoopDevice string
 }
 
-// LiveISO represents the configurations needed for a live ISO image
-type LiveISO struct {
-	RootFS             []*ImageSource `yaml:"rootfs,omitempty" mapstructure:"rootfs"`
-	UEFI               []*ImageSource `yaml:"uefi,omitempty" mapstructure:"uefi"`
-	Image              []*ImageSource `yaml:"image,omitempty" mapstructure:"image"`
-	Label              string         `yaml:"label,omitempty" mapstructure:"label"`
-	GrubEntry          string         `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	BootloaderInRootFs bool           `yaml:"bootloader-in-rootfs" mapstructure:"bootloader-in-rootfs"`
-}
-
-// Sanitize checks the consistency of the struct, returns error
-// if unsolvable inconsistencies are found
-func (i *LiveISO) Sanitize() error {
-	for _, src := range i.RootFS {
-		if src == nil {
-			return fmt.Errorf("wrong name of source package for rootfs")
-		}
-	}
-	for _, src := range i.UEFI {
-		if src == nil {
-			return fmt.Errorf("wrong name of source package for uefi")
-		}
-	}
-	for _, src := range i.Image {
-		if src == nil {
-			return fmt.Errorf("wrong name of source package for image")
-		}
-	}
-
-	return nil
-}
-
-// Repository represents the basic configuration for a package repository
-type Repository struct {
-	Name        string `yaml:"name,omitempty" mapstructure:"name"`
-	Priority    int    `yaml:"priority,omitempty" mapstructure:"priority"`
-	URI         string `yaml:"uri,omitempty" mapstructure:"uri"`
-	Type        string `yaml:"type,omitempty" mapstructure:"type"`
-	Arch        string `yaml:"arch,omitempty" mapstructure:"arch"`
-	ReferenceID string `yaml:"reference,omitempty" mapstructure:"reference"`
-}
-
-// BuildConfig represents the config we need for building isos, raw images, artifacts
-type BuildConfig struct {
-	Date   bool   `yaml:"date,omitempty" mapstructure:"date"`
-	Name   string `yaml:"name,omitempty" mapstructure:"name"`
-	OutDir string `yaml:"output,omitempty" mapstructure:"output"`
-
-	// 'inline' and 'squash' labels ensure config fields
-	// are embedded from a yaml and map PoV
-	Config `yaml:",inline" mapstructure:",squash"`
-}
-
-// Sanitize checks the consistency of the struct, returns error
-// if unsolvable inconsistencies are found
-func (b *BuildConfig) Sanitize() error {
-	return b.Config.Sanitize()
-}
-
-type RawDisk struct {
-	X86_64 *RawDiskArchEntry `yaml:"x86_64,omitempty" mapstructure:"x86_64"` //nolint:revive
-	Arm64  *RawDiskArchEntry `yaml:"arm64,omitempty" mapstructure:"arm64"`
-}
-
-// Sanitize checks the consistency of the struct, returns error
-// if unsolvable inconsistencies are found
-func (d *RawDisk) Sanitize() error {
-	// No checks for the time being
-	return nil
-}
-
-// RawDiskArchEntry represents an arch entry in raw_disk
-type RawDiskArchEntry struct {
-	Packages []RawDiskPackage `yaml:"packages,omitempty"`
-}
-
-// RawDiskPackage represents a package entry for raw_disk, with a package name and a target to install to
-type RawDiskPackage struct {
-	Name   string `yaml:"name,omitempty"`
-	Target string `yaml:"target,omitempty"`
-}
-
 // InstallState tracks the installation data of the whole system
 type InstallState struct {
 	Date       string                     `yaml:"date,omitempty"`
 	Partitions map[string]*PartitionState `yaml:",omitempty,inline"`
 }
 
-// PartState tracks installation data of a partition
+// PartitionState tracks installation data of a partition
 type PartitionState struct {
 	FSLabel string                 `yaml:"label,omitempty"`
 	Images  map[string]*ImageState `yaml:",omitempty,inline"`
@@ -607,11 +550,6 @@ func (i *ImageState) UnmarshalYAML(value *yaml.Node) error {
 			i.SourceMetadata = d
 			return nil
 		}
-		c := &ChannelImageMeta{}
-		err = srcMeta.Decode(c)
-		if err == nil && c.Name != "" {
-			i.SourceMetadata = c
-		}
 	}
 
 	return err
@@ -621,13 +559,4 @@ func (i *ImageState) UnmarshalYAML(value *yaml.Node) error {
 type DockerImageMeta struct {
 	Digest string `yaml:"digest,omitempty"`
 	Size   int64  `yaml:"size,omitempty"`
-}
-
-// ChannelImageMeta represents metadata of a channel image type
-type ChannelImageMeta struct {
-	Category    string       `yaml:"category,omitempty"`
-	Name        string       `yaml:"name,omitempty"`
-	Version     string       `yaml:"version,omitempty"`
-	FingerPrint string       `yaml:"finger-print,omitempty"`
-	Repos       []Repository `yaml:"repositories,omitempty"`
 }
