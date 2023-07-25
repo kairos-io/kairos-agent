@@ -67,6 +67,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				config.WithClient(client),
 				config.WithPlatform("linux/arm64"),
 			)
+			c.Install = &config.Install{}
+			c.Bundles = config.Bundles{}
+			c.Config = collector.Config{}
+			fmt.Println(litter.Sdump(c))
 		})
 		AfterEach(func() {
 			cleanup()
@@ -442,6 +446,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				ccdata := []byte(`#cloud-config
 strict: true
 install:
+  device: /some/device
   grub-entry-name: "MyCustomOS"
   system:
     size: 666
@@ -502,7 +507,11 @@ cloud-init-paths:
 			It("Reads properly the cloud config for install", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
-				fmt.Print(litter.Sdump(cfg))
+				// Once we got the cfg override the fs to our test fs
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
 				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cfg.Strict).To(BeTrue())

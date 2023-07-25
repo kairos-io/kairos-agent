@@ -22,6 +22,7 @@ import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"path/filepath"
 	"regexp"
 
@@ -80,6 +81,9 @@ var _ = Describe("Install action tests", func() {
 			agentConfig.WithCloudInitRunner(cloudInit),
 			agentConfig.WithImageExtractor(extractor),
 		)
+		config.Install = &agentConfig.Install{}
+		config.Bundles = agentConfig.Bundles{}
+		config.Config = collector.Config{}
 	})
 
 	AfterEach(func() {
@@ -95,6 +99,7 @@ var _ = Describe("Install action tests", func() {
 
 		BeforeEach(func() {
 			device = "/some/device"
+			config.Install.Device = device
 			err = fsutils.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(device)

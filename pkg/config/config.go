@@ -126,7 +126,7 @@ type Config struct {
 	CloudInitRunner           v1.CloudInitRunner  `yaml:"-"`
 	ImageExtractor            v1.ImageExtractor   `yaml:"-"`
 	Client                    v1.HTTPClient       `yaml:"-"`
-	Platform                  *v1.Platform        `yaml:"platform,omitempty" mapstructure:"platform"`
+	Platform                  *v1.Platform        `yaml:"-"`
 	Cosign                    bool                `yaml:"cosign,omitempty" mapstructure:"cosign"`
 	Verify                    bool                `yaml:"verify,omitempty" mapstructure:"verify"`
 	CosignPubKey              string              `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
@@ -180,7 +180,7 @@ func (c *Config) Sanitize() error {
 	if c.SquashFsNoCompression {
 		c.SquashFsCompressionConfig = []string{}
 	}
-	if c.Arch != "" {
+	if c.Arch != "" && c.Platform == nil {
 		p, err := v1.NewPlatformFromArch(c.Arch)
 		if err != nil {
 			return err

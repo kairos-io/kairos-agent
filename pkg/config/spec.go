@@ -437,7 +437,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)
 	}
 	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
-	return sp, err
+	return sp, nil
 }
 
 func configLogger(log v1.Logger, vfs v1.FS) {
