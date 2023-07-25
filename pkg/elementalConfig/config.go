@@ -497,12 +497,13 @@ func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) 
 	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
 	var err error
 
-	cc, err := c.String()
+	ccString, err := c.Config.String()
 	if err != nil {
 		return nil, err
 	}
 
-	err = yaml.Unmarshal([]byte(cc), &cfg)
+	// Load any cloud-config values that override our default Config
+	err = yaml.Unmarshal([]byte(ccString), &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -511,8 +512,8 @@ func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) 
 		viper.Set("debug", true)
 	}
 	configLogger(cfg.Logger, cfg.Fs)
-	// Store the full cloud-config in here, so we can reuse it afterward
-	cfg.FullCloudConfig = cc
+	// Store the full cloud-config in here, so we can reuse it afterward for the spec
+	cfg.FullCloudConfig = ccString
 	err = cfg.Sanitize()
 	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
 	return cfg, err
