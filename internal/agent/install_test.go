@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
@@ -83,10 +84,10 @@ var _ = Describe("RunInstall", func() {
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{"/proc/cmdline": ""})
 		Expect(err).Should(BeNil())
 		// Create tmp dir
-		fs.MkdirAll(fs, "/tmp", constants.DirPerm)
+		fsutils.MkdirAll(fs, "/tmp", constants.DirPerm)
 		// Create grub confg
 		grubCfg := filepath.Join(constants.ActiveDir, constants.GrubConf)
-		err = fs.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
+		err = fsutils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
 		Expect(err).To(BeNil())
 		_, err = fs.Create(grubCfg)
 		Expect(err).To(BeNil())
@@ -132,7 +133,7 @@ var _ = Describe("RunInstall", func() {
 		}
 
 		device := "/some/device"
-		err = fs.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
+		err = fsutils.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
 		Expect(err).To(BeNil())
 		_, err = fs.Create(device)
 		Expect(err).ShouldNot(HaveOccurred())
