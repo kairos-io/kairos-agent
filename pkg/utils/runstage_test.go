@@ -19,10 +19,11 @@ package utils_test
 import (
 	"bytes"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"os"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -41,7 +42,7 @@ func writeCmdline(s string, fs v1.FS) error {
 }
 
 var _ = Describe("run stage", Label("RunStage"), func() {
-	var config *v1.Config
+	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger v1.Logger
 	var syscall *v1mock.FakeSyscall
@@ -61,13 +62,13 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		logger.SetLevel(log.DebugLevel)
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 
-		config = conf.NewConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithClient(client),
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
 		)
 
 		config.CloudInitRunner = cloudinit.NewYipCloudInitRunner(config.Logger, config.Runner, fs)
@@ -75,7 +76,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	AfterEach(func() { cleanup() })
 
 	It("fails if strict mode is enabled", Label("strict"), func() {
-		d, err := utils.TempDir(fs, "", "elemental")
+		d, err := fsutils.TempDir(fs, "", "elemental")
 		Expect(err).ToNot(HaveOccurred())
 		_ = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte("stages: [foo,bar]"), os.ModePerm)
 		config.Strict = true
@@ -92,7 +93,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	})
 
 	It("Goes over extra paths", func() {
-		d, err := utils.TempDir(fs, "", "elemental")
+		d, err := fsutils.TempDir(fs, "", "elemental")
 		Expect(err).ToNot(HaveOccurred())
 		config.Logger.SetLevel(log.DebugLevel)
 		config.CloudInitPaths = []string{d}
@@ -105,7 +106,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	})
 
 	It("parses cmdline uri", func() {
-		d, _ := utils.TempDir(fs, "", "elemental")
+		d, _ := fsutils.TempDir(fs, "", "elemental")
 		_ = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte{}, os.ModePerm)
 
 		writeCmdline(fmt.Sprintf("cos.setup=%s/test.yaml", d), fs)

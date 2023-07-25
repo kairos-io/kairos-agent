@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"net/url"
 	"os"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -48,17 +48,6 @@ func displayInfo(agentConfig *Config) {
 
 		ifaces := machine.Interfaces()
 		fmt.Printf("Network Interfaces: %s\n", strings.Join(ifaces, " "))
-	}
-}
-
-func mergeOption(cloudConfig string, r map[string]string) {
-	c := &config.Config{}
-	yaml.Unmarshal([]byte(cloudConfig), c) //nolint:errcheck
-	for k, v := range c.Options {
-		if k == "cc" {
-			continue
-		}
-		r[k] = v
 	}
 }
 
@@ -223,22 +212,21 @@ func RunInstall(c *config.Config) error {
 		c.Install.Device = detectDevice()
 	}
 
-	// Load the installation Config from the system
-	installConfig, installSpec, err := elementalConfig.ReadInstallConfigFromAgentConfig(c)
+	// Load the installation spec from the Config
+	installSpec, err := config.ReadInstallSpecFromConfig(c)
 	if err != nil {
 		return err
 	}
 
-	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
+	f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
 	if err != nil {
-		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
 		return err
 	}
 	defer os.RemoveAll(f.Name())
 
 	ccstring, err := c.String()
 	if err != nil {
-		installConfig.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
 		return err
 	}
 	err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
@@ -247,6 +235,7 @@ func RunInstall(c *config.Config) error {
 		return err
 	}
 
+	// TODO: This should not be neccessary
 	installSpec.NoFormat = c.Install.NoFormat
 
 	// Set our cloud-init to the file we just created
@@ -267,18 +256,20 @@ func RunInstall(c *config.Config) error {
 	}
 
 	// Add user's cloud-config (to run user defined "before-install" stages)
-	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, installSpec.CloudInit...)
+	c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
 
 	// Run pre-install stage
-	_ = elementalUtils.RunStage(installConfig, "kairos-install.pre")
+	_ = elementalUtils.RunStage(c, "kairos-install.pre")
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 	// Create the action
-	installAction := action.NewInstallAction(installConfig, installSpec)
+	installAction := action.NewInstallAction(c, installSpec)
 	// Run it
 	if err := installAction.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	_ = elementalUtils.RunStage(c, "kairos-install.after")
+	events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*c, installSpec, hook.AfterInstall...)
 }

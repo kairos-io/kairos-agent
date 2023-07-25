@@ -17,13 +17,13 @@ limitations under the License.
 package action
 
 import (
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 )
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
 // in case v1.Config.Strict is set to false
-func Hook(config *v1.Config, hook string) error {
+func Hook(config *config.Config, hook string) error {
 	config.Logger.Infof("Running %s hook", hook)
 	err := utils.RunStage(config, hook)
 	if !config.Strict {
@@ -33,7 +33,7 @@ func Hook(config *v1.Config, hook string) error {
 }
 
 // ChrootHook executes Hook inside a chroot environment
-func ChrootHook(config *v1.Config, hook string, chrootDir string, bindMounts map[string]string) (err error) {
+func ChrootHook(config *config.Config, hook string, chrootDir string, bindMounts map[string]string) (err error) {
 	callback := func() error {
 		return Hook(config, hook)
 	}

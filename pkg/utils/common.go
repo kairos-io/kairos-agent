@@ -20,6 +20,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"io"
 	random "math/rand"
 	"net/url"
@@ -42,12 +45,6 @@ func CommandExists(command string) bool {
 	return err == nil
 }
 
-// BootedFrom will check if we are booting from the given label
-func BootedFrom(runner v1.Runner, label string) bool {
-	out, _ := runner.Run("cat", "/proc/cmdline")
-	return strings.Contains(string(out), label)
-}
-
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
@@ -64,7 +61,7 @@ func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, err
 func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = runner.Run("udevadm", "settle")
-		parts, err := GetAllPartitions()
+		parts, err := partitions.GetAllPartitions()
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +88,7 @@ func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 	if len(sources) == 0 {
 		return fmt.Errorf("Empty sources list")
 	}
-	if dir, _ := IsDir(fs, target); dir {
+	if dir, _ := fsutils.IsDir(fs, target); dir {
 		target = filepath.Join(target, filepath.Base(sources[0]))
 	}
 
@@ -129,18 +126,18 @@ func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 // Copies source file to target file using Fs interface
 func CreateDirStructure(fs v1.FS, target string) error {
 	for _, dir := range []string{"/run", "/dev", "/boot", "/usr/local", "/oem"} {
-		err := MkdirAll(fs, filepath.Join(target, dir), cnst.DirPerm)
+		err := fsutils.MkdirAll(fs, filepath.Join(target, dir), cnst.DirPerm)
 		if err != nil {
 			return err
 		}
 	}
 	for _, dir := range []string{"/proc", "/sys"} {
-		err := MkdirAll(fs, filepath.Join(target, dir), cnst.NoWriteDirPerm)
+		err := fsutils.MkdirAll(fs, filepath.Join(target, dir), cnst.NoWriteDirPerm)
 		if err != nil {
 			return err
 		}
 	}
-	err := MkdirAll(fs, filepath.Join(target, "/tmp"), cnst.DirPerm)
+	err := fsutils.MkdirAll(fs, filepath.Join(target, "/tmp"), cnst.DirPerm)
 	if err != nil {
 		return err
 	}
@@ -245,7 +242,7 @@ func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string, de
 	args = append(args, image)
 
 	// Give each cosign its own tuf dir so it doesnt collide with others accessing the same files at the same time
-	tmpDir, err := TempDir(fs, "", "cosign-tuf-")
+	tmpDir, err := fsutils.TempDir(fs, "", "cosign-tuf-")
 	if err != nil {
 		return "", err
 	}
@@ -301,7 +298,7 @@ func LoadEnvFile(fs v1.FS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-func IsMounted(config *v1.Config, part *v1.Partition) (bool, error) {
+func IsMounted(config *agentConfig.Config, part *v1.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -318,37 +315,11 @@ func IsMounted(config *v1.Config, part *v1.Partition) (bool, error) {
 	return !notMnt, nil
 }
 
-// HasSquashedRecovery returns true if a squashed recovery image is found in the system
-func HasSquashedRecovery(config *v1.Config, recovery *v1.Partition) (squashed bool, err error) {
-	mountPoint := recovery.MountPoint
-	if mnt, _ := IsMounted(config, recovery); !mnt {
-		tmpMountDir, err := TempDir(config.Fs, "", "elemental")
-		if err != nil {
-			config.Logger.Errorf("failed creating temporary dir: %v", err)
-			return false, err
-		}
-		defer config.Fs.RemoveAll(tmpMountDir) // nolint:errcheck
-		err = config.Mounter.Mount(recovery.Path, tmpMountDir, "auto", []string{})
-		if err != nil {
-			config.Logger.Errorf("failed mounting recovery partition: %v", err)
-			return false, err
-		}
-		mountPoint = tmpMountDir
-		defer func() {
-			err = config.Mounter.Unmount(tmpMountDir)
-			if err != nil {
-				squashed = false
-			}
-		}()
-	}
-	return Exists(config.Fs, filepath.Join(mountPoint, "cOS", cnst.RecoverySquashFile))
-}
-
 // GetTempDir returns the dir for storing related temporal files
 // It will respect TMPDIR and use that if exists, fallback to try the persistent partition if its mounted
 // and finally the default /tmp/ dir
 // suffix is what is appended to the dir name elemental-suffix. If empty it will randomly generate a number
-func GetTempDir(config *v1.Config, suffix string) string {
+func GetTempDir(config *agentConfig.Config, suffix string) string {
 	// if we got a TMPDIR var, respect and use that
 	if suffix == "" {
 		random.Seed(time.Now().UnixNano())
@@ -360,7 +331,7 @@ func GetTempDir(config *v1.Config, suffix string) string {
 		config.Logger.Debugf("Got tmpdir from TMPDIR var: %s", dir)
 		return filepath.Join(dir, elementalTmpDir)
 	}
-	parts, err := GetAllPartitions()
+	parts, err := partitions.GetAllPartitions()
 	if err != nil {
 		config.Logger.Debug("Could not get partitions, defaulting to /tmp")
 		return filepath.Join("/", "tmp", elementalTmpDir)
@@ -414,7 +385,7 @@ func IsHTTPURI(uri string) (bool, error) {
 
 // GetSource copies given source to destination, if source is a local path it simply
 // copies files, if source is a remote URL it tries to download URL to destination.
-func GetSource(config *v1.Config, source string, destination string) error {
+func GetSource(config *agentConfig.Config, source string, destination string) error {
 	local, err := IsLocalURI(source)
 	if err != nil {
 		config.Logger.Errorf("Not a valid url: %s", source)
@@ -484,7 +455,7 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 						if !filepath.IsAbs(found) {
 							found = filepath.Join(path, found)
 						}
-						if exists, _ := Exists(fs, found); exists {
+						if exists, _ := fsutils.Exists(fs, found); exists {
 							return found, nil
 						}
 					}
@@ -495,19 +466,6 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 		}
 	}
 	return "", fmt.Errorf("No file found with prefixes: %v", prefixes)
-}
-
-var errInvalidArch = fmt.Errorf("invalid arch")
-
-func GolangArchToArch(arch string) (string, error) {
-	switch strings.ToLower(arch) {
-	case cnst.ArchAmd64:
-		return cnst.Archx86, nil
-	case cnst.ArchArm64:
-		return cnst.ArchArm64, nil
-	default:
-		return "", errInvalidArch
-	}
 }
 
 // CalcFileChecksum opens the given file and returns the sha256 checksum of it.

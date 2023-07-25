@@ -19,21 +19,23 @@ package elemental
 import (
 	"errors"
 	"fmt"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"strings"
 
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 )
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
 type Elemental struct {
-	config *v1.Config
+	config *agentConfig.Config
 }
 
-func NewElemental(config *v1.Config) *Elemental {
+func NewElemental(config *agentConfig.Config) *Elemental {
 	return &Elemental{
 		config: config,
 	}
@@ -177,7 +179,7 @@ func (e Elemental) MountRWPartition(part *v1.Partition) (umount func() error, er
 // MountPartition mounts a partition with the given mount options
 func (e Elemental) MountPartition(part *v1.Partition, opts ...string) error {
 	e.config.Logger.Debugf("Mounting partition %s", part.FilesystemLabel)
-	err := utils.MkdirAll(e.config.Fs, part.MountPoint, cnst.DirPerm)
+	err := fsutils.MkdirAll(e.config.Fs, part.MountPoint, cnst.DirPerm)
 	if err != nil {
 		return err
 	}
@@ -211,7 +213,7 @@ func (e Elemental) UnmountPartition(part *v1.Partition) error {
 // MountImage mounts an image with the given mount options
 func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
 	e.config.Logger.Debugf("Mounting image %s", img.Label)
-	err := utils.MkdirAll(e.config.Fs, img.MountPoint, cnst.DirPerm)
+	err := fsutils.MkdirAll(e.config.Fs, img.MountPoint, cnst.DirPerm)
 	if err != nil {
 		return err
 	}
@@ -251,7 +253,7 @@ func (e Elemental) UnmountImage(img *v1.Image) error {
 // CreateFileSystemImage creates the image file for config.target
 func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
 	e.config.Logger.Infof("Creating file system image %s", img.File)
-	err := utils.MkdirAll(e.config.Fs, filepath.Dir(img.File), cnst.DirPerm)
+	err := fsutils.MkdirAll(e.config.Fs, filepath.Dir(img.File), cnst.DirPerm)
 	if err != nil {
 		return err
 	}
@@ -298,7 +300,7 @@ func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interfac
 			}
 		} else {
 			target = utils.GetTempDir(e.config, "")
-			err := utils.MkdirAll(e.config.Fs, target, cnst.DirPerm)
+			err := fsutils.MkdirAll(e.config.Fs, target, cnst.DirPerm)
 			if err != nil {
 				return nil, err
 			}
@@ -374,7 +376,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 			return nil, err
 		}
 	} else if imgSrc.IsFile() {
-		err := utils.MkdirAll(e.config.Fs, filepath.Dir(target), cnst.DirPerm)
+		err := fsutils.MkdirAll(e.config.Fs, filepath.Dir(target), cnst.DirPerm)
 		if err != nil {
 			return nil, err
 		}
@@ -412,7 +414,7 @@ func (e *Elemental) CopyCloudConfig(cloudInit []string) (err error) {
 func (e *Elemental) SelinuxRelabel(rootDir string, raiseError bool) error {
 	policyFile, err := utils.FindFileWithPrefix(e.config.Fs, filepath.Join(rootDir, cnst.SELinuxTargetedPolicyPath), "policy.")
 	contextFile := filepath.Join(rootDir, cnst.SELinuxTargetedContextFile)
-	contextExists, _ := utils.Exists(e.config.Fs, contextFile)
+	contextExists, _ := fsutils.Exists(e.config.Fs, contextFile)
 
 	if err == nil && contextExists && utils.CommandExists("setfiles") {
 		var out []byte
@@ -452,7 +454,7 @@ func (e *Elemental) CheckActiveDeployment(labels []string) bool {
 // in cnst.DownloadedIsoMnt
 func (e *Elemental) GetIso(iso string) (tmpDir string, err error) {
 	//TODO support ISO download in persistent storage?
-	tmpDir, err = utils.TempDir(e.config.Fs, "", "elemental")
+	tmpDir, err = fsutils.TempDir(e.config.Fs, "", "elemental")
 	if err != nil {
 		return "", err
 	}
@@ -470,7 +472,7 @@ func (e *Elemental) GetIso(iso string) (tmpDir string, err error) {
 	if err != nil {
 		return "", err
 	}
-	err = utils.MkdirAll(e.config.Fs, isoMnt, cnst.DirPerm)
+	err = fsutils.MkdirAll(e.config.Fs, isoMnt, cnst.DirPerm)
 	if err != nil {
 		return "", err
 	}
@@ -486,7 +488,7 @@ func (e *Elemental) GetIso(iso string) (tmpDir string, err error) {
 	}()
 
 	e.config.Logger.Infof("Mounting squashfs image from iso into %s", rootfsMnt)
-	err = utils.MkdirAll(e.config.Fs, rootfsMnt, cnst.DirPerm)
+	err = fsutils.MkdirAll(e.config.Fs, rootfsMnt, cnst.DirPerm)
 	if err != nil {
 		return "", err
 	}
@@ -505,7 +507,7 @@ func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *v1.
 	}
 	if recoveryImg != nil {
 		squashedImgSource := filepath.Join(isoMnt, cnst.RecoverySquashFile)
-		if exists, _ := utils.Exists(e.config.Fs, squashedImgSource); exists {
+		if exists, _ := fsutils.Exists(e.config.Fs, squashedImgSource); exists {
 			recoveryImg.Source = v1.NewFileSrc(squashedImgSource)
 			recoveryImg.FS = cnst.SquashFs
 		} else if activeImg != nil {

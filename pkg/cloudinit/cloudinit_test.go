@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -29,7 +30,6 @@ import (
 	. "github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs/vfst"
 
@@ -110,9 +110,9 @@ stages:
 			logger = v1.NewBufferLogger(logs)
 
 			afs, cleanup, _ = vfst.NewTestFS(nil)
-			err := utils.MkdirAll(afs, "/some/yip", constants.DirPerm)
+			err := fsutils.MkdirAll(afs, "/some/yip", constants.DirPerm)
 			Expect(err).To(BeNil())
-			_ = utils.MkdirAll(afs, "/dev", constants.DirPerm)
+			_ = fsutils.MkdirAll(afs, "/dev", constants.DirPerm)
 			device = "/dev/device"
 			_, err = afs.Create(device)
 			Expect(err).To(BeNil())

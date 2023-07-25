@@ -19,13 +19,14 @@ package partitioner
 import (
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/twpayne/go-vfs"
 )
 
@@ -327,7 +328,7 @@ func (dev Disk) FindPartitionDevice(partNum int) (string, error) {
 	for tries := 0; tries <= partitionTries; tries++ {
 		dev.logger.Debugf("Trying to find the partition device %d of device %s (try number %d)", partNum, dev, tries+1)
 		_, _ = dev.runner.Run("udevadm", "settle")
-		if exists, _ := utils.Exists(dev.fs, device); exists {
+		if exists, _ := fsutils.Exists(dev.fs, device); exists {
 			return device, nil
 		}
 		time.Sleep(1 * time.Second)
@@ -401,7 +402,7 @@ func (dev Disk) expandFilesystem(device string) (string, error) {
 	var out []byte
 	var err error
 
-	fs, err := utils.GetPartitionFS(device)
+	fs, err := partitions.GetPartitionFS(device)
 	if err != nil {
 		return fs, err
 	}
@@ -419,7 +420,7 @@ func (dev Disk) expandFilesystem(device string) (string, error) {
 		}
 	case "xfs":
 		// to grow an xfs fs it needs to be mounted :/
-		tmpDir, err := utils.TempDir(dev.fs, "", "partitioner")
+		tmpDir, err := fsutils.TempDir(dev.fs, "", "partitioner")
 		defer func(fs v1.FS, path string) {
 			_ = fs.RemoveAll(path)
 		}(dev.fs, tmpDir)
