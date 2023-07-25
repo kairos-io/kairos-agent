@@ -117,7 +117,7 @@ func NewInstallAction(cfg *config.Config, spec *v1.InstallSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 
-// InstallRun will install the system from a given configuration
+// Run will install the system from a given configuration
 func (i InstallAction) Run() (err error) {
 	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()

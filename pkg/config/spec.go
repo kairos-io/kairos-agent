@@ -86,6 +86,7 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	}
 
 	return &v1.InstallSpec{
+		Target:     cfg.Install.Device,
 		Firmware:   firmware,
 		PartTable:  v1.GPT,
 		Partitions: NewInstallElementalPartitions(),
@@ -431,8 +432,12 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	if err != nil {
 		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
+	err = sp.Sanitize()
+	if err != nil {
+		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)
+	}
 	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
-	return sp, err
+	return sp, nil
 }
 
 func configLogger(log v1.Logger, vfs v1.FS) {
