@@ -416,8 +416,12 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	}
 
 	// Load the config into viper from the raw cloud config string
+	ccString, err := r.String()
+	if err != nil {
+		return nil, fmt.Errorf("failed initializing spec: %v", err)
+	}
 	viper.SetConfigType("yaml")
-	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
+	viper.ReadConfig(strings.NewReader(ccString))
 	vp := viper.Sub(spec)
 	if vp == nil {
 		vp = viper.New()

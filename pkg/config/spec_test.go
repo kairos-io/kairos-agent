@@ -17,9 +17,11 @@ limitations under the License.
 package config_test
 
 import (
+	"fmt"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
 	"k8s.io/mount-utils"
 	"os"
@@ -500,6 +502,7 @@ cloud-init-paths:
 			It("Reads properly the cloud config for install", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
+				fmt.Print(litter.Sdump(cfg))
 				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cfg.Strict).To(BeTrue())

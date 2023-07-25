@@ -112,7 +112,6 @@ type Config struct {
 	Strict                    bool     `yaml:"strict,omitempty" mapstructure:"strict"`
 	CloudInitPaths            []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
 	EjectCD                   bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
-	FullCloudConfig           string   // Stores the full cloud config used to generate the spec afterwards
 	Logger                    v1.Logger
 	Fs                        v1.FS
 	Mounter                   mount.Interface
