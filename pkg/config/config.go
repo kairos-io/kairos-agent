@@ -69,6 +69,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 		ImageExtractor:            v1.OCIImageExtractor{},
 		SquashFsNoCompression:     true,
+		Install:                   &Install{},
 	}
 	for _, o := range opts {
 		o(c)

@@ -341,6 +341,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		BeforeEach(func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
+			config.Install.Device = "/some/device"
 			el = elemental.NewElemental(config)
 			install = agentConfig.NewInstallSpec(config)
 			install.Target = "/some/device"

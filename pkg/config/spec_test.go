@@ -447,6 +447,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 strict: true
 install:
   device: /some/device
+  skip_copy_kcrypt_plugin: true
   grub-entry-name: "MyCustomOS"
   system:
     size: 666
@@ -515,6 +516,9 @@ cloud-init-paths:
 				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cfg.Strict).To(BeTrue())
+				Expect(cfg.Install.SkipEncryptCopyPlugins).To(BeTrue())
+				Expect(cfg.Install.Device).To(Equal("/some/device"))
+				Expect(installSpec.Target).To(Equal("/some/device"))
 				Expect(installSpec.GrubDefEntry).To(Equal("MyCustomOS"))
 				Expect(installSpec.Active.Size).To(Equal(uint(666)))
 				Expect(cfg.CloudInitPaths).To(ContainElement("/what"))
