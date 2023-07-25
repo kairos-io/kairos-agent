@@ -238,7 +238,7 @@ func RunInstall(c *config.Config) error {
 
 	ccstring, err := c.String()
 	if err != nil {
-		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		installConfig.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
 		return err
 	}
 	err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
