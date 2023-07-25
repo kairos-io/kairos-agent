@@ -389,7 +389,7 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 
 // ReadUpgradeSpecFromConfig will return a proper v1.UpgradeSpec based on an agent Config
 func ReadUpgradeSpecFromConfig(c *Config) (*v1.UpgradeSpec, error) {
-	sp, err := ReadSpecFromCloudConfig(c, "reset")
+	sp, err := ReadSpecFromCloudConfig(c, "upgrade")
 	if err != nil {
 		return &v1.UpgradeSpec{}, err
 	}
