@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
 	"strings"
@@ -65,8 +64,6 @@ func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) e
 	if err != nil {
 		return err
 	}
-
-	fmt.Print(litter.Sdump(cc))
 
 	if reboot {
 		// Override from flags!

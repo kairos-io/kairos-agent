@@ -45,7 +45,7 @@ type Install struct {
 func NewConfig(opts ...GenericOptions) *Config {
 	log := v1.NewLogger()
 
-	defaultPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
+	hostPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
 	if err != nil {
 		log.Errorf("error parsing default platform (%s): %s", runtime.GOARCH, err.Error())
 		return nil
@@ -63,7 +63,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 		Syscall:                   &v1.RealSyscall{},
 		Client:                    http.NewClient(),
 		Arch:                      arch,
-		Platform:                  defaultPlatform,
+		Platform:                  hostPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 	}
 	for _, o := range opts {
