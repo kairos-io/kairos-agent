@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +16,8 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/schema"
 	yip "github.com/mudler/yip/pkg/schema"
+	"github.com/sanity-io/litter"
+	"github.com/spf13/viper"
 	"github.com/twpayne/go-vfs"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
@@ -67,6 +68,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 		Platform:                  hostPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 		ImageExtractor:            v1.OCIImageExtractor{},
+		SquashFsNoCompression:     true,
 	}
 	for _, o := range opts {
 		o(c)
@@ -94,39 +96,43 @@ func NewConfig(opts ...GenericOptions) *Config {
 		c.Mounter = mount.New(constants.MountBinary)
 	}
 
+	err = c.Sanitize()
+	// This should never happen
+	if err != nil {
+		c.Logger.Warnf("Error sanitizing the config: %s", err)
+	}
+
 	return c
 }
 
 type Config struct {
-	Install          *Install `yaml:"install,omitempty"`
-	collector.Config `yaml:"-"`
-	// TODO: Remove this too?
-	ConfigURL          string            `yaml:"config_url,omitempty"`
-	Options            map[string]string `yaml:"options,omitempty"`
-	FailOnBundleErrors bool              `yaml:"fail_on_bundles_errors,omitempty"`
-	Bundles            Bundles           `yaml:"bundles,omitempty"`
-	GrubOptions        map[string]string `yaml:"grub_options,omitempty"`
-	Env                []string          `yaml:"env,omitempty"`
-	// From elemental
-	Debug                     bool     `yaml:"debug,omitempty" mapstructure:"debug"`
-	Strict                    bool     `yaml:"strict,omitempty" mapstructure:"strict"`
-	CloudInitPaths            []string `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
-	EjectCD                   bool     `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
-	Logger                    v1.Logger
-	Fs                        v1.FS
-	Mounter                   mount.Interface
-	Runner                    v1.Runner
-	Syscall                   v1.SyscallInterface
-	CloudInitRunner           v1.CloudInitRunner
-	ImageExtractor            v1.ImageExtractor
-	Client                    v1.HTTPClient
-	Platform                  *v1.Platform `yaml:"platform,omitempty" mapstructure:"platform"`
-	Cosign                    bool         `yaml:"cosign,omitempty" mapstructure:"cosign"`
-	Verify                    bool         `yaml:"verify,omitempty" mapstructure:"verify"`
-	CosignPubKey              string       `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
-	Arch                      string       `yaml:"arch,omitempty" mapstructure:"arch"`
-	SquashFsCompressionConfig []string     `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
-	SquashFsNoCompression     bool         `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
+	Install                   *Install `yaml:"install,omitempty"`
+	collector.Config          `yaml:"-"`
+	ConfigURL                 string              `yaml:"config_url,omitempty"`
+	Options                   map[string]string   `yaml:"options,omitempty"`
+	FailOnBundleErrors        bool                `yaml:"fail_on_bundles_errors,omitempty"`
+	Bundles                   Bundles             `yaml:"bundles,omitempty"`
+	GrubOptions               map[string]string   `yaml:"grub_options,omitempty"`
+	Env                       []string            `yaml:"env,omitempty"`
+	Debug                     bool                `yaml:"debug,omitempty" mapstructure:"debug"`
+	Strict                    bool                `yaml:"strict,omitempty" mapstructure:"strict"`
+	CloudInitPaths            []string            `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
+	EjectCD                   bool                `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
+	Logger                    v1.Logger           `yaml:"-"`
+	Fs                        v1.FS               `yaml:"-"`
+	Mounter                   mount.Interface     `yaml:"-"`
+	Runner                    v1.Runner           `yaml:"-"`
+	Syscall                   v1.SyscallInterface `yaml:"-"`
+	CloudInitRunner           v1.CloudInitRunner  `yaml:"-"`
+	ImageExtractor            v1.ImageExtractor   `yaml:"-"`
+	Client                    v1.HTTPClient       `yaml:"-"`
+	Platform                  *v1.Platform        `yaml:"platform,omitempty" mapstructure:"platform"`
+	Cosign                    bool                `yaml:"cosign,omitempty" mapstructure:"cosign"`
+	Verify                    bool                `yaml:"verify,omitempty" mapstructure:"verify"`
+	CosignPubKey              string              `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
+	Arch                      string              `yaml:"arch,omitempty" mapstructure:"arch"`
+	SquashFsCompressionConfig []string            `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
+	SquashFsNoCompression     bool                `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
 }
 
 // WriteInstallState writes the state.yaml file to the given state and recovery paths
@@ -367,6 +373,8 @@ func Scan(opts ...collector.Option) (c *Config, err error) {
 	}
 	// Config the logger
 	configLogger(result.Logger, result.Fs)
+
+	result.Logger.Debugf("Loaded config: %s", litter.Sdump(result))
 
 	return result, nil
 }
