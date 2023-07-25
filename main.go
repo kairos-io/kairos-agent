@@ -527,23 +527,19 @@ The validate command expects a configuration file as its only argument. Local fi
 		Action: func(c *cli.Context) error {
 			stage := c.Args().First()
 			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
-			if err != nil {
-				return err
-			}
-			cfg, err := agentConfig.ReadConfigRunFromAgentConfig(config)
-			cfg.Strict = c.Bool("strict")
+			config.Strict = c.Bool("strict")
 
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
-				cfg.CloudInitPaths = append(cfg.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
+				config.CloudInitPaths = append(config.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
 			}
 			if c.Bool("debug") {
-				cfg.Logger.SetLevel(logrus.DebugLevel)
+				config.Logger.SetLevel(logrus.DebugLevel)
 			}
 
 			if err != nil {
-				cfg.Logger.Errorf("Error reading config: %s\n", err)
+				config.Logger.Errorf("Error reading config: %s\n", err)
 			}
-			return utils.RunStage(cfg, stage)
+			return utils.RunStage(config, stage)
 		},
 	},
 	{
@@ -581,20 +577,12 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return err
 			}
-			cfg, err := agentConfig.ReadConfigRunFromAgentConfig(config)
-			if err != nil {
-				return err
-			}
-			if c.Bool("debug") {
-				cfg.Logger.SetLevel(logrus.DebugLevel)
-			}
-
-			cfg.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
+			config.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
 			e := v1.OCIImageExtractor{}
 			if err = e.ExtractImage(image, destination, c.String("platform")); err != nil {
 				return err
 			}
-			cfg.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)
+			config.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)
 			return nil
 		},
 	},

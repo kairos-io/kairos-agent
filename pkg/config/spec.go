@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
-	"gopkg.in/yaml.v3"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -89,7 +88,7 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	return &v1.InstallSpec{
 		Firmware:   firmware,
 		PartTable:  v1.GPT,
-		Partitions: NewInstallElementalParitions(),
+		Partitions: NewInstallElementalPartitions(),
 		GrubConf:   constants.GrubConf,
 		Tty:        constants.DefaultTty,
 		Active:     activeImg,
@@ -98,9 +97,9 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	}
 }
 
-func NewInstallElementalParitions() v1.ElementalPartitions {
-	partitions := v1.ElementalPartitions{}
-	partitions.OEM = &v1.Partition{
+func NewInstallElementalPartitions() v1.ElementalPartitions {
+	pt := v1.ElementalPartitions{}
+	pt.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,
 		Size:            constants.OEMSize,
 		Name:            constants.OEMPartName,
@@ -109,7 +108,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		Flags:           []string{},
 	}
 
-	partitions.Recovery = &v1.Partition{
+	pt.Recovery = &v1.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
 		Size:            constants.RecoverySize,
 		Name:            constants.RecoveryPartName,
@@ -118,7 +117,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		Flags:           []string{},
 	}
 
-	partitions.State = &v1.Partition{
+	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
 		Size:            constants.StateSize,
 		Name:            constants.StatePartName,
@@ -127,7 +126,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		Flags:           []string{},
 	}
 
-	partitions.Persistent = &v1.Partition{
+	pt.Persistent = &v1.Partition{
 		FilesystemLabel: constants.PersistentLabel,
 		Size:            constants.PersistentSize,
 		Name:            constants.PersistentPartName,
@@ -135,7 +134,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
-	return partitions
+	return pt
 }
 
 // NewUpgradeSpec returns an UpgradeSpec struct all based on defaults and current host state
@@ -367,33 +366,6 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	}, nil
 }
 
-// ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string
-func ReadConfigRunFromAgentConfig(c *Config) (*Config, error) {
-	cfg := NewConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
-	var err error
-
-	ccString, err := c.Config.String()
-	if err != nil {
-		return nil, err
-	}
-
-	// Load any cloud-config values that override our default Config
-	err = yaml.Unmarshal([]byte(ccString), &cfg)
-	if err != nil {
-		return nil, err
-	}
-	// If we got debug enabled via cloud config, set it on viper so its available everywhere
-	if cfg.Debug {
-		viper.Set("debug", true)
-	}
-	configLogger(cfg.Logger, cfg.Fs)
-	// Store the full cloud-config in here, so we can reuse it afterward for the spec
-	cfg.FullCloudConfig = ccString
-	err = cfg.Sanitize()
-	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
-	return cfg, err
-}
-
 // ReadResetSpecFromConfig will return a proper v1.ResetSpec based on an agent Config
 func ReadResetSpecFromConfig(c *Config) (*v1.ResetSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "reset")
@@ -457,28 +429,6 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	}
 	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
 	return sp, err
-}
-
-// readConfigAndSpecFromAgentConfig will return the config and spec for the given action based off the agent Config
-func readConfigAndSpecFromAgentConfig(c *Config, action string) (*Config, v1.Spec, error) {
-	config, err := ReadConfigRunFromAgentConfig(c)
-	if err != nil {
-		return nil, nil, err
-	}
-	spec, err := ReadSpecFromCloudConfig(config, action)
-	if err != nil {
-		return nil, nil, err
-	}
-	return config, spec, nil
-}
-
-func ReadInstallConfigFromAgentConfig(c *Config) (*Config, *v1.InstallSpec, error) {
-	config, spec, err := readConfigAndSpecFromAgentConfig(c, "install")
-	if err != nil {
-		return nil, nil, err
-	}
-	installSpec := spec.(*v1.InstallSpec)
-	return config, installSpec, nil
 }
 
 func configLogger(log v1.Logger, vfs v1.FS) {

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -65,6 +66,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 		Arch:                      arch,
 		Platform:                  hostPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
+		ImageExtractor:            v1.OCIImageExtractor{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -315,7 +317,8 @@ func FilterKeys(d []byte) ([]byte, error) {
 }
 
 func Scan(opts ...collector.Option) (c *Config, err error) {
-	result := &Config{}
+	// Init new config with some default options
+	result := NewConfig()
 
 	o := &collector.Options{}
 	if err := o.Apply(opts...); err != nil {
@@ -358,6 +361,13 @@ func Scan(opts ...collector.Option) (c *Config, err error) {
 			return result, fmt.Errorf("ERROR: %s", kc.ValidationError.Error())
 		}
 	}
+
+	// If we got debug enabled via cloud config, set it on viper so its available everywhere
+	if result.Debug {
+		viper.Set("debug", true)
+	}
+	// Config the logger
+	configLogger(result.Logger, result.Fs)
 
 	return result, nil
 }

@@ -500,25 +500,24 @@ cloud-init-paths:
 			It("Reads properly the cloud config for install", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
-				installConfig, installSpec, err := config.ReadInstallConfigFromAgentConfig(cfg)
+				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(installConfig.Strict).To(BeTrue())
+				Expect(cfg.Strict).To(BeTrue())
 				Expect(installSpec.GrubDefEntry).To(Equal("MyCustomOS"))
 				Expect(installSpec.Active.Size).To(Equal(uint(666)))
-				Expect(installConfig.CloudInitPaths).To(ContainElement("/what"))
+				Expect(cfg.CloudInitPaths).To(ContainElement("/what"))
 
 			})
 			It("Reads properly the cloud config for reset", func() {
 				bootedFrom = constants.SystemLabel
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
-				conf, err := config.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				// Override the config with our test params
-				conf.Runner = runner
-				conf.Fs = fs
-				conf.Mounter = mounter
-				conf.CloudInitRunner = ci
-				spec, err := config.ReadSpecFromCloudConfig(conf, "reset")
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				spec, err := config.ReadSpecFromCloudConfig(cfg, "reset")
 				Expect(err).ToNot(HaveOccurred())
 				resetSpec := spec.(*v1.ResetSpec)
 				Expect(resetSpec.FormatPersistent).To(BeTrue())
@@ -527,32 +526,28 @@ cloud-init-paths:
 			})
 			It("Reads properly the cloud config for upgrade", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
-				conf, err := config.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				// Override the config with our test params
-				conf.Runner = runner
-				conf.Fs = fs
-				conf.Mounter = mounter
-				conf.CloudInitRunner = ci
-				spec, err := config.ReadSpecFromCloudConfig(conf, "upgrade")
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				spec, err := config.ReadSpecFromCloudConfig(cfg, "upgrade")
 				Expect(err).ToNot(HaveOccurred())
 				upgradeSpec := spec.(*v1.UpgradeSpec)
 				Expect(upgradeSpec.RecoveryUpgrade).To(BeTrue())
 			})
 			It("Fails when a wrong action is read", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
-				conf, err := config.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = config.ReadSpecFromCloudConfig(conf, "nope")
+				_, err = config.ReadSpecFromCloudConfig(cfg, "nope")
 				Expect(err).To(HaveOccurred())
 			})
 			It("Sets info level if its not on the cloud-config", func() {
 				// Now again but with no config
 				cfg, err := config.Scan(collector.Directories([]string{""}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
-				installConfig, _, err := config.ReadInstallConfigFromAgentConfig(cfg)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(installConfig.Logger.GetLevel()).To(Equal(logrus.InfoLevel))
+				Expect(cfg.Logger.GetLevel()).To(Equal(logrus.InfoLevel))
 			})
 			It("Sets debug level if its on the cloud-config", func() {
 				ccdata := []byte(`#cloud-config
@@ -562,9 +557,7 @@ debug: true
 				Expect(err).ToNot(HaveOccurred())
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
-				installConfig, _, err := config.ReadInstallConfigFromAgentConfig(cfg)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(installConfig.Logger.GetLevel()).To(Equal(logrus.DebugLevel))
+				Expect(cfg.Logger.GetLevel()).To(Equal(logrus.DebugLevel))
 
 			})
 		})
