@@ -23,7 +23,7 @@ import (
 	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
-	"os"
+	"k8s.io/mount-utils"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -33,26 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-type TConfig struct {
-	Kairos struct {
-		OtherKey     string `yaml:"other_key"`
-		NetworkToken string `yaml:"network_token"`
-	} `yaml:"kairos"`
-}
-
-var _ = Describe("Config", func() {
-	var d string
-	BeforeEach(func() {
-		d, _ = os.MkdirTemp("", "xxxx")
-	})
-
-	AfterEach(func() {
-		if d != "" {
-			os.RemoveAll(d)
-		}
-	})
-})
 
 func getTagName(s string) string {
 	if len(s) < 1 {
@@ -66,7 +46,12 @@ func getTagName(s string) string {
 	f := func(c rune) bool {
 		return c == '"' || c == ','
 	}
-	return s[:strings.IndexFunc(s, f)]
+	index := strings.IndexFunc(s, f)
+	if index == -1 {
+		return s
+	}
+
+	return s[:index]
 }
 
 func structContainsField(f, t string, str interface{}) bool {
@@ -113,11 +98,45 @@ func structFieldsContainedInOtherStruct(left, right interface{}) {
 	}
 }
 
+// TODO: Temporal until the changes are merged into sdk schema
+// NewRootSchema groups all the different schema of the Kairos configuration together.
+type NewRootSchema struct {
+	_                         struct{}       `title:"Kairos Schema" description:"Defines all valid Kairos configuration attributes."`
+	Bundles                   []BundleSchema `json:"bundles,omitempty" description:"Add bundles in runtime"`
+	ConfigURL                 string         `json:"config_url,omitempty" description:"URL download configuration from."`
+	Env                       []string       `json:"env,omitempty"`
+	FailOnBundleErrors        bool           `json:"fail_on_bundles_errors,omitempty"`
+	GrubOptionsSchema         `json:"grub_options,omitempty"`
+	Install                   InstallSchema `json:"install,omitempty"`
+	Options                   []interface{} `json:"options,omitempty" description:"Various options."`
+	Users                     []UserSchema  `json:"users,omitempty" minItems:"1" required:"true"`
+	P2P                       P2PSchema     `json:"p2p,omitempty"`
+	Debug                     bool          `yaml:"debug,omitempty" mapstructure:"debug"`
+	Strict                    bool          `yaml:"strict,omitempty" mapstructure:"strict"`
+	CloudInitPaths            []string      `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
+	EjectCD                   bool          `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
+	FullCloudConfig           string        // Stores the full cloud config used to generate the spec afterwards
+	Logger                    v1.Logger
+	Fs                        v1.FS
+	Mounter                   mount.Interface
+	Runner                    v1.Runner
+	Syscall                   v1.SyscallInterface
+	CloudInitRunner           v1.CloudInitRunner
+	ImageExtractor            v1.ImageExtractor
+	Client                    v1.HTTPClient
+	Platform                  *v1.Platform `yaml:"platform,omitempty" mapstructure:"platform"`
+	Cosign                    bool         `yaml:"cosign,omitempty" mapstructure:"cosign"`
+	Verify                    bool         `yaml:"verify,omitempty" mapstructure:"verify"`
+	CosignPubKey              string       `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
+	Arch                      string       `yaml:"arch,omitempty" mapstructure:"arch"`
+	SquashFsCompressionConfig []string     `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
+	SquashFsNoCompression     bool         `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
+}
+
 var _ = Describe("Schema", func() {
 	Context("NewConfigFromYAML", func() {
 		Context("While the new Schema is not the single source of truth", func() {
-			// TODO: not ready yet
-			//structFieldsContainedInOtherStruct(Config{}, RootSchema{})
+			structFieldsContainedInOtherStruct(Config{}, NewRootSchema{})
 		})
 		Context("While the new InstallSchema is not the single source of truth", func() {
 			structFieldsContainedInOtherStruct(Install{}, InstallSchema{})
