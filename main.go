@@ -544,7 +544,7 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				cfg.Logger.Errorf("Error reading config: %s\n", err)
 			}
-			return utils.RunStage(&cfg.Config, stage, cfg.Strict, cfg.CloudInitPaths...)
+			return utils.RunStage(cfg, stage)
 		},
 	},
 	{

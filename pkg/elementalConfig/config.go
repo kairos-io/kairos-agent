@@ -138,7 +138,7 @@ func NewConfig(opts ...GenericOptions) *v1.Config {
 	}
 
 	// Delay the yip runner creation, so we set the proper logger instead of blindly setting it to the logger we create
-	// at the start of NewRunConfig, as WithLogger can be passed on init, and that would result in 2 different logger
+	// at the start of NewConfig, as WithLogger can be passed on init, and that would result in 2 different logger
 	// instances, on the config.Logger and the other on config.CloudInitRunner
 	if c.CloudInitRunner == nil {
 		c.CloudInitRunner = cloudinit.NewYipCloudInitRunner(c.Logger, c.Runner, vfs.OSFS)
@@ -151,16 +151,8 @@ func NewConfig(opts ...GenericOptions) *v1.Config {
 	return c
 }
 
-func NewRunConfig(opts ...GenericOptions) *v1.RunConfig {
-	config := NewConfig(opts...)
-	r := &v1.RunConfig{
-		Config: *config,
-	}
-	return r
-}
-
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
-func NewInstallSpec(cfg v1.Config) *v1.InstallSpec {
+func NewInstallSpec(cfg *v1.Config) *v1.InstallSpec {
 	var firmware string
 	var recoveryImg, activeImg, passiveImg v1.Image
 
@@ -264,7 +256,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 }
 
 // NewUpgradeSpec returns an UpgradeSpec struct all based on defaults and current host state
-func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
+func NewUpgradeSpec(cfg *v1.Config) (*v1.UpgradeSpec, error) {
 	var recLabel, recFs, recMnt string
 	var active, passive, recovery v1.Image
 
@@ -299,7 +291,7 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 			ep.Recovery.MountPoint = constants.RecoveryDir
 		}
 
-		squashedRec, err := utils.HasSquashedRecovery(&cfg, ep.Recovery)
+		squashedRec, err := utils.HasSquashedRecovery(cfg, ep.Recovery)
 		if err != nil {
 			return nil, fmt.Errorf("failed checking for squashed recovery")
 		}
@@ -369,7 +361,7 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
-func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
+func NewResetSpec(cfg *v1.Config) (*v1.ResetSpec, error) {
 	var imgSource *v1.ImageSource
 
 	//TODO find a way to pre-load current state values such as labels
@@ -493,8 +485,8 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 }
 
 // ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string
-func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) {
-	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
+func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.Config, error) {
+	cfg := NewConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
 	var err error
 
 	ccString, err := c.Config.String()
@@ -520,17 +512,17 @@ func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) 
 }
 
 // ReadSpecFromCloudConfig returns a v1.Spec for the given spec
-func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
+func ReadSpecFromCloudConfig(r *v1.Config, spec string) (v1.Spec, error) {
 	var sp v1.Spec
 	var err error
 
 	switch spec {
 	case "install":
-		sp = NewInstallSpec(r.Config)
+		sp = NewInstallSpec(r)
 	case "upgrade":
-		sp, err = NewUpgradeSpec(r.Config)
+		sp, err = NewUpgradeSpec(r)
 	case "reset":
-		sp, err = NewResetSpec(r.Config)
+		sp, err = NewResetSpec(r)
 	default:
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
@@ -555,20 +547,20 @@ func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 }
 
 // readConfigAndSpecFromAgentConfig will return the config and spec for the given action based off the agent Config
-func readConfigAndSpecFromAgentConfig(c *agentConfig.Config, action string) (*v1.RunConfig, v1.Spec, error) {
-	runConfig, err := ReadConfigRunFromAgentConfig(c)
+func readConfigAndSpecFromAgentConfig(c *agentConfig.Config, action string) (*v1.Config, v1.Spec, error) {
+	config, err := ReadConfigRunFromAgentConfig(c)
 	if err != nil {
 		return nil, nil, err
 	}
-	spec, err := ReadSpecFromCloudConfig(runConfig, action)
+	spec, err := ReadSpecFromCloudConfig(config, action)
 	if err != nil {
 		return nil, nil, err
 	}
-	return runConfig, spec, nil
+	return config, spec, nil
 }
 
-// ReadResetConfigFromAgentConfig will return a proper v1.RunConfig and v1.ResetSpec based on an agent Config
-func ReadResetConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.ResetSpec, error) {
+// ReadResetConfigFromAgentConfig will return a proper v1.Config and v1.ResetSpec based on an agent Config
+func ReadResetConfigFromAgentConfig(c *agentConfig.Config) (*v1.Config, *v1.ResetSpec, error) {
 	config, spec, err := readConfigAndSpecFromAgentConfig(c, "reset")
 	if err != nil {
 		return nil, nil, err
@@ -577,7 +569,7 @@ func ReadResetConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.R
 	return config, resetSpec, nil
 }
 
-func ReadInstallConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.InstallSpec, error) {
+func ReadInstallConfigFromAgentConfig(c *agentConfig.Config) (*v1.Config, *v1.InstallSpec, error) {
 	config, spec, err := readConfigAndSpecFromAgentConfig(c, "install")
 	if err != nil {
 		return nil, nil, err
@@ -586,7 +578,7 @@ func ReadInstallConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1
 	return config, installSpec, nil
 }
 
-func ReadUpgradeConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.UpgradeSpec, error) {
+func ReadUpgradeConfigFromAgentConfig(c *agentConfig.Config) (*v1.Config, *v1.UpgradeSpec, error) {
 	config, spec, err := readConfigAndSpecFromAgentConfig(c, "upgrade")
 	if err != nil {
 		return nil, nil, err

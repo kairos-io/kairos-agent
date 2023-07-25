@@ -33,7 +33,7 @@ import (
 
 var _ = Describe("Types", Label("types", "config"), func() {
 	Describe("Write and load installation state", func() {
-		var config *v1.RunConfig
+		var config *v1.Config
 		var runner *v1mocks.FakeRunner
 		var fs vfs.FS
 		var mounter *v1mocks.ErrorMounter
@@ -49,7 +49,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
 			Expect(err).Should(BeNil())
 
-			config = conf.NewRunConfig(
+			config = conf.NewConfig(
 				conf.WithFs(fs),
 				conf.WithRunner(runner),
 				conf.WithMounter(mounter),
@@ -319,10 +319,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Expect(p.GetByName("nonexistent")).To(BeNil())
 		})
 	})
-	Describe("RunConfig", func() {
+	Describe("Config", func() {
 		It("runs sanitize method", func() {
-			cfg := elementalConfig.NewRunConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
-			cfg.Config.Verify = true
+			cfg := elementalConfig.NewConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
+			cfg.Verify = true
 
 			err := cfg.Sanitize()
 			Expect(err).ShouldNot(HaveOccurred())
@@ -333,7 +333,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 
 		BeforeEach(func() {
 			cfg := elementalConfig.NewConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
-			spec = elementalConfig.NewInstallSpec(*cfg)
+			spec = elementalConfig.NewInstallSpec(cfg)
 		})
 		Describe("sanitize", func() {
 			It("runs method", func() {

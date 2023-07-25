@@ -341,7 +341,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
 			el = elemental.NewElemental(config)
-			install = conf.NewInstallSpec(*config)
+			install = conf.NewInstallSpec(config)
 			install.Target = "/some/device"
 
 			err := utils.MkdirAll(fs, "/some", cnst.DirPerm)

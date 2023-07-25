@@ -51,10 +51,8 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	var memLog *bytes.Buffer
 
 	var cleanup func()
-	var strict bool
 
 	BeforeEach(func() {
-		strict = false
 		runner = v1mock.NewFakeRunner()
 		// Use a different config with a buffer for logger, so we can check the output
 		// We also use the real fs
@@ -80,15 +78,15 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		d, err := utils.TempDir(fs, "", "elemental")
 		Expect(err).ToNot(HaveOccurred())
 		_ = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte("stages: [foo,bar]"), os.ModePerm)
-		strict = true
-		Expect(utils.RunStage(config, "c3po", strict, d)).ToNot(BeNil())
+		config.Strict = true
+		Expect(utils.RunStage(config, "c3po")).ToNot(BeNil())
 	})
 
 	It("does not fail but prints errors by default", Label("strict"), func() {
 		writeCmdline("stages.c3po[0].datasource", fs)
 
 		config.Logger.SetLevel(log.DebugLevel)
-		out := utils.RunStage(config, "c3po", strict)
+		out := utils.RunStage(config, "c3po")
 		Expect(out).To(BeNil())
 		Expect(memLog.String()).To(ContainSubstring("parsing returned errors"))
 	})
@@ -97,8 +95,9 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		d, err := utils.TempDir(fs, "", "elemental")
 		Expect(err).ToNot(HaveOccurred())
 		config.Logger.SetLevel(log.DebugLevel)
+		config.CloudInitPaths = []string{d}
 
-		Expect(utils.RunStage(config, "luke", strict, d)).To(BeNil())
+		Expect(utils.RunStage(config, "luke")).To(BeNil())
 		Expect(memLog.String()).To(ContainSubstring(d))
 		Expect(memLog).To(ContainSubstring("luke"))
 		Expect(memLog).To(ContainSubstring("luke.before"))
@@ -111,7 +110,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 
 		writeCmdline(fmt.Sprintf("cos.setup=%s/test.yaml", d), fs)
 
-		Expect(utils.RunStage(config, "padme", strict)).To(BeNil())
+		Expect(utils.RunStage(config, "padme")).To(BeNil())
 		Expect(memLog).To(ContainSubstring("padme"))
 		Expect(memLog).To(ContainSubstring(fmt.Sprintf("%s/test.yaml", d)))
 	})
@@ -119,13 +118,13 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	It("parses cmdline uri with dotnotation", func() {
 		writeCmdline("stages.leia[0].commands[0]='echo beepboop'", fs)
 		config.Logger.SetLevel(log.DebugLevel)
-		Expect(utils.RunStage(config, "leia", strict)).To(BeNil())
+		Expect(utils.RunStage(config, "leia")).To(BeNil())
 		Expect(memLog).To(ContainSubstring("leia"))
 		Expect(memLog).To(ContainSubstring("running command `echo beepboop`"))
 
 		// try with a non-clean cmdline
 		writeCmdline("BOOT=death-star single stages.leia[0].commands[0]='echo beepboop'", fs)
-		Expect(utils.RunStage(config, "leia", strict)).To(BeNil())
+		Expect(utils.RunStage(config, "leia")).To(BeNil())
 		Expect(memLog).To(ContainSubstring("leia"))
 		Expect(memLog).To(ContainSubstring("running command `echo beepboop`"))
 		Expect(memLog.String()).ToNot(ContainSubstring("/proc/cmdline parsing returned errors while unmarshalling"))
@@ -135,7 +134,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	It("ignores YAML errors", func() {
 		config.Logger.SetLevel(log.DebugLevel)
 		writeCmdline("BOOT=death-star sing1!~@$%6^&**le /varlib stag_#var<Lib stages[0]='utterly broken by breaking schema'", fs)
-		Expect(utils.RunStage(config, "leia", strict)).To(BeNil())
+		Expect(utils.RunStage(config, "leia")).To(BeNil())
 		Expect(memLog.String()).To(ContainSubstring("/proc/cmdline parsing returned errors while unmarshalling"))
 		Expect(memLog.String()).ToNot(ContainSubstring("Some errors found but were ignored. Enable --strict mode to fail on those or --debug to see them in the log"))
 	})

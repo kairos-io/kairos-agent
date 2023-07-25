@@ -42,7 +42,7 @@ const partTmpl = `
 %d:%ss:%ss:2048s:ext4::type=83;`
 
 var _ = Describe("Install action tests", func() {
-	var config *v1.RunConfig
+	var config *v1.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger v1.Logger
@@ -69,7 +69,7 @@ var _ = Describe("Install action tests", func() {
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
-		config = conf.NewRunConfig(
+		config = conf.NewConfig(
 			conf.WithFs(fs),
 			conf.WithRunner(runner),
 			conf.WithLogger(logger),
@@ -146,7 +146,7 @@ var _ = Describe("Install action tests", func() {
 			err = utils.MkdirAll(fs, constants.IsoBaseTree, constants.DirPerm)
 			Expect(err).To(BeNil())
 
-			spec = conf.NewInstallSpec(config.Config)
+			spec = conf.NewInstallSpec(config)
 			spec.Active.Size = 16
 
 			grubCfg := filepath.Join(spec.Active.MountPoint, constants.GrubConf)

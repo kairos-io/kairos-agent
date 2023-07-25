@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("Runtime Actions", func() {
-	var config *v1.RunConfig
+	var config *v1.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger v1.Logger
@@ -63,7 +63,7 @@ var _ = Describe("Runtime Actions", func() {
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
-		config = conf.NewRunConfig(
+		config = conf.NewConfig(
 			conf.WithFs(fs),
 			conf.WithRunner(runner),
 			conf.WithLogger(logger),
@@ -143,7 +143,7 @@ var _ = Describe("Runtime Actions", func() {
 		Describe(fmt.Sprintf("Booting from %s", constants.ActiveLabel), Label("active_label"), func() {
 			var err error
 			BeforeEach(func() {
-				spec, err = conf.NewUpgradeSpec(config.Config)
+				spec, err = conf.NewUpgradeSpec(config)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
@@ -346,7 +346,7 @@ var _ = Describe("Runtime Actions", func() {
 		Describe(fmt.Sprintf("Booting from %s", constants.PassiveLabel), Label("passive_label"), func() {
 			var err error
 			BeforeEach(func() {
-				spec, err = conf.NewUpgradeSpec(config.Config)
+				spec, err = conf.NewUpgradeSpec(config)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
@@ -428,7 +428,7 @@ var _ = Describe("Runtime Actions", func() {
 					err = fs.WriteFile(recoveryImgSquash, []byte("recovery"), constants.FilePerm)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err = conf.NewUpgradeSpec(config.Config)
+					spec, err = conf.NewUpgradeSpec(config)
 					Expect(err).ShouldNot(HaveOccurred())
 					spec.Active.Size = 10
 					spec.Passive.Size = 10
@@ -513,7 +513,7 @@ var _ = Describe("Runtime Actions", func() {
 					err = fs.WriteFile(recoveryImg, []byte("recovery"), constants.FilePerm)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err = conf.NewUpgradeSpec(config.Config)
+					spec, err = conf.NewUpgradeSpec(config)
 					Expect(err).ShouldNot(HaveOccurred())
 
 					spec.Active.Size = 10

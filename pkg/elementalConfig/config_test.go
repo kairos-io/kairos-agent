@@ -124,8 +124,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(c.Mounter).To(Equal(mount.New(constants.MountBinary)))
 			})
 		})
-		Describe("RunConfig", func() {
-			cfg := elementalConfig.NewRunConfig(elementalConfig.WithMounter(mounter))
+		Describe("Config", func() {
+			cfg := elementalConfig.NewConfig(elementalConfig.WithMounter(mounter))
 			Expect(cfg.Mounter).To(Equal(mounter))
 			Expect(cfg.Runner).NotTo(BeNil())
 		})
@@ -150,7 +150,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				_, err = fs.Create(recoveryImgFile)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				spec := elementalConfig.NewInstallSpec(*c)
+				spec := elementalConfig.NewInstallSpec(c)
 				Expect(spec.Firmware).To(Equal(v1.EFI))
 				Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 				Expect(spec.Recovery.Source.Value()).To(Equal(recoveryImgFile))
@@ -171,7 +171,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				_, err = fs.Create(constants.IsoBaseTree)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				spec := elementalConfig.NewInstallSpec(*c)
+				spec := elementalConfig.NewInstallSpec(c)
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
 				Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
@@ -186,7 +186,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.Partitions.BIOS).NotTo(BeNil())
 			})
 			It("sets installation defaults without being on installation media", Label("install"), func() {
-				spec := elementalConfig.NewInstallSpec(*c)
+				spec := elementalConfig.NewInstallSpec(c)
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
 				Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
@@ -256,7 +256,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					_, err = fs.Create(constants.IsoBaseTree)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err := elementalConfig.NewResetSpec(*c)
+					spec, err := elementalConfig.NewResetSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 					Expect(spec.Partitions.EFI.MountPoint).To(Equal(constants.EfiDir))
@@ -269,12 +269,12 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					_, err = fs.Create(recoveryImg)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err := elementalConfig.NewResetSpec(*c)
+					spec, err := elementalConfig.NewResetSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Source.Value()).To(Equal(recoveryImg))
 				})
 				It("sets reset defaults on bios from unknown recovery", func() {
-					spec, err := elementalConfig.NewResetSpec(*c)
+					spec, err := elementalConfig.NewResetSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				})
@@ -312,13 +312,13 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					ghwTest.Clean()
 				})
 				It("fails to set defaults if not booted from recovery", func() {
-					_, err := elementalConfig.NewResetSpec(*c)
+					_, err := elementalConfig.NewResetSpec(c)
 					Expect(err).Should(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("reset can only be called from the recovery system"))
 				})
 				It("fails to set defaults if no recovery partition detected", func() {
 					bootedFrom = constants.SystemLabel
-					_, err := elementalConfig.NewResetSpec(*c)
+					_, err := elementalConfig.NewResetSpec(c)
 					Expect(err).Should(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("recovery partition not found"))
 				})
@@ -333,7 +333,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					defer ghwTest.Clean()
 
 					bootedFrom = constants.SystemLabel
-					_, err := elementalConfig.NewResetSpec(*c)
+					_, err := elementalConfig.NewResetSpec(c)
 					Expect(err).Should(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("state partition not found"))
 				})
@@ -345,7 +345,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err).ShouldNot(HaveOccurred())
 
 					bootedFrom = constants.SystemLabel
-					_, err := elementalConfig.NewResetSpec(*c)
+					_, err := elementalConfig.NewResetSpec(c)
 					Expect(err).Should(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("EFI partition not found"))
 				})
@@ -394,12 +394,12 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					ghwTest.Clean()
 				})
 				It("sets upgrade defaults for active upgrade", func() {
-					spec, err := elementalConfig.NewUpgradeSpec(*c)
+					spec, err := elementalConfig.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				})
 				It("sets upgrade defaults for non-squashed recovery upgrade", func() {
-					spec, err := elementalConfig.NewUpgradeSpec(*c)
+					spec, err := elementalConfig.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Recovery.Source.IsEmpty()).To(BeTrue())
 					Expect(spec.Recovery.FS).To(Equal(constants.LinuxImgFs))
@@ -413,7 +413,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					_, err = fs.Create(img)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err := elementalConfig.NewUpgradeSpec(*c)
+					spec, err := elementalConfig.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Recovery.Source.IsEmpty()).To(BeTrue())
 					Expect(spec.Recovery.FS).To(Equal(constants.SquashFs))
@@ -512,14 +512,14 @@ cloud-init-paths:
 			It("Reads properly the cloud config for reset", func() {
 				bootedFrom = constants.SystemLabel
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
-				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
+				config, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
-				// Override the runconfig with our test params
-				runconfig.Runner = runner
-				runconfig.Fs = fs
-				runconfig.Mounter = mounter
-				runconfig.CloudInitRunner = ci
-				spec, err := elementalConfig.ReadSpecFromCloudConfig(runconfig, "reset")
+				// Override the config with our test params
+				config.Runner = runner
+				config.Fs = fs
+				config.Mounter = mounter
+				config.CloudInitRunner = ci
+				spec, err := elementalConfig.ReadSpecFromCloudConfig(config, "reset")
 				Expect(err).ToNot(HaveOccurred())
 				resetSpec := spec.(*v1.ResetSpec)
 				Expect(resetSpec.FormatPersistent).To(BeTrue())
@@ -528,23 +528,23 @@ cloud-init-paths:
 			})
 			It("Reads properly the cloud config for upgrade", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
-				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
+				config, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
-				// Override the runconfig with our test params
-				runconfig.Runner = runner
-				runconfig.Fs = fs
-				runconfig.Mounter = mounter
-				runconfig.CloudInitRunner = ci
-				spec, err := elementalConfig.ReadSpecFromCloudConfig(runconfig, "upgrade")
+				// Override the config with our test params
+				config.Runner = runner
+				config.Fs = fs
+				config.Mounter = mounter
+				config.CloudInitRunner = ci
+				spec, err := elementalConfig.ReadSpecFromCloudConfig(config, "upgrade")
 				Expect(err).ToNot(HaveOccurred())
 				upgradeSpec := spec.(*v1.UpgradeSpec)
 				Expect(upgradeSpec.RecoveryUpgrade).To(BeTrue())
 			})
 			It("Fails when a wrong action is read", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
-				runconfig, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
+				config, err := elementalConfig.ReadConfigRunFromAgentConfig(cfg)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = elementalConfig.ReadSpecFromCloudConfig(runconfig, "nope")
+				_, err = elementalConfig.ReadSpecFromCloudConfig(config, "nope")
 				Expect(err).To(HaveOccurred())
 			})
 			It("Sets info level if its not on the cloud-config", func() {

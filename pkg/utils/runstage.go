@@ -57,11 +57,12 @@ func checkYAMLError(cfg *v1.Config, allErrors, err error) error {
 }
 
 // RunStage will run yip
-func RunStage(cfg *v1.Config, stage string, strict bool, cloudInitPaths ...string) error {
+func RunStage(cfg *v1.Config, stage string) error {
 	var cmdLineYipURI string
 	var allErrors error
+	var cloudInitPaths []string
 
-	cloudInitPaths = append(constants.GetCloudInitPaths(), cloudInitPaths...)
+	cloudInitPaths = append(constants.GetCloudInitPaths(), cfg.CloudInitPaths...)
 	cfg.Logger.Debugf("Cloud-init paths set to %v", cloudInitPaths)
 
 	// Make sure cloud init path specified are existing in the system
@@ -126,7 +127,7 @@ func RunStage(cfg *v1.Config, stage string, strict bool, cloudInitPaths ...strin
 	// We return error here only if we have been running in strict mode.
 	// Cloud configs are being loaded and executed on a best-effort, so every step/config
 	// gets a chance to be executed and error is being appended and reported.
-	if allErrors != nil && !strict {
+	if allErrors != nil && !cfg.Strict {
 		cfg.Logger.Info("Some errors found but were ignored. Enable --strict mode to fail on those or --debug to see them in the log")
 		cfg.Logger.Warn(allErrors)
 		return nil

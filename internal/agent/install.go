@@ -270,7 +270,7 @@ func RunInstall(c *config.Config) error {
 	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, installSpec.CloudInit...)
 
 	// Run pre-install stage
-	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
+	_ = elementalUtils.RunStage(installConfig, "kairos-install.pre")
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 	// Create the action
 	installAction := action.NewInstallAction(installConfig, installSpec)

@@ -37,7 +37,7 @@ import (
 )
 
 var _ = Describe("Reset action tests", func() {
-	var config *v1.RunConfig
+	var config *v1.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger v1.Logger
@@ -63,7 +63,7 @@ var _ = Describe("Reset action tests", func() {
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
-		config = conf.NewRunConfig(
+		config = conf.NewConfig(
 			conf.WithFs(fs),
 			conf.WithRunner(runner),
 			conf.WithLogger(logger),
@@ -140,7 +140,7 @@ var _ = Describe("Reset action tests", func() {
 				}
 			}
 
-			spec, err = conf.NewResetSpec(config.Config)
+			spec, err = conf.NewResetSpec(config)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(spec.Active.Source.IsEmpty()).To(BeFalse())
 
