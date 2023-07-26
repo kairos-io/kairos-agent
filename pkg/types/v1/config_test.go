@@ -17,13 +17,14 @@ limitations under the License.
 package v1_test
 
 import (
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"path/filepath"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
-
 	Describe("ElementalPartitions", func() {
 		var p v1.PartitionList
 		var ep v1.ElementalPartitions
@@ -167,7 +168,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Expect(lst[1].Name == "persistent").To(BeTrue())
 		})
 	})
-	Describe("Partitionlist", func() {
+	Describe("PartitionList", func() {
 		var p v1.PartitionList
 		BeforeEach(func() {
 			p = v1.PartitionList{
@@ -222,6 +223,227 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 		It("returns nil if filesystem label not found", func() {
 			Expect(p.GetByName("nonexistent")).To(BeNil())
+		})
+	})
+	Describe("Specs", func() {
+		Describe("InstallSpec sanitize", func() {
+			var spec v1.InstallSpec
+			BeforeEach(func() {
+				spec = v1.InstallSpec{
+					Active: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Recovery: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Passive: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Partitions:      v1.ElementalPartitions{},
+					ExtraPartitions: v1.PartitionList{},
+				}
+			})
+			It("fails with empty source", func() {
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined system source to install"))
+			})
+			It("fails with missing state partition", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined state partition"))
+			})
+			It("passes if state and source are ready", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("fills the spec with defaults (BIOS)", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.Recovery.File).ToNot(BeEmpty())
+				Expect(spec.Recovery.File).To(Equal(filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)))
+				Expect(spec.Partitions.EFI).To(BeNil())
+				Expect(spec.Partitions.BIOS).ToNot(BeNil())
+				Expect(spec.Partitions.BIOS.Flags).To(ContainElement("bios_grub"))
+			})
+			It("fills the spec with defaults (EFI)", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Firmware = constants.EfiPartName
+				spec.PartTable = constants.GPT
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.Recovery.File).ToNot(BeEmpty())
+				Expect(spec.Recovery.File).To(Equal(filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)))
+				Expect(spec.Partitions.BIOS).To(BeNil())
+				Expect(spec.Partitions.EFI).ToNot(BeNil())
+				Expect(spec.Partitions.EFI.FilesystemLabel).To(Equal(constants.EfiLabel))
+				Expect(spec.Partitions.EFI.MountPoint).To(Equal(constants.EfiDir))
+				Expect(spec.Partitions.EFI.Size).To(Equal(constants.EfiSize))
+				Expect(spec.Partitions.EFI.FS).To(Equal(constants.EfiFs))
+				Expect(spec.Partitions.EFI.Flags).To(ContainElement("esp"))
+			})
+			It("Cannot add extra partitions with 0 size + persistent with 0 size", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.Persistent = &v1.Partition{
+					Size: 0,
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				spec.ExtraPartitions = v1.PartitionList{
+					&v1.Partition{
+						Size: 0,
+					},
+				}
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("both persistent partition and extra partitions have size set to 0"))
+			})
+			It("Cannot add more than 1 extra partition with 0 size", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.Persistent = &v1.Partition{
+					Size: 100,
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				spec.ExtraPartitions = v1.PartitionList{
+					&v1.Partition{
+						Size: 0,
+					},
+					&v1.Partition{
+						Size: 0,
+					},
+				}
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("more than one extra partition has its size set to 0"))
+			})
+			It("Can add 1 extra partition with 0 size", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.Persistent = &v1.Partition{
+					Size: 100,
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				spec.ExtraPartitions = v1.PartitionList{
+					&v1.Partition{
+						Size: 0,
+					},
+				}
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Describe("ResetSpec sanitize", func() {
+			var spec v1.ResetSpec
+			BeforeEach(func() {
+				spec = v1.ResetSpec{
+					Active: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+				}
+			})
+			It("fails with empty source", func() {
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined system source to reset"))
+			})
+			It("fails with missing state partition", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined state partition"))
+			})
+			It("passes if state and source are ready", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+		})
+		Describe("UpgradeSpec sanitize", func() {
+			var spec v1.UpgradeSpec
+			BeforeEach(func() {
+				spec = v1.UpgradeSpec{
+					Active: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Recovery: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+				}
+			})
+			Describe("Active upgrade", func() {
+				It("fails with empty source", func() {
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined upgrade source"))
+				})
+				It("fails with missing state partition", func() {
+					spec.Active.Source = v1.NewFileSrc("/tmp")
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined state partition"))
+				})
+				It("passes if state and source are ready", func() {
+					spec.Active.Source = v1.NewFileSrc("/tmp")
+					spec.Partitions.State = &v1.Partition{
+						MountPoint: "/tmp",
+					}
+					err := spec.Sanitize()
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+			Describe("Recovery upgrade", func() {
+				BeforeEach(func() {
+					spec.RecoveryUpgrade = true
+				})
+				It("fails with empty source", func() {
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined upgrade source"))
+				})
+				It("fails with missing recovery partition", func() {
+					spec.Recovery.Source = v1.NewFileSrc("/tmp")
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined recovery partition"))
+				})
+				It("passes if state and source are ready", func() {
+					spec.Recovery.Source = v1.NewFileSrc("/tmp")
+					spec.Partitions.Recovery = &v1.Partition{
+						MountPoint: "/tmp",
+					}
+					err := spec.Sanitize()
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+
 		})
 	})
 })
