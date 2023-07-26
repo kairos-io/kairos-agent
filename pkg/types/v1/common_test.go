@@ -17,9 +17,12 @@ limitations under the License.
 package v1_test
 
 import (
+	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("Types", Label("types", "common"), func() {
@@ -112,5 +115,95 @@ var _ = Describe("Types", Label("types", "common"), func() {
 			Expect(err).Should(HaveOccurred())
 		})
 	})
+	Describe("Platform", func() {
+		It("Returns the platform", func() {
+			platform, err := v1.NewPlatform("linux", constants.ArchArm64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("linux"))
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+			platform, err = v1.NewPlatform("linux", constants.Archx86)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("linux"))
+			Expect(platform.Arch).To(Equal(constants.Archx86))
+			Expect(platform.GolangArch).To(Equal(constants.ArchAmd64))
+		})
+		It("Does not check the validity of the os", func() {
+			platform, err := v1.NewPlatform("jojo", constants.ArchArm64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("jojo"))
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+		})
+		It("Does check the validity of the arch", func() {
+			_, err := v1.NewPlatform("jojo", "what")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid arch"))
+		})
+		It("Returns the platform from a source arch", func() {
+			platform, err := v1.NewPlatformFromArch(constants.ArchAmd64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.Arch).To(Equal(constants.Archx86))
+			Expect(platform.GolangArch).To(Equal(constants.ArchAmd64))
 
+			platform, err = v1.NewPlatformFromArch(constants.ArchArm64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+
+			platform, err = v1.NewPlatformFromArch(constants.Archx86)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.Arch).To(Equal(constants.Archx86))
+			Expect(platform.GolangArch).To(Equal(constants.ArchAmd64))
+
+		})
+		It("Parses the platform from a string", func() {
+			platform, err := v1.ParsePlatform(fmt.Sprintf("jojo/%s", constants.ArchArm64))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("jojo"))
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+
+		})
+		It("Has a proper string representation", func() {
+			platform, err := v1.NewPlatform("jojo", constants.ArchArm64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("jojo"))
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+			Expect(platform.String()).To(Equal(fmt.Sprintf("jojo/%s", constants.ArchArm64)))
+		})
+		It("Marshals and unmarshalls correctly", func() {
+			// CustomUnmarshall
+			platform := v1.Platform{}
+			// This should update the object properly
+			_, err := platform.CustomUnmarshal("linux/arm64")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("linux"))
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+			Expect(platform.String()).To(Equal(fmt.Sprintf("linux/%s", constants.ArchArm64)))
+
+			// Marshall
+			y, err := platform.MarshalYAML()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(y).To(Equal(fmt.Sprintf("linux/%s", constants.ArchArm64)))
+
+			// Unmarshall
+			platform = v1.Platform{}
+			// Check that its empty
+			Expect(platform.OS).To(Equal(""))
+			Expect(platform.Arch).To(Equal(""))
+			Expect(platform.GolangArch).To(Equal(""))
+			node := &yaml.Node{Value: fmt.Sprintf("linux/%s", constants.ArchArm64)}
+			// This should update the object properly with the yaml node
+			err = platform.UnmarshalYAML(node)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(platform.OS).To(Equal("linux"))
+			Expect(platform.Arch).To(Equal(constants.ArchArm64))
+			Expect(platform.GolangArch).To(Equal(constants.ArchArm64))
+			Expect(platform.String()).To(Equal(fmt.Sprintf("linux/%s", constants.ArchArm64)))
+
+		})
+	})
 })
