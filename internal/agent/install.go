@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -82,6 +84,10 @@ func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) e
 }
 
 func Install(dir ...string) error {
+	var cc *config.Config
+	var err error
+
+	bus.Manager.Initialize()
 	utils.OnSignal(func() {
 		svc, err := machine.Getty(1)
 		if err == nil {
@@ -101,13 +107,30 @@ func Install(dir ...string) error {
 		if err != nil {
 			fmt.Println(err)
 		}
+		// dump data into a dir so the collector can pick it up properly
+		cloudConfig, exists := r["cc"]
+		if exists {
+			tmpdir, err := os.MkdirTemp("", "kairos-install-")
+			if err == nil {
+				err = os.WriteFile(filepath.Join(tmpdir, "kairos-event-install-data.yaml"), []byte(cloudConfig), os.ModePerm)
+				if err != nil {
+					fmt.Printf("could not write event cloud init: %s\n", err.Error())
+				}
+				// Append to default dirs so we read from all sources
+				dir = append(dir, tmpdir)
+				// override cc with our new config object from the scan, so it's updated for the RunInstall function
+				cc, _ = config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
+			} else {
+				fmt.Printf("could not create temp dir: %s\n", err.Error())
+			}
+		}
 	})
 
 	ensureDataSourceReady()
 
 	// Reads config, and if present and offline is defined,
 	// runs the installation
-	cc, err := config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
+	cc, err = config.Scan(collector.Directories(dir...), collector.MergeBootLine)
 	if err == nil && cc.Install != nil && cc.Install.Auto {
 		err = RunInstall(cc)
 		if err != nil {
@@ -128,7 +151,6 @@ func Install(dir ...string) error {
 	if err != nil {
 		fmt.Printf("- config not found in the system: %s", err.Error())
 	}
-
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
@@ -169,29 +191,26 @@ func Install(dir ...string) error {
 	}
 
 	if len(r) == 0 {
+		// This means there is no config in the system AND no config was obtained from events
 		return errors.New("no configuration, stopping installation")
 	}
-
-	// we receive a cloud config at this point
-	cloudConfig, exists := r["cc"]
-	if exists {
-		yaml.Unmarshal([]byte(cloudConfig), cc)
-	}
-
 	pterm.Info.Println("Starting installation")
 
+	cc.Logger.Debugf("Runinstall with cc: %s\n", litter.Sdump(cc))
 	if err := RunInstall(cc); err != nil {
 		return err
 	}
 
 	if cc.Install.Reboot {
-		pterm.Info.Println("Installation completed, powering off in 5 seconds.")
+		pterm.Info.Println("Installation completed, rebooting in 5 seconds.")
 
 	}
 	if cc.Install.Poweroff {
-		pterm.Info.Println("Installation completed, rebooting in 5 seconds.")
+		pterm.Info.Println("Installation completed, powering in 5 seconds.")
 	}
 
+	// If neither reboot and poweroff are enabled let the user insert enter to go back to a new shell
+	// This is helpful to see the installation messages instead of just cleaning the screen with a new tty
 	if cc.Install.Reboot == false && cc.Install.Poweroff == false {
 		pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
 
