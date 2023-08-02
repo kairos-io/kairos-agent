@@ -168,6 +168,9 @@ func (r ResetAction) Run() (err error) {
 	}
 	cleanup.Push(func() error { return e.UnmountImage(&r.spec.Active) })
 
+	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
+	createExtraDirsInRootfs(r.cfg, r.spec.ExtraDirsRootfs, r.spec.Active.MountPoint)
+
 	// install grub
 	grub := utils.NewGrub(r.cfg)
 	err = grub.Install(

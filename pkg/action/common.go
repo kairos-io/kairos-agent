@@ -18,7 +18,10 @@ package action
 
 import (
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"path/filepath"
 )
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
@@ -38,4 +41,16 @@ func ChrootHook(config *config.Config, hook string, chrootDir string, bindMounts
 		return Hook(config, hook)
 	}
 	return utils.ChrootedCallback(config, chrootDir, bindMounts, callback)
+}
+
+func createExtraDirsInRootfs(cfg *config.Config, extradirs []string, target string) {
+	for _, d := range extradirs {
+		if exists, _ := fsutils.Exists(cfg.Fs, filepath.Join(target, d)); !exists {
+			cfg.Logger.Debugf("Creating extra dir %s under %s", d, target)
+			err := cfg.Fs.Mkdir(filepath.Join(target, d), cnst.DirPerm)
+			if err != nil {
+				cfg.Logger.Warnf("Failure creating extra dir %s in rootfs at %s", d, target)
+			}
+		}
+	}
 }

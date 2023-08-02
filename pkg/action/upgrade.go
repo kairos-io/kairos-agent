@@ -181,6 +181,9 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 	cleanup.Push(func() error { return e.UnmountImage(&upgradeImg) })
 
+	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
+	createExtraDirsInRootfs(u.config, u.spec.ExtraDirsRootfs, upgradeImg.MountPoint)
+
 	// Selinux relabel
 	// Doesn't make sense to relabel a readonly filesystem
 	if upgradeImg.FS != constants.SquashFs {

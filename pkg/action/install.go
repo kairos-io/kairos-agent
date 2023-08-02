@@ -177,6 +177,9 @@ func (i InstallAction) Run() (err error) {
 	}
 	cleanup.Push(func() error { return e.UnmountImage(&i.spec.Active) })
 
+	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
+	createExtraDirsInRootfs(i.cfg, i.spec.ExtraDirsRootfs, i.spec.Active.MountPoint)
+
 	// Copy cloud-init if any
 	err = e.CopyCloudConfig(i.spec.CloudInit)
 	if err != nil {
