@@ -98,6 +98,11 @@ func (i *InstallSpec) Sanitize() error {
 	if extraPartsSizeCheck == 1 && i.Partitions.Persistent.Size == 0 {
 		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
 	}
+
+	// Set default labels in case the config from cloud/config overrides this values.
+	// we need them to be on fixed values, otherwise we wont know where to find things on boot, on reset, etc...
+	i.Partitions.SetDefaultLabels()
+
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
@@ -269,6 +274,18 @@ func (ep *ElementalPartitions) SetFirmwarePartitions(firmware string, partTable 
 		ep.BIOS = nil
 	}
 	return nil
+}
+
+// SetDefaultLabels sets the default labels for oem, state, persistent and recovery partitions.
+func (ep *ElementalPartitions) SetDefaultLabels() {
+	ep.OEM.FilesystemLabel = constants.OEMLabel
+	ep.OEM.Name = constants.OEMPartName
+	ep.State.FilesystemLabel = constants.StateLabel
+	ep.State.Name = constants.StatePartName
+	ep.Persistent.FilesystemLabel = constants.PersistentLabel
+	ep.Persistent.Name = constants.PersistentPartName
+	ep.Recovery.FilesystemLabel = constants.RecoveryLabel
+	ep.Recovery.Name = constants.RecoveryPartName
 }
 
 // NewElementalPartitionsFromList fills an ElementalPartitions instance from given
