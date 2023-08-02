@@ -19,7 +19,6 @@ package action
 import (
 	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"strings"
 	"time"
@@ -179,15 +178,7 @@ func (i InstallAction) Run() (err error) {
 	cleanup.Push(func() error { return e.UnmountImage(&i.spec.Active) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
-	for _, d := range i.spec.ExtraDirsRootfs {
-		if exists, _ := fsutils.Exists(i.cfg.Fs, filepath.Join(i.spec.Active.MountPoint, d)); !exists {
-			i.cfg.Logger.Debugf("Creating extra dir %s under %s", d, i.spec.Active.MountPoint)
-			err = i.cfg.Fs.Mkdir(filepath.Join(i.spec.Active.MountPoint, d), cnst.DirPerm)
-			if err != nil {
-				i.cfg.Logger.Warnf("Failure creating extra dir %s in rootfs at %s", d, i.spec.Active.MountPoint)
-			}
-		}
-	}
+	createExtraDirsInRootfs(i.cfg, i.spec.ExtraDirsRootfs, i.spec.Active.MountPoint)
 
 	// Copy cloud-init if any
 	err = e.CopyCloudConfig(i.spec.CloudInit)

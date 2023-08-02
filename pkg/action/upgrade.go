@@ -182,15 +182,7 @@ func (u *UpgradeAction) Run() (err error) {
 	cleanup.Push(func() error { return e.UnmountImage(&upgradeImg) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
-	for _, d := range u.spec.ExtraDirsRootfs {
-		if exists, _ := fsutils.Exists(u.config.Fs, filepath.Join(upgradeImg.MountPoint, d)); !exists {
-			u.config.Logger.Debugf("Creating extra dir %s under %s", d, upgradeImg.MountPoint)
-			err = u.config.Fs.Mkdir(filepath.Join(upgradeImg.MountPoint, d), constants.DirPerm)
-			if err != nil {
-				u.config.Logger.Warnf("Failure creating extra dir %s in rootfs at %s", d, upgradeImg.MountPoint)
-			}
-		}
-	}
+	createExtraDirsInRootfs(u.config, u.spec.ExtraDirsRootfs, upgradeImg.MountPoint)
 
 	// Selinux relabel
 	// Doesn't make sense to relabel a readonly filesystem
