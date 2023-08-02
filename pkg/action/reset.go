@@ -19,6 +19,7 @@ package action
 import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"time"
 
@@ -167,6 +168,17 @@ func (r ResetAction) Run() (err error) {
 		return err
 	}
 	cleanup.Push(func() error { return e.UnmountImage(&r.spec.Active) })
+
+	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
+	for _, d := range r.spec.ExtraDirsRootfs {
+		if exists, _ := fsutils.Exists(r.cfg.Fs, filepath.Join(r.spec.Active.MountPoint, d)); !exists {
+			r.cfg.Logger.Debugf("Creating extra dir %s under %s", d, r.spec.Active.MountPoint)
+			err = r.cfg.Fs.Mkdir(filepath.Join(r.spec.Active.MountPoint, d), cnst.DirPerm)
+			if err != nil {
+				r.cfg.Logger.Warnf("Failure creating extra dir %s in rootfs at %s", d, r.spec.Active.MountPoint)
+			}
+		}
+	}
 
 	// install grub
 	grub := utils.NewGrub(r.cfg)
