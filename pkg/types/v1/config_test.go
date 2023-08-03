@@ -239,7 +239,11 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Passive: v1.Image{
 						Source: v1.NewEmptySrc(),
 					},
-					Partitions:      v1.ElementalPartitions{},
+					Partitions: v1.ElementalPartitions{
+						OEM:        &v1.Partition{},
+						Recovery:   &v1.Partition{},
+						Persistent: &v1.Partition{},
+					},
 					ExtraPartitions: v1.PartitionList{},
 				}
 			})
@@ -276,6 +280,14 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.Partitions.EFI).To(BeNil())
 				Expect(spec.Partitions.BIOS).ToNot(BeNil())
 				Expect(spec.Partitions.BIOS.Flags).To(ContainElement("bios_grub"))
+				Expect(spec.Partitions.OEM.FilesystemLabel).To(Equal(constants.OEMLabel))
+				Expect(spec.Partitions.OEM.Name).To(Equal(constants.OEMPartName))
+				Expect(spec.Partitions.Recovery.FilesystemLabel).To(Equal(constants.RecoveryLabel))
+				Expect(spec.Partitions.Recovery.Name).To(Equal(constants.RecoveryPartName))
+				Expect(spec.Partitions.Persistent.FilesystemLabel).To(Equal(constants.PersistentLabel))
+				Expect(spec.Partitions.Persistent.Name).To(Equal(constants.PersistentPartName))
+				Expect(spec.Partitions.State.FilesystemLabel).To(Equal(constants.StateLabel))
+				Expect(spec.Partitions.State.Name).To(Equal(constants.StatePartName))
 			})
 			It("fills the spec with defaults (EFI)", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
@@ -295,6 +307,14 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.Partitions.EFI.Size).To(Equal(constants.EfiSize))
 				Expect(spec.Partitions.EFI.FS).To(Equal(constants.EfiFs))
 				Expect(spec.Partitions.EFI.Flags).To(ContainElement("esp"))
+				Expect(spec.Partitions.OEM.FilesystemLabel).To(Equal(constants.OEMLabel))
+				Expect(spec.Partitions.OEM.Name).To(Equal(constants.OEMPartName))
+				Expect(spec.Partitions.Recovery.FilesystemLabel).To(Equal(constants.RecoveryLabel))
+				Expect(spec.Partitions.Recovery.Name).To(Equal(constants.RecoveryPartName))
+				Expect(spec.Partitions.Persistent.FilesystemLabel).To(Equal(constants.PersistentLabel))
+				Expect(spec.Partitions.Persistent.Name).To(Equal(constants.PersistentPartName))
+				Expect(spec.Partitions.State.FilesystemLabel).To(Equal(constants.StateLabel))
+				Expect(spec.Partitions.State.Name).To(Equal(constants.StatePartName))
 			})
 			It("Cannot add extra partitions with 0 size + persistent with 0 size", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
@@ -381,6 +401,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				spec.Partitions.State = &v1.Partition{
 					MountPoint: "/tmp",
 				}
+				spec.Partitions.OEM = &v1.Partition{}
+				spec.Partitions.Recovery = &v1.Partition{}
+				spec.Partitions.Persistent = &v1.Partition{}
 				err := spec.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
 			})

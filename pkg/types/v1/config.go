@@ -56,6 +56,7 @@ type InstallSpec struct {
 	Tty             string              `yaml:"tty,omitempty" mapstructure:"tty"`
 	Reboot          bool                `yaml:"reboot,omitempty" mapstructure:"reboot"`
 	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	ExtraDirsRootfs []string            `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
 	Active          Image               `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery        Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	Passive         Image
@@ -97,6 +98,11 @@ func (i *InstallSpec) Sanitize() error {
 	if extraPartsSizeCheck == 1 && i.Partitions.Persistent.Size == 0 {
 		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
 	}
+
+	// Set default labels in case the config from cloud/config overrides this values.
+	// we need them to be on fixed values, otherwise we wont know where to find things on boot, on reset, etc...
+	i.Partitions.SetDefaultLabels()
+
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
@@ -105,20 +111,20 @@ func (i *InstallSpec) ShouldShutdown() bool { return i.PowerOff }
 
 // ResetSpec struct represents all the reset action details
 type ResetSpec struct {
-	FormatPersistent bool `yaml:"reset-persistent,omitempty" mapstructure:"reset-persistent"`
-	FormatOEM        bool `yaml:"reset-oem,omitempty" mapstructure:"reset-oem"`
-	Reboot           bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff         bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-
-	GrubDefEntry string `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	Tty          string `yaml:"tty,omitempty" mapstructure:"tty"`
-	Active       Image  `yaml:"system,omitempty" mapstructure:"system"`
-	Passive      Image
-	Partitions   ElementalPartitions
-	Target       string
-	Efi          bool
-	GrubConf     string
-	State        *InstallState
+	FormatPersistent bool     `yaml:"reset-persistent,omitempty" mapstructure:"reset-persistent"`
+	FormatOEM        bool     `yaml:"reset-oem,omitempty" mapstructure:"reset-oem"`
+	Reboot           bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff         bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	GrubDefEntry     string   `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Tty              string   `yaml:"tty,omitempty" mapstructure:"tty"`
+	ExtraDirsRootfs  []string `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
+	Active           Image    `yaml:"system,omitempty" mapstructure:"system"`
+	Passive          Image
+	Partitions       ElementalPartitions
+	Target           string
+	Efi              bool
+	GrubConf         string
+	State            *InstallState
 }
 
 // Sanitize checks the consistency of the struct, returns error
@@ -137,12 +143,13 @@ func (r *ResetSpec) ShouldReboot() bool   { return r.Reboot }
 func (r *ResetSpec) ShouldShutdown() bool { return r.PowerOff }
 
 type UpgradeSpec struct {
-	RecoveryUpgrade bool   `yaml:"recovery,omitempty" mapstructure:"recovery"`
-	Active          Image  `yaml:"system,omitempty" mapstructure:"system"`
-	Recovery        Image  `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
-	GrubDefEntry    string `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	Reboot          bool   `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool   `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	RecoveryUpgrade bool     `yaml:"recovery,omitempty" mapstructure:"recovery"`
+	Active          Image    `yaml:"system,omitempty" mapstructure:"system"`
+	Recovery        Image    `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
+	GrubDefEntry    string   `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Reboot          bool     `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool     `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	ExtraDirsRootfs []string `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
 	Passive         Image
 	Partitions      ElementalPartitions
 	State           *InstallState
@@ -267,6 +274,18 @@ func (ep *ElementalPartitions) SetFirmwarePartitions(firmware string, partTable 
 		ep.BIOS = nil
 	}
 	return nil
+}
+
+// SetDefaultLabels sets the default labels for oem, state, persistent and recovery partitions.
+func (ep *ElementalPartitions) SetDefaultLabels() {
+	ep.OEM.FilesystemLabel = constants.OEMLabel
+	ep.OEM.Name = constants.OEMPartName
+	ep.State.FilesystemLabel = constants.StateLabel
+	ep.State.Name = constants.StatePartName
+	ep.Persistent.FilesystemLabel = constants.PersistentLabel
+	ep.Persistent.Name = constants.PersistentPartName
+	ep.Recovery.FilesystemLabel = constants.RecoveryLabel
+	ep.Recovery.Name = constants.RecoveryPartName
 }
 
 // NewElementalPartitionsFromList fills an ElementalPartitions instance from given
