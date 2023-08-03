@@ -446,9 +446,21 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 	},
 	{
 		Name: "reset",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "reboot",
+				Usage: "Enable automated reboot after reset. Has precedence over any config in the system.",
+			},
+			&cli.BoolFlag{
+				Name:  "unattended",
+				Usage: "Do not wait for user input and provide ttys after reset. Also sets the fast mode (do not wait 60 seconds before reset)",
+			},
+		},
 		Action: func(c *cli.Context) error {
+			reboot := c.Bool("reboot")
+			unattended := c.Bool("unattended")
 
-			return agent.Reset(configScanDir...)
+			return agent.Reset(reboot, unattended, configScanDir...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `
