@@ -62,7 +62,7 @@ func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) e
 		return err
 	}
 
-	cc, err := config.Scan(collector.Directories(source), collector.MergeBootLine, collector.StrictValidation(strictValidations))
+	cc, err := config.Scan(collector.Directories(source), collector.MergeBootLine, collector.StrictValidation(strictValidations), collector.NoLogs)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,6 @@ func Install(dir ...string) error {
 		}
 
 		if cc.Install.Reboot == false && cc.Install.Poweroff == false {
-			pterm.DefaultInteractiveContinue.Options = []string{}
 			pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
 			svc, err := machine.Getty(1)
 			if err == nil {
