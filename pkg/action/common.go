@@ -44,12 +44,17 @@ func ChrootHook(config *config.Config, hook string, chrootDir string, bindMounts
 }
 
 func createExtraDirsInRootfs(cfg *config.Config, extradirs []string, target string) {
+	if target == "" {
+		cfg.Logger.Warn("Empty target for extra rootfs dirs, not doing anything")
+		return
+	}
+
 	for _, d := range extradirs {
 		if exists, _ := fsutils.Exists(cfg.Fs, filepath.Join(target, d)); !exists {
 			cfg.Logger.Debugf("Creating extra dir %s under %s", d, target)
-			err := cfg.Fs.Mkdir(filepath.Join(target, d), cnst.DirPerm)
+			err := fsutils.MkdirAll(cfg.Fs, filepath.Join(target, d), cnst.DirPerm)
 			if err != nil {
-				cfg.Logger.Warnf("Failure creating extra dir %s in rootfs at %s", d, target)
+				cfg.Logger.Warnf("Failure creating extra dir %s under %s", d, target)
 			}
 		}
 	}
