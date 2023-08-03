@@ -18,7 +18,9 @@ package action
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"path/filepath"
+	"strings"
 	"time"
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -38,9 +40,9 @@ func (i *InstallAction) installHook(hook string, chroot bool) error {
 		if oem != nil && oem.MountPoint != "" {
 			extraMounts[oem.MountPoint] = cnst.OEMPath
 		}
-		return ChrootHook(&i.cfg.Config, hook, i.cfg.Strict, i.spec.Active.MountPoint, extraMounts, i.cfg.CloudInitPaths...)
+		return ChrootHook(i.cfg, hook, i.spec.Active.MountPoint, extraMounts)
 	}
-	return Hook(&i.cfg.Config, hook, i.cfg.Strict, i.cfg.CloudInitPaths...)
+	return Hook(i.cfg, hook)
 }
 
 func (i *InstallAction) createInstallStateYaml(sysMeta, recMeta interface{}) error {
@@ -107,17 +109,17 @@ func (i *InstallAction) createInstallStateYaml(sysMeta, recMeta interface{}) err
 }
 
 type InstallAction struct {
-	cfg  *v1.RunConfig
+	cfg  *config.Config
 	spec *v1.InstallSpec
 }
 
-func NewInstallAction(cfg *v1.RunConfig, spec *v1.InstallSpec) *InstallAction {
+func NewInstallAction(cfg *config.Config, spec *v1.InstallSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 
-// InstallRun will install the system from a given configuration
+// Run will install the system from a given configuration
 func (i InstallAction) Run() (err error) {
-	e := elemental.NewElemental(&i.cfg.Config)
+	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
@@ -175,13 +177,16 @@ func (i InstallAction) Run() (err error) {
 	}
 	cleanup.Push(func() error { return e.UnmountImage(&i.spec.Active) })
 
+	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
+	createExtraDirsInRootfs(i.cfg, i.spec.ExtraDirsRootfs, i.spec.Active.MountPoint)
+
 	// Copy cloud-init if any
 	err = e.CopyCloudConfig(i.spec.CloudInit)
 	if err != nil {
 		return err
 	}
 	// Install grub
-	grub := utils.NewGrub(&i.cfg.Config)
+	grub := utils.NewGrub(i.cfg)
 	err = grub.Install(
 		i.spec.Target,
 		i.spec.Active.MountPoint,
@@ -197,14 +202,14 @@ func (i InstallAction) Run() (err error) {
 
 	// Relabel SELinux
 	binds := map[string]string{}
-	if mnt, _ := utils.IsMounted(&i.cfg.Config, i.spec.Partitions.Persistent); mnt {
+	if mnt, _ := utils.IsMounted(i.cfg, i.spec.Partitions.Persistent); mnt {
 		binds[i.spec.Partitions.Persistent.MountPoint] = cnst.UsrLocalPath
 	}
-	if mnt, _ := utils.IsMounted(&i.cfg.Config, i.spec.Partitions.OEM); mnt {
+	if mnt, _ := utils.IsMounted(i.cfg, i.spec.Partitions.OEM); mnt {
 		binds[i.spec.Partitions.OEM.MountPoint] = cnst.OEMPath
 	}
 	err = utils.ChrootedCallback(
-		&i.cfg.Config, i.spec.Active.MountPoint, binds, func() error { return e.SelinuxRelabel("/", true) },
+		i.cfg, i.spec.Active.MountPoint, binds, func() error { return e.SelinuxRelabel("/", true) },
 	)
 	if err != nil {
 		return err
@@ -259,7 +264,10 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// If we want to eject the cd, create the required executable so the cd is ejected at shutdown
-	if i.cfg.EjectCD && utils.BootedFrom(i.cfg.Runner, "cdroot") {
+	out, _ := i.cfg.Runner.Run("cat", "/proc/cmdline")
+	bootedFromCD := strings.Contains(string(out), "cdroot")
+
+	if i.cfg.EjectCD && bootedFromCD {
 		i.cfg.Logger.Infof("Writing eject script")
 		err = i.cfg.Fs.WriteFile("/usr/lib/systemd/system-shutdown/eject", []byte(cnst.EjectScript), 0744)
 		if err != nil {

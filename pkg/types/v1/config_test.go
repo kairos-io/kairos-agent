@@ -17,108 +17,14 @@ limitations under the License.
 package v1_test
 
 import (
-	"path/filepath"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
+	"path/filepath"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
-	Describe("Write and load installation state", func() {
-		var config *v1.RunConfig
-		var runner *v1mocks.FakeRunner
-		var fs vfs.FS
-		var mounter *v1mocks.ErrorMounter
-		var cleanup func()
-		var err error
-		var dockerState, channelState *v1.ImageState
-		var installState *v1.InstallState
-		var statePath, recoveryPath string
-
-		BeforeEach(func() {
-			runner = v1mocks.NewFakeRunner()
-			mounter = v1mocks.NewErrorMounter()
-			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
-			Expect(err).Should(BeNil())
-
-			config = conf.NewRunConfig(
-				conf.WithFs(fs),
-				conf.WithRunner(runner),
-				conf.WithMounter(mounter),
-			)
-			dockerState = &v1.ImageState{
-				Source: v1.NewDockerSrc("registry.org/my/image:tag"),
-				Label:  "active_label",
-				FS:     "ext2",
-				SourceMetadata: &v1.DockerImageMeta{
-					Digest: "adadgadg",
-					Size:   23452345,
-				},
-			}
-			installState = &v1.InstallState{
-				Date: "somedate",
-				Partitions: map[string]*v1.PartitionState{
-					"state": {
-						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
-							"active": dockerState,
-						},
-					},
-					"recovery": {
-						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
-							"recovery": channelState,
-						},
-					},
-				},
-			}
-
-			statePath = filepath.Join(constants.RunningStateDir, constants.InstallStateFile)
-			recoveryPath = "/recoverypart/state.yaml"
-			err = utils.MkdirAll(fs, filepath.Dir(recoveryPath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = utils.MkdirAll(fs, filepath.Dir(statePath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-		AfterEach(func() {
-			cleanup()
-		})
-		It("Writes and loads an installation data", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			loadedInstallState, err := config.LoadInstallState()
-			Expect(err).ShouldNot(HaveOccurred())
-
-			Expect(*loadedInstallState).To(Equal(*installState))
-		})
-		It("Fails writing to state partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails writing to recovery partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails loading state file", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			_, err = config.LoadInstallState()
-			Expect(err).Should(HaveOccurred())
-		})
-	})
 	Describe("ElementalPartitions", func() {
 		var p v1.PartitionList
 		var ep v1.ElementalPartitions
@@ -262,7 +168,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Expect(lst[1].Name == "persistent").To(BeTrue())
 		})
 	})
-	Describe("Partitionlist", func() {
+	Describe("PartitionList", func() {
 		var p v1.PartitionList
 		BeforeEach(func() {
 			p = v1.PartitionList{
@@ -319,151 +225,248 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Expect(p.GetByName("nonexistent")).To(BeNil())
 		})
 	})
-	Describe("RunConfig", func() {
-		It("runs sanitize method", func() {
-			cfg := elementalConfig.NewRunConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
-			cfg.Config.Verify = true
-
-			err := cfg.Sanitize()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-	})
-	Describe("InstallSpec", func() {
-		var spec *v1.InstallSpec
-
-		BeforeEach(func() {
-			cfg := elementalConfig.NewConfig(elementalConfig.WithMounter(v1mocks.NewErrorMounter()))
-			spec = elementalConfig.NewInstallSpec(*cfg)
-		})
-		Describe("sanitize", func() {
-			It("runs method", func() {
-				Expect(spec.Partitions.EFI).To(BeNil())
-				Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
-
-				// Creates firmware partitions
-				spec.Active.Source = v1.NewDirSrc("/dir")
-				spec.Firmware = v1.EFI
-				err := spec.Sanitize()
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(spec.Partitions.EFI).NotTo(BeNil())
-
-				// Sets recovery image file to squashfs file
-				spec.Recovery.FS = constants.SquashFs
-				err = spec.Sanitize()
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(spec.Recovery.File).To(ContainSubstring(constants.RecoverySquashFile))
-
-				// Sets recovery image file to img file
-				spec.Recovery.FS = constants.LinuxImgFs
-				err = spec.Sanitize()
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(spec.Recovery.File).To(ContainSubstring(constants.RecoveryImgFile))
-
-				// Fails without state partition
-				spec.Partitions.State = nil
-				err = spec.Sanitize()
-				Expect(err).Should(HaveOccurred())
-
-				// Fails without an install source
-				spec.Active.Source = v1.NewEmptySrc()
-				err = spec.Sanitize()
-				Expect(err).Should(HaveOccurred())
+	Describe("Specs", func() {
+		Describe("InstallSpec sanitize", func() {
+			var spec v1.InstallSpec
+			BeforeEach(func() {
+				spec = v1.InstallSpec{
+					Active: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Recovery: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Passive: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Partitions: v1.ElementalPartitions{
+						OEM:        &v1.Partition{},
+						Recovery:   &v1.Partition{},
+						Persistent: &v1.Partition{},
+					},
+					ExtraPartitions: v1.PartitionList{},
+				}
 			})
-			Describe("with extra partitions", func() {
-				BeforeEach(func() {
-					// Set a source for the install
-					spec.Active.Source = v1.NewDirSrc("/dir")
-				})
-				It("fails if persistent and an extra partition have size == 0", func() {
-					spec.ExtraPartitions = append(spec.ExtraPartitions, &v1.Partition{Size: 0})
-					err := spec.Sanitize()
-					Expect(err).Should(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("both persistent partition and extra partitions have size set to 0"))
-				})
-				It("fails if more than one extra partition has size == 0", func() {
-					spec.Partitions.Persistent.Size = 10
-					spec.ExtraPartitions = append(spec.ExtraPartitions, &v1.Partition{Name: "1", Size: 0})
-					spec.ExtraPartitions = append(spec.ExtraPartitions, &v1.Partition{Name: "2", Size: 0})
+			It("fails with empty source", func() {
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined system source to install"))
+			})
+			It("fails with missing state partition", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined state partition"))
+			})
+			It("passes if state and source are ready", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("fills the spec with defaults (BIOS)", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.Recovery.File).ToNot(BeEmpty())
+				Expect(spec.Recovery.File).To(Equal(filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)))
+				Expect(spec.Partitions.EFI).To(BeNil())
+				Expect(spec.Partitions.BIOS).ToNot(BeNil())
+				Expect(spec.Partitions.BIOS.Flags).To(ContainElement("bios_grub"))
+				Expect(spec.Partitions.OEM.FilesystemLabel).To(Equal(constants.OEMLabel))
+				Expect(spec.Partitions.OEM.Name).To(Equal(constants.OEMPartName))
+				Expect(spec.Partitions.Recovery.FilesystemLabel).To(Equal(constants.RecoveryLabel))
+				Expect(spec.Partitions.Recovery.Name).To(Equal(constants.RecoveryPartName))
+				Expect(spec.Partitions.Persistent.FilesystemLabel).To(Equal(constants.PersistentLabel))
+				Expect(spec.Partitions.Persistent.Name).To(Equal(constants.PersistentPartName))
+				Expect(spec.Partitions.State.FilesystemLabel).To(Equal(constants.StateLabel))
+				Expect(spec.Partitions.State.Name).To(Equal(constants.StatePartName))
+			})
+			It("fills the spec with defaults (EFI)", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Firmware = constants.EfiPartName
+				spec.PartTable = constants.GPT
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.Recovery.File).ToNot(BeEmpty())
+				Expect(spec.Recovery.File).To(Equal(filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)))
+				Expect(spec.Partitions.BIOS).To(BeNil())
+				Expect(spec.Partitions.EFI).ToNot(BeNil())
+				Expect(spec.Partitions.EFI.FilesystemLabel).To(Equal(constants.EfiLabel))
+				Expect(spec.Partitions.EFI.MountPoint).To(Equal(constants.EfiDir))
+				Expect(spec.Partitions.EFI.Size).To(Equal(constants.EfiSize))
+				Expect(spec.Partitions.EFI.FS).To(Equal(constants.EfiFs))
+				Expect(spec.Partitions.EFI.Flags).To(ContainElement("esp"))
+				Expect(spec.Partitions.OEM.FilesystemLabel).To(Equal(constants.OEMLabel))
+				Expect(spec.Partitions.OEM.Name).To(Equal(constants.OEMPartName))
+				Expect(spec.Partitions.Recovery.FilesystemLabel).To(Equal(constants.RecoveryLabel))
+				Expect(spec.Partitions.Recovery.Name).To(Equal(constants.RecoveryPartName))
+				Expect(spec.Partitions.Persistent.FilesystemLabel).To(Equal(constants.PersistentLabel))
+				Expect(spec.Partitions.Persistent.Name).To(Equal(constants.PersistentPartName))
+				Expect(spec.Partitions.State.FilesystemLabel).To(Equal(constants.StateLabel))
+				Expect(spec.Partitions.State.Name).To(Equal(constants.StatePartName))
+			})
+			It("Cannot add extra partitions with 0 size + persistent with 0 size", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.Persistent = &v1.Partition{
+					Size: 0,
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				spec.ExtraPartitions = v1.PartitionList{
+					&v1.Partition{
+						Size: 0,
+					},
+				}
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("both persistent partition and extra partitions have size set to 0"))
+			})
+			It("Cannot add more than 1 extra partition with 0 size", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.Persistent = &v1.Partition{
+					Size: 100,
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				spec.ExtraPartitions = v1.PartitionList{
+					&v1.Partition{
+						Size: 0,
+					},
+					&v1.Partition{
+						Size: 0,
+					},
+				}
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("more than one extra partition has its size set to 0"))
+			})
+			It("Can add 1 extra partition with 0 size", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.Persistent = &v1.Partition{
+					Size: 100,
+				}
+				spec.Firmware = constants.BiosPartName
+				spec.PartTable = constants.GPT
+				spec.ExtraPartitions = v1.PartitionList{
+					&v1.Partition{
+						Size: 0,
+					},
+				}
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Describe("ResetSpec sanitize", func() {
+			var spec v1.ResetSpec
+			BeforeEach(func() {
+				spec = v1.ResetSpec{
+					Active: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+				}
+			})
+			It("fails with empty source", func() {
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined system source to reset"))
+			})
+			It("fails with missing state partition", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				err := spec.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("undefined state partition"))
+			})
+			It("passes if state and source are ready", func() {
+				spec.Active.Source = v1.NewFileSrc("/tmp")
+				spec.Partitions.State = &v1.Partition{
+					MountPoint: "/tmp",
+				}
+				spec.Partitions.OEM = &v1.Partition{}
+				spec.Partitions.Recovery = &v1.Partition{}
+				spec.Partitions.Persistent = &v1.Partition{}
+				err := spec.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+		})
+		Describe("UpgradeSpec sanitize", func() {
+			var spec v1.UpgradeSpec
+			BeforeEach(func() {
+				spec = v1.UpgradeSpec{
+					Active: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+					Recovery: v1.Image{
+						Source: v1.NewEmptySrc(),
+					},
+				}
+			})
+			Describe("Active upgrade", func() {
+				It("fails with empty source", func() {
 					err := spec.Sanitize()
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("more than one extra partition has its size set to 0"))
+					Expect(err.Error()).To(ContainSubstring("undefined upgrade source"))
 				})
-				It("does not fail if persistent size is > 0 and an extra partition has size == 0", func() {
-					spec.ExtraPartitions = append(spec.ExtraPartitions, &v1.Partition{Size: 0})
-					spec.Partitions.Persistent.Size = 10
+				It("fails with missing state partition", func() {
+					spec.Active.Source = v1.NewFileSrc("/tmp")
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined state partition"))
+				})
+				It("passes if state and source are ready", func() {
+					spec.Active.Source = v1.NewFileSrc("/tmp")
+					spec.Partitions.State = &v1.Partition{
+						MountPoint: "/tmp",
+					}
 					err := spec.Sanitize()
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
-		})
-	})
-	Describe("ResetSpec", func() {
-		It("runs sanitize method", func() {
-			spec := &v1.ResetSpec{
-				Active: v1.Image{
-					Source: v1.NewDirSrc("/dir"),
-				},
-				Partitions: v1.ElementalPartitions{
-					State: &v1.Partition{
-						MountPoint: "mountpoint",
-					},
-				},
-			}
-			err := spec.Sanitize()
-			Expect(err).ShouldNot(HaveOccurred())
+			Describe("Recovery upgrade", func() {
+				BeforeEach(func() {
+					spec.RecoveryUpgrade = true
+				})
+				It("fails with empty source", func() {
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined upgrade source"))
+				})
+				It("fails with missing recovery partition", func() {
+					spec.Recovery.Source = v1.NewFileSrc("/tmp")
+					err := spec.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("undefined recovery partition"))
+				})
+				It("passes if state and source are ready", func() {
+					spec.Recovery.Source = v1.NewFileSrc("/tmp")
+					spec.Partitions.Recovery = &v1.Partition{
+						MountPoint: "/tmp",
+					}
+					err := spec.Sanitize()
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
 
-			//Fails on missing state partition
-			spec.Partitions.State = nil
-			err = spec.Sanitize()
-			Expect(err).Should(HaveOccurred())
-
-			//Fails on empty source
-			spec.Active.Source = v1.NewEmptySrc()
-			err = spec.Sanitize()
-			Expect(err).Should(HaveOccurred())
-		})
-	})
-	Describe("UpgradeSpec", func() {
-		It("runs sanitize method", func() {
-			spec := &v1.UpgradeSpec{
-				Active: v1.Image{
-					Source: v1.NewDirSrc("/dir"),
-				},
-				Recovery: v1.Image{
-					Source: v1.NewDirSrc("/dir"),
-				},
-				Partitions: v1.ElementalPartitions{
-					State: &v1.Partition{
-						MountPoint: "mountpoint",
-					},
-					Recovery: &v1.Partition{
-						MountPoint: "mountpoint",
-					},
-				},
-			}
-			err := spec.Sanitize()
-			Expect(err).ShouldNot(HaveOccurred())
-
-			//Fails on empty source for active upgrade
-			spec.Active.Source = v1.NewEmptySrc()
-			err = spec.Sanitize()
-			Expect(err).Should(HaveOccurred())
-
-			//Fails on missing state partition for active upgrade
-			spec.Partitions.State = nil
-			err = spec.Sanitize()
-			Expect(err).Should(HaveOccurred())
-
-			//Fails on empty source for recovery upgrade
-			spec.RecoveryUpgrade = true
-			spec.Recovery.Source = v1.NewEmptySrc()
-			err = spec.Sanitize()
-			Expect(err).Should(HaveOccurred())
-
-			//Fails on missing recovery partition for recovery upgrade
-			spec.Partitions.Recovery = nil
-			err = spec.Sanitize()
-			Expect(err).Should(HaveOccurred())
 		})
 	})
 })

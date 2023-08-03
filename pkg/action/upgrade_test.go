@@ -19,14 +19,14 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	conf "github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("Runtime Actions", func() {
-	var config *v1.RunConfig
+	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger v1.Logger
@@ -63,16 +63,16 @@ var _ = Describe("Runtime Actions", func() {
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
-		config = conf.NewRunConfig(
-			conf.WithFs(fs),
-			conf.WithRunner(runner),
-			conf.WithLogger(logger),
-			conf.WithMounter(mounter),
-			conf.WithSyscall(syscall),
-			conf.WithClient(client),
-			conf.WithCloudInitRunner(cloudInit),
-			conf.WithImageExtractor(extractor),
-			conf.WithPlatform("linux/amd64"),
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
+			agentConfig.WithCloudInitRunner(cloudInit),
+			agentConfig.WithImageExtractor(extractor),
+			agentConfig.WithPlatform("linux/amd64"),
 		)
 	})
 
@@ -98,8 +98,8 @@ var _ = Describe("Runtime Actions", func() {
 			logger.SetLevel(logrus.DebugLevel)
 
 			// Create paths used by tests
-			utils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
-			utils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.LiveDir), constants.DirPerm)
+			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
+			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.LiveDir), constants.DirPerm)
 
 			mainDisk := block.Disk{
 				Name: "device",
@@ -143,10 +143,10 @@ var _ = Describe("Runtime Actions", func() {
 		Describe(fmt.Sprintf("Booting from %s", constants.ActiveLabel), Label("active_label"), func() {
 			var err error
 			BeforeEach(func() {
-				spec, err = conf.NewUpgradeSpec(config.Config)
+				spec, err = agentConfig.NewUpgradeSpec(config)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
+				err = fsutils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = fs.WriteFile(
@@ -303,7 +303,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("Successfully upgrades from directory", Label("directory"), func() {
-				dirSrc, _ := utils.TempDir(fs, "", "elementalupgrade")
+				dirSrc, _ := fsutils.TempDir(fs, "", "elementalupgrade")
 				// Create the dir on real os as rsync works on the real os
 				defer fs.RemoveAll(dirSrc)
 				spec.Active.Source = v1.NewDirSrc(dirSrc)
@@ -346,10 +346,10 @@ var _ = Describe("Runtime Actions", func() {
 		Describe(fmt.Sprintf("Booting from %s", constants.PassiveLabel), Label("passive_label"), func() {
 			var err error
 			BeforeEach(func() {
-				spec, err = conf.NewUpgradeSpec(config.Config)
+				spec, err = agentConfig.NewUpgradeSpec(config)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				err = utils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
+				err = fsutils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = fs.WriteFile(
@@ -428,7 +428,7 @@ var _ = Describe("Runtime Actions", func() {
 					err = fs.WriteFile(recoveryImgSquash, []byte("recovery"), constants.FilePerm)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err = conf.NewUpgradeSpec(config.Config)
+					spec, err = agentConfig.NewUpgradeSpec(config)
 					Expect(err).ShouldNot(HaveOccurred())
 					spec.Active.Size = 10
 					spec.Passive.Size = 10
@@ -484,7 +484,7 @@ var _ = Describe("Runtime Actions", func() {
 
 				})
 				It("Successfully upgrades recovery from directory", Label("directory"), func() {
-					srcDir, _ := utils.TempDir(fs, "", "elemental")
+					srcDir, _ := fsutils.TempDir(fs, "", "elemental")
 					// create a random file on it
 					_ = fs.WriteFile(fmt.Sprintf("%s/file.file", srcDir), []byte("something"), constants.FilePerm)
 
@@ -513,7 +513,7 @@ var _ = Describe("Runtime Actions", func() {
 					err = fs.WriteFile(recoveryImg, []byte("recovery"), constants.FilePerm)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					spec, err = conf.NewUpgradeSpec(config.Config)
+					spec, err = agentConfig.NewUpgradeSpec(config)
 					Expect(err).ShouldNot(HaveOccurred())
 
 					spec.Active.Size = 10
@@ -569,7 +569,7 @@ var _ = Describe("Runtime Actions", func() {
 					}
 				})
 				It("Successfully upgrades recovery from directory", Label("directory"), func() {
-					srcDir, _ := utils.TempDir(fs, "", "elemental")
+					srcDir, _ := fsutils.TempDir(fs, "", "elemental")
 					// create a random file on it
 					_ = fs.WriteFile(fmt.Sprintf("%s/file.file", srcDir), []byte("something"), constants.FilePerm)
 

@@ -18,6 +18,8 @@ package action
 
 import (
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"time"
 
@@ -29,11 +31,11 @@ import (
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish
 type UpgradeAction struct {
-	config *v1.RunConfig
+	config *agentConfig.Config
 	spec   *v1.UpgradeSpec
 }
 
-func NewUpgradeAction(config *v1.RunConfig, spec *v1.UpgradeSpec) *UpgradeAction {
+func NewUpgradeAction(config *agentConfig.Config, spec *v1.UpgradeSpec) *UpgradeAction {
 	return &UpgradeAction{config: config, spec: spec}
 }
 
@@ -52,21 +54,21 @@ func (u UpgradeAction) Error(s string, args ...interface{}) {
 func (u UpgradeAction) upgradeHook(hook string, chroot bool) error {
 	u.Info("Applying '%s' hook", hook)
 	if chroot {
-		mountPoints := map[string]string{}
+		extraMounts := map[string]string{}
 
 		oemDevice := u.spec.Partitions.OEM
 		if oemDevice != nil && oemDevice.MountPoint != "" {
-			mountPoints[oemDevice.MountPoint] = constants.OEMPath
+			extraMounts[oemDevice.MountPoint] = constants.OEMPath
 		}
 
 		persistentDevice := u.spec.Partitions.Persistent
 		if persistentDevice != nil && persistentDevice.MountPoint != "" {
-			mountPoints[persistentDevice.MountPoint] = constants.UsrLocalPath
+			extraMounts[persistentDevice.MountPoint] = constants.UsrLocalPath
 		}
 
-		return ChrootHook(&u.config.Config, hook, u.config.Strict, u.spec.Active.MountPoint, mountPoints, u.config.CloudInitPaths...)
+		return ChrootHook(u.config, hook, u.spec.Active.MountPoint, extraMounts)
 	}
-	return Hook(&u.config.Config, hook, u.config.Strict, u.config.CloudInitPaths...)
+	return Hook(u.config, hook)
 }
 
 func (u *UpgradeAction) upgradeInstallStateYaml(meta interface{}, img v1.Image) error {
@@ -122,7 +124,7 @@ func (u *UpgradeAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
-	e := elemental.NewElemental(&u.config.Config)
+	e := elemental.NewElemental(u.config)
 
 	if u.spec.RecoveryUpgrade {
 		upgradeImg = u.spec.Recovery
@@ -154,8 +156,8 @@ func (u *UpgradeAction) Run() (err error) {
 	persistentPart := u.spec.Partitions.Persistent
 	if persistentPart != nil {
 		// Create the dir otherwise the check for mounted dir fails
-		_ = utils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
-		if mnt, err := utils.IsMounted(&u.config.Config, persistentPart); !mnt && err == nil {
+		_ = fsutils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
+		if mnt, err := utils.IsMounted(u.config, persistentPart); !mnt && err == nil {
 			u.Debug("mounting persistent partition")
 			umount, err = e.MountRWPartition(persistentPart)
 			if err != nil {
@@ -179,6 +181,9 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 	cleanup.Push(func() error { return e.UnmountImage(&upgradeImg) })
 
+	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
+	createExtraDirsInRootfs(u.config, u.spec.ExtraDirsRootfs, upgradeImg.MountPoint)
+
 	// Selinux relabel
 	// Doesn't make sense to relabel a readonly filesystem
 	if upgradeImg.FS != constants.SquashFs {
@@ -186,14 +191,14 @@ func (u *UpgradeAction) Run() (err error) {
 		// TODO probably relabelling persistent volumes should be an opt in feature, it could
 		// have undesired effects in case of failures
 		binds := map[string]string{}
-		if mnt, _ := utils.IsMounted(&u.config.Config, u.spec.Partitions.Persistent); mnt {
+		if mnt, _ := utils.IsMounted(u.config, u.spec.Partitions.Persistent); mnt {
 			binds[u.spec.Partitions.Persistent.MountPoint] = constants.UsrLocalPath
 		}
-		if mnt, _ := utils.IsMounted(&u.config.Config, u.spec.Partitions.OEM); mnt {
+		if mnt, _ := utils.IsMounted(u.config, u.spec.Partitions.OEM); mnt {
 			binds[u.spec.Partitions.OEM.MountPoint] = constants.OEMPath
 		}
 		err = utils.ChrootedCallback(
-			&u.config.Config, upgradeImg.MountPoint, binds,
+			u.config, upgradeImg.MountPoint, binds,
 			func() error { return e.SelinuxRelabel("/", true) },
 		)
 		if err != nil {
@@ -281,7 +286,7 @@ func (u *UpgradeAction) Run() (err error) {
 
 // remove attempts to remove the given path. Does nothing if it doesn't exist
 func (u *UpgradeAction) remove(path string) error {
-	if exists, _ := utils.Exists(u.config.Fs, path); exists {
+	if exists, _ := fsutils.Exists(u.config.Fs, path); exists {
 		u.Debug("[Cleanup] Removing %s", path)
 		return u.config.Fs.RemoveAll(path)
 	}

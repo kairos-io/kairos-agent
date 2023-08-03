@@ -17,25 +17,45 @@ limitations under the License.
 package action
 
 import (
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"path/filepath"
 )
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
-// in case v1.RunConfig.Strict is set to false
-func Hook(config *v1.Config, hook string, strict bool, cloudInitPaths ...string) error {
+// in case v1.Config.Strict is set to false
+func Hook(config *config.Config, hook string) error {
 	config.Logger.Infof("Running %s hook", hook)
-	err := utils.RunStage(config, hook, strict, cloudInitPaths...)
-	if !strict {
+	err := utils.RunStage(config, hook)
+	if !config.Strict {
 		err = nil
 	}
 	return err
 }
 
 // ChrootHook executes Hook inside a chroot environment
-func ChrootHook(config *v1.Config, hook string, strict bool, chrootDir string, bindMounts map[string]string, cloudInitPaths ...string) (err error) {
+func ChrootHook(config *config.Config, hook string, chrootDir string, bindMounts map[string]string) (err error) {
 	callback := func() error {
-		return Hook(config, hook, strict, cloudInitPaths...)
+		return Hook(config, hook)
 	}
 	return utils.ChrootedCallback(config, chrootDir, bindMounts, callback)
+}
+
+func createExtraDirsInRootfs(cfg *config.Config, extradirs []string, target string) {
+	if target == "" {
+		cfg.Logger.Warn("Empty target for extra rootfs dirs, not doing anything")
+		return
+	}
+
+	for _, d := range extradirs {
+		if exists, _ := fsutils.Exists(cfg.Fs, filepath.Join(target, d)); !exists {
+			cfg.Logger.Debugf("Creating extra dir %s under %s", d, target)
+			err := fsutils.MkdirAll(cfg.Fs, filepath.Join(target, d), cnst.DirPerm)
+			if err != nil {
+				cfg.Logger.Warnf("Failure creating extra dir %s under %s", d, target)
+			}
+		}
+	}
 }

@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -16,7 +19,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -51,18 +53,7 @@ func displayInfo(agentConfig *Config) {
 	}
 }
 
-func mergeOption(cloudConfig string, r map[string]string) {
-	c := &config.Config{}
-	yaml.Unmarshal([]byte(cloudConfig), c) //nolint:errcheck
-	for k, v := range c.Options {
-		if k == "cc" {
-			continue
-		}
-		r[k] = v
-	}
-}
-
-func ManualInstall(c string, options map[string]string, strictValidations bool) error {
+func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -71,35 +62,32 @@ func ManualInstall(c string, options map[string]string, strictValidations bool) 
 		return err
 	}
 
-	cc, err := config.Scan(collector.Directories(source), collector.MergeBootLine, collector.StrictValidation(strictValidations))
+	cc, err := config.Scan(collector.Directories(source), collector.MergeBootLine, collector.StrictValidation(strictValidations), collector.NoLogs)
 	if err != nil {
 		return err
 	}
-	configStr, err := cc.String()
-	if err != nil {
-		return err
-	}
-	options["cc"] = configStr
-	// unlike Install device is already set
-	// options["device"] = cc.Install.Device
 
-	mergeOption(configStr, options)
-
-	if options["device"] == "" {
-		// IF cc is nil we will panic, check beforehand.
-		// If we set no device then we will exit later down the line anyway
-		if cc.Install != nil {
-			if cc.Install.Device == "" {
-				options["device"] = detectDevice()
-			} else {
-				options["device"] = cc.Install.Device
-			}
-		}
+	if reboot {
+		// Override from flags!
+		cc.Install.Reboot = true
 	}
-	return RunInstall(options)
+
+	if poweroff {
+		// Override from flags!
+		cc.Install.Poweroff = true
+	}
+	if device != "" {
+		// Override from flags!
+		cc.Install.Device = device
+	}
+	return RunInstall(cc)
 }
 
 func Install(dir ...string) error {
+	var cc *config.Config
+	var err error
+
+	bus.Manager.Initialize()
 	utils.OnSignal(func() {
 		svc, err := machine.Getty(1)
 		if err == nil {
@@ -119,30 +107,42 @@ func Install(dir ...string) error {
 		if err != nil {
 			fmt.Println(err)
 		}
+		// dump data into a dir so the collector can pick it up properly
+		cloudConfig, exists := r["cc"]
+		if exists {
+			tmpdir, err := os.MkdirTemp("", "kairos-install-")
+			if err == nil {
+				err = os.WriteFile(filepath.Join(tmpdir, "kairos-event-install-data.yaml"), []byte(cloudConfig), os.ModePerm)
+				if err != nil {
+					fmt.Printf("could not write event cloud init: %s\n", err.Error())
+				}
+				// Append to default dirs so we read from all sources
+				dir = append(dir, tmpdir)
+				// override cc with our new config object from the scan, so it's updated for the RunInstall function
+				cc, _ = config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
+			} else {
+				fmt.Printf("could not create temp dir: %s\n", err.Error())
+			}
+		}
 	})
 
 	ensureDataSourceReady()
 
 	// Reads config, and if present and offline is defined,
 	// runs the installation
-	cc, err := config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
+	cc, err = config.Scan(collector.Directories(dir...), collector.MergeBootLine)
 	if err == nil && cc.Install != nil && cc.Install.Auto {
-		configStr, err := cc.String()
-		if err != nil {
-			return err
-		}
-		r["cc"] = configStr
-		r["device"] = cc.Install.Device
-		mergeOption(configStr, r)
-
-		err = RunInstall(r)
+		err = RunInstall(cc)
 		if err != nil {
 			return err
 		}
 
-		svc, err := machine.Getty(1)
-		if err == nil {
-			svc.Start() //nolint:errcheck
+		if cc.Install.Reboot == false && cc.Install.Poweroff == false {
+			pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
+			svc, err := machine.Getty(1)
+			if err == nil {
+				svc.Start() //nolint:errcheck
+			}
 		}
 
 		return nil
@@ -150,7 +150,6 @@ func Install(dir ...string) error {
 	if err != nil {
 		fmt.Printf("- config not found in the system: %s", err.Error())
 	}
-
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
@@ -191,109 +190,70 @@ func Install(dir ...string) error {
 	}
 
 	if len(r) == 0 {
+		// This means there is no config in the system AND no config was obtained from events
 		return errors.New("no configuration, stopping installation")
 	}
-
-	// we receive a cloud config at this point
-	cloudConfig, exists := r["cc"]
-
-	// merge any options defined in it
-	mergeOption(cloudConfig, r)
-
-	// now merge cloud config from system and
-	// the one received from the agent-provider
-	ccData := map[string]interface{}{}
-
-	// make sure the config we write has at least the #cloud-config header,
-	// if any other was defined beforeahead
-	header := "#cloud-config"
-	if hasHeader, head := config.HasHeader(configStr, ""); hasHeader {
-		header = head
-	}
-
-	// What we receive take precedence over the one in the system. best-effort
-	yaml.Unmarshal([]byte(configStr), &ccData) //nolint:errcheck
-	if exists {
-		yaml.Unmarshal([]byte(cloudConfig), &ccData) //nolint:errcheck
-		if hasHeader, head := config.HasHeader(cloudConfig, ""); hasHeader {
-			header = head
-		}
-	}
-
-	out, err := yaml.Marshal(ccData)
-	if err != nil {
-		return fmt.Errorf("failed marshalling cc: %w", err)
-	}
-
-	r["cc"] = config.AddHeader(header, string(out))
-
 	pterm.Info.Println("Starting installation")
 
-	if err := RunInstall(r); err != nil {
+	cc.Logger.Debugf("Runinstall with cc: %s\n", litter.Sdump(cc))
+	if err := RunInstall(cc); err != nil {
 		return err
 	}
 
-	pterm.Info.Println("Installation completed, press enter to go back to the shell.")
+	if cc.Install.Reboot {
+		pterm.Info.Println("Installation completed, rebooting in 5 seconds.")
 
-	utils.Prompt("") //nolint:errcheck
+	}
+	if cc.Install.Poweroff {
+		pterm.Info.Println("Installation completed, powering in 5 seconds.")
+	}
 
-	// give tty1 back
-	svc, err := machine.Getty(1)
-	if err == nil {
-		svc.Start() //nolint: errcheck
+	// If neither reboot and poweroff are enabled let the user insert enter to go back to a new shell
+	// This is helpful to see the installation messages instead of just cleaning the screen with a new tty
+	if cc.Install.Reboot == false && cc.Install.Poweroff == false {
+		pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
+
+		utils.Prompt("") //nolint:errcheck
+
+		// give tty1 back
+		svc, err := machine.Getty(1)
+		if err == nil {
+			svc.Start() //nolint: errcheck
+		}
 	}
 
 	return nil
 }
 
-func RunInstall(options map[string]string) error {
-	cloudInit, ok := options["cc"]
-	if !ok {
-		fmt.Println("cloudInit must be specified among options")
-		os.Exit(1)
+func RunInstall(c *config.Config) error {
+	if c.Install.Device == "" || c.Install.Device == "auto" {
+		c.Install.Device = detectDevice()
 	}
 
-	// TODO: Drop this and make a more straighforward way of getting the cloud-init and options?
-	c := &config.Config{}
-	yaml.Unmarshal([]byte(cloudInit), c) //nolint:errcheck
-
-	if c.Install == nil {
-		c.Install = &config.Install{}
-	}
-
-	// TODO: Im guessing this was used to try to override elemental values from env vars
-	// Does it make sense anymore? We can now expose the whole options of elemental directly
-	env := append(c.Install.Env, c.Env...)
-	utils.SetEnv(env)
-
-	_, reboot := options["reboot"]
-	_, poweroff := options["poweroff"]
-	if poweroff {
-		c.Install.Poweroff = true
-	}
-	if reboot {
-		c.Install.Reboot = true
-	}
-
-	// Load the installation Config from the system
-	installConfig, installSpec, err := elementalConfig.ReadInstallConfigFromAgentConfig(c)
+	// Load the installation spec from the Config
+	installSpec, err := config.ReadInstallSpecFromConfig(c)
 	if err != nil {
 		return err
 	}
 
-	f, err := elementalUtils.TempFile(installConfig.Fs, "", "kairos-install-config-xxx.yaml")
+	f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
 	if err != nil {
-		installConfig.Logger.Error("Error creating temporal file for install config: %s\n", err.Error())
+		c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
 		return err
 	}
 	defer os.RemoveAll(f.Name())
 
-	err = os.WriteFile(f.Name(), []byte(cloudInit), os.ModePerm)
+	ccstring, err := c.String()
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
 	if err != nil {
 		fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
 		return err
 	}
 
+	// TODO: This should not be neccessary
 	installSpec.NoFormat = c.Install.NoFormat
 
 	// Set our cloud-init to the file we just created
@@ -306,17 +266,7 @@ func RunInstall(options map[string]string) error {
 		}
 		installSpec.Active.Source = imgSource
 	}
-	// Set the target device
-	device, ok := options["device"]
-	if !ok {
-		fmt.Println("device must be specified among options")
-		return fmt.Errorf("device must be specified among options")
-	}
 
-	if device == "auto" {
-		device = detectDevice()
-	}
-	installSpec.Target = device
 	// Check if values are correct
 	err = installSpec.Sanitize()
 	if err != nil {
@@ -324,18 +274,20 @@ func RunInstall(options map[string]string) error {
 	}
 
 	// Add user's cloud-config (to run user defined "before-install" stages)
-	installConfig.CloudInitPaths = append(installConfig.CloudInitPaths, installSpec.CloudInit...)
+	c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
 
 	// Run pre-install stage
-	_ = elementalUtils.RunStage(&installConfig.Config, "kairos-install.pre", installConfig.Strict, installConfig.CloudInitPaths...)
+	_ = elementalUtils.RunStage(c, "kairos-install.pre")
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 	// Create the action
-	installAction := action.NewInstallAction(installConfig, installSpec)
+	installAction := action.NewInstallAction(c, installSpec)
 	// Run it
 	if err := installAction.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	_ = elementalUtils.RunStage(c, "kairos-install.after")
+	events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*c, installSpec, hook.AfterInstall...)
 }

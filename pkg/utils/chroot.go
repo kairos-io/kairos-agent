@@ -19,12 +19,13 @@ package utils
 import (
 	"errors"
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 )
 
 // Chroot represents the struct that will allow us to run commands inside a given chroot
@@ -33,10 +34,10 @@ type Chroot struct {
 	defaultMounts []string
 	extraMounts   map[string]string
 	activeMounts  []string
-	config        *v1.Config
+	config        *agentConfig.Config
 }
 
-func NewChroot(path string, config *v1.Config) *Chroot {
+func NewChroot(path string, config *agentConfig.Config) *Chroot {
 	return &Chroot{
 		path:          path,
 		defaultMounts: []string{"/dev", "/dev/pts", "/proc", "/sys"},
@@ -47,7 +48,7 @@ func NewChroot(path string, config *v1.Config) *Chroot {
 }
 
 // ChrootedCallback runs the given callback in a chroot environment
-func ChrootedCallback(cfg *v1.Config, path string, bindMounts map[string]string, callback func() error) error {
+func ChrootedCallback(cfg *agentConfig.Config, path string, bindMounts map[string]string, callback func() error) error {
 	chroot := NewChroot(path, cfg)
 	chroot.SetExtraMounts(bindMounts)
 	return chroot.RunCallback(callback)
@@ -78,7 +79,7 @@ func (c *Chroot) Prepare() error {
 
 	for _, mnt := range c.defaultMounts {
 		mountPoint := fmt.Sprintf("%s%s", strings.TrimSuffix(c.path, "/"), mnt)
-		err = MkdirAll(c.config.Fs, mountPoint, constants.DirPerm)
+		err = fsutils.MkdirAll(c.config.Fs, mountPoint, constants.DirPerm)
 		if err != nil {
 			return err
 		}
@@ -95,7 +96,7 @@ func (c *Chroot) Prepare() error {
 	sort.Strings(keys)
 	for _, k := range keys {
 		mountPoint := fmt.Sprintf("%s%s", strings.TrimSuffix(c.path, "/"), c.extraMounts[k])
-		err = MkdirAll(c.config.Fs, mountPoint, constants.DirPerm)
+		err = fsutils.MkdirAll(c.config.Fs, mountPoint, constants.DirPerm)
 		if err != nil {
 			return err
 		}

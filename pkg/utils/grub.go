@@ -18,21 +18,22 @@ package utils
 
 import (
 	"fmt"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"io/fs"
 	"path/filepath"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 )
 
 // Grub is the struct that will allow us to install grub to the target device
 type Grub struct {
-	config *v1.Config
+	config *agentConfig.Config
 }
 
-func NewGrub(config *v1.Config) *Grub {
+func NewGrub(config *agentConfig.Config) *Grub {
 	g := &Grub{
 		config: config,
 	}
@@ -71,7 +72,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 
 		// Select the proper dir for grub - this assumes that we previously run a grub install command, which is not the case in EFI
 		// In the EFI case we default to grub2
-		if ok, _ := IsDir(g.config.Fs, filepath.Join(bootDir, "grub")); ok {
+		if ok, _ := fsutils.IsDir(g.config.Fs, filepath.Join(bootDir, "grub")); ok {
 			systemgrub = "grub"
 		}
 	}
@@ -86,7 +87,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	}
 
 	// Create Needed dir under state partition to store the grub.cfg and any needed modules
-	err = MkdirAll(g.config.Fs, filepath.Join(bootDir, fmt.Sprintf("%s/%s-efi", systemgrub, g.config.Arch)), cnst.DirPerm)
+	err = fsutils.MkdirAll(g.config.Fs, filepath.Join(bootDir, fmt.Sprintf("%s/%s-efi", systemgrub, g.config.Arch)), cnst.DirPerm)
 	if err != nil {
 		return fmt.Errorf("error creating grub dir: %s", err)
 	}
@@ -108,7 +109,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		}
 	}
 
-	ttyExists, _ := Exists(g.config.Fs, fmt.Sprintf("/dev/%s", tty))
+	ttyExists, _ := fsutils.Exists(g.config.Fs, fmt.Sprintf("/dev/%s", tty))
 
 	if ttyExists && tty != "" && tty != "console" && tty != constants.DefaultTty {
 		// We need to add a tty to the grub file
@@ -134,7 +135,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		g.config.Logger.Infof("Generating grub files for efi on %s", target)
 		var foundModules bool
 		for _, m := range []string{"loopback.mod", "squash4.mod", "xzio.mod", "gzio.mod"} {
-			err = WalkDirFs(g.config.Fs, rootDir, func(path string, d fs.DirEntry, err error) error {
+			err = fsutils.WalkDirFs(g.config.Fs, rootDir, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
@@ -159,7 +160,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			}
 		}
 
-		err = MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/boot/"), cnst.DirPerm)
+		err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/boot/"), cnst.DirPerm)
 		if err != nil {
 			g.config.Logger.Errorf("Error creating dirs: %s", err)
 			return err

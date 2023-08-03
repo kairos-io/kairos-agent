@@ -14,164 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package elementalConfig
+package config
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
-	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/http"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/twpayne/go-vfs"
-	"k8s.io/mount-utils"
 )
 
-type GenericOptions func(a *v1.Config)
-
-func WithFs(fs v1.FS) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.Fs = fs
-	}
-}
-
-func WithLogger(logger v1.Logger) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.Logger = logger
-	}
-}
-
-func WithSyscall(syscall v1.SyscallInterface) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.Syscall = syscall
-	}
-}
-
-func WithMounter(mounter mount.Interface) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.Mounter = mounter
-	}
-}
-
-func WithRunner(runner v1.Runner) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.Runner = runner
-	}
-}
-
-func WithClient(client v1.HTTPClient) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.Client = client
-	}
-}
-
-func WithCloudInitRunner(ci v1.CloudInitRunner) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.CloudInitRunner = ci
-	}
-}
-
-func WithPlatform(platform string) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		p, err := v1.ParsePlatform(platform)
-		if err == nil {
-			r.Platform = p
-		}
-	}
-}
-
-func WithImageExtractor(extractor v1.ImageExtractor) func(r *v1.Config) {
-	return func(r *v1.Config) {
-		r.ImageExtractor = extractor
-	}
-}
-
-func NewConfig(opts ...GenericOptions) *v1.Config {
-	log := v1.NewLogger()
-
-	defaultPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
-	if err != nil {
-		log.Errorf("error parsing default platform (%s): %s", runtime.GOARCH, err.Error())
-		return nil
-	}
-
-	arch, err := utils.GolangArchToArch(runtime.GOARCH)
-	if err != nil {
-		log.Errorf("invalid arch: %s", err.Error())
-		return nil
-	}
-
-	c := &v1.Config{
-		Fs:                        vfs.OSFS,
-		Logger:                    log,
-		Syscall:                   &v1.RealSyscall{},
-		Client:                    http.NewClient(),
-		Arch:                      arch,
-		Platform:                  defaultPlatform,
-		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
-	}
-	for _, o := range opts {
-		o(c)
-	}
-
-	// delay runner creation after we have run over the options in case we use WithRunner
-	if c.Runner == nil {
-		c.Runner = &v1.RealRunner{Logger: c.Logger}
-	}
-
-	// Now check if the runner has a logger inside, otherwise point our logger into it
-	// This can happen if we set the WithRunner option as that doesn't set a logger
-	if c.Runner.GetLogger() == nil {
-		c.Runner.SetLogger(c.Logger)
-	}
-
-	// Delay the yip runner creation, so we set the proper logger instead of blindly setting it to the logger we create
-	// at the start of NewRunConfig, as WithLogger can be passed on init, and that would result in 2 different logger
-	// instances, on the config.Logger and the other on config.CloudInitRunner
-	if c.CloudInitRunner == nil {
-		c.CloudInitRunner = cloudinit.NewYipCloudInitRunner(c.Logger, c.Runner, vfs.OSFS)
-	}
-
-	if c.Mounter == nil {
-		c.Mounter = mount.New(constants.MountBinary)
-	}
-
-	return c
-}
-
-func NewRunConfig(opts ...GenericOptions) *v1.RunConfig {
-	config := NewConfig(opts...)
-	r := &v1.RunConfig{
-		Config: *config,
-	}
-	return r
-}
-
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
-func NewInstallSpec(cfg v1.Config) *v1.InstallSpec {
+func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	var firmware string
 	var recoveryImg, activeImg, passiveImg v1.Image
 
 	recoveryImgFile := filepath.Join(constants.LiveDir, constants.RecoverySquashFile)
 
 	// Check if current host has EFI firmware
-	efiExists, _ := utils.Exists(cfg.Fs, constants.EfiDevice)
+	efiExists, _ := fsutils.Exists(cfg.Fs, constants.EfiDevice)
 	// Check the default ISO installation media is available
-	isoRootExists, _ := utils.Exists(cfg.Fs, constants.IsoBaseTree)
+	isoRootExists, _ := fsutils.Exists(cfg.Fs, constants.IsoBaseTree)
 	// Check the default ISO recovery installation media is available)
-	recoveryExists, _ := utils.Exists(cfg.Fs, recoveryImgFile)
+	recoveryExists, _ := fsutils.Exists(cfg.Fs, recoveryImgFile)
 
 	if efiExists {
 		firmware = v1.EFI
@@ -212,9 +86,10 @@ func NewInstallSpec(cfg v1.Config) *v1.InstallSpec {
 	}
 
 	return &v1.InstallSpec{
+		Target:     cfg.Install.Device,
 		Firmware:   firmware,
 		PartTable:  v1.GPT,
-		Partitions: NewInstallElementalParitions(),
+		Partitions: NewInstallElementalPartitions(),
 		GrubConf:   constants.GrubConf,
 		Tty:        constants.DefaultTty,
 		Active:     activeImg,
@@ -223,9 +98,9 @@ func NewInstallSpec(cfg v1.Config) *v1.InstallSpec {
 	}
 }
 
-func NewInstallElementalParitions() v1.ElementalPartitions {
-	partitions := v1.ElementalPartitions{}
-	partitions.OEM = &v1.Partition{
+func NewInstallElementalPartitions() v1.ElementalPartitions {
+	pt := v1.ElementalPartitions{}
+	pt.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,
 		Size:            constants.OEMSize,
 		Name:            constants.OEMPartName,
@@ -234,7 +109,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		Flags:           []string{},
 	}
 
-	partitions.Recovery = &v1.Partition{
+	pt.Recovery = &v1.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
 		Size:            constants.RecoverySize,
 		Name:            constants.RecoveryPartName,
@@ -243,7 +118,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		Flags:           []string{},
 	}
 
-	partitions.State = &v1.Partition{
+	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
 		Size:            constants.StateSize,
 		Name:            constants.StatePartName,
@@ -252,7 +127,7 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		Flags:           []string{},
 	}
 
-	partitions.Persistent = &v1.Partition{
+	pt.Persistent = &v1.Partition{
 		FilesystemLabel: constants.PersistentLabel,
 		Size:            constants.PersistentSize,
 		Name:            constants.PersistentPartName,
@@ -260,11 +135,11 @@ func NewInstallElementalParitions() v1.ElementalPartitions {
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
-	return partitions
+	return pt
 }
 
 // NewUpgradeSpec returns an UpgradeSpec struct all based on defaults and current host state
-func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
+func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	var recLabel, recFs, recMnt string
 	var active, passive, recovery v1.Image
 
@@ -273,7 +148,7 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := utils.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions()
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
@@ -281,17 +156,17 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 
 	if ep.Recovery == nil {
 		// We could have recovery in lvm which won't appear in ghw list
-		ep.Recovery = utils.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
+		ep.Recovery = partitions.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
 	}
 
 	if ep.OEM == nil {
 		// We could have OEM in lvm which won't appear in ghw list
-		ep.OEM = utils.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
 	}
 
 	if ep.Persistent == nil {
 		// We could have persistent encrypted or in lvm which won't appear in ghw list
-		ep.Persistent = utils.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
+		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
 	}
 
 	if ep.Recovery != nil {
@@ -299,7 +174,7 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 			ep.Recovery.MountPoint = constants.RecoveryDir
 		}
 
-		squashedRec, err := utils.HasSquashedRecovery(&cfg, ep.Recovery)
+		squashedRec, err := hasSquashedRecovery(cfg, ep.Recovery)
 		if err != nil {
 			return nil, fmt.Errorf("failed checking for squashed recovery")
 		}
@@ -369,23 +244,23 @@ func NewUpgradeSpec(cfg v1.Config) (*v1.UpgradeSpec, error) {
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
-func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
+func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	var imgSource *v1.ImageSource
 
 	//TODO find a way to pre-load current state values such as labels
-	if !utils.BootedFrom(cfg.Runner, constants.RecoverySquashFile) &&
-		!utils.BootedFrom(cfg.Runner, constants.SystemLabel) {
+	if !BootedFrom(cfg.Runner, constants.RecoverySquashFile) &&
+		!BootedFrom(cfg.Runner, constants.SystemLabel) {
 		return nil, fmt.Errorf("reset can only be called from the recovery system")
 	}
 
-	efiExists, _ := utils.Exists(cfg.Fs, constants.EfiDevice)
+	efiExists, _ := fsutils.Exists(cfg.Fs, constants.EfiDevice)
 
 	installState, err := cfg.LoadInstallState()
 	if err != nil {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := utils.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions()
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
@@ -411,7 +286,7 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 
 	if ep.Recovery == nil {
 		// We could have recovery in lvm which won't appear in ghw list
-		ep.Recovery = utils.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
+		ep.Recovery = partitions.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
 		if ep.Recovery == nil {
 			return nil, fmt.Errorf("recovery partition not found")
 		}
@@ -430,7 +305,7 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		ep.OEM.Name = constants.OEMPartName
 	} else {
 		// We could have oem in lvm which won't appear in ghw list
-		ep.OEM = utils.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
 	}
 
 	if ep.OEM == nil {
@@ -445,7 +320,7 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 		ep.Persistent.Name = constants.PersistentPartName
 	} else {
 		// We could have persistent encrypted or in lvm which won't appear in ghw list
-		ep.Persistent = utils.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
+		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
 	}
 	if ep.Persistent == nil {
 		cfg.Logger.Warnf("no Persistent partition found")
@@ -454,11 +329,11 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 	recoveryImg := filepath.Join(constants.RunningStateDir, "cOS", constants.RecoveryImgFile)
 	recoveryImg2 := filepath.Join(constants.RunningRecoveryStateDir, "cOS", constants.RecoveryImgFile)
 
-	if exists, _ := utils.Exists(cfg.Fs, recoveryImg); exists {
+	if exists, _ := fsutils.Exists(cfg.Fs, recoveryImg); exists {
 		imgSource = v1.NewFileSrc(recoveryImg)
-	} else if exists, _ = utils.Exists(cfg.Fs, recoveryImg2); exists {
+	} else if exists, _ = fsutils.Exists(cfg.Fs, recoveryImg2); exists {
 		imgSource = v1.NewFileSrc(recoveryImg2)
-	} else if exists, _ = utils.Exists(cfg.Fs, constants.IsoBaseTree); exists {
+	} else if exists, _ = fsutils.Exists(cfg.Fs, constants.IsoBaseTree); exists {
 		imgSource = v1.NewDirSrc(constants.IsoBaseTree)
 	} else {
 		imgSource = v1.NewEmptySrc()
@@ -492,44 +367,58 @@ func NewResetSpec(cfg v1.Config) (*v1.ResetSpec, error) {
 	}, nil
 }
 
-// ReadConfigRunFromAgentConfig reads the configuration directly from a given cloud config string
-func ReadConfigRunFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, error) {
-	cfg := NewRunConfig(WithLogger(v1.NewLogger()), WithImageExtractor(v1.OCIImageExtractor{}))
-	var err error
-
-	cc, err := c.String()
+// ReadResetSpecFromConfig will return a proper v1.ResetSpec based on an agent Config
+func ReadResetSpecFromConfig(c *Config) (*v1.ResetSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "reset")
 	if err != nil {
-		return nil, err
+		return &v1.ResetSpec{}, err
 	}
+	resetSpec := sp.(*v1.ResetSpec)
+	return resetSpec, nil
+}
 
-	err = yaml.Unmarshal([]byte(cc), &cfg)
+// ReadInstallSpecFromConfig will return a proper v1.InstallSpec based on an agent Config
+func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "install")
 	if err != nil {
-		return nil, err
+		return &v1.InstallSpec{}, err
 	}
-	// If we got debug enabled via cloud config, set it on viper so its available everywhere
-	if cfg.Debug {
-		viper.Set("debug", true)
+	installSpec := sp.(*v1.InstallSpec)
+	// Workaround!
+	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
+	// But on the cloud-config it will still appear as "auto" as we dont modify that
+	// Unfortunately as we load the full cloud-config and unmarshall it into our spec, we cannot infer from there
+	// What device was choosen, and re-choosing again could lead to different results
+	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
+	// as its the soonest we have access to both
+	if installSpec.Target == "auto" {
+		installSpec.Target = c.Install.Device
 	}
-	configLogger(cfg.Logger, cfg.Fs)
-	// Store the full cloud-config in here, so we can reuse it afterward
-	cfg.FullCloudConfig = cc
-	err = cfg.Sanitize()
-	cfg.Logger.Debugf("Full config loaded: %s", litter.Sdump(cfg))
-	return cfg, err
+	return installSpec, nil
+}
+
+// ReadUpgradeSpecFromConfig will return a proper v1.UpgradeSpec based on an agent Config
+func ReadUpgradeSpecFromConfig(c *Config) (*v1.UpgradeSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "upgrade")
+	if err != nil {
+		return &v1.UpgradeSpec{}, err
+	}
+	upgradeSpec := sp.(*v1.UpgradeSpec)
+	return upgradeSpec, nil
 }
 
 // ReadSpecFromCloudConfig returns a v1.Spec for the given spec
-func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
+func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	var sp v1.Spec
 	var err error
 
 	switch spec {
 	case "install":
-		sp = NewInstallSpec(r.Config)
+		sp = NewInstallSpec(r)
 	case "upgrade":
-		sp, err = NewUpgradeSpec(r.Config)
+		sp, err = NewUpgradeSpec(r)
 	case "reset":
-		sp, err = NewResetSpec(r.Config)
+		sp, err = NewResetSpec(r)
 	default:
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
@@ -538,8 +427,12 @@ func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 	}
 
 	// Load the config into viper from the raw cloud config string
+	ccString, err := r.String()
+	if err != nil {
+		return nil, fmt.Errorf("failed initializing spec: %v", err)
+	}
 	viper.SetConfigType("yaml")
-	viper.ReadConfig(strings.NewReader(r.FullCloudConfig))
+	viper.ReadConfig(strings.NewReader(ccString))
 	vp := viper.Sub(spec)
 	if vp == nil {
 		vp = viper.New()
@@ -549,49 +442,12 @@ func ReadSpecFromCloudConfig(r *v1.RunConfig, spec string) (v1.Spec, error) {
 	if err != nil {
 		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
+	err = sp.Sanitize()
+	if err != nil {
+		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)
+	}
 	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
-	return sp, err
-}
-
-// readConfigAndSpecFromAgentConfig will return the config and spec for the given action based off the agent Config
-func readConfigAndSpecFromAgentConfig(c *agentConfig.Config, action string) (*v1.RunConfig, v1.Spec, error) {
-	runConfig, err := ReadConfigRunFromAgentConfig(c)
-	if err != nil {
-		return nil, nil, err
-	}
-	spec, err := ReadSpecFromCloudConfig(runConfig, action)
-	if err != nil {
-		return nil, nil, err
-	}
-	return runConfig, spec, nil
-}
-
-// ReadResetConfigFromAgentConfig will return a proper v1.RunConfig and v1.ResetSpec based on an agent Config
-func ReadResetConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.ResetSpec, error) {
-	config, spec, err := readConfigAndSpecFromAgentConfig(c, "reset")
-	if err != nil {
-		return nil, nil, err
-	}
-	resetSpec := spec.(*v1.ResetSpec)
-	return config, resetSpec, nil
-}
-
-func ReadInstallConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.InstallSpec, error) {
-	config, spec, err := readConfigAndSpecFromAgentConfig(c, "install")
-	if err != nil {
-		return nil, nil, err
-	}
-	installSpec := spec.(*v1.InstallSpec)
-	return config, installSpec, nil
-}
-
-func ReadUpgradeConfigFromAgentConfig(c *agentConfig.Config) (*v1.RunConfig, *v1.UpgradeSpec, error) {
-	config, spec, err := readConfigAndSpecFromAgentConfig(c, "upgrade")
-	if err != nil {
-		return nil, nil, err
-	}
-	upgradeSpec := spec.(*v1.UpgradeSpec)
-	return config, upgradeSpec, nil
+	return sp, nil
 }
 
 func configLogger(log v1.Logger, vfs v1.FS) {
@@ -682,4 +538,53 @@ func setDecoder(config *mapstructure.DecoderConfig) {
 	// so we do not merge with any already present value and directly apply whatever
 	// we got form configs.
 	config.ZeroFields = true
+}
+
+// BootedFrom will check if we are booting from the given label
+func BootedFrom(runner v1.Runner, label string) bool {
+	out, _ := runner.Run("cat", "/proc/cmdline")
+	return strings.Contains(string(out), label)
+}
+
+// HasSquashedRecovery returns true if a squashed recovery image is found in the system
+func hasSquashedRecovery(config *Config, recovery *v1.Partition) (squashed bool, err error) {
+	mountPoint := recovery.MountPoint
+	if mnt, _ := isMounted(config, recovery); !mnt {
+		tmpMountDir, err := fsutils.TempDir(config.Fs, "", "elemental")
+		if err != nil {
+			config.Logger.Errorf("failed creating temporary dir: %v", err)
+			return false, err
+		}
+		defer config.Fs.RemoveAll(tmpMountDir) // nolint:errcheck
+		err = config.Mounter.Mount(recovery.Path, tmpMountDir, "auto", []string{})
+		if err != nil {
+			config.Logger.Errorf("failed mounting recovery partition: %v", err)
+			return false, err
+		}
+		mountPoint = tmpMountDir
+		defer func() {
+			err = config.Mounter.Unmount(tmpMountDir)
+			if err != nil {
+				squashed = false
+			}
+		}()
+	}
+	return fsutils.Exists(config.Fs, filepath.Join(mountPoint, "cOS", constants.RecoverySquashFile))
+}
+
+func isMounted(config *Config, part *v1.Partition) (bool, error) {
+	if part == nil {
+		return false, fmt.Errorf("nil partition")
+	}
+
+	if part.MountPoint == "" {
+		return false, nil
+	}
+	// Using IsLikelyNotMountPoint seams to be safe as we are not checking
+	// for bind mounts here
+	notMnt, err := config.Mounter.IsLikelyNotMountPoint(part.MountPoint)
+	if err != nil {
+		return false, err
+	}
+	return !notMnt, nil
 }

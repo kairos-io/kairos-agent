@@ -11,7 +11,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -100,7 +99,7 @@ func Upgrade(
 	utils.SetEnv(c.Env)
 
 	// Load the upgrade Config from the system
-	upgradeConfig, upgradeSpec, err := elementalConfig.ReadUpgradeConfigFromAgentConfig(c)
+	upgradeSpec, err := config.ReadUpgradeSpecFromConfig(c)
 	if err != nil {
 		return err
 	}
@@ -118,7 +117,7 @@ func Upgrade(
 		return err
 	}
 
-	upgradeAction := action.NewUpgradeAction(upgradeConfig, upgradeSpec)
+	upgradeAction := action.NewUpgradeAction(c, upgradeSpec)
 
 	err = upgradeAction.Run()
 	if err != nil {

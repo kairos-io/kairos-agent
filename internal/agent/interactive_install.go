@@ -3,12 +3,15 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/unstructured"
 
 	"github.com/erikgeiser/promptkit/textinput"
@@ -229,12 +232,6 @@ func InteractiveInstall(debug, spawnShell bool) error {
 		return InteractiveInstall(debug, spawnShell)
 	}
 
-	c := &config.Config{
-		Install: &config.Install{
-			Device: device,
-		},
-	}
-
 	usersToSet := map[string]schema.User{}
 
 	stage := config.NetworkStage.String()
@@ -264,20 +261,37 @@ func InteractiveInstall(debug, spawnShell bool) error {
 			},
 		}}}
 
-	dat, err := config.MergeYAML(cloudConfig, c, result)
+	// This is temporal to generate a valid cc file, no need to properly initialize everything
+	cc := &config.Config{
+		Install: &config.Install{
+			Device: device,
+		},
+	}
+	// Merge all yamls into one
+	dat, err := config.MergeYAML(cloudConfig, cc, result)
 	if err != nil {
 		return err
 	}
 
 	finalCloudConfig := config.AddHeader("#cloud-config", string(dat))
 
-	pterm.Info.Println("Starting installation")
-	pterm.Info.Println(finalCloudConfig)
+	// Store it in a temp file and load it with the collector to have a standard way of loading across all methods
+	tmpdir, err := os.MkdirTemp("", "kairos-install-")
+	if err == nil {
+		err = os.WriteFile(filepath.Join(tmpdir, "kairos-event-install-data.yaml"), []byte(finalCloudConfig), os.ModePerm)
+		if err != nil {
+			fmt.Printf("could not write event cloud init: %s\n", err.Error())
+		}
+		// override cc with our new config object from the scan, so it's updated for the RunInstall function
+		cc, _ = config.Scan(collector.Directories(tmpdir), collector.MergeBootLine, collector.NoLogs)
+	}
 
-	err = RunInstall(map[string]string{
-		"device": device,
-		"cc":     finalCloudConfig,
-	})
+	pterm.Info.Println("Starting installation")
+	// Generate final config
+	ccString, _ := cc.String()
+	pterm.Info.Println(ccString)
+
+	err = RunInstall(cc)
 	if err != nil {
 		pterm.Error.Println(err.Error())
 	}

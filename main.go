@@ -15,8 +15,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elementalConfig"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -279,7 +278,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
 				Aliases:     []string{"s"},
 				Action: func(c *cli.Context) error {
-					config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {
 						return err
 					}
@@ -308,7 +307,7 @@ enabled: true`,
 				Description: "It allows to navigate the YAML config file by searching with 'yq' style keywords as `config get k3s` to retrieve the k3s config block",
 				Aliases:     []string{"g"},
 				Action: func(c *cli.Context) error {
-					config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
 						return err
 					}
@@ -409,16 +408,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			}
 			config := c.Args().First()
 
-			options := map[string]string{"device": c.String("device")}
-
-			if c.Bool("poweroff") {
-				options["poweroff"] = "true"
-			}
-
-			if c.Bool("reboot") {
-				options["reboot"] = "true"
-			}
-			return agent.ManualInstall(config, options, c.Bool("strict-validation"))
+			return agent.ManualInstall(config, c.String("device"), c.Bool("reboot"), c.Bool("poweroff"), c.Bool("strict-validation"))
 		},
 	},
 	{
@@ -536,24 +526,20 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 		Action: func(c *cli.Context) error {
 			stage := c.Args().First()
-			config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
-			if err != nil {
-				return err
-			}
-			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
-			cfg.Strict = c.Bool("strict")
+			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			config.Strict = c.Bool("strict")
 
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
-				cfg.CloudInitPaths = append(cfg.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
+				config.CloudInitPaths = append(config.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
 			}
 			if c.Bool("debug") {
-				cfg.Logger.SetLevel(logrus.DebugLevel)
+				config.Logger.SetLevel(logrus.DebugLevel)
 			}
 
 			if err != nil {
-				cfg.Logger.Errorf("Error reading config: %s\n", err)
+				config.Logger.Errorf("Error reading config: %s\n", err)
 			}
-			return utils.RunStage(&cfg.Config, stage, cfg.Strict, cfg.CloudInitPaths...)
+			return utils.RunStage(config, stage)
 		},
 	},
 	{
@@ -587,24 +573,16 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return fmt.Errorf("invalid path %s", destination)
 			}
-			config, err := config.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 			if err != nil {
 				return err
 			}
-			cfg, err := elementalConfig.ReadConfigRunFromAgentConfig(config)
-			if err != nil {
-				return err
-			}
-			if c.Bool("debug") {
-				cfg.Logger.SetLevel(logrus.DebugLevel)
-			}
-
-			cfg.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
+			config.Logger.Infof("Starting download and extraction for image %s to %s\n", image, destination)
 			e := v1.OCIImageExtractor{}
 			if err = e.ExtractImage(image, destination, c.String("platform")); err != nil {
 				return err
 			}
-			cfg.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)
+			config.Logger.Infof("Image %s downloaded and extracted to %s correctly\n", image, destination)
 			return nil
 		},
 	},
