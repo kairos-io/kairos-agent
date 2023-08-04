@@ -20,9 +20,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"io"
 	random "math/rand"
 	"net/url"
@@ -32,6 +29,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 
 	"github.com/distribution/distribution/reference"
 	"github.com/joho/godotenv"
@@ -180,11 +181,11 @@ func SyncData(log v1.Logger, runner v1.Runner, fs v1.FS, source string, target s
 
 	done := displayProgress(log, 5*time.Second, "Syncing data...")
 
-	_, err := runner.Run(cnst.Rsync, args...)
+	out, err := runner.Run(cnst.Rsync, args...)
 
 	close(done)
 	if err != nil {
-		log.Errorf("rsync finished with errors: %s", err.Error())
+		log.Errorf("rsync finished with errors: %s, %s", err.Error(), string(out))
 		return err
 	}
 	log.Info("Finished syncing")
