@@ -3,10 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"sync"
-	"time"
-
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
@@ -16,43 +12,48 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
+	"os"
+	"sync"
+	"time"
 
 	"github.com/mudler/go-pluggable"
 )
 
-func Reset(dir ...string) error {
+func Reset(reboot, unattended bool, dir ...string) error {
 	bus.Manager.Initialize()
-
-	cmd.PrintBranding(DefaultBanner)
-
+	
 	// This config is only for reset branding.
 	agentConfig, err := LoadConfig()
 	if err != nil {
 		return err
 	}
 
-	cmd.PrintText(agentConfig.Branding.Reset, "Reset")
+	if !unattended {
+		cmd.PrintBranding(DefaultBanner)
+		cmd.PrintText(agentConfig.Branding.Reset, "Reset")
 
-	// We don't close the lock, as none of the following actions are expected to return
-	lock := sync.Mutex{}
-	go func() {
-		// Wait for user input and go back to shell
-		utils.Prompt("") //nolint:errcheck
-		// give tty1 back
-		svc, err := machine.Getty(1)
-		if err == nil {
-			svc.Start() //nolint:errcheck
+		// We don't close the lock, as none of the following actions are expected to return
+		lock := sync.Mutex{}
+		go func() {
+			// Wait for user input and go back to shell
+			utils.Prompt("") //nolint:errcheck
+			// give tty1 back
+			svc, err := machine.Getty(1)
+			if err == nil {
+				svc.Start() //nolint:errcheck
+			}
+
+			lock.Lock()
+			fmt.Println("Reset aborted")
+			panic(utils.Shell().Run())
+		}()
+
+		if !agentConfig.Fast {
+			time.Sleep(60 * time.Second)
 		}
 
 		lock.Lock()
-		fmt.Println("Reset aborted")
-		panic(utils.Shell().Run())
-	}()
-
-	if !agentConfig.Fast {
-		time.Sleep(60 * time.Second)
 	}
-	lock.Lock()
 
 	ensureDataSourceReady()
 
@@ -93,6 +94,11 @@ func Reset(dir ...string) error {
 		if s := optionsFromEvent["strict"]; s != "" {
 			c.Strict = s == "true"
 		}
+	}
+
+	// Override with flags
+	if reboot {
+		resetSpec.Reboot = reboot
 	}
 
 	resetAction := action.NewResetAction(c, resetSpec)
