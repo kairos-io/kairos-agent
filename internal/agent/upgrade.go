@@ -50,7 +50,7 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, source string, force, strictValidations bool, dirs []string, preReleases bool) error {
+	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
 	if version == "" && source == "" {
@@ -110,6 +110,9 @@ func Upgrade(
 		return err
 	}
 	upgradeSpec.Active.Source = imgSource
+
+	// Set the recovery upgrade flag to upgrade recovery or active
+	upgradeSpec.RecoveryUpgrade = upgradeRecovery
 
 	// Sanitize
 	err = upgradeSpec.Sanitize()
