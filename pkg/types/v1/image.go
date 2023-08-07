@@ -22,6 +22,7 @@ import (
 
 type ImageExtractor interface {
 	ExtractImage(imageRef, destination, platformRef string) error
+	GetOCIImageSize(imageRef, platformRef string) (int64, error)
 }
 
 type OCIImageExtractor struct{}
@@ -30,4 +31,8 @@ var _ ImageExtractor = OCIImageExtractor{}
 
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
 	return utils.ExtractOCIImage(imageRef, destination, platformRef)
+}
+
+func (e OCIImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
+	return utils.GetOCIImageSize(imageRef, platformRef)
 }

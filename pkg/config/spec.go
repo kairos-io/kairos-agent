@@ -18,8 +18,7 @@ package config
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	"io/fs"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -27,6 +26,8 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
@@ -85,17 +86,32 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 		Size:   constants.ImgSize,
 	}
 
-	return &v1.InstallSpec{
-		Target:     cfg.Install.Device,
-		Firmware:   firmware,
-		PartTable:  v1.GPT,
-		Partitions: NewInstallElementalPartitions(),
-		GrubConf:   constants.GrubConf,
-		Tty:        constants.DefaultTty,
-		Active:     activeImg,
-		Recovery:   recoveryImg,
-		Passive:    passiveImg,
+	spec := &v1.InstallSpec{
+		Target:    cfg.Install.Device,
+		Firmware:  firmware,
+		PartTable: v1.GPT,
+		GrubConf:  constants.GrubConf,
+		Tty:       constants.DefaultTty,
+		Active:    activeImg,
+		Recovery:  recoveryImg,
+		Passive:   passiveImg,
 	}
+
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := GetSourceSize(cfg, spec.Active.Source)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+	} else {
+		cfg.Logger.Infof("Setting image size to %dMb", size)
+		spec.Active.Size = uint(size)
+		spec.Passive.Size = uint(size)
+		spec.Recovery.Size = uint(size)
+	}
+
+	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
+	spec.Partitions = NewInstallElementalPartitions()
+
+	return spec
 }
 
 func NewInstallElementalPartitions() v1.ElementalPartitions {
@@ -234,13 +250,26 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		}
 	}
 
-	return &v1.UpgradeSpec{
+	spec := &v1.UpgradeSpec{
 		Active:     active,
 		Recovery:   recovery,
 		Passive:    passive,
 		Partitions: ep,
 		State:      installState,
-	}, nil
+	}
+
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := GetSourceSize(cfg, spec.Active.Source)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+	} else {
+		cfg.Logger.Infof("Setting image size to %dMb", size)
+		spec.Active.Size = uint(size)
+		spec.Passive.Size = uint(size)
+		spec.Recovery.Size = uint(size)
+	}
+
+	return spec, nil
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
@@ -340,7 +369,7 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	}
 
 	activeFile := filepath.Join(ep.State.MountPoint, "cOS", constants.ActiveImgFile)
-	return &v1.ResetSpec{
+	spec := &v1.ResetSpec{
 		Target:           target,
 		Partitions:       ep,
 		Efi:              efiExists,
@@ -364,7 +393,19 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 			FS:     constants.LinuxImgFs,
 		},
 		State: installState,
-	}, nil
+	}
+
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := GetSourceSize(cfg, spec.Active.Source)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+	} else {
+		cfg.Logger.Infof("Setting image size to %dMb", size)
+		spec.Active.Size = uint(size)
+		spec.Passive.Size = uint(size)
+	}
+
+	return spec, nil
 }
 
 // ReadResetSpecFromConfig will return a proper v1.ResetSpec based on an agent Config
@@ -395,6 +436,44 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 		installSpec.Target = c.Install.Device
 	}
 	return installSpec, nil
+}
+
+// GetSourceSize will try to gather the actual size of the source
+// Useful to create the exact size of images and by side effect the partition size
+// This helps adjust the size to be juuuuust right.
+// It can still be manually override from the cloud config by setting all values manually
+// But by default it should adjust the sizes properly
+func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
+	var size int64
+	var err error
+
+	switch {
+	case source.IsDocker():
+		size, err = config.ImageExtractor.GetOCIImageSize(source.Value(), config.Platform.String())
+	case source.IsDir():
+		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			size += info.Size()
+			return nil
+		})
+
+	case source.IsFile():
+		file, err := config.Fs.Stat(source.Value())
+		if err == nil {
+			size = file.Size()
+		}
+	}
+	// Normalize size to Mb before returning and add 100Mb to round the size from bytes to mb+extra files like grub stuff
+	if size != 0 {
+		size = (size / 1000 / 1000) + 100
+	}
+	return size, err
 }
 
 // ReadUpgradeSpecFromConfig will return a proper v1.UpgradeSpec based on an agent Config

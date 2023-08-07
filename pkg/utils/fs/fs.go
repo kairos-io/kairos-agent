@@ -20,6 +20,7 @@ limitations under the License.
 package fsutils
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -198,7 +199,7 @@ func WalkDirFs(fs v1.FS, root string, fn fs.WalkDirFunc) error {
 	} else {
 		err = walkDir(fs, root, &statDirEntry{info}, fn)
 	}
-	if err == filepath.SkipDir {
+	if errors.Is(err, filepath.SkipDir) {
 		return nil
 	}
 	return err
@@ -225,7 +226,7 @@ func walkDir(fs v1.FS, path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) err
 	for _, d1 := range dirs {
 		path1 := filepath.Join(path, d1.Name())
 		if err := walkDir(fs, path1, d1, walkDirFn); err != nil {
-			if err == filepath.SkipDir {
+			if errors.Is(err, filepath.SkipDir) {
 				break
 			}
 			return err
