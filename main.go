@@ -69,9 +69,10 @@ var cmds = []*cli.Command{
 				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 			},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
+			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
 		},
 		Description: `
-Manually upgrade a kairos node.
+Manually upgrade a kairos node Active image. Does not upgrade passive or recovery images.
 
 By default takes no arguments, defaulting to latest available release, to specify a version, pass it as argument:
 
@@ -137,11 +138,10 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			return agent.Upgrade(
 				v, source, c.Bool("force"),
 				c.Bool("strict-validation"), configScanDir,
-				c.Bool("pre"),
+				c.Bool("pre"), c.Bool("recovery"),
 			)
 		},
 	},
-
 	{
 		Name:      "notify",
 		Usage:     "notify <event> <config dir>...",
