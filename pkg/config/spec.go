@@ -114,7 +114,7 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	return spec
 }
 
-func NewInstallElementalPartitions() v1.ElementalPartitions {
+func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions {
 	pt := v1.ElementalPartitions{}
 	pt.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,
@@ -127,7 +127,7 @@ func NewInstallElementalPartitions() v1.ElementalPartitions {
 
 	pt.Recovery = &v1.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
-		Size:            constants.RecoverySize,
+		Size:            spec.Recovery.Size + 100,
 		Name:            constants.RecoveryPartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.RecoveryDir,
@@ -136,7 +136,7 @@ func NewInstallElementalPartitions() v1.ElementalPartitions {
 
 	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
-		Size:            constants.StateSize,
+		Size:            spec.Active.Size + spec.Passive.Size + 100,
 		Name:            constants.StatePartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.StateDir,
