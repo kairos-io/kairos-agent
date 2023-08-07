@@ -109,7 +109,7 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions = NewInstallElementalPartitions()
+	spec.Partitions = NewInstallElementalPartitions(spec)
 
 	return spec
 }
