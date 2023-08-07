@@ -23,6 +23,10 @@ type FakeImageExtractor struct {
 	SideEffect func(imageRef, destination, platformRef string) error
 }
 
+func (f FakeImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
+	return 0, nil
+}
+
 var _ v1.ImageExtractor = FakeImageExtractor{}
 
 func NewFakeImageExtractor(logger v1.Logger) *FakeImageExtractor {
