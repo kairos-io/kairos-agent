@@ -18,22 +18,21 @@ package config_test
 
 import (
 	"fmt"
+	"github.com/jaypipes/ghw/pkg/block"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
+	"github.com/twpayne/go-vfs/vfst"
 	"k8s.io/mount-utils"
 	"os"
 	"path/filepath"
-
-	"github.com/jaypipes/ghw/pkg/block"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs/vfst"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {

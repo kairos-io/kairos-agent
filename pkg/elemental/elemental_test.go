@@ -83,7 +83,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
-			parts = agentConfig.NewInstallElementalPartitions()
+			spec := &v1.InstallSpec{}
+			parts = agentConfig.NewInstallElementalPartitions(spec)
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
@@ -147,7 +148,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
-			parts = agentConfig.NewInstallElementalPartitions()
+			spec := &v1.InstallSpec{}
+			parts = agentConfig.NewInstallElementalPartitions(spec)
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
@@ -195,7 +197,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
-			parts = agentConfig.NewInstallElementalPartitions()
+			spec := &v1.InstallSpec{}
+			parts = agentConfig.NewInstallElementalPartitions(spec)
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
@@ -384,13 +387,13 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 						"mkpart", "oem", "ext4", "133120", "264191",
 					}, {"mkfs.ext4", "-L", "COS_OEM", "/some/device2"}, {
 						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "recovery", "ext4", "264192", "17041407",
+						"mkpart", "recovery", "ext4", "264192", "6760447",
 					}, {"mkfs.ext4", "-L", "COS_RECOVERY", "/some/device3"}, {
 						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "state", "ext4", "17041408", "48498687",
+						"mkpart", "state", "ext4", "6760448", "19548159",
 					}, {"mkfs.ext4", "-L", "COS_STATE", "/some/device4"}, {
 						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "persistent", "ext4", "48498688", "100%",
+						"mkpart", "persistent", "ext4", "19548160", "100%",
 					}, {"mkfs.ext4", "-L", "COS_PERSISTENT", "/some/device5"},
 				}
 
