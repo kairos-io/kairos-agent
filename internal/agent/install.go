@@ -226,6 +226,9 @@ func Install(dir ...string) error {
 }
 
 func RunInstall(c *config.Config) error {
+	utils.SetEnv(c.Env)
+	utils.SetEnv(c.Install.Env)
+
 	if c.Install.Device == "" || c.Install.Device == "auto" {
 		c.Install.Device = detectDevice()
 	}
