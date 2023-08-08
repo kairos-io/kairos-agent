@@ -6,6 +6,9 @@ on:
   pull_request:
 env:
   FORCE_COLOR: 1
+concurrency:
+  group: ci-unit-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
