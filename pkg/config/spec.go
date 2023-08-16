@@ -127,7 +127,7 @@ func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions 
 
 	pt.Recovery = &v1.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
-		Size:            spec.Recovery.Size + 100,
+		Size:            spec.Recovery.Size + 200,
 		Name:            constants.RecoveryPartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.RecoveryDir,
@@ -136,7 +136,7 @@ func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions 
 
 	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
-		Size:            spec.Active.Size + spec.Passive.Size + 100,
+		Size:            spec.Active.Size + spec.Passive.Size + 200,
 		Name:            constants.StatePartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.StateDir,
@@ -525,7 +525,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	if err != nil {
 		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)
 	}
-	r.Logger.Debugf("Loaded %s spec: %s", litter.Sdump(sp))
+	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
 	return sp, nil
 }
 
