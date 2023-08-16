@@ -351,7 +351,7 @@ func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interfac
 
 // DumpSource sets the image data according to the image source type
 func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info interface{}, err error) { // nolint:gocyclo
-	e.config.Logger.Infof("Copying %s source...", imgSrc.Value())
+	e.config.Logger.Infof("Copying %s source to %s", imgSrc.Value(), target)
 
 	if imgSrc.IsDocker() {
 		if e.config.Cosign {
