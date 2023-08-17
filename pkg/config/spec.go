@@ -134,9 +134,11 @@ func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions 
 		Flags:           []string{},
 	}
 
+	// Add 1 Gb to the partition so images can grow a bit, otherwise you are stuck with the smallest space possible and
+	// there is no coming back from that
 	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
-		Size:            spec.Active.Size + spec.Passive.Size + 200,
+		Size:            spec.Active.Size + spec.Passive.Size + 1000,
 		Name:            constants.StatePartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.StateDir,
@@ -258,15 +260,31 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
-	// Get the actual source size to calculate the image size and partitions size
+	source := viper.GetString("upgradeSource")
+	recoveryUpgrade := viper.GetBool("upgradeRecovery")
+	if source != "" {
+		imgSource, err := v1.NewSrcFromURI(source)
+		if err == nil {
+			if recoveryUpgrade {
+				spec.RecoveryUpgrade = recoveryUpgrade
+				spec.Recovery.Source = imgSource
+			} else {
+				spec.Active.Source = imgSource
+			}
+		}
+	}
+
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 	} else {
 		cfg.Logger.Infof("Setting image size to %dMb", size)
 		// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
-		spec.Active.Size = uint(size)
-		spec.Recovery.Size = uint(size)
+		if spec.RecoveryUpgrade {
+			spec.Recovery.Size = uint(size)
+		} else {
+			spec.Active.Size = uint(size)
+		}
 	}
 
 	return spec, nil
@@ -449,7 +467,11 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 
 	switch {
 	case source.IsDocker():
+		// Docker size is uncompressed! So we double it to be sure that we have enough space
+		// Otherwise we would need to READ all the layers uncompressed to calculate the image size which would
+		// double the download size and slow down everything
 		size, err = config.ImageExtractor.GetOCIImageSize(source.Value(), config.Platform.String())
+		size = int64(float64(size) * 2.5)
 	case source.IsDir():
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
 			if err != nil {

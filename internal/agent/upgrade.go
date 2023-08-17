@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
+	"github.com/spf13/viper"
 	"sort"
 
 	"github.com/Masterminds/semver/v3"
@@ -12,7 +13,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -91,6 +91,12 @@ func Upgrade(
 		}
 	}
 
+	// Set this here with viper help so we can use it while creating the upgrade spec
+	// And its properly set since creation without having to modify it later
+	// This should be binded somehow but the current cli doesnt allow us to bind flags to values
+	viper.Set("upgradeSource", img)
+	viper.Set("upgradeRecovery", upgradeRecovery)
+
 	c, err := config.Scan(collector.Directories(dirs...), collector.StrictValidation(strictValidations))
 	if err != nil {
 		return err
@@ -103,16 +109,6 @@ func Upgrade(
 	if err != nil {
 		return err
 	}
-
-	// Add the image source
-	imgSource, err := v1.NewSrcFromURI(img)
-	if err != nil {
-		return err
-	}
-	upgradeSpec.Active.Source = imgSource
-
-	// Set the recovery upgrade flag to upgrade recovery or active
-	upgradeSpec.RecoveryUpgrade = upgradeRecovery
 
 	// Sanitize
 	err = upgradeSpec.Sanitize()
