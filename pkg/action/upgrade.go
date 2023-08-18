@@ -153,6 +153,9 @@ func (u *UpgradeAction) Run() (err error) {
 	cleanup.Push(func() error { return u.remove(upgradeImg.File) })
 
 	// Recovery does not mount persistent, so try to mount it. Ignore errors, as it's not mandatory.
+	// This was used by luet extraction IIRC to not exhaust the /tmp dir
+	// Not sure if its on use anymore and we should drop it
+	// TODO: Check if we really need persistent mounted here
 	persistentPart := u.spec.Partitions.Persistent
 	if persistentPart != nil {
 		// Create the dir otherwise the check for mounted dir fails
@@ -162,8 +165,6 @@ func (u *UpgradeAction) Run() (err error) {
 			umount, err = e.MountRWPartition(persistentPart)
 			if err != nil {
 				u.config.Logger.Warn("could not mount persistent partition: %s", err.Error())
-			} else {
-				cleanup.Push(umount)
 			}
 		}
 	}

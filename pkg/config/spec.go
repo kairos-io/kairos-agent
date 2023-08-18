@@ -125,9 +125,11 @@ func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions 
 		Flags:           []string{},
 	}
 
+	// Double the space for recovery, as upgrades use the recovery partition to create the transition image for upgrades
+	// so we need twice the space to do a proper upgrade
 	pt.Recovery = &v1.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
-		Size:            spec.Recovery.Size + 200,
+		Size:            (spec.Recovery.Size * 2) + 200,
 		Name:            constants.RecoveryPartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.RecoveryDir,
@@ -136,9 +138,11 @@ func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions 
 
 	// Add 1 Gb to the partition so images can grow a bit, otherwise you are stuck with the smallest space possible and
 	// there is no coming back from that
+	// Also multiply the space for active, as upgrades use the state partition to create the transition image for upgrades
+	// so we need twice the space to do a proper upgrade
 	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
-		Size:            spec.Active.Size + spec.Passive.Size + 1000,
+		Size:            (spec.Active.Size * 2) + spec.Passive.Size + 1000,
 		Name:            constants.StatePartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.StateDir,
