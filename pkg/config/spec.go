@@ -275,19 +275,18 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			} else {
 				spec.Active.Source = imgSource
 			}
-		}
-	}
-
-	size, err := GetSourceSize(cfg, spec.Active.Source)
-	if err != nil {
-		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
-	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
-		// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
-		if spec.RecoveryUpgrade {
-			spec.Recovery.Size = uint(size)
-		} else {
-			spec.Active.Size = uint(size)
+			size, err := GetSourceSize(cfg, imgSource)
+			if err != nil {
+				cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+			} else {
+				cfg.Logger.Infof("Setting image size to %dMb", size)
+				// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
+				if recoveryUpgrade {
+					spec.Recovery.Size = uint(size)
+				} else {
+					spec.Active.Size = uint(size)
+				}
+			}
 		}
 	}
 
