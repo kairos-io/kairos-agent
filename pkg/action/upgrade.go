@@ -18,15 +18,16 @@ package action
 
 import (
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"time"
 
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/state"
 )
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish
@@ -120,6 +121,16 @@ func (u *UpgradeAction) upgradeInstallStateYaml(meta interface{}, img v1.Image) 
 func (u *UpgradeAction) Run() (err error) {
 	var upgradeImg v1.Image
 	var finalImageFile string
+
+	// Track where we booted from to have a different workflow
+	// Booted from active: backup active into passive, upgrade active
+	// Booted from passive: Upgrade active, leave passive as is
+	var bootedFrom state.Boot
+
+	bootedFrom, err = state.DetectBootWithVFS(u.config.Fs)
+	if err != nil {
+		u.config.Logger.Warnf("error detecting boot: %s", err)
+	}
 
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
@@ -230,9 +241,10 @@ func (u *UpgradeAction) Run() (err error) {
 		return err
 	}
 
-	// If not upgrading recovery, backup active into passive
-	if !u.spec.RecoveryUpgrade {
-		//TODO this step could be part of elemental package
+	// If not upgrading recovery and booting from non passive, backup active into passive
+	// We dont want to overwrite passive if we are booting from passive as it could mean that active is broken and we would
+	// be overriding a working passive with a broken/unknown  active
+	if u.spec.RecoveryUpgrade == false && bootedFrom != state.Passive {
 		// backup current active.img to passive.img before overwriting the active.img
 		u.Info("Backing up current active image")
 		source := filepath.Join(u.spec.Partitions.State.MountPoint, "cOS", constants.ActiveImgFile)

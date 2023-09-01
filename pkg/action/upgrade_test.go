@@ -149,6 +149,13 @@ var _ = Describe("Runtime Actions", func() {
 				err = fsutils.MkdirAll(config.Fs, filepath.Join(spec.Active.MountPoint, "etc"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 
+				err = fsutils.MkdirAll(config.Fs, "/proc", constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				// Write proc/cmdline so we can detect what we booted from
+				err = fs.WriteFile("/proc/cmdline", []byte(constants.ActiveLabel), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+
 				err = fs.WriteFile(
 					filepath.Join(spec.Active.MountPoint, "etc", "os-release"),
 					[]byte("GRUB_ENTRY_NAME=TESTOS"),
@@ -161,9 +168,6 @@ var _ = Describe("Runtime Actions", func() {
 				spec.Recovery.Size = 10
 
 				runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-					if command == "cat" && args[0] == "/proc/cmdline" {
-						return []byte(constants.ActiveLabel), nil
-					}
 					if command == "mv" && args[0] == "-f" && args[1] == activeImg && args[2] == passiveImg {
 						// we doing backup, do the "move"
 						source, _ := fs.ReadFile(activeImg)
@@ -359,6 +363,13 @@ var _ = Describe("Runtime Actions", func() {
 				)
 				Expect(err).ShouldNot(HaveOccurred())
 
+				err = fsutils.MkdirAll(config.Fs, "/proc", constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				// Write proc/cmdline so we can detect what we booted from
+				err = fs.WriteFile("/proc/cmdline", []byte(constants.PassiveLabel), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+
 				spec.Active.Size = 10
 				spec.Passive.Size = 10
 				spec.Recovery.Size = 10
@@ -372,6 +383,10 @@ var _ = Describe("Runtime Actions", func() {
 						source, _ := fs.ReadFile(spec.Active.File)
 						_ = fs.WriteFile(activeImg, source, constants.FilePerm)
 						_ = fs.RemoveAll(spec.Active.File)
+					}
+					if command == "mv" && args[0] == "-f" && args[1] == activeImg && args[2] == passiveImg {
+						// If this command was called then its a complete failure as it tried to copy active into passive
+						StopTrying("Passive was overwritten").Now()
 					}
 					return []byte{}, nil
 				}
@@ -435,6 +450,13 @@ var _ = Describe("Runtime Actions", func() {
 					spec.Recovery.Size = 10
 
 					spec.RecoveryUpgrade = true
+
+					err = fsutils.MkdirAll(config.Fs, "/proc", constants.DirPerm)
+					Expect(err).ShouldNot(HaveOccurred())
+
+					// Write proc/cmdline so we can detect what we booted from
+					err = fs.WriteFile("/proc/cmdline", []byte(constants.RecoveryLabel), constants.FilePerm)
+					Expect(err).ShouldNot(HaveOccurred())
 
 					runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 						if command == "cat" && args[0] == "/proc/cmdline" {
@@ -521,6 +543,13 @@ var _ = Describe("Runtime Actions", func() {
 					spec.Recovery.Size = 10
 
 					spec.RecoveryUpgrade = true
+
+					err = fsutils.MkdirAll(config.Fs, "/proc", constants.DirPerm)
+					Expect(err).ShouldNot(HaveOccurred())
+
+					// Write proc/cmdline so we can detect what we booted from
+					err = fs.WriteFile("/proc/cmdline", []byte(constants.RecoveryLabel), constants.FilePerm)
+					Expect(err).ShouldNot(HaveOccurred())
 
 					runner.SideEffect = func(command string, args ...string) ([]byte, error) {
 						if command == "cat" && args[0] == "/proc/cmdline" {
