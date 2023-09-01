@@ -384,6 +384,10 @@ var _ = Describe("Runtime Actions", func() {
 						_ = fs.WriteFile(activeImg, source, constants.FilePerm)
 						_ = fs.RemoveAll(spec.Active.File)
 					}
+					if command == "mv" && args[0] == "-f" && args[1] == activeImg && args[2] == passiveImg {
+						// If this command was called then its a complete failure as it tried to copy active into passive
+						StopTrying("Passive was overwritten").Now()
+					}
 					return []byte{}, nil
 				}
 				config.Runner = runner
