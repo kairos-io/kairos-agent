@@ -160,6 +160,34 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			}
 		}
 
+		var foundFonts bool
+		for _, m := range []string{"ascii.pf2", "euro.pf2", "unicode.pf2"} {
+			err = fsutils.WalkDirFs(g.config.Fs, rootDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.Name() == m && strings.Contains(path, g.config.Arch) {
+					fileWriteName := filepath.Join(bootDir, fmt.Sprintf("%s/%s-efi/fonts/%s", systemgrub, g.config.Arch, m))
+					g.config.Logger.Debugf("Copying %s to %s", path, fileWriteName)
+					fileContent, err := g.config.Fs.ReadFile(path)
+					if err != nil {
+						return fmt.Errorf("error reading %s: %s", path, err)
+					}
+					err = g.config.Fs.WriteFile(fileWriteName, fileContent, cnst.FilePerm)
+					if err != nil {
+						return fmt.Errorf("error writing %s: %s", fileWriteName, err)
+					}
+					foundFonts = true
+					return nil
+				}
+				return err
+			})
+			if !foundFonts {
+				// Not a real error as to fail install but a big warning
+				g.config.Logger.Warnf("did not find grub font %s under %s", m, rootDir)
+			}
+		}
+
 		err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/boot/"), cnst.DirPerm)
 		if err != nil {
 			g.config.Logger.Errorf("Error creating dirs: %s", err)
