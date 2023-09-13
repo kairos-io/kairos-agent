@@ -163,3 +163,13 @@ func GetFallBackEfi(arch string) string {
 		return "bootx64.efi"
 	}
 }
+
+// GetGrubFonts returns the default font files for grub
+func GetGrubFonts() []string {
+	return []string{"ascii.pf2", "euro.pf2", "unicode.pf2"}
+}
+
+// GetGrubModules returns the default module files for grub
+func GetGrubModules() []string {
+	return []string{"loopback.mod", "squash4.mod", "xzio.mod", "gzio.mod"}
+}
