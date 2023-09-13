@@ -41,7 +41,6 @@ const (
 	PersistentPartName      = "persistent"
 	OEMLabel                = "COS_OEM"
 	OEMPartName             = "oem"
-	ISOLabel                = "COS_LIVE"
 	MountBinary             = "/usr/bin/mount"
 	EfiDevice               = "/sys/firmware/efi"
 	LinuxFs                 = "ext4"
@@ -50,8 +49,6 @@ const (
 	EfiFs                   = "vfat"
 	EfiSize                 = uint(64)
 	OEMSize                 = uint(64)
-	StateSize               = uint(15360)
-	RecoverySize            = uint(8192)
 	PersistentSize          = uint(0)
 	BiosSize                = uint(1)
 	ImgSize                 = uint(3072)
@@ -66,7 +63,6 @@ const (
 	EfiDir                  = "/run/cos/efi"
 	RecoverySquashFile      = "recovery.squashfs"
 	IsoRootFile             = "rootfs.squashfs"
-	IsoEFIPath              = "/boot/uefi.img"
 	ActiveImgFile           = "active.img"
 	PassiveImgFile          = "passive.img"
 	RecoveryImgFile         = "recovery.img"
@@ -80,8 +76,6 @@ const (
 	AfterUpgradeChrootHook  = "after-upgrade-chroot"
 	AfterUpgradeHook        = "after-upgrade"
 	BeforeUpgradeHook       = "before-upgrade"
-	LuetDefaultRepoURI      = "quay.io/costoolkit/releases-green"
-	LuetDefaultRepoPrio     = 90
 	TransitionImgFile       = "transition.img"
 	RunningStateDir         = "/run/initramfs/cos-state" // TODO: converge this constant with StateDir/RecoveryDir in dracut module from cos-toolkit
 	RunningRecoveryStateDir = "/run/initramfs/isoscan"   // TODO: converge this constant with StateDir/RecoveryDir in dracut module from cos-toolkit
@@ -89,7 +83,6 @@ const (
 	PassiveImgName          = "passive"
 	RecoveryImgName         = "recovery"
 	GPT                     = "gpt"
-	BuildImgName            = "elemental"
 	UsrLocalPath            = "/usr/local"
 	OEMPath                 = "/oem"
 
@@ -97,10 +90,6 @@ const (
 	SELinuxTargetedPath        = "/etc/selinux/targeted"
 	SELinuxTargetedContextFile = SELinuxTargetedPath + "/contexts/files/file_contexts"
 	SELinuxTargetedPolicyPath  = SELinuxTargetedPath + "/policy"
-
-	// These paths are arbitrary but coupled to grub.cfg
-	IsoKernelPath = "/boot/kernel"
-	IsoInitrdPath = "/boot/initrd"
 
 	// Default directory and file fileModes
 	DirPerm        = os.ModeDir | os.ModePerm
@@ -130,15 +119,6 @@ func GetDefaultSquashfsOptions() []string {
 
 func GetDefaultSquashfsCompressionOptions() []string {
 	return []string{"-comp", "gzip"}
-}
-
-func GetBuildDiskDefaultPackages() map[string]string {
-	return map[string]string{
-		"channel:system/grub2-efi-image": "efi",
-		"channel:system/grub2-config":    "root",
-		"channel:system/grub2-artifacts": "root/grub2",
-		"channel:recovery/cos-img":       "root/cOS",
-	}
 }
 
 func GetGrubFilePaths(arch string) []string {
