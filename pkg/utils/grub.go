@@ -134,7 +134,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		// as they were before. We now use the bundled grub.efi provided by the shim package
 		g.config.Logger.Infof("Generating grub files for efi on %s", target)
 		var foundModules bool
-		for _, m := range []string{"loopback.mod", "squash4.mod", "xzio.mod", "gzio.mod"} {
+		for _, m := range constants.GetGrubModules() {
 			err = fsutils.WalkDirFs(g.config.Fs, rootDir, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
@@ -159,6 +159,8 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 				return fmt.Errorf("did not find grub modules under %s", rootDir)
 			}
 		}
+
+		copyGrubFonts(g.config, rootDir, grubdir, systemgrub)
 
 		err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/boot/"), cnst.DirPerm)
 		if err != nil {
@@ -224,4 +226,37 @@ func (g Grub) SetPersistentVariables(grubEnvFile string, vars map[string]string)
 		}
 	}
 	return nil
+}
+
+// copyGrubFonts will try to finds and copy the needed grub fonts into the system
+// rootdir is the dir where to search for the fonts
+// bootdir is the base dir where they will be copied
+func copyGrubFonts(cfg *agentConfig.Config, rootDir, bootDir, systemgrub string) {
+	for _, m := range constants.GetGrubFonts() {
+		var foundFont bool
+		_ = fsutils.WalkDirFs(cfg.Fs, rootDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.Name() == m && strings.Contains(path, cfg.Arch) {
+				fileWriteName := filepath.Join(bootDir, fmt.Sprintf("%s/%s-efi/fonts/%s", systemgrub, cfg.Arch, m))
+				cfg.Logger.Debugf("Copying %s to %s", path, fileWriteName)
+				fileContent, err := cfg.Fs.ReadFile(path)
+				if err != nil {
+					return fmt.Errorf("error reading %s: %s", path, err)
+				}
+				err = cfg.Fs.WriteFile(fileWriteName, fileContent, cnst.FilePerm)
+				if err != nil {
+					return fmt.Errorf("error writing %s: %s", fileWriteName, err)
+				}
+				foundFont = true
+				return nil
+			}
+			return err
+		})
+		if !foundFont {
+			// Not a real error as to fail install but a big warning
+			cfg.Logger.Warnf("did not find grub font %s under %s", m, rootDir)
+		}
+	}
 }

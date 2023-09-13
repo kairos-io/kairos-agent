@@ -31,6 +31,7 @@ type Client struct {
 
 func NewClient() *Client {
 	client := grab.NewClient()
+	client.UserAgent = "Mozilla/5.0 (X11; Linux i686; rv:109.0) Gecko/20100101 Firefox/117.0"
 	client.HTTPClient = &http.Client{Timeout: time.Second * constants.HTTPTimeout}
 	return &Client{client: client}
 }
