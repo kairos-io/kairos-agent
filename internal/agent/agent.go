@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -95,12 +94,4 @@ func Run(opts ...Option) error {
 		return Run(opts...)
 	}
 	return err
-}
-
-func checkRoot() error {
-	if os.Geteuid() != 0 {
-		return errors.New("this command requires root privileges")
-	}
-
-	return nil
 }

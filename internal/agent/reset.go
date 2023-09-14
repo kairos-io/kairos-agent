@@ -21,10 +21,6 @@ import (
 )
 
 func Reset(reboot, unattended bool, dir ...string) error {
-	if err := checkRoot(); err != nil {
-		return err
-	}
-
 	bus.Manager.Initialize()
 
 	// This config is only for reset branding.

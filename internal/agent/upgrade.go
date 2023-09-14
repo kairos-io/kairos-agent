@@ -53,10 +53,6 @@ func ListReleases(includePrereleases bool) semver.Collection {
 
 func Upgrade(
 	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
-	if err := checkRoot(); err != nil {
-		return err
-	}
-
 	bus.Manager.Initialize()
 
 	if version == "" && source == "" {

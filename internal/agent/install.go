@@ -55,10 +55,6 @@ func displayInfo(agentConfig *Config) {
 }
 
 func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) error {
-	if err := checkRoot(); err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -89,10 +85,6 @@ func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) e
 }
 
 func Install(dir ...string) error {
-	if err := checkRoot(); err != nil {
-		return err
-	}
-
 	var cc *config.Config
 	var err error
 
