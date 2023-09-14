@@ -2,9 +2,10 @@ package agent
 
 import (
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
 	"path/filepath"
+
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"

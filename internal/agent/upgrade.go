@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
-	"github.com/spf13/viper"
 	"sort"
+
+	"github.com/spf13/viper"
+
+	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"

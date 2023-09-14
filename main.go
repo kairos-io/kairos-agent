@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -118,7 +120,8 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
 				}
 			}
-			return nil
+
+			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
 			var v string
@@ -229,6 +232,9 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 			},
 		},
 		UsageText: "Install a bundle manually in the node",
+		Before: func(c *cli.Context) error {
+			return checkRoot()
+		},
 		Action: func(c *cli.Context) error {
 			if c.Args().Len() != 1 {
 				return fmt.Errorf("bundle name required")
@@ -381,6 +387,9 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			},
 		},
 		Usage: "Starts interactive installation",
+		Before: func(c *cli.Context) error {
+			return checkRoot()
+		},
 		Action: func(c *cli.Context) error {
 			return agent.InteractiveInstall(c.Bool("debug"), c.Bool("shell"))
 		},
@@ -401,6 +410,9 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			&cli.BoolFlag{
 				Name: "reboot",
 			},
+		},
+		Before: func(c *cli.Context) error {
+			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
 			if c.NArg() == 0 {
@@ -423,6 +435,9 @@ See also https://kairos.io/docs/installation/qrcode/ for documentation.
 
 This command is meant to be used from the boot GRUB menu, but can be started manually`,
 		Aliases: []string{"i"},
+		Before: func(c *cli.Context) error {
+			return checkRoot()
+		},
 		Action: func(c *cli.Context) error {
 			return agent.Install(configScanDir...)
 		},
@@ -455,6 +470,9 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 				Name:  "unattended",
 				Usage: "Do not wait for user input and provide ttys after reset. Also sets the fast mode (do not wait 60 seconds before reset)",
 			},
+		},
+		Before: func(c *cli.Context) error {
+			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
 			reboot := c.Bool("reboot")
@@ -534,7 +552,8 @@ The validate command expects a configuration file as its only argument. Local fi
 				_ = cli.ShowSubcommandHelp(c)
 				return fmt.Errorf("")
 			}
-			return nil
+
+			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
 			stage := c.Args().First()
@@ -573,11 +592,7 @@ The validate command expects a configuration file as its only argument. Local fi
 				return fmt.Errorf("")
 			}
 
-			if os.Geteuid() != 0 {
-				return fmt.Errorf("this command requires root privileges")
-			}
-
-			return nil
+			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
 			image := c.Args().Get(0)
@@ -662,4 +677,12 @@ The kairos agent is a component to abstract away node ops, providing a common fe
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func checkRoot() error {
+	if os.Geteuid() != 0 {
+		return errors.New("this command requires root privileges")
+	}
+
+	return nil
 }
