@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
-	"github.com/spf13/viper"
 	"sort"
+
+	"github.com/spf13/viper"
+
+	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -51,6 +53,10 @@ func ListReleases(includePrereleases bool) semver.Collection {
 
 func Upgrade(
 	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
+	if err := checkRoot(); err != nil {
+		return err
+	}
+
 	bus.Manager.Initialize()
 
 	if version == "" && source == "" {

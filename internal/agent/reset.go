@@ -3,6 +3,10 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
+	"time"
+
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
@@ -12,16 +16,17 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	"os"
-	"sync"
-	"time"
 
 	"github.com/mudler/go-pluggable"
 )
 
 func Reset(reboot, unattended bool, dir ...string) error {
+	if err := checkRoot(); err != nil {
+		return err
+	}
+
 	bus.Manager.Initialize()
-	
+
 	// This config is only for reset branding.
 	agentConfig, err := LoadConfig()
 	if err != nil {

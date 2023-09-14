@@ -130,6 +130,10 @@ func detectDevice() string {
 }
 
 func InteractiveInstall(debug, spawnShell bool) error {
+	if err := checkRoot(); err != nil {
+		return err
+	}
+
 	var sshUsers []string
 	bus.Manager.Initialize()
 

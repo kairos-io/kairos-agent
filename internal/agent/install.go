@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/sanity-io/litter"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
+
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/sanity-io/litter"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -54,6 +55,10 @@ func displayInfo(agentConfig *Config) {
 }
 
 func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) error {
+	if err := checkRoot(); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -84,6 +89,10 @@ func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) e
 }
 
 func Install(dir ...string) error {
+	if err := checkRoot(); err != nil {
+		return err
+	}
+
 	var cc *config.Config
 	var err error
 

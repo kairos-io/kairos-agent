@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
 	"path/filepath"
+
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -93,4 +95,12 @@ func Run(opts ...Option) error {
 		return Run(opts...)
 	}
 	return err
+}
+
+func checkRoot() error {
+	if os.Geteuid() != 0 {
+		return errors.New("this command requires root privileges")
+	}
+
+	return nil
 }
