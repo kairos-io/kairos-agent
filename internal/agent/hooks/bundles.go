@@ -10,9 +10,10 @@ import (
 	"syscall"
 )
 
-type BundleOption struct{}
+// BundlePostInstall install bundles just after installation
+type BundlePostInstall struct{}
 
-func (b BundleOption) Run(c config.Config, _ v1.Spec) error {
+func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	// system extension are now installed to /var/lib/extensions
 	// https://github.com/kairos-io/kairos/issues/1821
 	// so if we want them to work as expected we need to mount the persistent dir and the bind dir that will
@@ -62,9 +63,10 @@ func (b BundleOption) Run(c config.Config, _ v1.Spec) error {
 	return nil
 }
 
-type BundlePostInstall struct{}
+// BundleFirstBoot installs bundles during the first boot of the machine
+type BundleFirstBoot struct{}
 
-func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
+func (b BundleFirstBoot) Run(c config.Config, _ v1.Spec) error {
 	opts := c.Bundles.Options()
 	err := bundles.RunBundles(opts...)
 	if c.FailOnBundleErrors && err != nil {
