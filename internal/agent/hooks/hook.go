@@ -11,7 +11,7 @@ type Interface interface {
 
 var AfterInstall = []Interface{
 	&GrubOptions{}, // Set custom GRUB options
-	&BundleOption{},
+	&BundlePostInstall{},
 	&CustomMounts{},
 	&Kcrypt{},
 	&Lifecycle{}, // Handles poweroff/reboot by config options
@@ -26,7 +26,7 @@ var AfterUpgrade = []Interface{
 }
 
 var FirstBoot = []Interface{
-	&BundlePostInstall{},
+	&BundleFirstBoot{},
 	&GrubPostInstallOptions{},
 }
 
