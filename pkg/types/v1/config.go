@@ -476,3 +476,43 @@ type DockerImageMeta struct {
 	Digest string `yaml:"digest,omitempty"`
 	Size   int64  `yaml:"size,omitempty"`
 }
+
+type InstallUkiSpec struct {
+	Target   string `yaml:"device,omitempty" mapstructure:"device"`
+	Reboot   bool   `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff bool   `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+}
+
+func (i InstallUkiSpec) Sanitize() error {
+	var err error
+	return err
+}
+
+func (i InstallUkiSpec) ShouldReboot() bool   { return i.Reboot }
+func (i InstallUkiSpec) ShouldShutdown() bool { return i.PowerOff }
+
+type UpgradeUkiSpec struct {
+	Reboot   bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+}
+
+func (i UpgradeUkiSpec) Sanitize() error {
+	var err error
+	return err
+}
+
+func (i UpgradeUkiSpec) ShouldReboot() bool   { return i.Reboot }
+func (i UpgradeUkiSpec) ShouldShutdown() bool { return i.PowerOff }
+
+type ResetUkiSpec struct {
+	Reboot   bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+}
+
+func (i ResetUkiSpec) Sanitize() error {
+	var err error
+	return err
+}
+
+func (i ResetUkiSpec) ShouldReboot() bool   { return i.Reboot }
+func (i ResetUkiSpec) ShouldShutdown() bool { return i.PowerOff }

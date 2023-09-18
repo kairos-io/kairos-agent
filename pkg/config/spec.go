@@ -460,6 +460,36 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	return installSpec, nil
 }
 
+// ReadUkiResetSpecFromConfig will return a proper v1.ResetUkiSpec based on an agent Config
+func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "reset")
+	if err != nil {
+		return &v1.ResetUkiSpec{}, err
+	}
+	resetSpec := sp.(*v1.ResetUkiSpec)
+	return resetSpec, nil
+}
+
+// ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
+func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "install")
+	if err != nil {
+		return &v1.InstallUkiSpec{}, err
+	}
+	installSpec := sp.(*v1.InstallUkiSpec)
+	return installSpec, nil
+}
+
+// ReadUkiUpgradeFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
+func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "upgrade")
+	if err != nil {
+		return &v1.UpgradeUkiSpec{}, err
+	}
+	upgradeSpec := sp.(*v1.UpgradeUkiSpec)
+	return upgradeSpec, nil
+}
+
 // GetSourceSize will try to gather the actual size of the source
 // Useful to create the exact size of images and by side effect the partition size
 // This helps adjust the size to be juuuuust right.

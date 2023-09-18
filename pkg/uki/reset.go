@@ -10,10 +10,10 @@ import (
 
 type ResetAction struct {
 	cfg  *config.Config
-	spec *v1.EmptySpec
+	spec *v1.ResetUkiSpec
 }
 
-func NewResetAction(cfg *config.Config, spec *v1.EmptySpec) *ResetAction {
+func NewResetAction(cfg *config.Config, spec *v1.ResetUkiSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 

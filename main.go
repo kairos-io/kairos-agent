@@ -653,7 +653,13 @@ The validate command expects a configuration file as its only argument. Local fi
 					if err != nil {
 						return err
 					}
-					installAction := uki.NewInstallAction(config, &v1.EmptySpec{})
+					// Load the spec from the config
+					installSpec, err := agentConfig.ReadUkiInstallSpecFromConfig(config)
+					if err != nil {
+						return err
+					}
+
+					installAction := uki.NewInstallAction(config, installSpec)
 					return installAction.Run()
 				},
 			},
@@ -674,7 +680,13 @@ The validate command expects a configuration file as its only argument. Local fi
 						return err
 					}
 
-					upgradeAction := uki.NewUpgradeAction(config, &v1.EmptySpec{})
+					// Load the spec from the config
+					upgradeSpec, err := agentConfig.ReadUkiUpgradeFromConfig(config)
+					if err != nil {
+						return err
+					}
+
+					upgradeAction := uki.NewUpgradeAction(config, upgradeSpec)
 					return upgradeAction.Run()
 				},
 			},
@@ -695,7 +707,13 @@ The validate command expects a configuration file as its only argument. Local fi
 						return err
 					}
 
-					resetAction := uki.NewResetAction(config, &v1.EmptySpec{})
+					// Load the spec from the config
+					resetSpec, err := agentConfig.ReadUkiResetSpecFromConfig(config)
+					if err != nil {
+						return err
+					}
+
+					resetAction := uki.NewResetAction(config, resetSpec)
 					return resetAction.Run()
 				},
 			},

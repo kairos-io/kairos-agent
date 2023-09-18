@@ -10,10 +10,10 @@ import (
 
 type UpgradeAction struct {
 	cfg  *config.Config
-	spec *v1.EmptySpec
+	spec *v1.UpgradeUkiSpec
 }
 
-func NewUpgradeAction(cfg *config.Config, spec *v1.EmptySpec) *UpgradeAction {
+func NewUpgradeAction(cfg *config.Config, spec *v1.UpgradeUkiSpec) *UpgradeAction {
 	return &UpgradeAction{cfg: cfg, spec: spec}
 }
 

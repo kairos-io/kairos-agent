@@ -10,10 +10,10 @@ import (
 
 type InstallAction struct {
 	cfg  *config.Config
-	spec *v1.EmptySpec
+	spec *v1.InstallUkiSpec
 }
 
-func NewInstallAction(cfg *config.Config, spec *v1.EmptySpec) *InstallAction {
+func NewInstallAction(cfg *config.Config, spec *v1.InstallUkiSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 
