@@ -112,14 +112,9 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 		},
 		Before: func(c *cli.Context) error {
 			source := c.String("source")
-			if source != "" {
-				r, err := regexp.Compile(`^oci:|dir:|file:`)
-				if err != nil {
-					return nil
-				}
-				if !r.MatchString(source) {
-					return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
-				}
+			err := validateSourceFlag(source)
+			if err != nil {
+				return err
 			}
 
 			return checkRoot()
@@ -637,9 +632,22 @@ The validate command expects a configuration file as its only argument. Local fi
 	{
 		Name:        "uki",
 		Description: "UKI subcommands",
+		// we could set the flag --source at this level so we could have the flag for all subcommands but that translates into an ugly command
+		// in which you need to put the source flag before the subcommand, which is a mess. Just bad UX.
+		// command level: kairos-agent uki --source oci:whatever install
+		// subcommand level: kairos-agent uki install --source oci:whatever
 		Subcommands: []*cli.Command{
 			{
 				Name: "install",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "source",
+						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+						Action: func(c *cli.Context, s string) error {
+							return validateSourceFlag(s)
+						},
+					},
+				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {
@@ -651,6 +659,15 @@ The validate command expects a configuration file as its only argument. Local fi
 			},
 			{
 				Name: "upgrade",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "source",
+						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+						Action: func(c *cli.Context, s string) error {
+							return validateSourceFlag(s)
+						},
+					},
+				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
@@ -663,6 +680,15 @@ The validate command expects a configuration file as its only argument. Local fi
 			},
 			{
 				Name: "reset",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "source",
+						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+						Action: func(c *cli.Context, s string) error {
+							return validateSourceFlag(s)
+						},
+					},
+				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
@@ -727,4 +753,19 @@ func checkRoot() error {
 	}
 
 	return nil
+}
+
+// validateSourceFlag validates the source flag against the supported prefixes
+func validateSourceFlag(source string) error {
+	if source != "" {
+		r, err := regexp.Compile(`^oci:|dir:|file:`)
+		if err != nil {
+			return nil
+		}
+		if !r.MatchString(source) {
+			return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
+		}
+		return nil
+	}
+	return fmt.Errorf("no source given")
 }
