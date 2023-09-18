@@ -25,10 +25,12 @@ func (i *InstallAction) Run() (err error) {
 	// Get source (from spec?)
 	// Create EFI partition (fat32), we already create the efi partition on normal efi install,w e can reuse that?
 	// Create COS_OEM/COS_PERSISTANT if set (optional)
+	// I guess we need to set sensible default values here for sizes? oem -> 64Mb as usual but if no persistent then EFI max size?
+	// if persistent then EFI = source size * 2 (or maybe 3 times! so we can upgrade!) and then persistent the rest of the disk?
 	// Store cloud-config in TPM or copy it to COS_OEM?
 	// Create dir structure
 	//  - /EFI/Kairos/ -> Store our efi images
-	//  - /EFI/BOOT/ -> Default fallback dir (efi searchs for bootaa64.efi or bootx64.efi if no entries in the boot manager)
+	//  - /EFI/BOOT/ -> Default fallback dir (efi search for bootaa64.efi or bootx64.efi if no entries in the boot manager)
 	// NOTE: Maybe softlink fallback to kairos? Not sure if that will work
 	// Copy the efi file into the proper dir
 	// Remove all boot manager entries?
