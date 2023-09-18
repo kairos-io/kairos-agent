@@ -22,6 +22,12 @@ func (i *ResetAction) Run() (err error) {
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-reset.pre")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.pre.hook")
 
+	// Get source (from spec?)
+	// Copy the efi file into the proper dir
+	// Remove all boot manager entries?
+	// Create boot manager entry
+	// Set default entry to the one we just created
+
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-reset.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.after.hook") //nolint:errcheck
 

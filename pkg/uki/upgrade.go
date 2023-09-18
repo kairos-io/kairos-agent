@@ -22,6 +22,12 @@ func (i *UpgradeAction) Run() (err error) {
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.pre")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.upgrade.pre.hook")
 
+	// Get source (from spec?)
+	// Copy the efi file into the proper dir
+	// Remove all boot manager entries?
+	// Create boot manager entry
+	// Set default entry to the one we just created
+
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.upgrade.after.hook") //nolint:errcheck
 
