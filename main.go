@@ -19,6 +19,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
@@ -631,6 +632,47 @@ The validate command expects a configuration file as its only argument. Local fi
 				fmt.Println(common.VERSION)
 			}
 			return nil
+		},
+	},
+	{
+		Name:        "uki",
+		Description: "UKI subcommands",
+		Subcommands: []*cli.Command{
+			{
+				Name: "install",
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+					installAction := uki.NewInstallAction(config, &v1.EmptySpec{})
+					return installAction.Run()
+				},
+			},
+			{
+				Name: "upgrade",
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					if err != nil {
+						return err
+					}
+
+					upgradeAction := uki.NewUpgradeAction(config, &v1.EmptySpec{})
+					return upgradeAction.Run()
+				},
+			},
+			{
+				Name: "reset",
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					if err != nil {
+						return err
+					}
+
+					resetAction := uki.NewResetAction(config, &v1.EmptySpec{})
+					return resetAction.Run()
+				},
+			},
 		},
 	},
 }
