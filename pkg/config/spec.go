@@ -462,7 +462,7 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 
 // ReadUkiResetSpecFromConfig will return a proper v1.ResetUkiSpec based on an agent Config
 func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
-	sp, err := ReadSpecFromCloudConfig(c, "reset")
+	sp, err := ReadSpecFromCloudConfig(c, "reset-uki")
 	if err != nil {
 		return &v1.ResetUkiSpec{}, err
 	}
@@ -472,7 +472,7 @@ func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
 
 // ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
 func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
-	sp, err := ReadSpecFromCloudConfig(c, "install")
+	sp, err := ReadSpecFromCloudConfig(c, "install-uki")
 	if err != nil {
 		return &v1.InstallUkiSpec{}, err
 	}
@@ -482,7 +482,7 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 
 // ReadUkiUpgradeFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
 func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
-	sp, err := ReadSpecFromCloudConfig(c, "upgrade")
+	sp, err := ReadSpecFromCloudConfig(c, "upgrade-uki")
 	if err != nil {
 		return &v1.UpgradeUkiSpec{}, err
 	}
@@ -583,6 +583,15 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		sp, err = NewUpgradeSpec(r)
 	case "reset":
 		sp, err = NewResetSpec(r)
+	case "install-uki":
+		// TODO: Fill with proper defaults
+		sp = &v1.InstallUkiSpec{}
+	case "reset-uki":
+		// TODO: Fill with proper defaults
+		sp = &v1.ResetUkiSpec{}
+	case "upgrade-uki":
+		// TODO: Fill with proper defaults
+		sp = &v1.UpgradeUkiSpec{}
 	default:
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
