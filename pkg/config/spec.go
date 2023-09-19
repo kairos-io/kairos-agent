@@ -476,11 +476,12 @@ func NewUkiInstallSpec(cfg *Config) *v1.InstallUkiSpec {
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions.BIOS = &v1.Partition{
+	spec.Partitions.EFI = &v1.Partition{
 		FilesystemLabel: constants.EfiLabel,
 		Size:            constants.ImgSize, // TODO: Fix this and set proper size based on the source size
 		Name:            constants.EfiPartName,
 		FS:              constants.EfiFs,
+		MountPoint:      constants.EfiDir,
 	}
 	spec.Partitions.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,

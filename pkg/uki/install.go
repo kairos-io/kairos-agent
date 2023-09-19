@@ -3,13 +3,14 @@ package uki
 import (
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"os"
-	"syscall"
+	"path/filepath"
 )
 
 type InstallAction struct {
@@ -33,10 +34,38 @@ func (i *InstallAction) Run() (err error) {
 	// If source is empty then we need to find the media we booted from....to get the efi files...
 	// cdrom is kind fo easy...
 	// we set the label EFI_ISO_BOOT so we look for that and then mount the image inside...
-	fsutils.MkdirAll(i.cfg.Fs, "/run/cdrom", os.ModeDir|os.ModePerm)
-	fsutils.MkdirAll(i.cfg.Fs, "/run/efi", os.ModeDir|os.ModePerm)
-	syscall.Mount("/dev/disk/by-label/EFI_ISO_BOOT", "/run/cdrom", "iso9660", 0, "")
-	syscall.Mount("/run/cdrom/efiboot.img", "/run/efi", "loop", 0, "")
+	// TODO: Extract this to a different functions or something. Maybe PrepareUKISource or something
+	_ = fsutils.MkdirAll(i.cfg.Fs, "/run/install/cdrom", os.ModeDir|os.ModePerm)
+	_ = fsutils.MkdirAll(i.cfg.Fs, "/run/install/uki", os.ModeDir|os.ModePerm)
+
+	cdRom := &v1.Partition{
+		FilesystemLabel: "EFI_ISO_BOOT",
+		FS:              "iso9660",
+		Path:            "/dev/disk/by-label/EFI_ISO_BOOT",
+		MountPoint:      "/run/install/cdrom",
+	}
+	err = e.MountPartition(cdRom)
+
+	if err != nil {
+		return err
+	}
+	cleanup.Push(func() error {
+		return e.UnmountPartition(cdRom)
+	})
+
+	image := &v1.Image{
+		File:       "/run/install/cdrom/efiboot.img",
+		Label:      "UKI_SOURCE",
+		MountPoint: "/run/install/uki",
+	}
+
+	err = e.MountImage(image)
+	if err != nil {
+		return err
+	}
+	cleanup.Push(func() error {
+		return e.UnmountImage(image)
+	})
 
 	// Create EFI partition (fat32), we already create the efi partition on normal efi install,we can reuse that?
 	// Create COS_OEM/COS_PERSISTANT if set (optional)
@@ -72,13 +101,26 @@ func (i *InstallAction) Run() (err error) {
 	// Create dir structure
 	//  - /EFI/Kairos/ -> Store our efi images
 	//  - /EFI/BOOT/ -> Default fallback dir (efi search for bootaa64.efi or bootx64.efi if no entries in the boot manager)
-	// NOTE: Maybe softlink fallback to kairos? Not sure if that will work
+
+	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "EFI", "Kairos"), constants.DirPerm)
+	if err != nil {
+		return err
+	}
+	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "EFI", "BOOT"), constants.DirPerm)
+	if err != nil {
+		return err
+	}
+
 	// Copy the efi file into the proper dir
+	source := v1.NewDirSrc("/run/install/uki")
+	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, source)
+	if err != nil {
+		return err
+	}
 	// Remove all boot manager entries?
 	// Create boot manager entry
 	// Set default entry to the one we just created
 	// Probably copy efi utils, like the Mokmanager and even the shim or grub efi to help with troubleshooting?
-
 	_ = utils.RunStage(i.cfg, "kairos-uki-install.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook") //nolint:errcheck
 
