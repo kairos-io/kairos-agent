@@ -470,6 +470,45 @@ func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
 	return resetSpec, nil
 }
 
+func NewUkiInstallSpec(cfg *Config) *v1.InstallUkiSpec {
+	spec := &v1.InstallUkiSpec{
+		Target: cfg.Install.Device,
+	}
+
+	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
+	spec.Partitions = NewUkiInstallElementalPartitions(spec)
+
+	return spec
+}
+
+func NewUkiInstallElementalPartitions(spec *v1.InstallUkiSpec) v1.ElementalPartitions {
+	pt := v1.ElementalPartitions{}
+	pt.EFI = &v1.Partition{
+		FilesystemLabel: constants.EfiLabel,
+		Size:            constants.ImgSize, // TODO: Fix this
+		Name:            constants.EfiPartName,
+		FS:              "fat32",
+	}
+	pt.OEM = &v1.Partition{
+		FilesystemLabel: constants.OEMLabel,
+		Size:            constants.OEMSize,
+		Name:            constants.OEMPartName,
+		FS:              constants.LinuxFs,
+		MountPoint:      constants.OEMDir,
+		Flags:           []string{},
+	}
+
+	pt.Persistent = &v1.Partition{
+		FilesystemLabel: constants.PersistentLabel,
+		Size:            constants.PersistentSize,
+		Name:            constants.PersistentPartName,
+		FS:              constants.LinuxFs,
+		MountPoint:      constants.PersistentDir,
+		Flags:           []string{},
+	}
+	return pt
+}
+
 // ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
 func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "install-uki")
@@ -584,8 +623,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	case "reset":
 		sp, err = NewResetSpec(r)
 	case "install-uki":
-		// TODO: Fill with proper defaults
-		sp = &v1.InstallUkiSpec{}
+		sp = NewUkiInstallSpec(r)
 	case "reset-uki":
 		// TODO: Fill with proper defaults
 		sp = &v1.ResetUkiSpec{}

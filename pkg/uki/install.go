@@ -6,7 +6,10 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
+	"os"
+	"syscall"
 )
 
 type InstallAction struct {
@@ -27,6 +30,14 @@ func (i *InstallAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.pre.hook")
 
 	// Get source (from spec?)
+	// If source is empty then we need to find the media we booted from....to get the efi files...
+	// cdrom is kind fo easy...
+	// we set the label EFI_ISO_BOOT so we look for that and then mount the image inside...
+	fsutils.MkdirAll(i.cfg.Fs, "/run/cdrom", os.ModeDir|os.ModePerm)
+	fsutils.MkdirAll(i.cfg.Fs, "/run/efi", os.ModeDir|os.ModePerm)
+	syscall.Mount("/dev/disk/by-label/EFI_ISO_BOOT", "/run/cdrom", "iso9660", 0, "")
+	syscall.Mount("/run/cdrom/efiboot.img", "/run/efi", "loop", 0, "")
+
 	// Create EFI partition (fat32), we already create the efi partition on normal efi install,we can reuse that?
 	// Create COS_OEM/COS_PERSISTANT if set (optional)
 	// I guess we need to set sensible default values here for sizes? oem -> 64Mb as usual but if no persistent then EFI max size?
