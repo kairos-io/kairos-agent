@@ -647,6 +647,9 @@ The validate command expects a configuration file as its only argument. Local fi
 							return validateSourceFlag(s)
 						},
 					},
+					&cli.StringFlag{
+						Name: "device",
+					},
 				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
@@ -657,6 +660,10 @@ The validate command expects a configuration file as its only argument. Local fi
 					installSpec, err := agentConfig.ReadUkiInstallSpecFromConfig(config)
 					if err != nil {
 						return err
+					}
+
+					if c.String("device") != "" {
+						installSpec.Target = c.String("device")
 					}
 
 					installAction := uki.NewInstallAction(config, installSpec)
