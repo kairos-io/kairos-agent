@@ -476,20 +476,13 @@ func NewUkiInstallSpec(cfg *Config) *v1.InstallUkiSpec {
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions = NewUkiInstallElementalPartitions(spec)
-
-	return spec
-}
-
-func NewUkiInstallElementalPartitions(spec *v1.InstallUkiSpec) v1.ElementalPartitions {
-	pt := v1.ElementalPartitions{}
-	pt.EFI = &v1.Partition{
+	spec.Partitions.BIOS = &v1.Partition{
 		FilesystemLabel: constants.EfiLabel,
-		Size:            constants.ImgSize, // TODO: Fix this
+		Size:            constants.ImgSize, // TODO: Fix this and set proper size based on the source size
 		Name:            constants.EfiPartName,
-		FS:              "fat32",
+		FS:              constants.EfiFs,
 	}
-	pt.OEM = &v1.Partition{
+	spec.Partitions.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,
 		Size:            constants.OEMSize,
 		Name:            constants.OEMPartName,
@@ -497,8 +490,7 @@ func NewUkiInstallElementalPartitions(spec *v1.InstallUkiSpec) v1.ElementalParti
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
-
-	pt.Persistent = &v1.Partition{
+	spec.Partitions.Persistent = &v1.Partition{
 		FilesystemLabel: constants.PersistentLabel,
 		Size:            constants.PersistentSize,
 		Name:            constants.PersistentPartName,
@@ -506,7 +498,8 @@ func NewUkiInstallElementalPartitions(spec *v1.InstallUkiSpec) v1.ElementalParti
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
-	return pt
+
+	return spec
 }
 
 // ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
@@ -644,7 +637,8 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	}
 	viper.SetConfigType("yaml")
 	viper.ReadConfig(strings.NewReader(ccString))
-	vp := viper.Sub(spec)
+	// Change the spec into normal spec without the '-uki' so we load the same vars from the config as the normal actions
+	vp := viper.Sub(strings.ReplaceAll(spec, "-uki", ""))
 	if vp == nil {
 		vp = viper.New()
 	}
