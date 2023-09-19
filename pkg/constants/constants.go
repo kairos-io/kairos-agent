@@ -106,6 +106,9 @@ const (
 	SignedShim = "shim.efi"
 
 	Rsync = "rsync"
+
+	UkiSource      = "/run/install/uki"
+	UkiCdromSource = "/run/install/cdrom"
 )
 
 func GetCloudInitPaths() []string {

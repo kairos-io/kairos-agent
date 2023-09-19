@@ -35,14 +35,14 @@ func (i *InstallAction) Run() (err error) {
 	// cdrom is kind fo easy...
 	// we set the label EFI_ISO_BOOT so we look for that and then mount the image inside...
 	// TODO: Extract this to a different functions or something. Maybe PrepareUKISource or something
-	_ = fsutils.MkdirAll(i.cfg.Fs, "/run/install/cdrom", os.ModeDir|os.ModePerm)
-	_ = fsutils.MkdirAll(i.cfg.Fs, "/run/install/uki", os.ModeDir|os.ModePerm)
+	_ = fsutils.MkdirAll(i.cfg.Fs, constants.UkiCdromSource, os.ModeDir|os.ModePerm)
+	_ = fsutils.MkdirAll(i.cfg.Fs, constants.UkiSource, os.ModeDir|os.ModePerm)
 
 	cdRom := &v1.Partition{
-		FilesystemLabel: "EFI_ISO_BOOT",
+		FilesystemLabel: "EFI_ISO_BOOT", // TODO: Hardcoded on ISO creation
 		FS:              "iso9660",
 		Path:            "/dev/disk/by-label/EFI_ISO_BOOT",
-		MountPoint:      "/run/install/cdrom",
+		MountPoint:      constants.UkiCdromSource,
 	}
 	err = e.MountPartition(cdRom)
 
@@ -53,10 +53,11 @@ func (i *InstallAction) Run() (err error) {
 		return e.UnmountPartition(cdRom)
 	})
 
+	// TODO: hardcoded
 	image := &v1.Image{
-		File:       "/run/install/cdrom/efiboot.img",
-		Label:      "UKI_SOURCE",
-		MountPoint: "/run/install/uki",
+		File:       "/run/install/cdrom/efiboot.img", // TODO: Hardcoded on ISO creation
+		Label:      "UKI_SOURCE",                     // Made up, only for logging
+		MountPoint: constants.UkiSource,
 	}
 
 	err = e.MountImage(image)
@@ -99,20 +100,16 @@ func (i *InstallAction) Run() (err error) {
 
 	// Store cloud-config in TPM or copy it to COS_OEM?
 	// Create dir structure
-	//  - /EFI/Kairos/ -> Store our efi images
+	//  - /EFI/Kairos/ -> Store our older efi images ?
 	//  - /EFI/BOOT/ -> Default fallback dir (efi search for bootaa64.efi or bootx64.efi if no entries in the boot manager)
 
-	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "EFI", "Kairos"), constants.DirPerm)
-	if err != nil {
-		return err
-	}
 	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "EFI", "BOOT"), constants.DirPerm)
 	if err != nil {
 		return err
 	}
 
 	// Copy the efi file into the proper dir
-	source := v1.NewDirSrc("/run/install/uki")
+	source := v1.NewDirSrc(constants.UkiSource)
 	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, source)
 	if err != nil {
 		return err
