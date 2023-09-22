@@ -482,6 +482,7 @@ func NewUkiInstallSpec(cfg *Config) *v1.InstallUkiSpec {
 		Name:            constants.EfiPartName,
 		FS:              constants.EfiFs,
 		MountPoint:      constants.EfiDir,
+		Flags:           []string{"esp"},
 	}
 	spec.Partitions.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,

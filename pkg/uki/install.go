@@ -39,9 +39,9 @@ func (i *InstallAction) Run() (err error) {
 	_ = fsutils.MkdirAll(i.cfg.Fs, constants.UkiSource, os.ModeDir|os.ModePerm)
 
 	cdRom := &v1.Partition{
-		FilesystemLabel: "EFI_ISO_BOOT", // TODO: Hardcoded on ISO creation
+		FilesystemLabel: "UKI_ISO_INSTALL", // TODO: Hardcoded on ISO creation
 		FS:              "iso9660",
-		Path:            "/dev/disk/by-label/EFI_ISO_BOOT",
+		Path:            "/dev/disk/by-label/UKI_ISO_INSTALL",
 		MountPoint:      constants.UkiCdromSource,
 	}
 	err = e.MountPartition(cdRom)
