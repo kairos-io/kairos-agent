@@ -18,7 +18,7 @@ require (
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
-	github.com/mudler/yip v1.4.2
+	github.com/mudler/yip v1.4.3-0.20230925071705-33f3678c4c77
 	github.com/nxadm/tail v1.4.8
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10
@@ -50,7 +50,6 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/avast/retry-go v2.7.0+incompatible // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
-	github.com/aymanbagabas/go-osc52 v1.2.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/cavaliergopher/grab v2.0.0+incompatible // indirect
 	github.com/charmbracelet/bubbles v0.16.1 // indirect
