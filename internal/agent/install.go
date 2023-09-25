@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -108,22 +107,10 @@ func Install(dir ...string) error {
 		if err != nil {
 			fmt.Println(err)
 		}
-		// dump data into a dir so the collector can pick it up properly
 		cloudConfig, exists := r["cc"]
 		if exists {
-			tmpdir, err := os.MkdirTemp("", "kairos-install-")
-			if err == nil {
-				err = os.WriteFile(filepath.Join(tmpdir, "kairos-event-install-data.yaml"), []byte(cloudConfig), os.ModePerm)
-				if err != nil {
-					fmt.Printf("could not write event cloud init: %s\n", err.Error())
-				}
-				// Append to default dirs so we read from all sources
-				dir = append(dir, tmpdir)
-				// override cc with our new config object from the scan, so it's updated for the RunInstall function
-				cc, _ = config.Scan(collector.Directories(dir...), collector.MergeBootLine, collector.NoLogs)
-			} else {
-				fmt.Printf("could not create temp dir: %s\n", err.Error())
-			}
+			// Re-read the full config and add the config coming from the event
+			cc, _ = config.Scan(collector.Directories(dir...), collector.Readers(strings.NewReader(cloudConfig)), collector.MergeBootLine, collector.NoLogs)
 		}
 	})
 
