@@ -363,6 +363,8 @@ github.com/kairos-io/kairos-sdk v0.0.14 h1:yVKaay70cjmAUY6m4uLoV9UguBv3Dx3JxAh2f
 github.com/kairos-io/kairos-sdk v0.0.14/go.mod h1:+fhVoCEA2hD7OFTmhDmy4pP3uC9q84OYhDa7irkEVWQ=
 github.com/kairos-io/kairos-sdk v0.0.15-0.20230925134607-ac348c24c20a h1:aD5jsqbzIXIkU6movwJ5x1ZLxdT5QslTBckDcKlmIuY=
 github.com/kairos-io/kairos-sdk v0.0.15-0.20230925134607-ac348c24c20a/go.mod h1:/xHWDA1kUAaTCKOtOEHEKXTFKTmhM6vLSHqXEyeKqKk=
+github.com/kairos-io/kairos-sdk v0.0.15-0.20230926073253-8f54324703c2 h1:93KxMPv8KXCWR7DbJDG7sQgkcv0N/DeuLOqu0bXsGyw=
+github.com/kairos-io/kairos-sdk v0.0.15-0.20230926073253-8f54324703c2/go.mod h1:/xHWDA1kUAaTCKOtOEHEKXTFKTmhM6vLSHqXEyeKqKk=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 h1:qq2nCpSrXrmvDGRxW0ruW9BVEV1CN2a9YDOExdt+U0o=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329/go.mod h1:2VPVQDR4wO7KXHwP+DAypEy67rXf+okUx2zjgpCxZw4=
 github.com/kendru/darwin/go/depgraph v0.0.0-20221105232959-877d6a81060c h1:eKb4PqwAMhlqwXw0W3atpKaYaPGlXE/Fwh+xpCEYaPk=
