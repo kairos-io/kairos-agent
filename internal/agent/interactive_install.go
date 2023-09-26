@@ -129,7 +129,7 @@ func detectDevice() string {
 	return preferedDevice
 }
 
-func InteractiveInstall(debug, spawnShell bool) error {
+func InteractiveInstall(debug, spawnShell bool, sourceImg string) error {
 	var sshUsers []string
 	bus.Manager.Initialize()
 
@@ -229,7 +229,7 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	}
 
 	if !isYes(allGood) {
-		return InteractiveInstall(debug, spawnShell)
+		return InteractiveInstall(debug, spawnShell, sourceImg)
 	}
 
 	usersToSet := map[string]schema.User{}
@@ -283,6 +283,7 @@ func InteractiveInstall(debug, spawnShell bool) error {
 			fmt.Printf("could not write event cloud init: %s\n", err.Error())
 		}
 		// override cc with our new config object from the scan, so it's updated for the RunInstall function
+		// TODO: Alternative solution: pass a reader here (the new feature) and add the image source
 		cc, _ = config.Scan(collector.Directories(tmpdir), collector.MergeBootLine, collector.NoLogs)
 	}
 
@@ -291,7 +292,7 @@ func InteractiveInstall(debug, spawnShell bool) error {
 	ccString, _ := cc.String()
 	pterm.Info.Println(ccString)
 
-	err = RunInstall(cc)
+	err = RunInstall(cc, sourceImg)
 	if err != nil {
 		pterm.Error.Println(err.Error())
 	}
