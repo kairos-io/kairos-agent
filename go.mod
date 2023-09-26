@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.0.14
+	github.com/kairos-io/kairos-sdk v0.0.15-0.20230926073253-8f54324703c2
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -58,8 +58,8 @@ require (
 	github.com/chuckpreslar/emission v0.0.0-20170206194824-a7ddd980baf9 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
-	github.com/containerd/containerd v1.7.1 // indirect
-	github.com/containerd/continuity v0.3.0 // indirect
+	github.com/containerd/containerd v1.7.5 // indirect
+	github.com/containerd/continuity v0.4.2 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
@@ -95,7 +95,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
-	github.com/itchyny/gojq v0.12.12 // indirect
+	github.com/itchyny/gojq v0.12.13 // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jaypipes/pcidb v1.0.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -150,8 +150,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	github.com/swaggest/jsonschema-go v0.3.51 // indirect
-	github.com/swaggest/refl v1.1.0 // indirect
+	github.com/swaggest/jsonschema-go v0.3.59 // indirect
+	github.com/swaggest/refl v1.2.0 // indirect
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

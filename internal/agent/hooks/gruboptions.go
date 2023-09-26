@@ -11,6 +11,7 @@ import (
 type GrubOptions struct{}
 
 func (b GrubOptions) Run(c config.Config, _ v1.Spec) error {
+	c.Logger.Debugf("Setting grub options: %s", c.Install.GrubOptions)
 	err := system.Apply(system.SetGRUBOptions(c.Install.GrubOptions))
 	if err != nil {
 		fmt.Println(err)
