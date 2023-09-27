@@ -19,6 +19,7 @@ package config
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -480,11 +481,40 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 			if err != nil {
 				return err
 			}
-			info, err := d.Info()
-			if err != nil {
-				return err
+			if d.Type()&fs.ModeSymlink != 0 {
+				// If it's a symlink, get its target and calculate its size.
+				linkTarget, err := os.Readlink(path)
+				if err != nil {
+					return err
+				}
+
+				if !filepath.IsAbs(linkTarget) {
+					// If it's a relative path, join it with the base directory path.
+					linkTarget = filepath.Join(filepath.Dir(path), linkTarget)
+				}
+
+				_, err = os.Stat(linkTarget)
+				if os.IsNotExist(err) {
+					size += 0
+				} else if err != nil {
+					return err
+				} else {
+					linkInfo, err := os.Stat(linkTarget)
+					if err != nil {
+						return err
+					}
+					size += linkInfo.Size()
+				}
+			} else if !d.IsDir() {
+				// If it's a regular file, add its size to the total.
+				fileInfo, err := d.Info()
+				if err != nil {
+					return err
+				}
+
+				size += fileInfo.Size()
 			}
-			size += info.Size()
+
 			return nil
 		})
 
