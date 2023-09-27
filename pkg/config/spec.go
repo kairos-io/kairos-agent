@@ -27,7 +27,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
@@ -265,31 +265,32 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
-	source := viper.GetString("upgradeSource")
-	recoveryUpgrade := viper.GetBool("upgradeRecovery")
-	if source != "" {
-		imgSource, err := v1.NewSrcFromURI(source)
-		if err == nil {
-			if recoveryUpgrade {
-				spec.RecoveryUpgrade = recoveryUpgrade
-				spec.Recovery.Source = imgSource
-			} else {
-				spec.Active.Source = imgSource
-			}
-			size, err := GetSourceSize(cfg, imgSource)
-			if err != nil {
-				cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
-			} else {
-				cfg.Logger.Infof("Setting image size to %dMb", size)
-				// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
-				if recoveryUpgrade {
-					spec.Recovery.Size = uint(size)
-				} else {
-					spec.Active.Size = uint(size)
-				}
-			}
-		}
-	}
+	// source := viper.GetString("upgradeSource")
+	// recoveryUpgrade := viper.GetBool("upgradeRecovery")
+	// if source != "" {
+	// 	imgSource, err := v1.NewSrcFromURI(source)
+	// 	// TODO: Don't hide the error here!
+	// 	if err == nil {
+	// 		if recoveryUpgrade {
+	// 			spec.RecoveryUpgrade = recoveryUpgrade
+	// 			spec.Recovery.Source = imgSource
+	// 		} else {
+	// 			spec.Active.Source = imgSource
+	// 		}
+	// 		size, err := GetSourceSize(cfg, imgSource)
+	// 		if err != nil {
+	// 			cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+	// 		} else {
+	// 			cfg.Logger.Infof("Setting image size to %dMb", size)
+	// 			// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
+	// 			if recoveryUpgrade {
+	// 				spec.Recovery.Size = uint(size)
+	// 			} else {
+	// 				spec.Active.Size = uint(size)
+	// 			}
+	// 		}
+	// 	}
+	//}
 
 	return spec, nil
 }
@@ -543,6 +544,8 @@ func ReadUpgradeSpecFromConfig(c *Config) (*v1.UpgradeSpec, error) {
 
 // ReadSpecFromCloudConfig returns a v1.Spec for the given spec
 func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
+	fmt.Printf("litter.Sdump(r) before = %+v\n", litter.Sdump(r))
+
 	var sp v1.Spec
 	var err error
 
@@ -560,6 +563,8 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		return nil, fmt.Errorf("failed initializing spec: %v", err)
 	}
 
+	fmt.Printf("litter.Sdump(sp) before = %+v\n", litter.Sdump(sp))
+
 	// Load the config into viper from the raw cloud config string
 	ccString, err := r.String()
 	if err != nil {
@@ -576,6 +581,11 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	if err != nil {
 		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
+
+	fmt.Println("---------------------------------")
+	fmt.Printf("litter.Sdump(sp) after = %+v\n", litter.Sdump(sp))
+	fmt.Println("---------------------------------")
+
 	err = sp.Sanitize()
 	if err != nil {
 		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)

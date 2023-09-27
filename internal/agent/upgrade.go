@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-
-	"github.com/spf13/viper"
+	"strings"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 
@@ -55,6 +54,10 @@ func Upgrade(
 	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
+	// TODO: Before we check for empy source,
+	// shouldn't we read the `upgrade:` block from the config and check if something
+	// is defined there?
+
 	if version == "" && source == "" {
 		fmt.Println("Searching for releases")
 		if preReleases {
@@ -93,13 +96,11 @@ func Upgrade(
 		}
 	}
 
-	// Set this here with viper help so we can use it while creating the upgrade spec
-	// And its properly set since creation without having to modify it later
-	// This should be binded somehow but the current cli doesnt allow us to bind flags to values
-	viper.Set("upgradeSource", img)
-	viper.Set("upgradeRecovery", upgradeRecovery)
+	upgradeConf := generateUpgradeConf(img, upgradeRecovery)
 
-	c, err := config.Scan(collector.Directories(dirs...), collector.StrictValidation(strictValidations))
+	c, err := config.Scan(collector.Directories(dirs...),
+		collector.Readers(strings.NewReader(upgradeConf)),
+		collector.StrictValidation(strictValidations))
 	if err != nil {
 		return err
 	}
@@ -161,4 +162,49 @@ func determineUpgradeImage(version string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s:%s", registry, version), nil
+}
+
+// generateUpgradeConf creates a kairos configuration for upgrade to be
+// added to the rest of the configurations.
+func generateUpgradeConf(source string, upgradeRecovery bool) string {
+	conf := ""
+
+	if source == "" {
+		return conf
+	}
+
+	// TODO: Do the same for recovery upgrade
+	conf = fmt.Sprintf(`
+upgrade:
+	recovery-system:
+		uri: %s`, source)
+
+	// source := viper.GetString("upgradeSource")
+	// recoveryUpgrade := viper.GetBool("upgradeRecovery")
+	// if source != "" {
+	// 	imgSource, err := v1.NewSrcFromURI(source)
+	// 	// TODO: Don't hide the error here!
+	// 	if err == nil {
+	// 		if recoveryUpgrade {
+	// 			spec.RecoveryUpgrade = recoveryUpgrade
+	// 			spec.Recovery.Source = imgSource
+	// 		} else {
+	// 			spec.Active.Source = imgSource
+	// 		}
+	// 		size, err := GetSourceSize(cfg, imgSource)
+	// 		if err != nil {
+	// 			cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+	// 		} else {
+	// 			cfg.Logger.Infof("Setting image size to %dMb", size)
+	// 			// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
+	// 			if recoveryUpgrade {
+	// 				spec.Recovery.Size = uint(size)
+	// 			} else {
+	// 				spec.Active.Size = uint(size)
+	// 			}
+	// 		}
+	// 	}
+	//}
+
+	return conf
 }

@@ -35,31 +35,31 @@ const (
 
 // ImageSource represents the source from where an image is created for easy identification
 type ImageSource struct {
-	source  string
-	srcType string
+	Source  string
+	SrcType string
 }
 
 func (i ImageSource) Value() string {
-	return i.source
+	return i.Source
 }
 
 func (i ImageSource) IsDocker() bool {
-	return i.srcType == oci
+	return i.SrcType == oci
 }
 
 func (i ImageSource) IsDir() bool {
-	return i.srcType == dir
+	return i.SrcType == dir
 }
 
 func (i ImageSource) IsFile() bool {
-	return i.srcType == file
+	return i.SrcType == file
 }
 
 func (i ImageSource) IsEmpty() bool {
-	if i.srcType == "" {
+	if i.SrcType == "" {
 		return true
 	}
-	if i.source == "" {
+	if i.Source == "" {
 		return true
 	}
 	return false
@@ -69,7 +69,7 @@ func (i ImageSource) String() string {
 	if i.IsEmpty() {
 		return ""
 	}
-	return fmt.Sprintf("%s://%s", i.srcType, i.source)
+	return fmt.Sprintf("%s://%s", i.SrcType, i.Source)
 }
 
 func (i ImageSource) MarshalYAML() (interface{}, error) {
@@ -103,11 +103,11 @@ func (i *ImageSource) updateFromURI(uri string) error {
 	case oci, docker:
 		return i.parseImageReference(value)
 	case dir:
-		i.srcType = dir
-		i.source = value
+		i.SrcType = dir
+		i.Source = value
 	case file:
-		i.srcType = file
-		i.source = value
+		i.SrcType = file
+		i.Source = value
 	default:
 		return i.parseImageReference(uri)
 	}
@@ -121,8 +121,8 @@ func (i *ImageSource) parseImageReference(ref string) error {
 	} else if reference.IsNameOnly(n) {
 		ref += ":latest"
 	}
-	i.srcType = oci
-	i.source = ref
+	i.SrcType = oci
+	i.Source = ref
 	return nil
 }
 
@@ -137,13 +137,13 @@ func NewEmptySrc() *ImageSource {
 }
 
 func NewDockerSrc(src string) *ImageSource {
-	return &ImageSource{source: src, srcType: oci}
+	return &ImageSource{Source: src, SrcType: oci}
 }
 
 func NewFileSrc(src string) *ImageSource {
-	return &ImageSource{source: src, srcType: file}
+	return &ImageSource{Source: src, SrcType: file}
 }
 
 func NewDirSrc(src string) *ImageSource {
-	return &ImageSource{source: src, srcType: dir}
+	return &ImageSource{Source: src, SrcType: dir}
 }
