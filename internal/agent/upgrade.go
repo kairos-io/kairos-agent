@@ -53,7 +53,7 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
+	version, source string, force, strictValidations bool, dirs []string, preReleases bool, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
 	upgradeConf := generateUpgradeConf(source, upgradeRecovery)
@@ -141,11 +141,26 @@ func generateUpgradeConf(source string, upgradeRecovery bool) string {
 		return conf
 	}
 
-	conf = fmt.Sprintf(`
-upgrade:
-	recovery: %t
-	recovery-system:
-		uri: %s`, upgradeRecovery, source)
+	upgrade := struct {
+		Recovery: Bool `json:"recovery,omitempy"`,
+		RecoverySystem: struct{ `json:"recovery-system,omitempty"`
+		  URI: string `json:"uri,omitempy"`
+		},
+		System: struct{ `json:"system,omitempy"`
+			URI: string
+		}
+	}{
+	}
+
+
+	conf = fmt.Sprintf(`upgrade:
+  recovery-system:
+    uri: %s
+`, source)
+
+	if upgradeRecovery {
+		conf += `  recovery: true`
+	}
 
 	return conf
 }

@@ -586,10 +586,6 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	fmt.Printf("litter.Sdump(sp) after = %+v\n", litter.Sdump(sp))
 	fmt.Println("---------------------------------")
 
-	err = sp.Sanitize()
-	if err != nil {
-		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)
-	}
 	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
 	return sp, nil
 }
