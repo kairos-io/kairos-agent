@@ -52,7 +52,7 @@ func ListReleases(includePrereleases bool) semver.Collection {
 }
 
 func Upgrade(
-	version, source string, force, strictValidations bool, dirs []string, preReleases bool, upgradeRecovery bool) error {
+	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
 	upgradeSpec, c, err := generateUpgradeSpec(version, source, force, strictValidations, dirs, preReleases, upgradeRecovery)
