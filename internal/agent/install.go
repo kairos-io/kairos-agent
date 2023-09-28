@@ -346,7 +346,7 @@ func generateInstallConfForCLIArgs(source string) string {
 	}
 
 	return fmt.Sprintf(`install:
-system:
-uri: %s
+  system:
+    uri: %s
 `, source)
 }
