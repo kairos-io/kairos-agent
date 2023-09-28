@@ -3,13 +3,14 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/jaypipes/ghw/pkg/block"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"os"
 	"path/filepath"
 
+	"github.com/jaypipes/ghw/pkg/block"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
@@ -196,7 +197,7 @@ var _ = Describe("RunInstall", func() {
 
 	It("runs the install", func() {
 		Skip("Not ready yet")
-		err = RunInstall(options)
+		err = RunInstall(options, "") // TODO
 		Expect(err).ToNot(HaveOccurred())
 	})
 })

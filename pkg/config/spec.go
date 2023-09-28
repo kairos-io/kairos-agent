@@ -544,8 +544,6 @@ func ReadUpgradeSpecFromConfig(c *Config) (*v1.UpgradeSpec, error) {
 
 // ReadSpecFromCloudConfig returns a v1.Spec for the given spec
 func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
-	fmt.Printf("litter.Sdump(r) before = %+v\n", litter.Sdump(r))
-
 	var sp v1.Spec
 	var err error
 
@@ -563,8 +561,6 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		return nil, fmt.Errorf("failed initializing spec: %v", err)
 	}
 
-	fmt.Printf("litter.Sdump(sp) before = %+v\n", litter.Sdump(sp))
-
 	// Load the config into viper from the raw cloud config string
 	ccString, err := r.String()
 	if err != nil {
@@ -581,10 +577,6 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	if err != nil {
 		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
-
-	fmt.Println("---------------------------------")
-	fmt.Printf("litter.Sdump(sp) after = %+v\n", litter.Sdump(sp))
-	fmt.Println("---------------------------------")
 
 	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
 	return sp, nil

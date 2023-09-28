@@ -60,6 +60,11 @@ func Upgrade(
 		return err
 	}
 
+	err = upgradeSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+
 	upgradeAction := action.NewUpgradeAction(c, upgradeSpec)
 
 	err = upgradeAction.Run()
@@ -105,9 +110,9 @@ func determineUpgradeImage(version string) (*v1.ImageSource, error) {
 	return v1.NewSrcFromURI(fmt.Sprintf("%s:%s", registry, version))
 }
 
-// generateUpgradeConf creates a kairos configuration for `--source` and `--recovery`
+// generateConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
 // command line arguments. It will be added to the rest of the configurations.
-func generateUpgradeConf(source string, upgradeRecovery bool) (string, error) {
+func generateConfForCLIArgs(source string, upgradeRecovery bool) (string, error) {
 	upgrade := map[string](map[string]interface{}){
 		"upgrade": {},
 	}
@@ -193,13 +198,13 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 }
 
 func generateUpgradeSpec(version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
-	upgradeConf, err := generateUpgradeConf(source, upgradeRecovery)
+	cliConf, err := generateConfForCLIArgs(source, upgradeRecovery)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	c, err := config.Scan(collector.Directories(dirs...),
-		collector.Readers(strings.NewReader(upgradeConf)),
+		collector.Readers(strings.NewReader(cliConf)),
 		collector.StrictValidation(strictValidations))
 	if err != nil {
 		return nil, nil, err
@@ -214,12 +219,6 @@ func generateUpgradeSpec(version, source string, force, strictValidations bool, 
 	}
 
 	err = handleEmptySource(upgradeSpec, version, preReleases, force)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Sanitize
-	err = upgradeSpec.Sanitize()
 	if err != nil {
 		return nil, nil, err
 	}
