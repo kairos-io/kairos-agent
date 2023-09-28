@@ -8,12 +8,14 @@ import (
 	"strings"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
+	"github.com/sanity-io/litter"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -54,49 +56,7 @@ func Upgrade(
 	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
-	// TODO: Before we check for empy source,
-	// shouldn't we read the `upgrade:` block from the config and check if something
-	// is defined there?
-
-	if version == "" && source == "" {
-		fmt.Println("Searching for releases")
-		if preReleases {
-			fmt.Println("Including pre-releases")
-		}
-		releases := ListReleases(preReleases)
-
-		if len(releases) == 0 {
-			return fmt.Errorf("no releases found")
-		}
-
-		// Using Original here because the parsing removes the v as its a semver. But it stores the original full version there
-		version = releases[0].Original()
-
-		if utils.Version() == version && !force {
-			fmt.Printf("version %s already installed. use --force to force upgrade\n", version)
-			return nil
-		}
-		msg := fmt.Sprintf("Latest release is %s\nAre you sure you want to upgrade to this release? (y/n)", version)
-		reply, err := promptBool(events.YAMLPrompt{Prompt: msg, Default: "y"})
-		if err != nil {
-			return err
-		}
-		if reply == "false" {
-			return nil
-		}
-	}
-
-	img := source
-	var err error
-	if img == "" {
-		img, err = determineUpgradeImage(version)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-	}
-
-	upgradeConf := generateUpgradeConf(img, upgradeRecovery)
+	upgradeConf := generateUpgradeConf(source, upgradeRecovery)
 
 	c, err := config.Scan(collector.Directories(dirs...),
 		collector.Readers(strings.NewReader(upgradeConf)),
@@ -112,6 +72,14 @@ func Upgrade(
 	if err != nil {
 		return err
 	}
+
+	err = handleEmptySource(upgradeSpec, version, preReleases, force)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Remove this line
+	litter.Dump(upgradeSpec)
 
 	// Sanitize
 	err = upgradeSpec.Sanitize()
@@ -139,7 +107,7 @@ func Upgrade(
 
 // determineUpgradeImage asks the provider plugin for an image or constructs
 // it using version and data from /etc/os-release
-func determineUpgradeImage(version string) (string, error) {
+func determineUpgradeImage(version string) (*v1.ImageSource, error) {
 	var img string
 	bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
 		img = r.Data
@@ -149,19 +117,19 @@ func determineUpgradeImage(version string) (string, error) {
 		Version: version,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if img != "" {
-		return img, nil
+		return nil, nil
 	}
 
 	registry, err := utils.OSRelease("IMAGE_REPO")
 	if err != nil {
-		return "", fmt.Errorf("can't find IMAGE_REPO key under /etc/os-release %w", err)
+		return nil, fmt.Errorf("can't find IMAGE_REPO key under /etc/os-release %w", err)
 	}
 
-	return fmt.Sprintf("%s:%s", registry, version), nil
+	return v1.NewSrcFromURI(fmt.Sprintf("%s:%s", registry, version))
 }
 
 // generateUpgradeConf creates a kairos configuration for upgrade to be
@@ -173,38 +141,68 @@ func generateUpgradeConf(source string, upgradeRecovery bool) string {
 		return conf
 	}
 
-	// TODO: Do the same for recovery upgrade
 	conf = fmt.Sprintf(`
 upgrade:
+	recovery: %t
 	recovery-system:
-		uri: %s`, source)
-
-	// source := viper.GetString("upgradeSource")
-	// recoveryUpgrade := viper.GetBool("upgradeRecovery")
-	// if source != "" {
-	// 	imgSource, err := v1.NewSrcFromURI(source)
-	// 	// TODO: Don't hide the error here!
-	// 	if err == nil {
-	// 		if recoveryUpgrade {
-	// 			spec.RecoveryUpgrade = recoveryUpgrade
-	// 			spec.Recovery.Source = imgSource
-	// 		} else {
-	// 			spec.Active.Source = imgSource
-	// 		}
-	// 		size, err := GetSourceSize(cfg, imgSource)
-	// 		if err != nil {
-	// 			cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
-	// 		} else {
-	// 			cfg.Logger.Infof("Setting image size to %dMb", size)
-	// 			// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
-	// 			if recoveryUpgrade {
-	// 				spec.Recovery.Size = uint(size)
-	// 			} else {
-	// 				spec.Active.Size = uint(size)
-	// 			}
-	// 		}
-	// 	}
-	//}
+		uri: %s`, upgradeRecovery, source)
 
 	return conf
+}
+
+func handleEmptySource(spec *v1.UpgradeSpec, version string, preReleases, force bool) error {
+	var err error
+	if spec.RecoveryUpgrade {
+		if spec.Recovery.Source.IsEmpty() {
+			spec.Recovery.Source, err = getLatestOrConstructSource(version, preReleases, force)
+		}
+	} else {
+		if spec.Active.Source.IsEmpty() {
+			spec.Active.Source, err = getLatestOrConstructSource(version, preReleases, force)
+		}
+	}
+
+	return err
+}
+
+func getLatestOrConstructSource(version string, preReleases, force bool) (*v1.ImageSource, error) {
+	var err error
+	if version == "" {
+		version, err = findLatestVersion(preReleases, force)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return determineUpgradeImage(version)
+}
+
+func findLatestVersion(preReleases, force bool) (string, error) {
+	fmt.Println("Searching for releases")
+	if preReleases {
+		fmt.Println("Including pre-releases")
+	}
+	releases := ListReleases(preReleases)
+
+	if len(releases) == 0 {
+		return "", fmt.Errorf("no releases found")
+	}
+
+	// Using Original here because the parsing removes the v as its a semver. But it stores the original full version there
+	version := releases[0].Original()
+
+	if utils.Version() == version && !force {
+		return "", fmt.Errorf("version %s already installed. use --force to force upgrade\n", version)
+	}
+
+	msg := fmt.Sprintf("Latest release is %s\nAre you sure you want to upgrade to this release? (y/n)", version)
+	reply, err := promptBool(events.YAMLPrompt{Prompt: msg, Default: "y"})
+	if err != nil {
+		return "", err
+	}
+	if reply == "false" {
+		return "", fmt.Errorf("cancelled by the user")
+	}
+
+	return version, nil
 }
