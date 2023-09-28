@@ -8,12 +8,11 @@ import (
 	"strings"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
-	"github.com/sanity-io/litter"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -56,36 +55,7 @@ func Upgrade(
 	version, source string, force, strictValidations bool, dirs []string, preReleases bool, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
-	upgradeConf, err := generateUpgradeConf(source, upgradeRecovery)
-	if err != nil {
-		return err
-	}
-
-	c, err := config.Scan(collector.Directories(dirs...),
-		collector.Readers(strings.NewReader(upgradeConf)),
-		collector.StrictValidation(strictValidations))
-	if err != nil {
-		return err
-	}
-
-	utils.SetEnv(c.Env)
-
-	// Load the upgrade Config from the system
-	upgradeSpec, err := config.ReadUpgradeSpecFromConfig(c)
-	if err != nil {
-		return err
-	}
-
-	err = handleEmptySource(upgradeSpec, version, preReleases, force)
-	if err != nil {
-		return err
-	}
-
-	// TODO: Remove this line
-	litter.Dump(upgradeSpec)
-
-	// Sanitize
-	err = upgradeSpec.Sanitize()
+	upgradeSpec, c, err := generateUpgradeSpec(version, source, force, strictValidations, dirs, preReleases, upgradeRecovery)
 	if err != nil {
 		return err
 	}
@@ -207,7 +177,7 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 	version := releases[0].Original()
 
 	if utils.Version() == version && !force {
-		return "", fmt.Errorf("version %s already installed. use --force to force upgrade\n", version)
+		return "", fmt.Errorf("version %s already installed. use --force to force upgrade", version)
 	}
 
 	msg := fmt.Sprintf("Latest release is %s\nAre you sure you want to upgrade to this release? (y/n)", version)
@@ -220,4 +190,39 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 	}
 
 	return version, nil
+}
+
+func generateUpgradeSpec(version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
+	upgradeConf, err := generateUpgradeConf(source, upgradeRecovery)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	c, err := config.Scan(collector.Directories(dirs...),
+		collector.Readers(strings.NewReader(upgradeConf)),
+		collector.StrictValidation(strictValidations))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	utils.SetEnv(c.Env)
+
+	// Load the upgrade Config from the system
+	upgradeSpec, err := config.ReadUpgradeSpecFromConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = handleEmptySource(upgradeSpec, version, preReleases, force)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Sanitize
+	err = upgradeSpec.Sanitize()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return upgradeSpec, c, nil
 }
