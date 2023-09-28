@@ -56,7 +56,10 @@ func Upgrade(
 	version, source string, force, strictValidations bool, dirs []string, preReleases bool, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
-	upgradeConf := generateUpgradeConf(source, upgradeRecovery)
+	upgradeConf, err := generateUpgradeConf(source, upgradeRecovery)
+	if err != nil {
+		return err
+	}
 
 	c, err := config.Scan(collector.Directories(dirs...),
 		collector.Readers(strings.NewReader(upgradeConf)),
@@ -132,37 +135,34 @@ func determineUpgradeImage(version string) (*v1.ImageSource, error) {
 	return v1.NewSrcFromURI(fmt.Sprintf("%s:%s", registry, version))
 }
 
-// generateUpgradeConf creates a kairos configuration for upgrade to be
-// added to the rest of the configurations.
-func generateUpgradeConf(source string, upgradeRecovery bool) string {
-	conf := ""
-
-	if source == "" {
-		return conf
+// generateUpgradeConf creates a kairos configuration for `--source` and `--recovery`
+// command line arguments. It will be added to the rest of the configurations.
+func generateUpgradeConf(source string, upgradeRecovery bool) (string, error) {
+	upgrade := map[string](map[string]interface{}){
+		"upgrade": {},
 	}
-
-	upgrade := struct {
-		Recovery: Bool `json:"recovery,omitempy"`,
-		RecoverySystem: struct{ `json:"recovery-system,omitempty"`
-		  URI: string `json:"uri,omitempy"`
-		},
-		System: struct{ `json:"system,omitempy"`
-			URI: string
-		}
-	}{
-	}
-
-
-	conf = fmt.Sprintf(`upgrade:
-  recovery-system:
-    uri: %s
-`, source)
 
 	if upgradeRecovery {
-		conf += `  recovery: true`
+		upgrade["upgrade"]["recovery"] = "true"
 	}
 
-	return conf
+	// Set uri both for active and recovery because we don't know what we are
+	// actually upgrading. The "upgradeRecovery" is just the command line argument.
+	// The user might have set it to "true" in the kairos config. Since we don't
+	// have access to that yet, we just set both uri values which shouldn't matter
+	// anyway, the right one will be used later in the process.
+	if source != "" {
+		upgrade["upgrade"]["recovery-system"] = map[string]string{
+			"uri": source,
+		}
+		upgrade["upgrade"]["system"] = map[string]string{
+			"uri": source,
+		}
+	}
+
+	d, err := json.Marshal(upgrade)
+
+	return string(d), err
 }
 
 func handleEmptySource(spec *v1.UpgradeSpec, version string, preReleases, force bool) error {
