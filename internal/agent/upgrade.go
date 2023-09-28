@@ -110,9 +110,9 @@ func determineUpgradeImage(version string) (*v1.ImageSource, error) {
 	return v1.NewSrcFromURI(fmt.Sprintf("%s:%s", registry, version))
 }
 
-// generateConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
+// generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
 // command line arguments. It will be added to the rest of the configurations.
-func generateConfForCLIArgs(source string, upgradeRecovery bool) (string, error) {
+func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string, error) {
 	upgrade := map[string](map[string]interface{}){
 		"upgrade": {},
 	}
@@ -198,7 +198,7 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 }
 
 func generateUpgradeSpec(version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
-	cliConf, err := generateConfForCLIArgs(source, upgradeRecovery)
+	cliConf, err := generateUpgradeConfForCLIArgs(source, upgradeRecovery)
 	if err != nil {
 		return nil, nil, err
 	}

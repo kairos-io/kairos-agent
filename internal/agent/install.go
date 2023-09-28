@@ -62,7 +62,12 @@ func ManualInstall(c, sourceImg, device string, reboot, poweroff, strictValidati
 		return err
 	}
 
-	cc, err := config.Scan(collector.Directories(ConfigSource), collector.MergeBootLine, collector.StrictValidation(strictValidations), collector.NoLogs)
+	cliConf := generateInstallConfForCLIArgs(sourceImg)
+
+	cc, err := config.Scan(collector.Directories(ConfigSource),
+		collector.Readers(strings.NewReader(cliConf)),
+		collector.MergeBootLine,
+		collector.StrictValidation(strictValidations), collector.NoLogs)
 	if err != nil {
 		return err
 	}
@@ -80,7 +85,7 @@ func ManualInstall(c, sourceImg, device string, reboot, poweroff, strictValidati
 		// Override from flags!
 		cc.Install.Device = device
 	}
-	return RunInstall(cc, sourceImg)
+	return RunInstall(cc)
 }
 
 func Install(sourceImg string, dir ...string) error {
@@ -116,11 +121,14 @@ func Install(sourceImg string, dir ...string) error {
 
 	ensureDataSourceReady()
 
-	// Reads config, and if present and offline is defined,
-	// runs the installation
-	cc, err = config.Scan(collector.Directories(dir...), collector.MergeBootLine)
+	cliConf := generateInstallConfForCLIArgs(sourceImg)
+
+	// Reads config, and if present and offline is defined, runs the installation
+	cc, err = config.Scan(collector.Directories(dir...),
+		collector.Readers(strings.NewReader(cliConf)),
+		collector.MergeBootLine)
 	if err == nil && cc.Install != nil && cc.Install.Auto {
-		err = RunInstall(cc, sourceImg)
+		err = RunInstall(cc)
 		if err != nil {
 			return err
 		}
@@ -184,7 +192,7 @@ func Install(sourceImg string, dir ...string) error {
 	pterm.Info.Println("Starting installation")
 
 	cc.Logger.Debugf("Runinstall with cc: %s\n", litter.Sdump(cc))
-	if err := RunInstall(cc, sourceImg); err != nil {
+	if err := RunInstall(cc); err != nil {
 		return err
 	}
 
@@ -213,7 +221,7 @@ func Install(sourceImg string, dir ...string) error {
 	return nil
 }
 
-func RunInstall(c *config.Config, sourceImg string) error {
+func RunInstall(c *config.Config) error {
 	utils.SetEnv(c.Env)
 	utils.SetEnv(c.Install.Env)
 
@@ -250,28 +258,7 @@ func RunInstall(c *config.Config, sourceImg string) error {
 	// Set our cloud-init to the file we just created
 	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
 	// Get the source of the installation if we are overriding it
-	if sourceImg != "" {
-		imgSource, err := v1.NewSrcFromURI(sourceImg)
-		if err != nil {
-			return err
-		}
-		installSpec.Active.Source = imgSource
-
-		// TODO: Why only setting active source above? What about size?
-		// TODO: These 2 blocks are identical, DRY them.
-
-		// size, err := GetSourceSize(cfg, imgSource)
-		// if err != nil {
-		// 	c.Logger.Warnf("Failed to infer size for images: %s", err.Error())
-		// }
-
-		// installSpec.Active.Source = imgSource
-		// installSpec.Passive.Source = imgSource
-		// installSpec.Recovery.Source = imgSource
-		// installSpec.Active.Size = uint(size)
-		// installSpec.Passive.Size = uint(size)
-		// installSpec.Recovery.Size = uint(size)
-	} else if c.Install.Image != "" {
+	if c.Install.Image != "" {
 		imgSource, err := v1.NewSrcFromURI(c.Install.Image)
 		if err != nil {
 			return err
@@ -351,4 +338,15 @@ func prepareConfiguration(ctx context.Context, source string) (string, error) {
 	}
 
 	return f.Name(), nil
+}
+
+func generateInstallConfForCLIArgs(source string) string {
+	if source == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(`install:
+system:
+uri: %s
+`, source)
 }

@@ -282,9 +282,11 @@ func InteractiveInstall(debug, spawnShell bool, sourceImg string) error {
 		if err != nil {
 			fmt.Printf("could not write event cloud init: %s\n", err.Error())
 		}
-		// override cc with our new config object from the scan, so it's updated for the RunInstall function
-		// TODO: Alternative solution: pass a reader here (the new feature) and add the image source
-		cc, _ = config.Scan(collector.Directories(tmpdir), collector.MergeBootLine, collector.NoLogs)
+
+		cliConf := generateInstallConfForCLIArgs(sourceImg)
+		cc, _ = config.Scan(collector.Directories(tmpdir),
+			collector.Readers(strings.NewReader(cliConf)),
+			collector.MergeBootLine, collector.NoLogs)
 	}
 
 	pterm.Info.Println("Starting installation")
@@ -292,7 +294,7 @@ func InteractiveInstall(debug, spawnShell bool, sourceImg string) error {
 	ccString, _ := cc.String()
 	pterm.Info.Println(ccString)
 
-	err = RunInstall(cc, sourceImg)
+	err = RunInstall(cc)
 	if err != nil {
 		pterm.Error.Println(err.Error())
 	}
