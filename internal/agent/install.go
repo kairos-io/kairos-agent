@@ -57,14 +57,14 @@ func ManualInstall(c, sourceImg, device string, reboot, poweroff, strictValidati
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ConfigSource, err := prepareConfiguration(ctx, c)
+	configSource, err := prepareConfiguration(ctx, c)
 	if err != nil {
 		return err
 	}
 
 	cliConf := generateInstallConfForCLIArgs(sourceImg)
 
-	cc, err := config.Scan(collector.Directories(ConfigSource),
+	cc, err := config.Scan(collector.Directories(configSource),
 		collector.Readers(strings.NewReader(cliConf)),
 		collector.MergeBootLine,
 		collector.StrictValidation(strictValidations), collector.NoLogs)
