@@ -197,7 +197,7 @@ var _ = Describe("RunInstall", func() {
 
 	It("runs the install", func() {
 		Skip("Not ready yet")
-		err = RunInstall(options, "") // TODO
+		err = RunInstall(options)
 		Expect(err).ToNot(HaveOccurred())
 	})
 })

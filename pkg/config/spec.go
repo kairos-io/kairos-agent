@@ -199,7 +199,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 
 		squashedRec, err := hasSquashedRecovery(cfg, ep.Recovery)
 		if err != nil {
-			return nil, fmt.Errorf("failed checking for squashed recovery")
+			return nil, fmt.Errorf("failed checking for squashed recovery: %w", err)
 		}
 
 		if squashedRec {
