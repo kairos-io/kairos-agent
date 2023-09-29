@@ -631,6 +631,7 @@ The validate command expects a configuration file as its only argument. Local fi
 	},
 	{
 		Name:        "uki",
+		Usage:       "UKI subcommands",
 		Description: "UKI subcommands",
 		// we could set the flag --source at this level so we could have the flag for all subcommands but that translates into an ugly command
 		// in which you need to put the source flag before the subcommand, which is a mess. Just bad UX.
@@ -638,11 +639,13 @@ The validate command expects a configuration file as its only argument. Local fi
 		// subcommand level: kairos-agent uki install --source oci:whatever
 		Subcommands: []*cli.Command{
 			{
-				Name: "install",
+				Name:      "install",
+				Usage:     "Install to disk",
+				UsageText: "install [--device DEVICE]",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  "source",
-						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+						Usage: "Source for install. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 						Action: func(c *cli.Context, s string) error {
 							return validateSourceFlag(s)
 						},
@@ -681,6 +684,9 @@ The validate command expects a configuration file as its only argument. Local fi
 						},
 					},
 				},
+				Before: func(c *cli.Context) error {
+					return fmt.Errorf("not implemented")
+				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
@@ -707,6 +713,9 @@ The validate command expects a configuration file as its only argument. Local fi
 							return validateSourceFlag(s)
 						},
 					},
+				},
+				Before: func(c *cli.Context) error {
+					return fmt.Errorf("not implemented")
 				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
