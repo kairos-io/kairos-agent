@@ -92,13 +92,18 @@ func (i *InstallAction) Run() (err error) {
 		return e.UnmountPartitions(i.spec.GetPartitions().PartitionsByMountPoint(true))
 	})
 
-	// Before install hook happens after partitioning but before the image OS is applied
-	//err = i.installHook(cnst.BeforeInstallHook, false)
-	//if err != nil {
-	//	return err
-	//}
+	// Before install hook happens after partitioning but before the image OS is applied (this is for compatibility with normal install, so users can reuse their configs)
+	err = Hook(i.cfg, constants.BeforeInstallHook)
+	if err != nil {
+		return err
+	}
 
 	// Store cloud-config in TPM or copy it to COS_OEM?
+	// Copy cloud-init if any
+	err = e.CopyCloudConfig(i.spec.CloudInit)
+	if err != nil {
+		return err
+	}
 	// Create dir structure
 	//  - /EFI/Kairos/ -> Store our older efi images ?
 	//  - /EFI/BOOT/ -> Default fallback dir (efi search for bootaa64.efi or bootx64.efi if no entries in the boot manager)
@@ -114,6 +119,12 @@ func (i *InstallAction) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
+	err = Hook(i.cfg, constants.AfterInstallHook)
+	if err != nil {
+		return err
+	}
 	// Remove all boot manager entries?
 	// Create boot manager entry
 	// Set default entry to the one we just created
@@ -122,4 +133,15 @@ func (i *InstallAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
+}
+
+// Hook is RunStage wrapper that only adds logic to ignore errors
+// in case v1.Config.Strict is set to false
+func Hook(config *config.Config, hook string) error {
+	config.Logger.Infof("Running %s hook", hook)
+	err := utils.RunStage(config, hook)
+	if !config.Strict {
+		err = nil
+	}
+	return err
 }

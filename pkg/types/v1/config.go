@@ -495,6 +495,7 @@ type InstallUkiSpec struct {
 	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
 	ExtraPartitions PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	CloudInit       []string            `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
 }
 
 func (i *InstallUkiSpec) Sanitize() error {
