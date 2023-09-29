@@ -265,6 +265,11 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
+	err = setSourceSize(cfg, spec)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+	}
+
 	return spec, nil
 }
 
@@ -692,4 +697,28 @@ func isMounted(config *Config, part *v1.Partition) (bool, error) {
 		return false, err
 	}
 	return !notMnt, nil
+}
+
+func setSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
+	var size int64
+	var err error
+
+	if spec.RecoveryUpgrade {
+		size, err = GetSourceSize(cfg, spec.Recovery.Source)
+	} else {
+		size, err = GetSourceSize(cfg, spec.Active.Source)
+	}
+	if err != nil {
+		return err
+	}
+
+	cfg.Logger.Infof("Setting image size to %dMb", size)
+	// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
+	if spec.RecoveryUpgrade {
+		spec.Recovery.Size = uint(size)
+	} else {
+		spec.Active.Size = uint(size)
+	}
+
+	return nil
 }
