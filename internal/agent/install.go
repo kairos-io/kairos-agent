@@ -53,7 +53,7 @@ func displayInfo(agentConfig *Config) {
 	}
 }
 
-func ManualInstall(c, sourceImg, device string, reboot, poweroff, strictValidations bool) error {
+func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -62,7 +62,7 @@ func ManualInstall(c, sourceImg, device string, reboot, poweroff, strictValidati
 		return err
 	}
 
-	cliConf := generateInstallConfForCLIArgs(sourceImg)
+	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
 
 	cc, err := config.Scan(collector.Directories(configSource),
 		collector.Readers(strings.NewReader(cliConf)),
@@ -88,7 +88,7 @@ func ManualInstall(c, sourceImg, device string, reboot, poweroff, strictValidati
 	return RunInstall(cc)
 }
 
-func Install(sourceImg string, dir ...string) error {
+func Install(sourceImgURL string, dir ...string) error {
 	var cc *config.Config
 	var err error
 
@@ -121,7 +121,7 @@ func Install(sourceImg string, dir ...string) error {
 
 	ensureDataSourceReady()
 
-	cliConf := generateInstallConfForCLIArgs(sourceImg)
+	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
 
 	// Reads config, and if present and offline is defined, runs the installation
 	cc, err = config.Scan(collector.Directories(dir...),
@@ -340,13 +340,13 @@ func prepareConfiguration(ctx context.Context, source string) (string, error) {
 	return f.Name(), nil
 }
 
-func generateInstallConfForCLIArgs(source string) string {
-	if source == "" {
+func generateInstallConfForCLIArgs(sourceImageURL string) string {
+	if sourceImageURL == "" {
 		return ""
 	}
 
 	return fmt.Sprintf(`install:
   system:
     uri: %s
-`, source)
+`, sourceImageURL)
 }

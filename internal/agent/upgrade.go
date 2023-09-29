@@ -197,8 +197,8 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 	return version, nil
 }
 
-func generateUpgradeSpec(version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
-	cliConf, err := generateUpgradeConfForCLIArgs(source, upgradeRecovery)
+func generateUpgradeSpec(version, sourceImageURL string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
+	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeRecovery)
 	if err != nil {
 		return nil, nil, err
 	}

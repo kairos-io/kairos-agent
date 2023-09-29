@@ -129,7 +129,7 @@ func detectDevice() string {
 	return preferedDevice
 }
 
-func InteractiveInstall(debug, spawnShell bool, sourceImg string) error {
+func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 	var sshUsers []string
 	bus.Manager.Initialize()
 
@@ -229,7 +229,7 @@ func InteractiveInstall(debug, spawnShell bool, sourceImg string) error {
 	}
 
 	if !isYes(allGood) {
-		return InteractiveInstall(debug, spawnShell, sourceImg)
+		return InteractiveInstall(debug, spawnShell, sourceImgURL)
 	}
 
 	usersToSet := map[string]schema.User{}
@@ -283,7 +283,7 @@ func InteractiveInstall(debug, spawnShell bool, sourceImg string) error {
 			fmt.Printf("could not write event cloud init: %s\n", err.Error())
 		}
 
-		cliConf := generateInstallConfForCLIArgs(sourceImg)
+		cliConf := generateInstallConfForCLIArgs(sourceImgURL)
 		cc, _ = config.Scan(collector.Directories(tmpdir),
 			collector.Readers(strings.NewReader(cliConf)),
 			collector.MergeBootLine, collector.NoLogs)
