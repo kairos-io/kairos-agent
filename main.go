@@ -54,6 +54,11 @@ func ReleasesToOutput(rels semver.Collection, output string) []string {
 	}
 }
 
+var sourceFlag = cli.StringFlag{
+	Name:  "source",
+	Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+}
+
 var cmds = []*cli.Command{
 	{
 		Name: "upgrade",
@@ -66,10 +71,7 @@ var cmds = []*cli.Command{
 				Name:  "image",
 				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
 			},
-			&cli.StringFlag{
-				Name:  "source",
-				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-			},
+			&sourceFlag,
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
 		},
@@ -378,10 +380,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			&cli.BoolFlag{
 				Name: "shell",
 			},
-			&cli.StringFlag{
-				Name:  "source",
-				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-			},
+			&sourceFlag,
 		},
 		Usage: "Starts interactive installation",
 		Before: func(c *cli.Context) error {
@@ -413,10 +412,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			&cli.BoolFlag{
 				Name: "reboot",
 			},
-			&cli.StringFlag{
-				Name:  "source",
-				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-			},
+			&sourceFlag,
 		},
 		Before: func(c *cli.Context) error {
 			if err := validateSource(c.String("source")); err != nil {
@@ -456,10 +452,7 @@ This command is meant to be used from the boot GRUB menu, but can be started man
 			return checkRoot()
 		},
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "source",
-				Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-			},
+			&sourceFlag,
 		},
 		Action: func(c *cli.Context) error {
 			source := c.String("source")
