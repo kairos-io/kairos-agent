@@ -36,7 +36,7 @@ import (
 )
 
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
-func NewInstallSpec(cfg *Config) *v1.InstallSpec {
+func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	var firmware string
 	var recoveryImg, activeImg, passiveImg v1.Image
 
@@ -98,6 +98,11 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 		Passive:   passiveImg,
 	}
 
+	err := unmarshallFullSpec(cfg, "install", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
+	}
+
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
@@ -112,7 +117,7 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
 	spec.Partitions = NewInstallElementalPartitions(spec)
 
-	return spec
+	return spec, nil
 }
 
 func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions {
@@ -265,12 +270,40 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
-	err = setSourceSize(cfg, spec)
+	err = unmarshallFullSpec(cfg, "upgrade", spec)
 	if err != nil {
-		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
 
+	setUpgradeSourceSize(cfg, spec)
+
 	return spec, nil
+}
+
+func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
+	var size int64
+	var err error
+
+	var targetSpec *v1.Image
+	if spec.RecoveryUpgrade {
+		targetSpec = &(spec.Recovery)
+	} else {
+		targetSpec = &(spec.Active)
+	}
+
+	if targetSpec.Source.IsEmpty() {
+		return nil
+	}
+
+	size, err = GetSourceSize(cfg, targetSpec.Source)
+	if err != nil {
+		return err
+	}
+
+	cfg.Logger.Infof("Setting image size to %dMb", size)
+	targetSpec.Size = uint(size)
+
+	return nil
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
@@ -394,6 +427,11 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 			FS:     constants.LinuxImgFs,
 		},
 		State: installState,
+	}
+
+	err = unmarshallFullSpec(cfg, "reset", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
 
 	// Get the actual source size to calculate the image size and partitions size
@@ -527,7 +565,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 
 	switch spec {
 	case "install":
-		sp = NewInstallSpec(r)
+		sp, err = NewInstallSpec(r)
 	case "upgrade":
 		sp, err = NewUpgradeSpec(r)
 	case "reset":
@@ -537,23 +575,6 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed initializing spec: %v", err)
-	}
-
-	// Load the config into viper from the raw cloud config string
-	ccString, err := r.String()
-	if err != nil {
-		return nil, fmt.Errorf("failed initializing spec: %v", err)
-	}
-	viper.SetConfigType("yaml")
-	viper.ReadConfig(strings.NewReader(ccString))
-	vp := viper.Sub(spec)
-	if vp == nil {
-		vp = viper.New()
-	}
-
-	err = vp.Unmarshal(sp, setDecoder, decodeHook)
-	if err != nil {
-		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
 	}
 
 	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
@@ -699,25 +720,27 @@ func isMounted(config *Config, part *v1.Partition) (bool, error) {
 	return !notMnt, nil
 }
 
-func setSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
-	var size int64
-	var err error
-
-	if spec.RecoveryUpgrade {
-		size, err = GetSourceSize(cfg, spec.Recovery.Source)
-	} else {
-		size, err = GetSourceSize(cfg, spec.Active.Source)
-	}
+func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
+	// Load the config into viper from the raw cloud config string
+	ccString, err := r.String()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed initializing spec: %w", err)
+	}
+	viper.SetConfigType("yaml")
+	viper.ReadConfig(strings.NewReader(ccString))
+	vp := viper.Sub(subkey)
+	if vp == nil {
+		vp = viper.New()
 	}
 
-	cfg.Logger.Infof("Setting image size to %dMb", size)
-	// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
-	if spec.RecoveryUpgrade {
-		spec.Recovery.Size = uint(size)
-	} else {
-		spec.Active.Size = uint(size)
+	err = vp.Unmarshal(sp, setDecoder, decodeHook)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling %s Spec: %w", subkey, err)
+	}
+
+	err = sp.Sanitize()
+	if err != nil {
+		return fmt.Errorf("sanitizing the % spec: %w", subkey, err)
 	}
 
 	return nil
