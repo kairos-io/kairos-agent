@@ -577,6 +577,11 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		return nil, fmt.Errorf("failed initializing spec: %v", err)
 	}
 
+	err = sp.Sanitize()
+	if err != nil {
+		return sp, fmt.Errorf("sanitizing the %s spec: %w", spec, err)
+	}
+
 	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
 	return sp, nil
 }
@@ -736,11 +741,6 @@ func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
 	err = vp.Unmarshal(sp, setDecoder, decodeHook)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling %s Spec: %w", subkey, err)
-	}
-
-	err = sp.Sanitize()
-	if err != nil {
-		return fmt.Errorf("sanitizing the % spec: %w", subkey, err)
 	}
 
 	return nil
