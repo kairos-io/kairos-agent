@@ -670,7 +670,7 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "source",
 						Usage: "Source for install. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 						Action: func(c *cli.Context, s string) error {
-							return validateSourceFlag(s)
+							return validateSource(s)
 						},
 					},
 					&cli.StringFlag{
@@ -703,7 +703,7 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "source",
 						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 						Action: func(c *cli.Context, s string) error {
-							return validateSourceFlag(s)
+							return validateSource(s)
 						},
 					},
 				},
@@ -733,7 +733,7 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "source",
 						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 						Action: func(c *cli.Context, s string) error {
-							return validateSourceFlag(s)
+							return validateSource(s)
 						},
 					},
 				},
