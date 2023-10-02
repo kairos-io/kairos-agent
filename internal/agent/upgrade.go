@@ -99,7 +99,7 @@ func determineUpgradeImage(version string) (*v1.ImageSource, error) {
 	}
 
 	if img != "" {
-		return nil, nil
+		return v1.NewSrcFromURI(img)
 	}
 
 	registry, err := utils.OSRelease("IMAGE_REPO")
