@@ -18,13 +18,13 @@ package action_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-sdk/collector"
 	"path/filepath"
 	"regexp"
+
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/collector"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
@@ -111,7 +111,7 @@ var _ = Describe("Install action tests", func() {
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 				regexCmd := regexp.MustCompile(cmdFail)
 				if cmdFail != "" && regexCmd.MatchString(cmd) {
-					return []byte{}, errors.New(fmt.Sprintf("failed on %s", cmd))
+					return []byte{}, fmt.Errorf("failed on %s", cmd)
 				}
 				switch cmd {
 				case "parted":
@@ -152,7 +152,8 @@ var _ = Describe("Install action tests", func() {
 			err = fsutils.MkdirAll(fs, constants.IsoBaseTree, constants.DirPerm)
 			Expect(err).To(BeNil())
 
-			spec = agentConfig.NewInstallSpec(config)
+			spec, err = agentConfig.NewInstallSpec(config)
+			Expect(err).ToNot(HaveOccurred())
 			spec.Active.Size = 16
 
 			grubCfg := filepath.Join(spec.Active.MountPoint, constants.GrubConf)

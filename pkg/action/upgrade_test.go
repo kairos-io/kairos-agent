@@ -19,9 +19,10 @@ package action_test
 import (
 	"bytes"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
+
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"

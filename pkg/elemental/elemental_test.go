@@ -19,15 +19,15 @@ package elemental_test
 import (
 	"errors"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+
 	"github.com/jaypipes/ghw/pkg/block"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -340,13 +340,15 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var printOut string
 		var failPart bool
 		var install *v1.InstallSpec
+		var err error
 
 		BeforeEach(func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
 			config.Install.Device = "/some/device"
 			el = elemental.NewElemental(config)
-			install = agentConfig.NewInstallSpec(config)
+			install, err = agentConfig.NewInstallSpec(config)
+			Expect(err).ToNot(HaveOccurred())
 			install.Target = "/some/device"
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
@@ -498,7 +500,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			cmdFail = ""
 			el = elemental.NewElemental(config)
 			img = &v1.Image{
-				FS:         constants.LinuxImgFs,
+				FS:         cnst.LinuxImgFs,
 				Size:       16,
 				Source:     v1.NewDirSrc(sourceDir),
 				MountPoint: destDir,
@@ -524,7 +526,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(el.DeployImage(img, false)).To(BeNil())
 		})
 		It("Deploys an squashfs image from a directory", func() {
-			img.FS = constants.SquashFs
+			img.FS = cnst.SquashFs
 			Expect(el.DeployImage(img, true)).To(BeNil())
 			Expect(runner.MatchMilestones([][]string{
 				{
@@ -569,7 +571,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 		It("Fails creating the squashfs filesystem", func() {
 			cmdFail = "mksquashfs"
-			img.FS = constants.SquashFs
+			img.FS = cnst.SquashFs
 			_, err := el.DeployImage(img, true)
 			Expect(err).NotTo(BeNil())
 			Expect(runner.MatchMilestones([][]string{
@@ -609,7 +611,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			src := ""
 			dest := ""
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
-				if cmd == constants.Rsync {
+				if cmd == cnst.Rsync {
 					rsyncCount += 1
 					src = args[len(args)-2]
 					dest = args[len(args)-1]
@@ -647,7 +649,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).To(BeNil())
 			_, err = e.DumpSource(destFile, v1.NewFileSrc(sourceImg))
 			Expect(err).To(BeNil())
-			Expect(runner.IncludesCmds([][]string{{constants.Rsync}}))
+			Expect(runner.IncludesCmds([][]string{{cnst.Rsync}}))
 		})
 		It("Fails to copy, source file is not present", func() {
 			_, err := e.DumpSource("whatever", v1.NewFileSrc("/source.img"))
@@ -687,7 +689,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var relabelCmd []string
 		BeforeEach(func() {
 			// to mock the existance of setfiles command on non selinux hosts
-			err := fsutils.MkdirAll(fs, "/usr/sbin", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/usr/sbin", cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			sbin, err := fs.RawPath("/usr/sbin")
 			Expect(err).ShouldNot(HaveOccurred())
@@ -700,23 +702,23 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			// to mock SELinux policy files
-			policyFile = filepath.Join(constants.SELinuxTargetedPolicyPath, "policy.31")
-			err = fsutils.MkdirAll(fs, filepath.Dir(constants.SELinuxTargetedContextFile), constants.DirPerm)
+			policyFile = filepath.Join(cnst.SELinuxTargetedPolicyPath, "policy.31")
+			err = fsutils.MkdirAll(fs, filepath.Dir(cnst.SELinuxTargetedContextFile), cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
-			_, err = fs.Create(constants.SELinuxTargetedContextFile)
+			_, err = fs.Create(cnst.SELinuxTargetedContextFile)
 			Expect(err).ShouldNot(HaveOccurred())
-			err = fsutils.MkdirAll(fs, constants.SELinuxTargetedPolicyPath, constants.DirPerm)
+			err = fsutils.MkdirAll(fs, cnst.SELinuxTargetedPolicyPath, cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(policyFile)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			relabelCmd = []string{
 				"setfiles", "-c", policyFile, "-e", "/dev", "-e", "/proc", "-e", "/sys",
-				"-F", constants.SELinuxTargetedContextFile, "/",
+				"-F", cnst.SELinuxTargetedContextFile, "/",
 			}
 		})
 		It("does nothing if the context file is not found", func() {
-			err := fs.Remove(constants.SELinuxTargetedContextFile)
+			err := fs.Remove(cnst.SELinuxTargetedContextFile)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			c := elemental.NewElemental(config)
@@ -753,13 +755,13 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(runner.CmdsMatch([][]string{relabelCmd})).To(BeNil())
 		})
 		It("relabels the given root-tree path", func() {
-			contextFile := filepath.Join("/root", constants.SELinuxTargetedContextFile)
-			err := fsutils.MkdirAll(fs, filepath.Dir(contextFile), constants.DirPerm)
+			contextFile := filepath.Join("/root", cnst.SELinuxTargetedContextFile)
+			err := fsutils.MkdirAll(fs, filepath.Dir(contextFile), cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(contextFile)
 			Expect(err).ShouldNot(HaveOccurred())
 			policyFile = filepath.Join("/root", policyFile)
-			err = fsutils.MkdirAll(fs, filepath.Join("/root", constants.SELinuxTargetedPolicyPath), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Join("/root", cnst.SELinuxTargetedPolicyPath), cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = fs.Create(policyFile)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -888,9 +890,9 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(runner.CmdsMatch([][]string{{"grub2-editenv"}})).NotTo(BeNil())
 		})
 		It("loads /etc/os-release on empty default entry", func() {
-			err := fsutils.MkdirAll(config.Fs, "/imgMountPoint/etc", constants.DirPerm)
+			err := fsutils.MkdirAll(config.Fs, "/imgMountPoint/etc", cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
-			err = config.Fs.WriteFile("/imgMountPoint/etc/os-release", []byte("GRUB_ENTRY_NAME=test"), constants.FilePerm)
+			err = config.Fs.WriteFile("/imgMountPoint/etc/os-release", []byte("GRUB_ENTRY_NAME=test"), cnst.FilePerm)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			el := elemental.NewElemental(config)
@@ -909,7 +911,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	})
 	Describe("FindKernelInitrd", Label("find"), func() {
 		BeforeEach(func() {
-			err := fsutils.MkdirAll(fs, "/path/boot", constants.DirPerm)
+			err := fsutils.MkdirAll(fs, "/path/boot", cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("finds kernel and initrd files", func() {

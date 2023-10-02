@@ -53,16 +53,21 @@ func displayInfo(agentConfig *Config) {
 	}
 }
 
-func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) error {
+func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	source, err := prepareConfiguration(ctx, c)
+	configSource, err := prepareConfiguration(ctx, c)
 	if err != nil {
 		return err
 	}
 
-	cc, err := config.Scan(collector.Directories(source), collector.MergeBootLine, collector.StrictValidation(strictValidations), collector.NoLogs)
+	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
+
+	cc, err := config.Scan(collector.Directories(configSource),
+		collector.Readers(strings.NewReader(cliConf)),
+		collector.MergeBootLine,
+		collector.StrictValidation(strictValidations), collector.NoLogs)
 	if err != nil {
 		return err
 	}
@@ -83,7 +88,7 @@ func ManualInstall(c, device string, reboot, poweroff, strictValidations bool) e
 	return RunInstall(cc)
 }
 
-func Install(dir ...string) error {
+func Install(sourceImgURL string, dir ...string) error {
 	var cc *config.Config
 	var err error
 
@@ -116,9 +121,12 @@ func Install(dir ...string) error {
 
 	ensureDataSourceReady()
 
-	// Reads config, and if present and offline is defined,
-	// runs the installation
-	cc, err = config.Scan(collector.Directories(dir...), collector.MergeBootLine)
+	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
+
+	// Reads config, and if present and offline is defined, runs the installation
+	cc, err = config.Scan(collector.Directories(dir...),
+		collector.Readers(strings.NewReader(cliConf)),
+		collector.MergeBootLine)
 	if err == nil && cc.Install != nil && cc.Install.Auto {
 		err = RunInstall(cc)
 		if err != nil {
@@ -330,4 +338,15 @@ func prepareConfiguration(ctx context.Context, source string) (string, error) {
 	}
 
 	return f.Name(), nil
+}
+
+func generateInstallConfForCLIArgs(sourceImageURL string) string {
+	if sourceImageURL == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(`install:
+  system:
+    uri: %s
+`, sourceImageURL)
 }
