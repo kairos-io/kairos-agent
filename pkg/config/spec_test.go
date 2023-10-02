@@ -18,11 +18,14 @@ package config_test
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/jaypipes/ghw/pkg/block"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	. "github.com/onsi/ginkgo/v2"
@@ -31,8 +34,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/twpayne/go-vfs/vfst"
 	"k8s.io/mount-utils"
-	"os"
-	"path/filepath"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
@@ -154,7 +155,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				_, err = fs.Create(recoveryImgFile)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				spec := config.NewInstallSpec(c)
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(spec.Firmware).To(Equal(v1.EFI))
 				Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 				Expect(spec.Recovery.Source.Value()).To(Equal(recoveryImgFile))
@@ -175,7 +177,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				_, err = fs.Create(constants.IsoBaseTree)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				spec := config.NewInstallSpec(c)
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
 				Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
@@ -190,7 +193,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.Partitions.BIOS).NotTo(BeNil())
 			})
 			It("sets installation defaults without being on installation media", Label("install"), func() {
-				spec := config.NewInstallSpec(c)
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
 				Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
@@ -459,6 +463,8 @@ upgrade:
   recovery: true
   system:
     uri: docker:test/image:latest
+  recovery-system:
+    uri: docker:test/image:latest
 cloud-init-paths:
 - /what
 `)
@@ -498,6 +504,12 @@ cloud-init-paths:
 				ghwTest = v1mock.GhwMock{}
 				ghwTest.AddDisk(mainDisk)
 				ghwTest.CreateDevices()
+
+				fs, cleanup, err = vfst.NewTestFS(nil)
+				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				_, err = fs.Create(constants.IsoBaseTree)
+				Expect(err).ShouldNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
@@ -505,7 +517,11 @@ cloud-init-paths:
 				ghwTest.Clean()
 			})
 			It("Reads properly the cloud config for install", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.Scan(collector.Directories([]string{dir}...),
+					collector.NoLogs,
+				)
+				cfg.Fs = fs
+
 				Expect(err).ToNot(HaveOccurred())
 				// Once we got the cfg override the fs to our test fs
 				cfg.Runner = runner

@@ -102,6 +102,11 @@ func Reset(reboot, unattended bool, dir ...string) error {
 		resetSpec.Reboot = reboot
 	}
 
+	err = resetSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+
 	resetAction := action.NewResetAction(c, resetSpec)
 	if err := resetAction.Run(); err != nil {
 		fmt.Println(err)

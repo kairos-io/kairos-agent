@@ -27,7 +27,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
@@ -36,7 +36,7 @@ import (
 )
 
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
-func NewInstallSpec(cfg *Config) *v1.InstallSpec {
+func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	var firmware string
 	var recoveryImg, activeImg, passiveImg v1.Image
 
@@ -60,6 +60,7 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 	activeImg.File = filepath.Join(constants.StateDir, "cOS", constants.ActiveImgFile)
 	activeImg.FS = constants.LinuxImgFs
 	activeImg.MountPoint = constants.ActiveDir
+
 	if isoRootExists {
 		activeImg.Source = v1.NewDirSrc(constants.IsoBaseTree)
 	} else {
@@ -109,10 +110,15 @@ func NewInstallSpec(cfg *Config) *v1.InstallSpec {
 		spec.Recovery.Size = uint(size)
 	}
 
+	err = unmarshallFullSpec(cfg, "install", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
+	}
+
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
 	spec.Partitions = NewInstallElementalPartitions(spec)
 
-	return spec
+	return spec, nil
 }
 
 func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions {
@@ -199,7 +205,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 
 		squashedRec, err := hasSquashedRecovery(cfg, ep.Recovery)
 		if err != nil {
-			return nil, fmt.Errorf("failed checking for squashed recovery")
+			return nil, fmt.Errorf("failed checking for squashed recovery: %w", err)
 		}
 
 		if squashedRec {
@@ -265,33 +271,40 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
-	source := viper.GetString("upgradeSource")
-	recoveryUpgrade := viper.GetBool("upgradeRecovery")
-	if source != "" {
-		imgSource, err := v1.NewSrcFromURI(source)
-		if err == nil {
-			if recoveryUpgrade {
-				spec.RecoveryUpgrade = recoveryUpgrade
-				spec.Recovery.Source = imgSource
-			} else {
-				spec.Active.Source = imgSource
-			}
-			size, err := GetSourceSize(cfg, imgSource)
-			if err != nil {
-				cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
-			} else {
-				cfg.Logger.Infof("Setting image size to %dMb", size)
-				// On upgrade only the active or recovery will be upgraded, so we dont need to override passive
-				if recoveryUpgrade {
-					spec.Recovery.Size = uint(size)
-				} else {
-					spec.Active.Size = uint(size)
-				}
-			}
-		}
+	setUpgradeSourceSize(cfg, spec)
+
+	err = unmarshallFullSpec(cfg, "upgrade", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
 
 	return spec, nil
+}
+
+func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
+	var size int64
+	var err error
+
+	var targetSpec *v1.Image
+	if spec.RecoveryUpgrade {
+		targetSpec = &(spec.Recovery)
+	} else {
+		targetSpec = &(spec.Active)
+	}
+
+	if targetSpec.Source.IsEmpty() {
+		return nil
+	}
+
+	size, err = GetSourceSize(cfg, targetSpec.Source)
+	if err != nil {
+		return err
+	}
+
+	cfg.Logger.Infof("Setting image size to %dMb", size)
+	targetSpec.Size = uint(size)
+
+	return nil
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
@@ -427,6 +440,11 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		spec.Passive.Size = uint(size)
 	}
 
+	err = unmarshallFullSpec(cfg, "reset", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
+	}
+
 	return spec, nil
 }
 
@@ -548,7 +566,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 
 	switch spec {
 	case "install":
-		sp = NewInstallSpec(r)
+		sp, err = NewInstallSpec(r)
 	case "upgrade":
 		sp, err = NewUpgradeSpec(r)
 	case "reset":
@@ -560,26 +578,11 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		return nil, fmt.Errorf("failed initializing spec: %v", err)
 	}
 
-	// Load the config into viper from the raw cloud config string
-	ccString, err := r.String()
-	if err != nil {
-		return nil, fmt.Errorf("failed initializing spec: %v", err)
-	}
-	viper.SetConfigType("yaml")
-	viper.ReadConfig(strings.NewReader(ccString))
-	vp := viper.Sub(spec)
-	if vp == nil {
-		vp = viper.New()
-	}
-
-	err = vp.Unmarshal(sp, setDecoder, decodeHook)
-	if err != nil {
-		r.Logger.Warnf("error unmarshalling %s Spec: %s", spec, err)
-	}
 	err = sp.Sanitize()
 	if err != nil {
-		r.Logger.Warnf("Error sanitizing the % spec: %s", spec, err)
+		return sp, fmt.Errorf("sanitizing the %s spec: %w", spec, err)
 	}
+
 	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
 	return sp, nil
 }
@@ -721,4 +724,25 @@ func isMounted(config *Config, part *v1.Partition) (bool, error) {
 		return false, err
 	}
 	return !notMnt, nil
+}
+
+func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
+	// Load the config into viper from the raw cloud config string
+	ccString, err := r.String()
+	if err != nil {
+		return fmt.Errorf("failed initializing spec: %w", err)
+	}
+	viper.SetConfigType("yaml")
+	viper.ReadConfig(strings.NewReader(ccString))
+	vp := viper.Sub(subkey)
+	if vp == nil {
+		vp = viper.New()
+	}
+
+	err = vp.Unmarshal(sp, setDecoder, decodeHook)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling %s Spec: %w", subkey, err)
+	}
+
+	return nil
 }
