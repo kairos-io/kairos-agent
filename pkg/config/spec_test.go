@@ -463,6 +463,8 @@ upgrade:
   recovery: true
   system:
     uri: docker:test/image:latest
+  recovery-system:
+    uri: docker:test/image:latest
 cloud-init-paths:
 - /what
 `)
@@ -502,6 +504,12 @@ cloud-init-paths:
 				ghwTest = v1mock.GhwMock{}
 				ghwTest.AddDisk(mainDisk)
 				ghwTest.CreateDevices()
+
+				fs, cleanup, err = vfst.NewTestFS(nil)
+				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				_, err = fs.Create(constants.IsoBaseTree)
+				Expect(err).ShouldNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
@@ -509,7 +517,11 @@ cloud-init-paths:
 				ghwTest.Clean()
 			})
 			It("Reads properly the cloud config for install", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.Scan(collector.Directories([]string{dir}...),
+					collector.NoLogs,
+				)
+				cfg.Fs = fs
+
 				Expect(err).ToNot(HaveOccurred())
 				// Once we got the cfg override the fs to our test fs
 				cfg.Runner = runner

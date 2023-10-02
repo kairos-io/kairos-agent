@@ -60,6 +60,7 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	activeImg.File = filepath.Join(constants.StateDir, "cOS", constants.ActiveImgFile)
 	activeImg.FS = constants.LinuxImgFs
 	activeImg.MountPoint = constants.ActiveDir
+
 	if isoRootExists {
 		activeImg.Source = v1.NewDirSrc(constants.IsoBaseTree)
 	} else {
@@ -98,11 +99,6 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 		Passive:   passiveImg,
 	}
 
-	err := unmarshallFullSpec(cfg, "install", spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
-	}
-
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
@@ -112,6 +108,11 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 		spec.Active.Size = uint(size)
 		spec.Passive.Size = uint(size)
 		spec.Recovery.Size = uint(size)
+	}
+
+	err = unmarshallFullSpec(cfg, "install", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
@@ -270,12 +271,12 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
+	setUpgradeSourceSize(cfg, spec)
+
 	err = unmarshallFullSpec(cfg, "upgrade", spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
-
-	setUpgradeSourceSize(cfg, spec)
 
 	return spec, nil
 }
@@ -429,11 +430,6 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		State: installState,
 	}
 
-	err = unmarshallFullSpec(cfg, "reset", spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
-	}
-
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
@@ -442,6 +438,11 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		cfg.Logger.Infof("Setting image size to %dMb", size)
 		spec.Active.Size = uint(size)
 		spec.Passive.Size = uint(size)
+	}
+
+	err = unmarshallFullSpec(cfg, "reset", spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
 
 	return spec, nil
