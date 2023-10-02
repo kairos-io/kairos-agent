@@ -488,7 +488,7 @@ func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
 	return resetSpec, nil
 }
 
-func NewUkiInstallSpec(cfg *Config) *v1.InstallUkiSpec {
+func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	spec := &v1.InstallUkiSpec{
 		Target: cfg.Install.Device,
 	}
@@ -519,7 +519,10 @@ func NewUkiInstallSpec(cfg *Config) *v1.InstallUkiSpec {
 		Flags:           []string{},
 	}
 
-	return spec
+	// TODO: Which key to use? install or install-uki?
+	err := unmarshallFullSpec(cfg, "install", spec)
+
+	return spec, err
 }
 
 // ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
@@ -636,7 +639,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	case "reset":
 		sp, err = NewResetSpec(r)
 	case "install-uki":
-		sp = NewUkiInstallSpec(r)
+		sp, err = NewUkiInstallSpec(r)
 	case "reset-uki":
 		// TODO: Fill with proper defaults
 		sp = &v1.ResetUkiSpec{}
