@@ -41,6 +41,14 @@ type Spec interface {
 	ShouldShutdown() bool
 }
 
+// SharedInstallSpec is the interface that Install specs need to implement
+type SharedInstallSpec interface {
+	GetPartTable() string
+	GetTarget() string
+	GetPartitions() ElementalPartitions
+	GetExtraPartitions() PartitionList
+}
+
 // InstallSpec struct represents all the installation action details
 type InstallSpec struct {
 	Target          string              `yaml:"device,omitempty" mapstructure:"device"`
@@ -106,8 +114,12 @@ func (i *InstallSpec) Sanitize() error {
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
-func (i *InstallSpec) ShouldReboot() bool   { return i.Reboot }
-func (i *InstallSpec) ShouldShutdown() bool { return i.PowerOff }
+func (i *InstallSpec) ShouldReboot() bool                 { return i.Reboot }
+func (i *InstallSpec) ShouldShutdown() bool               { return i.PowerOff }
+func (i *InstallSpec) GetTarget() string                  { return i.Target }
+func (i *InstallSpec) GetPartTable() string               { return i.PartTable }
+func (i *InstallSpec) GetPartitions() ElementalPartitions { return i.Partitions }
+func (i *InstallSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
 
 // ResetSpec struct represents all the reset action details
 type ResetSpec struct {
@@ -476,3 +488,50 @@ type DockerImageMeta struct {
 	Digest string `yaml:"digest,omitempty"`
 	Size   int64  `yaml:"size,omitempty"`
 }
+
+type InstallUkiSpec struct {
+	Target          string              `yaml:"device,omitempty" mapstructure:"device"`
+	Reboot          bool                `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	ExtraPartitions PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	CloudInit       []string            `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
+}
+
+func (i *InstallUkiSpec) Sanitize() error {
+	var err error
+	return err
+}
+
+func (i *InstallUkiSpec) ShouldReboot() bool                 { return i.Reboot }
+func (i *InstallUkiSpec) ShouldShutdown() bool               { return i.PowerOff }
+func (i *InstallUkiSpec) GetTarget() string                  { return i.Target }
+func (i *InstallUkiSpec) GetPartTable() string               { return "gpt" }
+func (i *InstallUkiSpec) GetPartitions() ElementalPartitions { return i.Partitions }
+func (i *InstallUkiSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
+
+type UpgradeUkiSpec struct {
+	Reboot   bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+}
+
+func (i *UpgradeUkiSpec) Sanitize() error {
+	var err error
+	return err
+}
+
+func (i *UpgradeUkiSpec) ShouldReboot() bool   { return i.Reboot }
+func (i *UpgradeUkiSpec) ShouldShutdown() bool { return i.PowerOff }
+
+type ResetUkiSpec struct {
+	Reboot   bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+}
+
+func (i *ResetUkiSpec) Sanitize() error {
+	var err error
+	return err
+}
+
+func (i *ResetUkiSpec) ShouldReboot() bool   { return i.Reboot }
+func (i *ResetUkiSpec) ShouldShutdown() bool { return i.PowerOff }

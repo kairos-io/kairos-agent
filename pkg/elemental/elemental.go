@@ -50,27 +50,27 @@ func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
 // PartitionAndFormatDevice creates a new empty partition table on target disk
 // and applies the configured disk layout by creating and formatting all
 // required partitions
-func (e *Elemental) PartitionAndFormatDevice(i *v1.InstallSpec) error {
+func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 	disk := partitioner.NewDisk(
-		i.Target,
+		i.GetTarget(),
 		partitioner.WithRunner(e.config.Runner),
 		partitioner.WithFS(e.config.Fs),
 		partitioner.WithLogger(e.config.Logger),
 	)
 
 	if !disk.Exists() {
-		e.config.Logger.Errorf("Disk %s does not exist", i.Target)
-		return fmt.Errorf("disk %s does not exist", i.Target)
+		e.config.Logger.Errorf("Disk %s does not exist", i.GetTarget())
+		return fmt.Errorf("disk %s does not exist", i.GetTarget())
 	}
 
 	e.config.Logger.Infof("Partitioning device...")
-	out, err := disk.NewPartitionTable(i.PartTable)
+	out, err := disk.NewPartitionTable(i.GetPartTable())
 	if err != nil {
 		e.config.Logger.Errorf("Failed creating new partition table: %s", out)
 		return err
 	}
 
-	parts := i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions)
+	parts := i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions())
 	return e.createPartitions(disk, parts)
 }
 

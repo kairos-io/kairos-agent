@@ -478,6 +478,73 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	return installSpec, nil
 }
 
+// ReadUkiResetSpecFromConfig will return a proper v1.ResetUkiSpec based on an agent Config
+func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "reset-uki")
+	if err != nil {
+		return &v1.ResetUkiSpec{}, err
+	}
+	resetSpec := sp.(*v1.ResetUkiSpec)
+	return resetSpec, nil
+}
+
+func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
+	spec := &v1.InstallUkiSpec{
+		Target: cfg.Install.Device,
+	}
+
+	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
+	spec.Partitions.EFI = &v1.Partition{
+		FilesystemLabel: constants.EfiLabel,
+		Size:            constants.ImgSize, // TODO: Fix this and set proper size based on the source size
+		Name:            constants.EfiPartName,
+		FS:              constants.EfiFs,
+		MountPoint:      constants.EfiDir,
+		Flags:           []string{"esp"},
+	}
+	spec.Partitions.OEM = &v1.Partition{
+		FilesystemLabel: constants.OEMLabel,
+		Size:            constants.OEMSize,
+		Name:            constants.OEMPartName,
+		FS:              constants.LinuxFs,
+		MountPoint:      constants.OEMDir,
+		Flags:           []string{},
+	}
+	spec.Partitions.Persistent = &v1.Partition{
+		FilesystemLabel: constants.PersistentLabel,
+		Size:            constants.PersistentSize,
+		Name:            constants.PersistentPartName,
+		FS:              constants.LinuxFs,
+		MountPoint:      constants.PersistentDir,
+		Flags:           []string{},
+	}
+
+	// TODO: Which key to use? install or install-uki?
+	err := unmarshallFullSpec(cfg, "install", spec)
+
+	return spec, err
+}
+
+// ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
+func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "install-uki")
+	if err != nil {
+		return &v1.InstallUkiSpec{}, err
+	}
+	installSpec := sp.(*v1.InstallUkiSpec)
+	return installSpec, nil
+}
+
+// ReadUkiUpgradeFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
+func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
+	sp, err := ReadSpecFromCloudConfig(c, "upgrade-uki")
+	if err != nil {
+		return &v1.UpgradeUkiSpec{}, err
+	}
+	upgradeSpec := sp.(*v1.UpgradeUkiSpec)
+	return upgradeSpec, nil
+}
+
 // GetSourceSize will try to gather the actual size of the source
 // Useful to create the exact size of images and by side effect the partition size
 // This helps adjust the size to be juuuuust right.
@@ -571,6 +638,14 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		sp, err = NewUpgradeSpec(r)
 	case "reset":
 		sp, err = NewResetSpec(r)
+	case "install-uki":
+		sp, err = NewUkiInstallSpec(r)
+	case "reset-uki":
+		// TODO: Fill with proper defaults
+		sp = &v1.ResetUkiSpec{}
+	case "upgrade-uki":
+		// TODO: Fill with proper defaults
+		sp = &v1.UpgradeUkiSpec{}
 	default:
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
