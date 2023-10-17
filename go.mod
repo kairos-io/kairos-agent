@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/cavaliergopher/grab/v3 v3.0.1
-	github.com/distribution/distribution v2.8.2+incompatible
+	github.com/distribution/distribution v2.8.3+incompatible
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/google/go-containerregistry v0.15.2
 	github.com/google/go-github/v40 v40.0.0
@@ -65,6 +65,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/diskfs/go-diskfs v1.3.0 // indirect
+	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/cli v23.0.5+incompatible // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v23.0.6+incompatible // indirect
