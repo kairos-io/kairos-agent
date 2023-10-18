@@ -2,10 +2,9 @@ package agent
 
 import (
 	"fmt"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
 	"path/filepath"
-
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -14,7 +13,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	"github.com/nxadm/tail"
 )
 
 // Run starts the agent provider emitting the bootstrap event.
@@ -51,18 +49,6 @@ func Run(opts ...Option) error {
 			return err
 		}
 	}
-
-	// Tail to the log
-	t, err := tail.TailFile(fileName, tail.Config{Follow: true})
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for line := range t.Lines {
-			fmt.Println(line.Text)
-		}
-	}()
 
 	if !machine.SentinelExist("firstboot") {
 		spec := v1.EmptySpec{}
