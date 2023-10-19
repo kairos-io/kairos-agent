@@ -545,7 +545,10 @@ func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 	return upgradeSpec, nil
 }
 
-func visitFile(size int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
+// getDirSize will walk through a dir and calculate the value of each file, and will continue doing so until it has visited all files.
+// fileList: keeps track of the files visited to avoid counting a file more than once if it's a symlink. It could also be used as a way to filter some files
+// size: will be the memory that adds up all the files sizes. Meaning it could be initialized with a value greater than 0 if needed.
+func getDirSize(size int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -609,7 +612,7 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		filesVisited = make(map[string]bool)
 
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
-			return visitFile(size, filesVisited, path, d, err)
+			return getDirSize(size, filesVisited, path, d, err)
 		})
 
 	case source.IsFile():
