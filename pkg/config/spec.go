@@ -545,6 +545,49 @@ func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 	return upgradeSpec, nil
 }
 
+func visitFile(size int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+	if d.Type()&fs.ModeSymlink != 0 {
+		// If it's a symlink, get its target and calculate its size.
+		linkTarget, err := os.Readlink(path)
+		if err != nil {
+			return err
+		}
+
+		if !filepath.IsAbs(linkTarget) {
+			// If it's a relative path, join it with the base directory path.
+			linkTarget = filepath.Join(filepath.Dir(path), linkTarget)
+		}
+
+		_, err = os.Stat(linkTarget)
+		if os.IsNotExist(err) || fileList[linkTarget] {
+			size += 0
+		} else if err != nil {
+			return err
+		} else {
+			linkInfo, err := os.Stat(linkTarget)
+			if err != nil {
+				return err
+			}
+			size += linkInfo.Size()
+		}
+	} else if !d.IsDir() {
+		// If it's a regular file, add its size to the total.
+		fileInfo, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		fileList[path] = true
+
+		size += fileInfo.Size()
+	}
+
+	return nil
+}
+
 // GetSourceSize will try to gather the actual size of the source
 // Useful to create the exact size of images and by side effect the partition size
 // This helps adjust the size to be juuuuust right.
@@ -553,6 +596,7 @@ func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 	var size int64
 	var err error
+	var filesVisited map[string]bool
 
 	switch {
 	case source.IsDocker():
@@ -562,45 +606,10 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		size, err = config.ImageExtractor.GetOCIImageSize(source.Value(), config.Platform.String())
 		size = int64(float64(size) * 2.5)
 	case source.IsDir():
+		filesVisited = make(map[string]bool)
+
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.Type()&fs.ModeSymlink != 0 {
-				// If it's a symlink, get its target and calculate its size.
-				linkTarget, err := os.Readlink(path)
-				if err != nil {
-					return err
-				}
-
-				if !filepath.IsAbs(linkTarget) {
-					// If it's a relative path, join it with the base directory path.
-					linkTarget = filepath.Join(filepath.Dir(path), linkTarget)
-				}
-
-				_, err = os.Stat(linkTarget)
-				if os.IsNotExist(err) {
-					size += 0
-				} else if err != nil {
-					return err
-				} else {
-					linkInfo, err := os.Stat(linkTarget)
-					if err != nil {
-						return err
-					}
-					size += linkInfo.Size()
-				}
-			} else if !d.IsDir() {
-				// If it's a regular file, add its size to the total.
-				fileInfo, err := d.Info()
-				if err != nil {
-					return err
-				}
-
-				size += fileInfo.Size()
-			}
-
-			return nil
+			return visitFile(size, filesVisited, path, d, err)
 		})
 
 	case source.IsFile():

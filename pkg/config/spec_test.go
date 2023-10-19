@@ -604,3 +604,69 @@ debug: true
 		})
 	})
 })
+
+func createFileOfSizeInMB(filename string, sizeInMB int) error {
+	// Calculate the number of bytes needed to reach the desired size in megabytes
+	fileSizeInBytes := int64(sizeInMB) * 1024 * 1024
+
+	// Create the file
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Seek to the desired file size
+	_, err = file.Seek(fileSizeInBytes-1, 0)
+	if err != nil {
+		return err
+	}
+
+	// Write a single byte to "expand" the file to the desired size
+	_, err = file.Write([]byte{0})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var _ = Describe("GetSourceSize", func() {
+	var tempDir string
+	var tempFilePath string
+	var err error
+	var logger v1.Logger
+	var conf *config.Config
+	var imageSource *v1.ImageSource
+
+	BeforeEach(func() {
+		tempDir, err = os.MkdirTemp("/tmp", "kairos-test")
+		Expect(err).To(BeNil())
+
+		logger = v1.NewNullLogger()
+		conf = config.NewConfig(
+			config.WithLogger(logger),
+		)
+
+		tempFilePath = filepath.Join(tempDir, "200MB.txt")
+		err := createFileOfSizeInMB(tempFilePath, 200)
+		Expect(err).To(BeNil())
+
+		imageSource = v1.NewDirSrc(tempDir)
+	})
+
+	AfterEach(func() {
+		defer os.RemoveAll(tempDir)
+	})
+
+	It("doesn't count symlinks more than once", func() {
+		sizeBefore, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).To(BeNil())
+
+		err = os.Symlink(tempFilePath, filepath.Join(tempDir, "200MB-symlink.txt"))
+		Expect(err).To(BeNil())
+
+		sizeAfter, err := config.GetSourceSize(conf, imageSource)
+		Expect(sizeAfter).To(Equal(sizeBefore))
+	})
+})
