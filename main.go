@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
-
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -365,6 +365,38 @@ enabled: true`,
 					return err
 				},
 			},
+		},
+	},
+	{
+		Name:        "render-template",
+		Usage:       "Render a Go template",
+		Description: "Render a Go template with machine state and config as data context",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "file",
+				Aliases:  []string{"f"},
+				Required: true,
+			},
+		},
+		Action: func(c *cli.Context) error {
+
+			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+			if err != nil {
+				return err
+			}
+
+			runtime, err := state.NewRuntime()
+			if err != nil {
+				return err
+			}
+
+			result, err := action.RenderTemplate(c.String("file"), config, runtime)
+			if err != nil {
+				return err
+			}
+
+			_, err = os.Stdout.Write(result)
+			return err
 		},
 	},
 	{

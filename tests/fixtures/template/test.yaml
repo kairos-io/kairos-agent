@@ -1,0 +1,2 @@
+configTest: "{{.Config.testKey | upper}}"
+stateTest: "{{.State.uuid | trunc 8}}"
