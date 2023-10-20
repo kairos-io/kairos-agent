@@ -662,11 +662,13 @@ var _ = Describe("GetSourceSize", func() {
 	It("doesn't count symlinks more than once", func() {
 		sizeBefore, err := config.GetSourceSize(conf, imageSource)
 		Expect(err).To(BeNil())
+		Expect(sizeBefore).ToNot(BeZero())
 
 		err = os.Symlink(tempFilePath, filepath.Join(tempDir, "200MB-symlink.txt"))
 		Expect(err).To(BeNil())
 
 		sizeAfter, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(sizeAfter).To(Equal(sizeBefore))
 	})
 })
