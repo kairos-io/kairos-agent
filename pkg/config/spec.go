@@ -545,6 +545,47 @@ func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 	return upgradeSpec, nil
 }
 
+// getSize will calculate the size of a file or symlink and will do nothing with directories
+// fileList: keeps track of the files visited to avoid counting a file more than once if it's a symlink. It could also be used as a way to filter some files
+// size: will be the memory that adds up all the files sizes. Meaning it could be initialized with a value greater than 0 if needed.
+func getSize(size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if d.IsDir() {
+		return nil
+	}
+
+	actualFilePath := path
+	if d.Type()&fs.ModeSymlink != 0 {
+		// If it's a symlink, get its target and calculate its size.
+		var err error
+		actualFilePath, err = os.Readlink(path)
+		if err != nil {
+			return err
+		}
+
+		if !filepath.IsAbs(actualFilePath) {
+			// If it's a relative path, join it with the base directory path.
+			actualFilePath = filepath.Join(filepath.Dir(path), actualFilePath)
+		}
+	}
+
+	fileInfo, err := os.Stat(actualFilePath)
+	if os.IsNotExist(err) || fileList[actualFilePath] {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	*size += fileInfo.Size()
+	fileList[actualFilePath] = true
+
+	return nil
+}
+
 // GetSourceSize will try to gather the actual size of the source
 // Useful to create the exact size of images and by side effect the partition size
 // This helps adjust the size to be juuuuust right.
@@ -553,6 +594,7 @@ func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 	var size int64
 	var err error
+	var filesVisited map[string]bool
 
 	switch {
 	case source.IsDocker():
@@ -562,45 +604,12 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		size, err = config.ImageExtractor.GetOCIImageSize(source.Value(), config.Platform.String())
 		size = int64(float64(size) * 2.5)
 	case source.IsDir():
+		filesVisited = make(map[string]bool, 30000) // An Ubuntu system has around 27k files. This improves performance by not having to resize the map for every file visited
+
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.Type()&fs.ModeSymlink != 0 {
-				// If it's a symlink, get its target and calculate its size.
-				linkTarget, err := os.Readlink(path)
-				if err != nil {
-					return err
-				}
+			v := getSize(&size, filesVisited, path, d, err)
 
-				if !filepath.IsAbs(linkTarget) {
-					// If it's a relative path, join it with the base directory path.
-					linkTarget = filepath.Join(filepath.Dir(path), linkTarget)
-				}
-
-				_, err = os.Stat(linkTarget)
-				if os.IsNotExist(err) {
-					size += 0
-				} else if err != nil {
-					return err
-				} else {
-					linkInfo, err := os.Stat(linkTarget)
-					if err != nil {
-						return err
-					}
-					size += linkInfo.Size()
-				}
-			} else if !d.IsDir() {
-				// If it's a regular file, add its size to the total.
-				fileInfo, err := d.Info()
-				if err != nil {
-					return err
-				}
-
-				size += fileInfo.Size()
-			}
-
-			return nil
+			return v
 		})
 
 	case source.IsFile():
