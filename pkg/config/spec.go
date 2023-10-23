@@ -604,7 +604,7 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		size, err = config.ImageExtractor.GetOCIImageSize(source.Value(), config.Platform.String())
 		size = int64(float64(size) * 2.5)
 	case source.IsDir():
-		filesVisited = map[string]bool{}
+		filesVisited = make(map[string]bool, 30000) // An Ubuntu system has around 27k files. This improves performance by not having to resize the map for every file visited
 
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
 			v := getDirSize(&size, filesVisited, path, d, err)
