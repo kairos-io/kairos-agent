@@ -572,7 +572,7 @@ func getDirSize(size *int64, fileList map[string]bool, path string, d fs.DirEntr
 		}
 	}
 
-	fileInfo, err := os.Stat(path)
+	fileInfo, err := os.Stat(actualFilePath)
 	if os.IsNotExist(err) || fileList[actualFilePath] {
 		return nil
 	}
