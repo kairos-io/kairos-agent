@@ -545,10 +545,10 @@ func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 	return upgradeSpec, nil
 }
 
-// getDirSize will walk through a dir and calculate the value of each file, and will continue doing so until it has visited all files.
+// getSize will calculate the size of a file or symlink and will do nothing with directories
 // fileList: keeps track of the files visited to avoid counting a file more than once if it's a symlink. It could also be used as a way to filter some files
 // size: will be the memory that adds up all the files sizes. Meaning it could be initialized with a value greater than 0 if needed.
-func getDirSize(size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
+func getSize(size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -607,7 +607,7 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		filesVisited = make(map[string]bool, 30000) // An Ubuntu system has around 27k files. This improves performance by not having to resize the map for every file visited
 
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
-			v := getDirSize(&size, filesVisited, path, d, err)
+			v := getSize(&size, filesVisited, path, d, err)
 
 			return v
 		})
