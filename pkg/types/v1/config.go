@@ -18,6 +18,7 @@ package v1
 
 import (
 	"fmt"
+	boardutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/boards"
 	"path/filepath"
 	"sort"
 
@@ -170,6 +171,10 @@ type UpgradeSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (u *UpgradeSpec) Sanitize() error {
+	// Dont sanitize on a qcs6490 board, we dont have any normal partitions
+	if boardutils.GetAndroidBoardModel() == constants.QCS6490 {
+		return nil
+	}
 	if u.RecoveryUpgrade {
 		if u.Recovery.Source.IsEmpty() {
 			return fmt.Errorf("undefined upgrade source")
@@ -209,6 +214,7 @@ type Partition struct {
 	Size            uint     `yaml:"size,omitempty" mapstructure:"size"`
 	FS              string   `yaml:"fs,omitempty" mapstrcuture:"fs"`
 	Flags           []string `yaml:"flags,omitempty" mapstrcuture:"flags"`
+	Label           string
 	MountPoint      string
 	Path            string
 	Disk            string

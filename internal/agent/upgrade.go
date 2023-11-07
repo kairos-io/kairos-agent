@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"sort"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	boardutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/boards"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -65,11 +67,14 @@ func Upgrade(
 		return err
 	}
 
-	upgradeAction := action.NewUpgradeAction(c, upgradeSpec)
-
-	err = upgradeAction.Run()
-	if err != nil {
-		return err
+	if boardutils.GetAndroidBoardModel() == constants.QCS6490 {
+		if err = action.NewUpgradeQCS6490Action(c, upgradeSpec).Run(); err != nil {
+			return err
+		}
+	} else {
+		if err = action.NewUpgradeAction(c, upgradeSpec).Run(); err != nil {
+			return err
+		}
 	}
 
 	if upgradeSpec.Reboot {

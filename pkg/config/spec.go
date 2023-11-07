@@ -292,7 +292,7 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 		targetSpec = &(spec.Active)
 	}
 
-	if targetSpec.Source.IsEmpty() {
+	if targetSpec.Source == nil || targetSpec.Source.IsEmpty() {
 		return nil
 	}
 
