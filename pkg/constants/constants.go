@@ -109,6 +109,9 @@ const (
 
 	UkiSource      = "/run/install/uki"
 	UkiCdromSource = "/run/install/cdrom"
+
+	// QCS board models
+	QCS6490 = "qcs6490"
 )
 
 func GetCloudInitPaths() []string {
