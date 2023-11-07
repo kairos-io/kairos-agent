@@ -111,7 +111,9 @@ const (
 	UkiCdromSource = "/run/install/cdrom"
 
 	// QCS board models
-	QCS6490 = "qcs6490"
+	QCS6490               = "qcs6490"
+	QCS6490_system_label  = "system"
+	QCS6490_passive_label = "passive"
 )
 
 func GetCloudInitPaths() []string {
