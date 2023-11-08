@@ -327,6 +327,7 @@ stages:
         - ln -sf /etc/systemd/system/cos-setup-fs.service /etc/systemd/system/sysinit.target.wants/cos-setup-fs.service
         - ln -sf /etc/systemd/system/cos-setup-boot.service /etc/systemd/system/multi-user.target.wants/cos-setup-boot.service
         - ln -sf /etc/systemd/system/cos-setup-network.service /etc/systemd/system/multi-user.target.wants/cos-setup-network.service
+        - ln -sf /usr/lib/systemd/system/systemd-networkd.service /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
     - name: "Enable systemd-network config files for DHCP"
       if: '[ -e "/sbin/systemctl" ] || [ -e "/usr/bin/systemctl" ] || [ -e "/usr/sbin/systemctl" ] || [ -e "/usr/bin/systemctl" ]'
       files:
