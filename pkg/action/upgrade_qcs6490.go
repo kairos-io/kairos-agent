@@ -194,20 +194,16 @@ func (u *UpgradeQCS6490Action) Run() (err error) {
 
 	_, _ = u.config.Runner.Run("sync")
 
-	// Create live_mode sentinel to force user creation?
-	fsutils.MkdirAll(u.config.Fs, filepath.Join(passivePartition.MountPoint, "run", "cos"), 0755)
-	fsutils.MkdirAll(u.config.Fs, filepath.Join(passivePartition.MountPoint, "oem"), 0755)
-	u.config.Fs.Create(filepath.Join(passivePartition.MountPoint, "run", "cos", "live_mode"))
 	cloudConfig := `name: "Default user, permissions and serial login"
 stages:
-  boot:
+  post-upgrade-qcs6490:
     - name: "Setup groups"
       ensure_entities:
-      - entity: |
-           kind: "group"
-           group_name: "admin"
-           password: "x"
-           gid: 900
+        - entity: |
+            kind: "group"
+            group_name: "admin"
+            password: "x"
+            gid: 900
     - name: "Setup users"
       users:
         kairos:
@@ -222,22 +218,161 @@ stages:
           passwd: "kairos"
     - name: "Setup sudo"
       files:
-      - path: "/etc/sudoers"
-        owner: 0
-        group: 0
-        permsisions: 0600
-        content: |
-           Defaults always_set_home
-           Defaults secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin:/usr/local/sbin"
-           Defaults env_reset
-           Defaults env_keep = "LANG LC_ADDRESS LC_CTYPE LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE LC_ATIME LC_ALL LANGUAGE LINGUAS XDG_SESSION_COOKIE"
-           Defaults !insults
-           root ALL=(ALL) ALL
-           %admin ALL=(ALL) NOPASSWD: ALL
-           #includedir /etc/sudoers.d
+        - path: "/etc/sudoers"
+          owner: 0
+          group: 0
+          permsisions: 0600
+          content: |
+            Defaults always_set_home
+            Defaults secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin:/usr/local/sbin"
+            Defaults env_reset
+            Defaults env_keep = "LANG LC_ADDRESS LC_CTYPE LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE LC_ATIME LC_ALL LANGUAGE LINGUAS XDG_SESSION_COOKIE"
+            Defaults !insults
+            root ALL=(ALL) ALL
+            %admin ALL=(ALL) NOPASSWD: ALL
+            #includedir /etc/sudoers.d
       commands:
-        - passwd -l root`
+        - passwd -l root
+    - name: "Create systemd services"
+      files:
+        - path: /etc/systemd/system/cos-setup-boot.service
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Unit]
+            Description=cOS system configuration
+            Before=getty.target
+            
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/usr/bin/kairos-agent run-stage boot
+            
+            [Install]
+            WantedBy=multi-user.target
+        - path: /etc/systemd/system/cos-setup-fs.service
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Unit]
+            Description=cOS system after FS setup
+            DefaultDependencies=no
+            After=local-fs.target
+            Wants=local-fs.target
+            Before=sysinit.target
+            
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/usr/bin/kairos-agent run-stage fs
+            
+            [Install]
+            WantedBy=sysinit.target
+        - path: /etc/systemd/system/cos-setup-network.service
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Unit]
+            Description=cOS setup after network
+            After=network-online.target
+            
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/usr/bin/kairos-agent run-stage network
+            
+            [Install]
+            WantedBy=multi-user.target
+        - path: /etc/systemd/system/cos-setup-reconcile.service
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Unit]
+            Description=cOS setup reconciler
+            
+            [Service]
+            Nice=19
+            IOSchedulingClass=2
+            IOSchedulingPriority=7
+            Type=oneshot
+            ExecStart=/bin/bash -c "systemd-inhibit /usr/bin/kairos-agent run-stage reconcile"
+            TimeoutStopSec=180
+            KillMode=process
+            KillSignal=SIGINT
+            
+            [Install]
+            WantedBy=multi-user.target
+        - path: /etc/systemd/system/cos-setup-reconcile.timer
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Unit]
+            Description=cOS setup reconciler
+            
+            [Timer]
+            OnBootSec=5min
+            OnUnitActiveSec=60min
+            Unit=cos-setup-reconcile.service
+            
+            [Install]
+            WantedBy=multi-user.target
+    - name: "Enable systemd services"
+      commands:
+        - ln -sf /etc/systemd/system/cos-setup-reconcile.timer /etc/systemd/system/multi-user.target.wants/cos-setup-reconcile.timer
+        - ln -sf /etc/systemd/system/cos-setup-fs.service /etc/systemd/system/sysinit.target.wants/cos-setup-fs.service
+        - ln -sf /etc/systemd/system/cos-setup-boot.service /etc/systemd/system/multi-user.target.wants/cos-setup-boot.service
+        - ln -sf /etc/systemd/system/cos-setup-network.service /etc/systemd/system/multi-user.target.wants/cos-setup-network.service
+    - name: "Enable systemd-network config files for DHCP"
+      if: '[ -e "/sbin/systemctl" ] || [ -e "/usr/bin/systemctl" ] || [ -e "/usr/sbin/systemctl" ] || [ -e "/usr/bin/systemctl" ]'
+      files:
+        - path: /etc/systemd/network/20-dhcp.network
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Match]
+            Name=en*
+            [Network]
+            DHCP=yes
+        - path: /etc/systemd/network/20-dhcp-legacy.network
+          permissions: 0644
+          owner: 0
+          group: 0
+          content: |
+            [Match]
+            Name=eth*
+            [Network]
+            DHCP=yes
+    - name: "Disable NetworkManager and wicked"
+      systemctl:
+        disable:
+          - NetworkManager
+          - wicked
+    - name: "Enable systemd-network and systemd-resolved"
+      systemctl:
+        enable:
+          - systemd-networkd
+          - systemd-resolved
+    - name: "Link /etc/resolv.conf to systemd resolv.conf"
+      commands:
+        - rm /etc/resolv.conf
+        - ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+`
+
+	fsutils.MkdirAll(u.config.Fs, filepath.Join(passivePartition.MountPoint, "run", "cos"), 0755)
+	fsutils.MkdirAll(u.config.Fs, filepath.Join(passivePartition.MountPoint, "oem"), 0755)
+	u.config.Fs.WriteFile(filepath.Join(passivePartition.MountPoint, "run", "cos", "live_mode"), []byte(""), 0755)
 	u.config.Fs.WriteFile(filepath.Join(passivePartition.MountPoint, "oem", "34_user.yaml"), []byte(cloudConfig), 0755)
+
+	err = ChrootHook(u.config, "post-upgrade-qcs6490", passivePartition.MountPoint, nil)
+	if err != nil {
+		return err
+	}
 
 	u.Info("Upgrade completed")
 	if !u.spec.RecoveryUpgrade {
