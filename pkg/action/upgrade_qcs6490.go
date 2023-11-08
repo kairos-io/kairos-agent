@@ -194,6 +194,51 @@ func (u *UpgradeQCS6490Action) Run() (err error) {
 
 	_, _ = u.config.Runner.Run("sync")
 
+	// Create live_mode sentinel to force user creation?
+	fsutils.MkdirAll(u.config.Fs, filepath.Join(passivePartition.MountPoint, "run", "cos"), 0755)
+	fsutils.MkdirAll(u.config.Fs, filepath.Join(passivePartition.MountPoint, "oem"), 0755)
+	u.config.Fs.Create(filepath.Join(passivePartition.MountPoint, "run", "cos", "live_mode"))
+	cloudConfig := `name: "Default user, permissions and serial login"
+stages:
+  boot:
+    - name: "Setup groups"
+      ensure_entities:
+      - entity: |
+           kind: "group"
+           group_name: "admin"
+           password: "x"
+           gid: 900
+    - name: "Setup users"
+      users:
+        kairos:
+          passwd: "!"
+          shell: /bin/bash
+          homedir: "/home/kairos"
+          groups:
+            - "admin"
+    - name: "Set user password"
+      users:
+        kairos:
+          passwd: "kairos"
+    - name: "Setup sudo"
+      files:
+      - path: "/etc/sudoers"
+        owner: 0
+        group: 0
+        permsisions: 0600
+        content: |
+           Defaults always_set_home
+           Defaults secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin:/usr/local/sbin"
+           Defaults env_reset
+           Defaults env_keep = "LANG LC_ADDRESS LC_CTYPE LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE LC_ATIME LC_ALL LANGUAGE LINGUAS XDG_SESSION_COOKIE"
+           Defaults !insults
+           root ALL=(ALL) ALL
+           %admin ALL=(ALL) NOPASSWD: ALL
+           #includedir /etc/sudoers.d
+      commands:
+        - passwd -l root`
+	u.config.Fs.WriteFile(filepath.Join(passivePartition.MountPoint, "oem", "34_user.yaml"), []byte(cloudConfig), 0755)
+
 	u.Info("Upgrade completed")
 	if !u.spec.RecoveryUpgrade {
 		u.config.Logger.Warn("Remember that recovery is upgraded separately by passing the --recovery flag to the upgrade command!\n" +
