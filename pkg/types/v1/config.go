@@ -18,7 +18,7 @@ package v1
 
 import (
 	"fmt"
-	boardutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/boards"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -172,7 +172,8 @@ type UpgradeSpec struct {
 // if unsolvable inconsistencies are found
 func (u *UpgradeSpec) Sanitize() error {
 	// Dont sanitize on a qcs6490 board, we dont have any normal partitions
-	if boardutils.GetAndroidBoardModel() == constants.QCS6490 {
+	// Check is here to avoid circular deps
+	if _, err := os.Stat("/build.prop"); err == nil {
 		return nil
 	}
 	if u.RecoveryUpgrade {
