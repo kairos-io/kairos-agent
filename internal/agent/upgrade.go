@@ -62,16 +62,18 @@ func Upgrade(
 		return err
 	}
 
-	err = upgradeSpec.Sanitize()
-	if err != nil {
-		return err
-	}
-
 	if boardutils.GetAndroidBoardModel() == constants.QCS6490 {
+		if upgradeSpec.Active.Source == nil || upgradeSpec.Active.Source.IsEmpty() {
+			return fmt.Errorf("active source is empty. For QCS6490 boards, you need to specify the active source by using the ---source flag")
+		}
 		if err = action.NewUpgradeQCS6490Action(c, upgradeSpec).Run(); err != nil {
 			return err
 		}
 	} else {
+		err = upgradeSpec.Sanitize()
+		if err != nil {
+			return err
+		}
 		if err = action.NewUpgradeAction(c, upgradeSpec).Run(); err != nil {
 			return err
 		}

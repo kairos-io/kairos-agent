@@ -18,7 +18,6 @@ package v1
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 
@@ -171,11 +170,6 @@ type UpgradeSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (u *UpgradeSpec) Sanitize() error {
-	// Dont sanitize on a qcs6490 board, we dont have any normal partitions
-	// Check is here to avoid circular deps
-	if _, err := os.Stat("/build.prop"); err == nil {
-		return nil
-	}
 	if u.RecoveryUpgrade {
 		if u.Recovery.Source.IsEmpty() {
 			return fmt.Errorf("undefined upgrade source")
