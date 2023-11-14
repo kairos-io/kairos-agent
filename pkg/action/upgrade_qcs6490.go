@@ -95,10 +95,6 @@ func (u *UpgradeQCS6490Action) Run() (err error) {
 	}
 
 	u.config.Logger.Infof("Upgrade completed")
-	if !u.spec.RecoveryUpgrade {
-		u.config.Logger.Warn("Remember that recovery is upgraded separately by passing the --recovery flag to the upgrade command!\n" +
-			"See more info about this on https://kairos.io/docs/upgrade/")
-	}
 
 	// Do not reboot/poweroff on cleanup errors
 	if cleanErr := cleanup.Cleanup(err); cleanErr != nil {
