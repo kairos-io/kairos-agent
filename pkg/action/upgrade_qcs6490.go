@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 SUSE LLC
+Copyright © 2023 Kairos Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,12 +40,6 @@ func NewUpgradeQCS6490Action(config *agentConfig.Config, spec *v1.UpgradeSpec) *
 func (u *UpgradeQCS6490Action) Run() (err error) {
 	var systemPartition, passivePartition *v1.Partition
 	e := elemental.NewElemental(u.config)
-
-	err = boardutils.CheckDeps(u.config.Runner)
-	if err != nil {
-		u.config.Logger.Errorf("Failed checking dependencies: %s", err)
-		return err
-	}
 
 	u.config.Logger.Infof("Starting upgrade")
 	u.config.Logger.Infof("Source: %s", u.spec.Active.Source.Value())

@@ -43,20 +43,6 @@ func GetAndroidBoardModel() string {
 	return ""
 }
 
-// CheckDeps checks if the dependencies are installed on the system
-func CheckDeps(runner v1.Runner) error {
-	var err error
-	_, err = runner.Run("sgdisk", "-V")
-	if err != nil {
-		return err
-	}
-	_, err = runner.Run("parted", "-v")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // GetPartitions returns the system and passive partitions
 func GetPartitions() (err error, active *v1.Partition, passive *v1.Partition) {
 	part, _ := partitions.GetAllPartitions()
