@@ -159,5 +159,5 @@ func GetGrubFonts() []string {
 
 // GetGrubModules returns the default module files for grub
 func GetGrubModules() []string {
-	return []string{"loopback.mod", "squash4.mod", "xzio.mod", "gzio.mod"}
+	return []string{"loopback.mod", "squash4.mod", "xzio.mod", "gzio.mod", "regexp.mod"}
 }
