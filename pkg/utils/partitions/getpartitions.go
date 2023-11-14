@@ -42,6 +42,7 @@ func ghwPartitionToInternalPartition(partition *block.Partition) *v1.Partition {
 		MountPoint:      partition.MountPoint,
 		Path:            filepath.Join("/dev", partition.Name),
 		Disk:            filepath.Join("/dev", partition.Disk.Name),
+		Label:           partition.Label,
 	}
 }
 

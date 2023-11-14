@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/boards"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -786,6 +788,38 @@ The validate command expects a configuration file as its only argument. Local fi
 
 					resetAction := uki.NewResetAction(config, resetSpec)
 					return resetAction.Run()
+				},
+			},
+		},
+	},
+	{
+		Name:        "utils",
+		Usage:       "utils subcommands",
+		Description: "utils subcommands",
+		Subcommands: []*cli.Command{
+			{
+				Name:        "ABChange",
+				Description: "Makes the passive partition the active one and vice-versa. Only for QCS6490 boards",
+				Before: func(c *cli.Context) error {
+					if boards.GetAndroidBoardModel() == cnst.QCS6490 {
+						return nil
+					}
+					return fmt.Errorf("only able to run this command on a QCS6490 board")
+				},
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					if err != nil {
+						return err
+					}
+
+					err, out := boards.SetPassiveActive(config.Runner, config.Logger)
+					if err != nil {
+						config.Logger.Errorf("Failed to set passive partition as active: %s", err)
+						config.Logger.Errorf("Failed setting passive partition as active(command output): %s", out)
+						return err
+					}
+					config.Logger.Infof("Successfully set changed active partition, please restart to boot into the new partition")
+					return nil
 				},
 			},
 		},

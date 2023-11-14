@@ -292,7 +292,8 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 		targetSpec = &(spec.Active)
 	}
 
-	if targetSpec.Source.IsEmpty() {
+	// Always check that source is not nil. If it is, the check for size will panic
+	if targetSpec.Source == nil || targetSpec.Source.IsEmpty() {
 		return nil
 	}
 

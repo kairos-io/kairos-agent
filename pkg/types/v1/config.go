@@ -209,6 +209,7 @@ type Partition struct {
 	Size            uint     `yaml:"size,omitempty" mapstructure:"size"`
 	FS              string   `yaml:"fs,omitempty" mapstrcuture:"fs"`
 	Flags           []string `yaml:"flags,omitempty" mapstrcuture:"flags"`
+	Label           string
 	MountPoint      string
 	Path            string
 	Disk            string
