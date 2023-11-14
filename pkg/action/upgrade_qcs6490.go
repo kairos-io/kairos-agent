@@ -87,7 +87,7 @@ func (u *UpgradeQCS6490Action) Run() (err error) {
 
 	_, _ = u.config.Runner.Run("sync")
 
-	err, out := boardutils.SetPassiveActive(u.config.Runner)
+	err, out := boardutils.SetPassiveActive(u.config.Runner, u.config.Logger)
 	if err != nil {
 		u.config.Logger.Errorf("Failed setting passive partition as active: %s", err)
 		u.config.Logger.Errorf("Failed setting passive partition as active(command output): %s", out)

@@ -812,12 +812,13 @@ The validate command expects a configuration file as its only argument. Local fi
 						return err
 					}
 
-					err, out := boards.SetPassiveActive(config.Runner)
+					err, out := boards.SetPassiveActive(config.Runner, config.Logger)
 					if err != nil {
 						config.Logger.Errorf("Failed to set passive partition as active: %s", err)
 						config.Logger.Errorf("Failed setting passive partition as active(command output): %s", out)
 						return err
 					}
+					config.Logger.Infof("Successfully set changed active partition, please restart to boot into the new partition")
 					return nil
 				},
 			},
