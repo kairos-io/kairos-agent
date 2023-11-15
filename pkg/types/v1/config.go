@@ -18,6 +18,7 @@ package v1
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -170,6 +171,10 @@ type UpgradeSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (u *UpgradeSpec) Sanitize() error {
+	// Check if we are running on an Android board and do no sanitation in that case
+	if _, err := os.Stat("/build.prop"); err == nil {
+		return nil
+	}
 	if u.RecoveryUpgrade {
 		if u.Recovery.Source.IsEmpty() {
 			return fmt.Errorf("undefined upgrade source")
