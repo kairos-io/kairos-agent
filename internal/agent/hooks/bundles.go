@@ -1,13 +1,14 @@
 package hook
 
 import (
+	"os"
+	"os/exec"
+	"syscall"
+
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
-	"os"
-	"os/exec"
-	"syscall"
 )
 
 // BundlePostInstall install bundles just after installation
@@ -36,7 +37,8 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
-	cmd := exec.Command("rsync -aqAX /var/lib/extensions /usr/local/.state/var-lib-extensions.bind")
+
+	cmd := exec.Command("rsync", "-aqAX", "/var/lib/extensions", "/usr/local/.state/var-lib-extensions.bind")
 	_, err = cmd.CombinedOutput()
 	if c.FailOnBundleErrors && err != nil {
 		return err
