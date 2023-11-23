@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.0.15
+	github.com/kairos-io/kairos-sdk v0.0.16
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -151,8 +151,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	github.com/swaggest/jsonschema-go v0.3.59 // indirect
-	github.com/swaggest/refl v1.2.0 // indirect
+	github.com/swaggest/jsonschema-go v0.3.62 // indirect
+	github.com/swaggest/refl v1.3.0 // indirect
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
