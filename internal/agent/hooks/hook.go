@@ -31,7 +31,9 @@ var FirstBoot = []Interface{
 }
 
 // AfterUkiInstall sets which Hooks to run after uki runs the install action
-var AfterUkiInstall = []Interface{}
+var AfterUkiInstall = []Interface{
+	&KcryptUKI{},
+}
 
 // AfterUkiReset sets which Hooks to run after uki runs the install action
 var AfterUkiReset = []Interface{}
