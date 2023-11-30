@@ -54,7 +54,7 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
 
 	// Backup oem as we already copied files on there and on luksify it will be wiped
-	err := machine.Mount("COS_OEM", "/oem")
+	err := machine.Mount("COS_OEM", constants.OEMDir)
 	if err != nil {
 		return err
 	}
@@ -66,20 +66,22 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	// Remove everything when we finish
 	defer c.Fs.RemoveAll(tmpDir) //nolint:errcheck
 
-	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, "/oem", tmpDir, []string{}...)
+	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, constants.OEMDir, tmpDir, []string{}...)
 	if err != nil {
 		return err
 	}
-	err = machine.Umount("/oem") //nolint:errcheck
-	err = machine.Umount("/oem") //nolint:errcheck
+	err = machine.Umount(constants.OEMDir) //nolint:errcheck
 	if err != nil {
 		return err
 	}
 
 	for _, p := range []string{"COS_OEM", "COS_PERSISTENT"} {
+		c.Logger.Infof("Encrypting %s", p)
+		utils.SH("udevadm settle") //nolint:errcheck
+		utils.SH("sync")           //nolint:errcheck
 		_, err := kcrypt.Luksify(p, "luks2", true)
 		if err != nil {
-			fmt.Printf("could not encrypt partition: %s\n", err.Error())
+			c.Logger.Errorf("could not encrypt partition: %s", err)
 			if c.FailOnBundleErrors {
 				return err
 			}
@@ -87,6 +89,7 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 			time.Sleep(10 * time.Second)
 			return nil // do not error out
 		}
+		c.Logger.Infof("Done encrypting %s", p)
 	}
 
 	// Restore OEM
@@ -94,15 +97,15 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	if err != nil {
 		return err
 	}
-	err = machine.Mount("COS_OEM", "/oem")
+	err = machine.Mount("COS_OEM", constants.OEMDir)
 	if err != nil {
 		return err
 	}
-	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, tmpDir, "/oem", []string{}...)
+	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, tmpDir, constants.OEMDir, []string{}...)
 	if err != nil {
 		return err
 	}
-	err = machine.Umount("/oem") //nolint:errcheck
+	err = machine.Umount(constants.OEMDir) //nolint:errcheck
 	if err != nil {
 		return err
 	}
