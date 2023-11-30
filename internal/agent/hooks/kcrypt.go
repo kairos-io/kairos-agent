@@ -2,6 +2,7 @@ package hook
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -48,6 +49,9 @@ type KcryptUKI struct{}
 func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 
 	// We always encrypt OEM and PERSISTENT under UKI
+	// If mounted, unmount it
+	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
+	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
 
 	// Backup oem as we already copied files on there and on luksify it will be wiped
 	err := machine.Mount("COS_OEM", "/oem")
@@ -66,6 +70,7 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	if err != nil {
 		return err
 	}
+	err = machine.Umount("/oem") //nolint:errcheck
 	err = machine.Umount("/oem") //nolint:errcheck
 	if err != nil {
 		return err
