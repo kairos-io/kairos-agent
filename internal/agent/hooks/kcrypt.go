@@ -72,10 +72,9 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	}
 
 	for _, p := range []string{"COS_OEM", "COS_PERSISTENT"} {
-		// USE kcrypt lib directly???
-		out, err := utils.SH(fmt.Sprintf("kcrypt encrypt --version luks2 --tpm %s ", p))
+		_, err := kcrypt.Luksify(p, "luks2", true)
 		if err != nil {
-			fmt.Printf("could not encrypt partition: %s\n", out+err.Error())
+			fmt.Printf("could not encrypt partition: %s\n", err.Error())
 			if c.FailOnBundleErrors {
 				return err
 			}
