@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -25,6 +26,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/sirupsen/logrus"
 
 	"github.com/Masterminds/semver/v3"
@@ -211,7 +213,7 @@ Manually installs a kairos bundle.
 E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 
 `,
-		Aliases: []string{"i"},
+		Aliases: []string{},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "repository",
@@ -278,7 +280,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				Name:        "show",
 				Usage:       "Shows the machine configuration",
 				Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
-				Aliases:     []string{"s"},
+				Aliases:     []string{},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {
@@ -328,7 +330,7 @@ enabled: true`,
 		Name:        "state",
 		Usage:       "get machine state",
 		Description: "Print machine state information, e.g. `state get uuid` returns the machine uuid",
-		Aliases:     []string{"s"},
+		Aliases:     []string{},
 		Action: func(c *cli.Context) error {
 			runtime, err := state.NewRuntime()
 			if err != nil {
@@ -789,6 +791,12 @@ The validate command expects a configuration file as its only argument. Local fi
 				},
 			},
 		},
+	},
+	{
+		Name:        "versioneer",
+		Usage:       "versioneer subcommands",
+		Description: "versioneer subcommands",
+		Subcommands: versioneer.CliCommands(),
 	},
 }
 
