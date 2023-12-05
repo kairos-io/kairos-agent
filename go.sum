@@ -355,8 +355,8 @@ github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
-github.com/kairos-io/kairos-sdk v0.0.16 h1:Zq+ALQTpv6T8wghkNpFGWzeeGvzcAf/i5m89Vlo+4vA=
-github.com/kairos-io/kairos-sdk v0.0.16/go.mod h1:6Y9RGvKU/B99euFE32OYrabLLsSVjjemCfyRgiEHuKE=
+github.com/kairos-io/kairos-sdk v0.0.17 h1:rBdtONkkRoIxtenB6BYb7Sir1Ss2yveSobyC7wC/fYU=
+github.com/kairos-io/kairos-sdk v0.0.17/go.mod h1:6Y9RGvKU/B99euFE32OYrabLLsSVjjemCfyRgiEHuKE=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 h1:qq2nCpSrXrmvDGRxW0ruW9BVEV1CN2a9YDOExdt+U0o=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329/go.mod h1:2VPVQDR4wO7KXHwP+DAypEy67rXf+okUx2zjgpCxZw4=
 github.com/kendru/darwin/go/depgraph v0.0.0-20221105232959-877d6a81060c h1:eKb4PqwAMhlqwXw0W3atpKaYaPGlXE/Fwh+xpCEYaPk=
