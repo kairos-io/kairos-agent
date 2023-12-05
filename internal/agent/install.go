@@ -63,28 +63,16 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	}
 
 	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
+	cliConfManualArgs := generateInstallConfForManualCLIArgs(device, reboot, poweroff)
 
 	cc, err := config.Scan(collector.Directories(configSource),
-		collector.Readers(strings.NewReader(cliConf)),
+		collector.Readers(strings.NewReader(cliConf), strings.NewReader(cliConfManualArgs)),
 		collector.MergeBootLine,
 		collector.StrictValidation(strictValidations), collector.NoLogs)
 	if err != nil {
 		return err
 	}
-
-	if reboot {
-		// Override from flags!
-		cc.Install.Reboot = true
-	}
-
-	if poweroff {
-		// Override from flags!
-		cc.Install.Poweroff = true
-	}
-	if device != "" {
-		// Override from flags!
-		cc.Install.Device = device
-	}
+	
 	return RunInstall(cc)
 }
 
@@ -349,4 +337,19 @@ func generateInstallConfForCLIArgs(sourceImageURL string) string {
   system:
     uri: %s
 `, sourceImageURL)
+}
+
+// generateInstallConfForManualCLIArgs creates a kairos configuration for flags passed via manual install
+func generateInstallConfForManualCLIArgs(device string, reboot, poweroff bool) string {
+	cfg := fmt.Sprintf(`install:
+  reboot: %t
+  poweroff: %t
+`, reboot, poweroff)
+
+	if device != "" {
+		cfg += fmt.Sprintf(`
+  device: %s
+`, device)
+	}
+	return cfg
 }
