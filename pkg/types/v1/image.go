@@ -30,7 +30,12 @@ type OCIImageExtractor struct{}
 var _ ImageExtractor = OCIImageExtractor{}
 
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
-	return utils.ExtractOCIImage(imageRef, destination, platformRef)
+	img, err := utils.GetImage(imageRef, utils.GetCurrentPlatform())
+	if err != nil {
+		return err
+	}
+
+	return utils.ExtractOCIImage(img, destination)
 }
 
 func (e OCIImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
