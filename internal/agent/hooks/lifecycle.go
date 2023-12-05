@@ -9,13 +9,13 @@ import (
 
 type Lifecycle struct{}
 
-func (s Lifecycle) Run(c config.Config, spec v1.Spec) error {
-	if spec.ShouldReboot() || c.Install.Reboot {
+func (s Lifecycle) Run(_ config.Config, spec v1.Spec) error {
+	if spec.ShouldReboot() {
 		time.Sleep(5)
 		utils.Reboot()
 	}
 
-	if spec.ShouldShutdown() || c.Install.Poweroff {
+	if spec.ShouldShutdown() {
 		time.Sleep(5)
 		utils.PowerOFF()
 	}
