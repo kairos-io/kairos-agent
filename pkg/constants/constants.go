@@ -94,6 +94,7 @@ const (
 	// Default directory and file fileModes
 	DirPerm        = os.ModeDir | os.ModePerm
 	FilePerm       = 0666
+	ConfigPerm     = 0640 // Used for config files that contain secrets or other sensitive data
 	NoWriteDirPerm = 0555 | os.ModeDir
 	TempDirPerm    = os.ModePerm | os.ModeSticky | os.ModeDir
 
