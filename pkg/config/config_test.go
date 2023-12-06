@@ -17,15 +17,16 @@ package config_test
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	"github.com/twpayne/go-vfs"
+	"github.com/twpayne/go-vfs/vfst"
 
 	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	. "github.com/kairos-io/kairos-sdk/schema"
@@ -173,6 +174,12 @@ var _ = Describe("Schema", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			loadedInstallState, err := config.LoadInstallState()
 			Expect(err).ShouldNot(HaveOccurred())
+			stat, err := fs.Stat(statePath)
+			Expect(err).To(BeNil())
+			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
+			stat, err = fs.Stat(recoveryPath)
+			Expect(err).To(BeNil())
+			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
 
 			Expect(*loadedInstallState).To(Equal(*installState))
 		})
