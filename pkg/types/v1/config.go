@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/jaypipes/ghw"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"gopkg.in/yaml.v3"
 )
@@ -74,6 +75,20 @@ type InstallSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
+	// Check if the target device has mounted partitions
+	block, err := ghw.Block()
+	if err == nil {
+		for _, disk := range block.Disks {
+			if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
+				for _, p := range disk.Partitions {
+					if p.MountPoint != "" {
+						return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
+					}
+				}
+
+			}
+		}
+	}
 	if i.Active.Source.IsEmpty() && i.Iso == "" {
 		return fmt.Errorf("undefined system source to install")
 	}
