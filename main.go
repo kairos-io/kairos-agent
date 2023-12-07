@@ -76,9 +76,9 @@ var cmds = []*cli.Command{
 		Description: `
 Manually upgrade a kairos node Active image. Does not upgrade passive or recovery images.
 
-By default takes no arguments, defaulting to latest available release, to specify a version, pass it as argument:
-
-$ kairos upgrade v1.20....
+With no arguments, it defaults to latest available release. To specify a version, pass it as argument using the --source flag.
+Passing just the Kairos version as the first argument is no longer supported. If you speficy a positional argument, it will be treated
+as a value for the --source flag.
 
 To retrieve all the available versions, use "kairos upgrade list-releases"
 
@@ -127,6 +127,8 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			var v string
 			if c.Args().Len() == 1 {
 				v = c.Args().First()
+				fmt.Println("Warning: Passing a version as a positional argument is deprecated. Use --source flag instead.")
+				fmt.Println("The value will be used as a value for the --source flag")
 			}
 
 			image := c.String("image")
