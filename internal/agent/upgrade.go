@@ -1,54 +1,77 @@
 package agent
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/github"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
+	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/mudler/go-pluggable"
 )
 
-func ListReleases(includePrereleases bool) semver.Collection {
-	var releases semver.Collection
-
-	bus.Manager.Response(events.EventAvailableReleases, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
-		if err := json.Unmarshal([]byte(r.Data), &releases); err != nil {
-			fmt.Printf("warn: failed unmarshalling data: '%s'\n", err.Error())
-		}
-	})
-
-	if _, err := bus.Manager.Publish(events.EventAvailableReleases, events.EventPayload{}); err != nil {
-		fmt.Printf("warn: failed publishing event: '%s'\n", err.Error())
+func CurrentImage() (string, error) {
+	artifact, err := versioneer.NewArtifactFromOSRelease()
+	if err != nil {
+		return "", fmt.Errorf("creating an Artifact from os-release: %w", err)
 	}
 
-	if len(releases) == 0 {
-		githubRepo, err := utils.OSRelease("GITHUB_REPO")
+	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
+	if err != nil {
+		return "", err
+	}
+
+	return artifact.ContainerName(registryAndOrg)
+}
+
+func ListReleases(includePrereleases bool) (versioneer.TagList, error) {
+	var tagList versioneer.TagList
+	var err error
+
+	// TODO: Re-enable when the provider also consumes versioneer
+	// TODO: Somehow pass includePrereleases to the provider?
+	// bus.Manager.Response(events.EventAvailableReleases, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+	// 	if err := json.Unmarshal([]byte(r.Data), &tagList); err != nil {
+	// 		fmt.Printf("warn: failed unmarshalling data: '%s'\n", err.Error())
+	// 	}
+	// })
+
+	// if _, err := bus.Manager.Publish(events.EventAvailableReleases, events.EventPayload{}); err != nil {
+	// 	fmt.Printf("warn: failed publishing event: '%s'\n", err.Error())
+	// }
+
+	// Sort before we filter
+	// // We got the release list from the bus manager and we don't know if they are sorted, so sort them in reverse to get the latest first
+	// // TODO: Should we sort? Maybe it's better to leave the sorting to the provider. Maybe there is custom logic baked in and
+	// // we mess with it? Our provider can definitely do the same kind of sorting because it uses the same versioneer library.
+	// sort.Sort(sort.Reverse(&tagList))
+
+	tagList = versioneer.TagList{} // This will come from the provider-kairos above
+
+	if len(tagList.Tags) == 0 {
+		tagList, err = newerReleases()
 		if err != nil {
-			return releases
+			return tagList, err
 		}
-		fmt.Println("Searching for releases")
-		if includePrereleases {
-			fmt.Println("Including pre-releases")
+
+		if !includePrereleases {
+			tagList = tagList.NoPrereleases()
 		}
-		releases, _ = github.FindReleases(context.Background(), "", githubRepo, includePrereleases)
-	} else {
-		// We got the release list from the bus manager and we don't know if they are sorted, so sort them in reverse to get the latest first
-		sort.Sort(sort.Reverse(releases))
 	}
-	return releases
+
+	if len(tagList.Tags) == 0 {
+		fmt.Println("No newer releases found")
+	}
+
+	return tagList, nil
 }
 
 func Upgrade(
@@ -81,6 +104,25 @@ func Upgrade(
 	}
 
 	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
+}
+
+func newerReleases() (versioneer.TagList, error) {
+	artifact, err := versioneer.NewArtifactFromOSRelease()
+	if err != nil {
+		return versioneer.TagList{}, err
+	}
+
+	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
+	if err != nil {
+		return versioneer.TagList{}, err
+	}
+
+	tagList, err := artifact.TagList(registryAndOrg)
+	if err != nil {
+		return tagList, err
+	}
+
+	return tagList.NewerAnyVersion().RSorted(), nil
 }
 
 // determineUpgradeImage asks the provider plugin for an image or constructs
@@ -172,20 +214,38 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 	if preReleases {
 		fmt.Println("Including pre-releases")
 	}
-	releases := ListReleases(preReleases)
+	tagList, err := ListReleases(preReleases)
+	if err != nil {
+		return "", err
+	}
 
-	if len(releases) == 0 {
+	if len(tagList.Tags) == 0 {
 		return "", fmt.Errorf("no releases found")
 	}
 
 	// Using Original here because the parsing removes the v as its a semver. But it stores the original full version there
-	version := releases[0].Original()
+	image := tagList.Tags[0]
 
-	if utils.Version() == version && !force {
-		return "", fmt.Errorf("version %s already installed. use --force to force upgrade", version)
+	// TODO: Construct an Artifact from os-release and get the ContainerName.
+	// Then compare that to the "tag"
+	currentArtifact, err := versioneer.NewArtifactFromOSRelease()
+	if err != nil {
+		return "", err
+	}
+	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG") // TODO: merge this in the sdk
+	if err != nil {
+		return "", err
+	}
+	currentImage, err := currentArtifact.ContainerName(registryAndOrg)
+	if err != nil {
+		return "", err
 	}
 
-	msg := fmt.Sprintf("Latest release is %s\nAre you sure you want to upgrade to this release? (y/n)", version)
+	if currentImage == image && !force {
+		return "", fmt.Errorf("image %s already installed. use --force to force upgrade", image)
+	}
+
+	msg := fmt.Sprintf("Latest release is %s\nAre you sure you want to upgrade to this release? (y/n)", image)
 	reply, err := promptBool(events.YAMLPrompt{Prompt: msg, Default: "y"})
 	if err != nil {
 		return "", err
@@ -194,7 +254,7 @@ func findLatestVersion(preReleases, force bool) (string, error) {
 		return "", fmt.Errorf("cancelled by the user")
 	}
 
-	return version, nil
+	return image, nil
 }
 
 func generateUpgradeSpec(version, sourceImageURL string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {

@@ -29,7 +29,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/sirupsen/logrus"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -39,21 +38,16 @@ var configScanDir = []string{"/oem", "/usr/local/cloud-config", "/run/initramfs/
 
 // ReleasesToOutput gets a semver.Collection and outputs it in the given format
 // Only used here.
-func ReleasesToOutput(rels semver.Collection, output string) []string {
-	// Set them back to their original version number with the v in front
-	var stringRels []string
-	for _, v := range rels {
-		stringRels = append(stringRels, v.Original())
-	}
+func ReleasesToOutput(rels []string, output string) []string {
 	switch strings.ToLower(output) {
 	case "yaml":
-		d, _ := yaml.Marshal(stringRels)
+		d, _ := yaml.Marshal(rels)
 		return []string{string(d)}
 	case "json":
-		d, _ := json.Marshal(stringRels)
+		d, _ := json.Marshal(rels)
 		return []string{string(d)}
 	default:
-		return stringRels
+		return rels
 	}
 }
 
@@ -64,6 +58,7 @@ var sourceFlag = cli.StringFlag{
 
 var cmds = []*cli.Command{
 	{
+		// TODO: Fix the implicit upgrade
 		Name: "upgrade",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
@@ -104,11 +99,18 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
 				Action: func(c *cli.Context) error {
-					releases := agent.ListReleases(c.Bool("pre"))
-					list := ReleasesToOutput(releases, c.String("output"))
-					for _, i := range list {
-						fmt.Println(i)
+					currentImage, err := agent.CurrentImage()
+					if err != nil {
+						return err
 					}
+					fmt.Printf("Current image:\n%s\n\n", currentImage)
+
+					fmt.Println("Available releases with higher versions:")
+					releases, err := agent.ListReleases(c.Bool("pre"))
+					if err != nil {
+						return err
+					}
+					releases.PrintImages()
 
 					return nil
 				},
