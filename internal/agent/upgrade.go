@@ -11,11 +11,9 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-sdk/versioneer"
-	"github.com/mudler/go-pluggable"
 )
 
 func CurrentImage() (string, error) {
@@ -75,10 +73,10 @@ func ListReleases(includePrereleases bool) (versioneer.TagList, error) {
 }
 
 func Upgrade(
-	version, source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
+	source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
-	upgradeSpec, c, err := generateUpgradeSpec(version, source, force, strictValidations, dirs, preReleases, upgradeRecovery)
+	upgradeSpec, c, err := generateUpgradeSpec(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
 	if err != nil {
 		return err
 	}
@@ -125,32 +123,33 @@ func newerReleases() (versioneer.TagList, error) {
 	return tagList.NewerAnyVersion().RSorted(), nil
 }
 
+// TODO: Remove the releavant hook from the provider-kairos too?
 // determineUpgradeImage asks the provider plugin for an image or constructs
 // it using version and data from /etc/os-release
-func determineUpgradeImage(version string) (*v1.ImageSource, error) {
-	var img string
-	bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
-		img = r.Data
-	})
+// func determineUpgradeImage(version string) (*v1.ImageSource, error) {
+// 	var img string
+// 	bus.Manager.Response(events.EventVersionImage, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+// 		img = r.Data
+// 	})
 
-	_, err := bus.Manager.Publish(events.EventVersionImage, &events.VersionImagePayload{
-		Version: version,
-	})
-	if err != nil {
-		return nil, err
-	}
+// 	_, err := bus.Manager.Publish(events.EventVersionImage, &events.VersionImagePayload{
+// 		Version: version,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	if img != "" {
-		return v1.NewSrcFromURI(img)
-	}
+// 	if img != "" {
+// 		return v1.NewSrcFromURI(img)
+// 	}
 
-	registry, err := utils.OSRelease("IMAGE_REPO")
-	if err != nil {
-		return nil, fmt.Errorf("can't find IMAGE_REPO key under /etc/os-release %w", err)
-	}
+// 	registry, err := utils.OSRelease("IMAGE_REPO")
+// 	if err != nil {
+// 		return nil, fmt.Errorf("can't find IMAGE_REPO key under /etc/os-release %w", err)
+// 	}
 
-	return v1.NewSrcFromURI(fmt.Sprintf("%s:%s", registry, version))
-}
+// 	return v1.NewSrcFromURI(fmt.Sprintf("%s:%s", registry, version))
+// }
 
 // generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
 // command line arguments. It will be added to the rest of the configurations.
@@ -182,82 +181,7 @@ func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string,
 	return string(d), err
 }
 
-func handleEmptySource(spec *v1.UpgradeSpec, version string, preReleases, force bool) error {
-	var err error
-	if spec.RecoveryUpgrade {
-		if spec.Recovery.Source.IsEmpty() {
-			spec.Recovery.Source, err = getLatestOrConstructSource(version, preReleases, force)
-		}
-	} else {
-		if spec.Active.Source.IsEmpty() {
-			spec.Active.Source, err = getLatestOrConstructSource(version, preReleases, force)
-		}
-	}
-
-	return err
-}
-
-func getLatestOrConstructSource(version string, preReleases, force bool) (*v1.ImageSource, error) {
-	var err error
-	if version == "" {
-		version, err = findLatestVersion(preReleases, force)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return determineUpgradeImage(version)
-}
-
-func findLatestVersion(preReleases, force bool) (string, error) {
-	fmt.Println("Searching for releases")
-	if preReleases {
-		fmt.Println("Including pre-releases")
-	}
-	tagList, err := ListReleases(preReleases)
-	if err != nil {
-		return "", err
-	}
-
-	if len(tagList.Tags) == 0 {
-		return "", fmt.Errorf("no releases found")
-	}
-
-	// Using Original here because the parsing removes the v as its a semver. But it stores the original full version there
-	image := tagList.Tags[0]
-
-	// TODO: Construct an Artifact from os-release and get the ContainerName.
-	// Then compare that to the "tag"
-	currentArtifact, err := versioneer.NewArtifactFromOSRelease()
-	if err != nil {
-		return "", err
-	}
-	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG") // TODO: merge this in the sdk
-	if err != nil {
-		return "", err
-	}
-	currentImage, err := currentArtifact.ContainerName(registryAndOrg)
-	if err != nil {
-		return "", err
-	}
-
-	if currentImage == image && !force {
-		return "", fmt.Errorf("image %s already installed. use --force to force upgrade", image)
-	}
-
-	msg := fmt.Sprintf("Latest release is %s\nAre you sure you want to upgrade to this release? (y/n)", image)
-	reply, err := promptBool(events.YAMLPrompt{Prompt: msg, Default: "y"})
-	if err != nil {
-		return "", err
-	}
-	if reply == "false" {
-		return "", fmt.Errorf("cancelled by the user")
-	}
-
-	return image, nil
-}
-
-func generateUpgradeSpec(version, sourceImageURL string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
+func generateUpgradeSpec(sourceImageURL string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
 	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeRecovery)
 	if err != nil {
 		return nil, nil, err
@@ -274,11 +198,6 @@ func generateUpgradeSpec(version, sourceImageURL string, force, strictValidation
 
 	// Load the upgrade Config from the system
 	upgradeSpec, err := config.ReadUpgradeSpecFromConfig(c)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = handleEmptySource(upgradeSpec, version, preReleases, force)
 	if err != nil {
 		return nil, nil, err
 	}

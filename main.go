@@ -125,14 +125,18 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 		},
 		Action: func(c *cli.Context) error {
 			var v string
+			var source string
 			if c.Args().Len() == 1 {
 				v = c.Args().First()
 				fmt.Println("Warning: Passing a version as a positional argument is deprecated. Use --source flag instead.")
 				fmt.Println("The value will be used as a value for the --source flag")
+				source = v
 			}
 
 			image := c.String("image")
-			source := c.String("source")
+			if v := c.String("source"); v != "" {
+				source = c.String("source")
+			}
 
 			if image != "" {
 				fmt.Println("--image flag is deprecated, please use --source")
@@ -140,8 +144,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				source = fmt.Sprintf("oci:%s", image)
 			}
 
-			return agent.Upgrade(
-				v, source, c.Bool("force"),
+			return agent.Upgrade(source, c.Bool("force"),
 				c.Bool("strict-validation"), configScanDir,
 				c.Bool("pre"), c.Bool("recovery"),
 			)
