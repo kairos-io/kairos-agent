@@ -72,7 +72,7 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	if err != nil {
 		return err
 	}
-	
+
 	return RunInstall(cc)
 }
 
