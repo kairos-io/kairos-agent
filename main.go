@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -25,9 +26,9 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/sirupsen/logrus"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -37,21 +38,16 @@ var configScanDir = []string{"/oem", "/usr/local/cloud-config", "/run/initramfs/
 
 // ReleasesToOutput gets a semver.Collection and outputs it in the given format
 // Only used here.
-func ReleasesToOutput(rels semver.Collection, output string) []string {
-	// Set them back to their original version number with the v in front
-	var stringRels []string
-	for _, v := range rels {
-		stringRels = append(stringRels, v.Original())
-	}
+func ReleasesToOutput(rels []string, output string) []string {
 	switch strings.ToLower(output) {
 	case "yaml":
-		d, _ := yaml.Marshal(stringRels)
+		d, _ := yaml.Marshal(rels)
 		return []string{string(d)}
 	case "json":
-		d, _ := json.Marshal(stringRels)
+		d, _ := json.Marshal(rels)
 		return []string{string(d)}
 	default:
-		return stringRels
+		return rels
 	}
 }
 
@@ -62,6 +58,7 @@ var sourceFlag = cli.StringFlag{
 
 var cmds = []*cli.Command{
 	{
+		// TODO: Fix the implicit upgrade
 		Name: "upgrade",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
@@ -79,9 +76,9 @@ var cmds = []*cli.Command{
 		Description: `
 Manually upgrade a kairos node Active image. Does not upgrade passive or recovery images.
 
-By default takes no arguments, defaulting to latest available release, to specify a version, pass it as argument:
-
-$ kairos upgrade v1.20....
+With no arguments, it defaults to latest available release. To specify a version, pass it as argument using the --source flag.
+Passing just the Kairos version as the first argument is no longer supported. If you speficy a positional argument, it will be treated
+as a value for the --source flag.
 
 To retrieve all the available versions, use "kairos upgrade list-releases"
 
@@ -102,10 +99,25 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
 				Action: func(c *cli.Context) error {
-					releases := agent.ListReleases(c.Bool("pre"))
-					list := ReleasesToOutput(releases, c.String("output"))
-					for _, i := range list {
-						fmt.Println(i)
+					currentImage, err := agent.CurrentImage()
+					if err != nil {
+						return err
+					}
+					fmt.Printf("Current image:\n%s\n\n", currentImage)
+
+					fmt.Println("Available releases with higher versions:")
+					releases, err := agent.ListReleases(c.Bool("pre"))
+					if err != nil {
+						return err
+					}
+
+					if len(releases) == 0 {
+						fmt.Println("No newer releases found")
+						return nil
+					}
+
+					for _, r := range releases {
+						fmt.Println(r)
 					}
 
 					return nil
@@ -121,12 +133,18 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 		},
 		Action: func(c *cli.Context) error {
 			var v string
+			var source string
 			if c.Args().Len() == 1 {
 				v = c.Args().First()
+				fmt.Println("Warning: Passing a version as a positional argument is deprecated. Use --source flag instead.")
+				fmt.Println("The value will be used as a value for the --source flag")
+				source = v
 			}
 
 			image := c.String("image")
-			source := c.String("source")
+			if v := c.String("source"); v != "" {
+				source = c.String("source")
+			}
 
 			if image != "" {
 				fmt.Println("--image flag is deprecated, please use --source")
@@ -134,8 +152,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				source = fmt.Sprintf("oci:%s", image)
 			}
 
-			return agent.Upgrade(
-				v, source, c.Bool("force"),
+			return agent.Upgrade(source, c.Bool("force"),
 				c.Bool("strict-validation"), configScanDir,
 				c.Bool("pre"), c.Bool("recovery"),
 			)
@@ -211,7 +228,7 @@ Manually installs a kairos bundle.
 E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 
 `,
-		Aliases: []string{"i"},
+		Aliases: []string{},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "repository",
@@ -278,7 +295,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				Name:        "show",
 				Usage:       "Shows the machine configuration",
 				Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
-				Aliases:     []string{"s"},
+				Aliases:     []string{},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {
@@ -328,7 +345,7 @@ enabled: true`,
 		Name:        "state",
 		Usage:       "get machine state",
 		Description: "Print machine state information, e.g. `state get uuid` returns the machine uuid",
-		Aliases:     []string{"s"},
+		Aliases:     []string{},
 		Action: func(c *cli.Context) error {
 			runtime, err := state.NewRuntime()
 			if err != nil {
@@ -789,6 +806,12 @@ The validate command expects a configuration file as its only argument. Local fi
 				},
 			},
 		},
+	},
+	{
+		Name:        "versioneer",
+		Usage:       "versioneer subcommands",
+		Description: "versioneer subcommands",
+		Subcommands: versioneer.CliCommands(),
 	},
 }
 
