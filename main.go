@@ -110,7 +110,15 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					if err != nil {
 						return err
 					}
-					releases.PrintImages()
+
+					if len(releases) == 0 {
+						fmt.Println("No newer releases found")
+						return nil
+					}
+
+					for _, r := range releases {
+						fmt.Println(r)
+					}
 
 					return nil
 				},
