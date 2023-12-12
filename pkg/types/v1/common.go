@@ -35,7 +35,7 @@ const (
 
 // ImageSource represents the source from where an image is created for easy identification
 type ImageSource struct {
-	source  string
+	source  string `yaml:"source"`
 	srcType string
 }
 

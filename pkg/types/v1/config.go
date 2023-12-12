@@ -202,7 +202,6 @@ func (u *UpgradeSpec) Sanitize() error {
 	}
 	return nil
 }
-
 func (u *UpgradeSpec) ShouldReboot() bool   { return u.Reboot }
 func (u *UpgradeSpec) ShouldShutdown() bool { return u.PowerOff }
 
@@ -526,8 +525,9 @@ func (i *InstallUkiSpec) GetPartitions() ElementalPartitions { return i.Partitio
 func (i *InstallUkiSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
 
 type UpgradeUkiSpec struct {
-	Reboot   bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	Active   Image `yaml:"system,omitempty" mapstructure:"system"`
+	Reboot   bool  `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff bool  `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 }
 
 func (i *UpgradeUkiSpec) Sanitize() error {

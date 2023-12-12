@@ -535,6 +535,12 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	return installSpec, nil
 }
 
+func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
+	spec := &v1.UpgradeUkiSpec{}
+	err := unmarshallFullSpec(cfg, "upgrade", spec)
+	return spec, err
+}
+
 // ReadUkiUpgradeFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
 func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "upgrade-uki")
@@ -653,8 +659,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		// TODO: Fill with proper defaults
 		sp = &v1.ResetUkiSpec{}
 	case "upgrade-uki":
-		// TODO: Fill with proper defaults
-		sp = &v1.UpgradeUkiSpec{}
+		sp, err = NewUkiUpgradeSpec(r)
 	default:
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}
