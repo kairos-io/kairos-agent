@@ -1,13 +1,10 @@
 package hook
 
 import (
-	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/machine"
-	"time"
-
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-sdk/utils"
+	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 )
 
 type Kcrypt struct{}
@@ -25,15 +22,12 @@ func (k Kcrypt) Run(c config.Config, _ v1.Spec) error {
 	}()
 
 	for _, p := range c.Install.Encrypt {
-		out, err := utils.SH(fmt.Sprintf("kcrypt encrypt %s", p))
+		_, err := kcrypt.Luksify(p, "luks1", false)
 		if err != nil {
-			fmt.Printf("could not encrypt partition: %s\n", out+err.Error())
+			c.Logger.Errorf("could not encrypt partition: %s", err)
 			if c.FailOnBundleErrors {
 				return err
 			}
-			// Give time to show the error
-			time.Sleep(10 * time.Second)
-			return nil // do not error out
 		}
 	}
 
