@@ -521,7 +521,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 
 	// TODO: Which key to use? install or install-uki?
 	err := unmarshallFullSpec(cfg, "install", spec)
-
+	// TODO: Get the actual source size to calculate the image size and partitions size for at least 3 UKI images
 	return spec, err
 }
 
@@ -538,6 +538,22 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	spec := &v1.UpgradeUkiSpec{}
 	err := unmarshallFullSpec(cfg, "upgrade", spec)
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := GetSourceSize(cfg, spec.Active.Source)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+		spec.Active.Size = constants.ImgSize
+	} else {
+		cfg.Logger.Infof("Setting image size to %dMb", size)
+		spec.Active.Size = uint(size)
+	}
+
+	spec.EfiPartition = &v1.Partition{
+		FilesystemLabel: constants.EfiLabel,
+		FS:              constants.EfiFs,
+		Path:            constants.UkiEfiDiskByLabel,
+		MountPoint:      constants.UkiEfiDir,
+	}
 	return spec, err
 }
 

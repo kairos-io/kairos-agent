@@ -108,8 +108,10 @@ const (
 
 	Rsync = "rsync"
 
-	UkiSource      = "/run/install/uki"
-	UkiCdromSource = "/run/install/cdrom"
+	UkiSource         = "/run/install/uki"
+	UkiCdromSource    = "/run/install/cdrom"
+	UkiEfiDir         = "/efi"
+	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
 )
 
 func GetCloudInitPaths() []string {
