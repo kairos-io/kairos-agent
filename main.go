@@ -727,6 +727,12 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name: "device",
 					},
 				},
+				Before: func(c *cli.Context) error {
+					if c.String("device") == "" {
+						return fmt.Errorf("on uki, --device flag is required")
+					}
+					return nil
+				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {

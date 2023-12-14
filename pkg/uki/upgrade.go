@@ -3,6 +3,7 @@ package uki
 import (
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
@@ -39,12 +40,13 @@ func (i *UpgradeAction) Run() (err error) {
 	// Load them, order them via semver
 	// Remove the latest one if its over the max number of entries
 	// Dump artifact to efi dir
-	//_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
-	//if err != nil {
-	//	return err
-	//}
+	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
+	if err != nil {
+		return err
+	}
 
 	// Point loader to latest UKI?
+	// Add uki measurements to luks!!
 
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.upgrade.after.hook") //nolint:errcheck
