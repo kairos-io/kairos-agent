@@ -14,7 +14,7 @@ require (
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.0.19
-	github.com/kairos-io/kcrypt v0.7.1-0.20231206231913-12a8d5d33cf0
+	github.com/kairos-io/kcrypt v0.8.0
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -161,6 +161,7 @@ require (
 	github.com/swaggest/refl v1.3.0 // indirect
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
+	github.com/urfave/cli v1.22.14 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
