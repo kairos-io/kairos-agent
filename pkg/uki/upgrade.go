@@ -34,20 +34,17 @@ func (i *UpgradeAction) Run() (err error) {
 		return err
 	}
 	cleanup.Push(umount)
-	// Check size of EFI partition to see if we can upgrade
-	// Check size of source to see if we can upgrade
-	// Check number of existing UKI files
-	// Load them, order them via semver
-	// Remove the latest one if its over the max number of entries
+	// TODO: Check size of EFI partition to see if we can upgrade
+	// TODO: Check size of source to see if we can upgrade
+	// TODO: Check number of existing UKI files
+	// TODO: Load them, order them via semver
+	// TODO: Remove the latest one if its over the max number of entries
 	// Dump artifact to efi dir
 	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {
 		return err
 	}
-
-	// Point loader to latest UKI?
-	// Add uki measurements to luks!!
-
+	
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.upgrade.after.hook") //nolint:errcheck
 

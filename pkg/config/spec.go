@@ -496,7 +496,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
 	spec.Partitions.EFI = &v1.Partition{
 		FilesystemLabel: constants.EfiLabel,
-		Size:            constants.ImgSize, // TODO: Fix this and set proper size based on the source size
+		Size:            constants.ImgSize * 2, // TODO: Fix this and set proper size based on the source size
 		Name:            constants.EfiPartName,
 		FS:              constants.EfiFs,
 		MountPoint:      constants.EfiDir,
