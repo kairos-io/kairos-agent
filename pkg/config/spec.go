@@ -496,7 +496,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
 	spec.Partitions.EFI = &v1.Partition{
 		FilesystemLabel: constants.EfiLabel,
-		Size:            constants.ImgSize, // TODO: Fix this and set proper size based on the source size
+		Size:            constants.ImgSize * 2, // TODO: Fix this and set proper size based on the source size
 		Name:            constants.EfiPartName,
 		FS:              constants.EfiFs,
 		MountPoint:      constants.EfiDir,
@@ -521,7 +521,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 
 	// TODO: Which key to use? install or install-uki?
 	err := unmarshallFullSpec(cfg, "install", spec)
-
+	// TODO: Get the actual source size to calculate the image size and partitions size for at least 3 UKI images
 	return spec, err
 }
 
@@ -533,6 +533,28 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	}
 	installSpec := sp.(*v1.InstallUkiSpec)
 	return installSpec, nil
+}
+
+func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
+	spec := &v1.UpgradeUkiSpec{}
+	err := unmarshallFullSpec(cfg, "upgrade", spec)
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := GetSourceSize(cfg, spec.Active.Source)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
+		spec.Active.Size = constants.ImgSize
+	} else {
+		cfg.Logger.Infof("Setting image size to %dMb", size)
+		spec.Active.Size = uint(size)
+	}
+
+	spec.EfiPartition = &v1.Partition{
+		FilesystemLabel: constants.EfiLabel,
+		FS:              constants.EfiFs,
+		Path:            constants.UkiEfiDiskByLabel,
+		MountPoint:      constants.UkiEfiDir,
+	}
+	return spec, err
 }
 
 // ReadUkiUpgradeFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
@@ -653,8 +675,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 		// TODO: Fill with proper defaults
 		sp = &v1.ResetUkiSpec{}
 	case "upgrade-uki":
-		// TODO: Fill with proper defaults
-		sp = &v1.UpgradeUkiSpec{}
+		sp, err = NewUkiUpgradeSpec(r)
 	default:
 		return nil, fmt.Errorf("spec not valid: %s", spec)
 	}

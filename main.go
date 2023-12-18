@@ -27,6 +27,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos-sdk/versioneer"
+	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
@@ -726,6 +727,12 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name: "device",
 					},
 				},
+				Before: func(c *cli.Context) error {
+					if c.String("device") == "" {
+						return fmt.Errorf("on uki, --device flag is required")
+					}
+					return nil
+				},
 				Action: func(c *cli.Context) error {
 					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
 					if err != nil {
@@ -757,22 +764,14 @@ The validate command expects a configuration file as its only argument. Local fi
 					},
 				},
 				Before: func(c *cli.Context) error {
-					return fmt.Errorf("not implemented")
+					if c.String("source") == "" {
+						return fmt.Errorf("On uki, source is required")
+					}
+					return nil
 				},
 				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
-					if err != nil {
-						return err
-					}
-
-					// Load the spec from the config
-					upgradeSpec, err := agentConfig.ReadUkiUpgradeFromConfig(config)
-					if err != nil {
-						return err
-					}
-
-					upgradeAction := uki.NewUpgradeAction(config, upgradeSpec)
-					return upgradeAction.Run()
+					source := c.String("source")
+					return agent.UkiUpgrade(source, configScanDir, c.Bool("strict-validation"))
 				},
 			},
 			{
@@ -847,6 +846,9 @@ The kairos agent is a component to abstract away node ops, providing a common fe
 		Before: func(c *cli.Context) error {
 			// Set debug from here already, so it's loaded by the ReadConfigRun
 			viper.Set("debug", c.Bool("debug"))
+			if c.Bool("debug") {
+				litter.Config.HidePrivateFields = false
+			}
 			return nil
 		},
 		Commands: cmds,

@@ -9,12 +9,37 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type KcryptUKI struct{}
 
 func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
+	// pre-check for systemd version, we need something higher or equal to 252
+	run, err := utils.SH("systemctl --version | head -1 | awk '{ print $2}'")
+	systemdVersion := strings.TrimSpace(string(run))
+	if err != nil {
+		c.Logger.Errorf("could not get systemd version: %s", err)
+		c.Logger.Errorf("could not get systemd version: %s", run)
+		return err
+	}
+	if systemdVersion == "" {
+		c.Logger.Errorf("could not get systemd version: %s", err)
+		return err
+	}
+	// Change systemdVersion to int value
+	systemdVersionInt, err := strconv.Atoi(systemdVersion)
+	if err != nil {
+		c.Logger.Errorf("could not convert systemd version to int: %s", err)
+		return err
+	}
+	// If systemd version is less than 252 return
+	if systemdVersionInt < 252 {
+		c.Logger.Infof("systemd version is %s, we need 252 or higher for encrypting partitions", systemdVersion)
+		return nil
+	}
 
 	// We always encrypt OEM and PERSISTENT under UKI
 	// If mounted, unmount it
@@ -22,7 +47,7 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
 
 	// Backup oem as we already copied files on there and on luksify it will be wiped
-	err := machine.Mount("COS_OEM", constants.OEMDir)
+	err = machine.Mount("COS_OEM", constants.OEMDir)
 	if err != nil {
 		return err
 	}
@@ -60,7 +85,6 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 		c.Logger.Infof("Done encrypting %s", p)
 	}
 
-	// Restore OEM
 	err = kcrypt.UnlockAll(true)
 	if err != nil {
 		return err

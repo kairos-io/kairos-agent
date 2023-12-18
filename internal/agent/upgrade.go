@@ -12,6 +12,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -184,4 +185,50 @@ func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func UkiUpgrade(source string, dirs []string, strictValidations bool) error {
+	bus.Manager.Initialize()
+
+	cliConf, err := generateUpgradeConfForCLIArgs(source, false)
+	if err != nil {
+		return err
+	}
+
+	c, err := config.Scan(collector.Directories(dirs...),
+		collector.Readers(strings.NewReader(cliConf)),
+		collector.StrictValidation(strictValidations))
+	if err != nil {
+		return err
+	}
+
+	utils.SetEnv(c.Env)
+
+	// Load the upgrade Config from the system
+	upgradeSpec, err := config.ReadUkiUpgradeFromConfig(c)
+	if err != nil {
+		return err
+	}
+
+	err = upgradeSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+
+	upgradeAction := uki.NewUpgradeAction(c, upgradeSpec)
+
+	err = upgradeAction.Run()
+	if err != nil {
+		return err
+	}
+
+	if upgradeSpec.Reboot {
+		utils.Reboot()
+	}
+
+	if upgradeSpec.PowerOff {
+		utils.PowerOFF()
+	}
+
+	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
 }
