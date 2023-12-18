@@ -46,7 +46,7 @@ func (i *UpgradeAction) Run() (err error) {
 		return err
 	}
 	i.cfg.Logger.Infof("Found %d UKI files", len(efiFiles))
-	if len(efiFiles) > i.cfg.UkiMaxEntries && i.cfg.UkiMaxEntries != 0 {
+	if len(efiFiles) > i.cfg.UkiMaxEntries && i.cfg.UkiMaxEntries > 0 {
 		i.cfg.Logger.Infof("Found %d UKI files, which is over max entries allowed(%d) removing the oldest one", len(efiFiles), i.cfg.UkiMaxEntries)
 		versionList := semver.Collection{}
 		for _, f := range efiFiles {
