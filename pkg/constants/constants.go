@@ -112,6 +112,7 @@ const (
 	UkiCdromSource    = "/run/install/cdrom"
 	UkiEfiDir         = "/efi"
 	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
+	UkiMaxEntries     = 3
 )
 
 func GetCloudInitPaths() []string {

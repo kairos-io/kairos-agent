@@ -18,6 +18,8 @@ package config
 
 import (
 	"fmt"
+	"github.com/google/go-containerregistry/pkg/crane"
+	"golang.org/x/sys/unix"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -538,6 +540,18 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	spec := &v1.UpgradeUkiSpec{}
 	err := unmarshallFullSpec(cfg, "upgrade", spec)
+	// TODO: Use this everywhere?
+	cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
+	if spec.Active.Source.IsDocker() {
+		_, err := crane.Manifest(spec.Active.Source.Value())
+		if err != nil {
+			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
+				return nil, fmt.Errorf("oci image %s does not exist", spec.Active.Source.Value())
+			}
+			return nil, err
+		}
+	}
+
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
@@ -548,12 +562,27 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 		spec.Active.Size = uint(size)
 	}
 
-	spec.EfiPartition = &v1.Partition{
-		FilesystemLabel: constants.EfiLabel,
-		FS:              constants.EfiFs,
-		Path:            constants.UkiEfiDiskByLabel,
-		MountPoint:      constants.UkiEfiDir,
+	// Get EFI partition
+	parts, err := partitions.GetAllPartitions()
+	if err != nil {
+		return spec, fmt.Errorf("could not read host partitions")
 	}
+	for _, p := range parts {
+		if p.FilesystemLabel == constants.EfiLabel {
+			spec.EfiPartition = p
+			break
+		}
+	}
+	// Get free size of partition
+	var stat unix.Statfs_t
+	_ = unix.Statfs(spec.EfiPartition.MountPoint, &stat)
+	freeSize := stat.Bfree * uint64(stat.Bsize) / 1000 / 1000
+	cfg.Logger.Debugf("Partition on mountpoint %s has %dMb free", spec.EfiPartition.MountPoint, freeSize)
+	// Check if the source is over the free size
+	if spec.Active.Size > uint(freeSize) {
+		return spec, fmt.Errorf("source size(%d) is bigger than the free space(%d) on the EFI partition(%s)", spec.Active.Size, freeSize, spec.EfiPartition.MountPoint)
+	}
+
 	return spec, err
 }
 

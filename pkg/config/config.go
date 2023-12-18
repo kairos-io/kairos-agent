@@ -70,6 +70,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 		ImageExtractor:            v1.OCIImageExtractor{},
 		SquashFsNoCompression:     true,
 		Install:                   &Install{},
+		UkiMaxEntries:             constants.UkiMaxEntries,
 	}
 	for _, o := range opts {
 		o(c)
@@ -134,6 +135,7 @@ type Config struct {
 	Arch                      string              `yaml:"arch,omitempty" mapstructure:"arch"`
 	SquashFsCompressionConfig []string            `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
 	SquashFsNoCompression     bool                `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
+	UkiMaxEntries             int                 `yaml:"uki-max-entries,omitempty" mapstructure:"uki-max-entries"`
 }
 
 // WriteInstallState writes the state.yaml file to the given state and recovery paths
