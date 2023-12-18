@@ -17,6 +17,7 @@ package config_test
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -168,6 +169,11 @@ var _ = Describe("Schema", func() {
 		})
 		AfterEach(func() {
 			cleanup()
+		})
+		It("Scan can override options", func() {
+			c, err := Scan(collector.Readers(strings.NewReader(`uki-max-entries: 34`)), collector.NoLogs)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(c.UkiMaxEntries).To(Equal(34))
 		})
 		It("Writes and loads an installation data", func() {
 			err = config.WriteInstallState(installState, statePath, recoveryPath)

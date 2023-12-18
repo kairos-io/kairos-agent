@@ -367,6 +367,8 @@ github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfV
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kairos-io/kairos-sdk v0.0.20 h1:iadV3ylhQELgWUFe/fETfs2qFhPtKZwnDN55okZZVgs=
 github.com/kairos-io/kairos-sdk v0.0.20/go.mod h1:17dpFG2d3Q/TcT86DlLK5nNXEjlSrkYl7bsvO2cpYGE=
+github.com/kairos-io/kairos-sdk v0.0.21-0.20231218143909-a99f8bb48751 h1:kyW/RlMT0yujMYR0HATHM1q0Cwb7TNT8j+huykrjzIk=
+github.com/kairos-io/kairos-sdk v0.0.21-0.20231218143909-a99f8bb48751/go.mod h1:17dpFG2d3Q/TcT86DlLK5nNXEjlSrkYl7bsvO2cpYGE=
 github.com/kairos-io/kcrypt v0.7.1-0.20231206231913-12a8d5d33cf0 h1:bInWIHqP+8GNOO0b6mtvZn6HxEQuhMgr5h9QBuarR38=
 github.com/kairos-io/kcrypt v0.7.1-0.20231206231913-12a8d5d33cf0/go.mod h1:sP+kdJ6WyPPWlzZuDNfkV2wmnCDPWCGpC5nF7KhHX3Q=
 github.com/kairos-io/kcrypt v0.8.0 h1:uA5GVF74hzqNOgVvvuue585vAWKXbjMQ93mBJuhKuTE=
