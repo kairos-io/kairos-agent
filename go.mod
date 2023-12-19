@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.0.21-0.20231218143909-a99f8bb48751
+	github.com/kairos-io/kairos-sdk v0.0.21
 	github.com/kairos-io/kcrypt v0.9.0
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/mitchellh/mapstructure v1.5.0
@@ -32,6 +32,7 @@ require (
 	github.com/urfave/cli/v2 v2.26.0
 	golang.org/x/net v0.15.0
 	golang.org/x/oauth2 v0.12.0
+	golang.org/x/sys v0.12.0
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -161,7 +162,6 @@ require (
 	github.com/swaggest/refl v1.3.0 // indirect
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
-	github.com/urfave/cli v1.22.14 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
@@ -180,7 +180,6 @@ require (
 	golang.org/x/image v0.0.0-20191206065243-da761ea9ff43 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
