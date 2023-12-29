@@ -169,23 +169,65 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		}
 
 		// Copy needed files for efi boot
-		shimFiles := cnst.GetGrubFilePaths(g.config.Arch)
+		// This seems liek a chore while we could provide a package for those bundled files as they are just a shim and a grub efi
+		// BUT this is needed for secureboot
+		// The shim contains the signature from microsoft and the shim provider (i.e. upstream distro like fedora, suse, etc)
+		// So if we use the shim+grub from a generic package (i.e. ubuntu) it WILL boot with secureboot
+		// but when loading the kernel it will fail because the kernel is not signed by the shim provider or grub provider
+		// the kernel signature would be from fedora while the shim signature would be from ubuntu
+		// This is why if we want to support secureboot we need to copy the shim+grub from the rootfs default paths instead of
+		// providing a generic package
+		shimFiles := cnst.GetEfiShimFiles(g.config.Arch)
+		grubFiles := cnst.GetEfiGrubFiles(g.config.Arch)
 
+		shimDone := false
 		for _, f := range shimFiles {
 			_, name := filepath.Split(f)
 			fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 			g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
-			// They are bundled in the rootfs so pick them from there
+			// Try to find the paths give until we succeed
 			fileContent, err := g.config.Fs.ReadFile(filepath.Join(cnst.ActiveDir, f))
 
 			if err != nil {
-				return fmt.Errorf("error reading %s: %s", filepath.Join(cnst.ActiveDir, f), err)
+				g.config.Logger.Warnf("error reading %s: %s", filepath.Join(cnst.ActiveDir, f), err)
+				continue
 			}
 			err = g.config.Fs.WriteFile(fileWriteName, fileContent, cnst.FilePerm)
 			if err != nil {
 				return fmt.Errorf("error writing %s: %s", fileWriteName, err)
 			}
+			shimDone = true
+			break
+		}
+		if !shimDone {
+			g.config.Logger.Debugf("List of shim files searched for: %s", shimFiles)
+			return fmt.Errorf("could not find any shim file to copy")
+		}
+
+		grubDone := false
+		for _, f := range grubFiles {
+			_, name := filepath.Split(f)
+			fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
+			g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
+
+			// Try to find the paths give until we succeed
+			fileContent, err := g.config.Fs.ReadFile(filepath.Join(cnst.ActiveDir, f))
+
+			if err != nil {
+				g.config.Logger.Warnf("error reading %s: %s", filepath.Join(cnst.ActiveDir, f), err)
+				continue
+			}
+			err = g.config.Fs.WriteFile(fileWriteName, fileContent, cnst.FilePerm)
+			if err != nil {
+				return fmt.Errorf("error writing %s: %s", fileWriteName, err)
+			}
+			grubDone = true
+			break
+		}
+		if !grubDone {
+			g.config.Logger.Debugf("List of grub files searched for: %s", grubFiles)
+			return fmt.Errorf("could not find any grub efi file to copy")
 		}
 
 		// Rename the shimName to the fallback name so the system boots from fallback. This means that we do not create

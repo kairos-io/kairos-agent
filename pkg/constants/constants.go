@@ -105,8 +105,8 @@ const (
 	Archx86    = "x86_64"
 	ArchArm64  = "arm64"
 	SignedShim = "shim.efi"
-
-	Rsync = "rsync"
+	SignedGrub = "grub.efi"
+	Rsync      = "rsync"
 
 	UkiSource         = "/run/install/uki"
 	UkiCdromSource    = "/run/install/cdrom"
@@ -128,18 +128,50 @@ func GetDefaultSquashfsCompressionOptions() []string {
 	return []string{"-comp", "gzip"}
 }
 
-func GetGrubFilePaths(arch string) []string {
-	var archPath string
+// GetEfiGrubFiles Return possible paths for the grub.efi
+func GetEfiGrubFiles(arch string) []string {
+	var modNames []string
 	switch arch {
 	case ArchArm64:
-		archPath = "aarch64"
+		modNames = append(modNames, fmt.Sprintf("/usr/share/efi/aarch64/%s", SignedGrub))  // suse
+		modNames = append(modNames, "/usr/lib/grub/x86_64-efi-signed/grubaa64.efi.signed") // ubuntu + debian
+		modNames = append(modNames, "/boot/efi/EFI/fedora/grubaa64.efi")                   // fedora
+		modNames = append(modNames, "/boot/efi/EFI/rocky/grubaa64.efi")                    // rocky
+		modNames = append(modNames, "/boot/efi/EFI/redhat/grubaa64.efi")                   // redhat
+		modNames = append(modNames, "/boot/efi/EFI/almalinux/grubaa64.efi")                // almalinux
+
 	default:
-		archPath = Archx86
+		modNames = append(modNames, fmt.Sprintf("/usr/share/efi/x86_64/%s", SignedGrub))  // suse
+		modNames = append(modNames, "/usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed") // ubuntu + debian
+		modNames = append(modNames, "/boot/efi/EFI/fedora/grubx64.efi")                   // fedora
+		modNames = append(modNames, "/boot/efi/EFI/rocky/grubx64.efi")                    // rocky
+		modNames = append(modNames, "/boot/efi/EFI/redhat/grubx64.efi")                   // redhat
+		modNames = append(modNames, "/boot/efi/EFI/almalinux/grubx64.efi")                // almalinux
 	}
-	return []string{
-		fmt.Sprintf("/usr/share/efi/%s/grub.efi", archPath),
-		fmt.Sprintf("/usr/share/efi/%s/%s", archPath, SignedShim),
+	return modNames
+}
+
+// GetEfiShimFiles Return possible paths for the shim.efi
+func GetEfiShimFiles(arch string) []string {
+	var modNames []string
+	switch arch {
+	case ArchArm64:
+		modNames = append(modNames, "/usr/share/efi/aarch64/%s", SignedShim) // suse
+		modNames = append(modNames, "/usr/lib/shim/shimaa64.efi.signed")     // ubuntu + debian
+		modNames = append(modNames, "/boot/efi/EFI/fedora/shim.efi")         // fedora
+		modNames = append(modNames, "/boot/efi/EFI/rocky/shim.efi")          // rocky
+		modNames = append(modNames, "/boot/efi/EFI/redhat/shim.efi")         // redhat
+		modNames = append(modNames, "/boot/efi/EFI/almalinux/shim.efi")      // almalinux
+	default:
+		modNames = append(modNames, "/usr/share/efi/x86_64/%s", SignedShim) // suse
+		modNames = append(modNames, "/usr/lib/shim/shimx64.efi.signed")     // ubuntu + debian
+		modNames = append(modNames, "/boot/efi/EFI/fedora/shim.efi")        // fedora
+		modNames = append(modNames, "/boot/efi/EFI/rocky/shim.efi")         // rocky
+		modNames = append(modNames, "/boot/efi/EFI/redhat/shim.efi")        // redhat
+		modNames = append(modNames, "/boot/efi/EFI/almalinux/shim.efi")     // almalinux
 	}
+
+	return modNames
 }
 
 func GetFallBackEfi(arch string) string {
