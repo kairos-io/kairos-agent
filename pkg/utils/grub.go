@@ -20,6 +20,7 @@ import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/utils"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -169,7 +170,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		}
 
 		// Copy needed files for efi boot
-		// This seems liek a chore while we could provide a package for those bundled files as they are just a shim and a grub efi
+		// This seems like a chore while we could provide a package for those bundled files as they are just a shim and a grub efi
 		// BUT this is needed for secureboot
 		// The shim contains the signature from microsoft and the shim provider (i.e. upstream distro like fedora, suse, etc)
 		// So if we use the shim+grub from a generic package (i.e. ubuntu) it WILL boot with secureboot
@@ -177,11 +178,16 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		// the kernel signature would be from fedora while the shim signature would be from ubuntu
 		// This is why if we want to support secureboot we need to copy the shim+grub from the rootfs default paths instead of
 		// providing a generic package
-		shimFiles := cnst.GetEfiShimFiles(g.config.Arch)
-		grubFiles := cnst.GetEfiGrubFiles(g.config.Arch)
+		shimFiles := utils.GetEfiShimFiles(g.config.Arch)
+		grubFiles := utils.GetEfiGrubFiles(g.config.Arch)
 
 		shimDone := false
 		for _, f := range shimFiles {
+			_, err := g.config.Fs.Stat(filepath.Join(cnst.ActiveDir, f))
+			if err != nil {
+				g.config.Logger.Debugf("skip copying %s: not found", filepath.Join(cnst.ActiveDir, f))
+				continue
+			}
 			_, name := filepath.Split(f)
 			fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 			g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
@@ -201,12 +207,18 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			break
 		}
 		if !shimDone {
+			// TODO: alpine is not shipping the shim.efi file, so we need to find a way to support it
 			g.config.Logger.Debugf("List of shim files searched for: %s", shimFiles)
 			return fmt.Errorf("could not find any shim file to copy")
 		}
 
 		grubDone := false
 		for _, f := range grubFiles {
+			_, err := g.config.Fs.Stat(filepath.Join(constants.ActiveDir, f))
+			if err != nil {
+				g.config.Logger.Debugf("skip copying %s: not found", filepath.Join(constants.ActiveDir, f))
+				continue
+			}
 			_, name := filepath.Split(f)
 			fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 			g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
@@ -226,6 +238,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			break
 		}
 		if !grubDone {
+			// TODO: alpine is not shipping the grub.efi file, so we need to find a way to support it
 			g.config.Logger.Debugf("List of grub files searched for: %s", grubFiles)
 			return fmt.Errorf("could not find any grub efi file to copy")
 		}
