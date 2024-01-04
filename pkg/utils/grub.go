@@ -204,6 +204,14 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 				return fmt.Errorf("error writing %s: %s", fileWriteName, err)
 			}
 			shimDone = true
+
+			// Copy the shim content  to the fallback name so the system boots from fallback. This means that we do not create
+			// any bootloader entries, so our recent installation has the lower priority if something else is on the bootloader
+			writeShim := cnst.GetFallBackEfi(g.config.Arch)
+			err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/", writeShim), fileContent, cnst.FilePerm)
+			if err != nil {
+				return fmt.Errorf("could not write shim file %s at dir %s", writeShim, cnst.EfiDir)
+			}
 			break
 		}
 		if !shimDone {
