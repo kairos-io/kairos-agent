@@ -189,6 +189,8 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 				continue
 			}
 			_, name := filepath.Split(f)
+			// remove the .signed suffix if present
+			name, _ = strings.CutSuffix(name, ".signed")
 			fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 			g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
@@ -228,6 +230,8 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 				continue
 			}
 			_, name := filepath.Split(f)
+			// remove the .signed suffix if present
+			name, _ = strings.CutSuffix(name, ".signed")
 			fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 			g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
@@ -249,20 +253,6 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			// TODO: alpine is not shipping the grub.efi file, so we need to find a way to support it
 			g.config.Logger.Debugf("List of grub files searched for: %s", grubFiles)
 			return fmt.Errorf("could not find any grub efi file to copy")
-		}
-
-		// Rename the shimName to the fallback name so the system boots from fallback. This means that we do not create
-		// any bootloader entries, so our recent installation has the lower priority if something else is on the bootloader
-		writeShim := cnst.GetFallBackEfi(g.config.Arch)
-
-		readShim, err := g.config.Fs.ReadFile(filepath.Join(cnst.EfiDir, "EFI/boot/", cnst.SignedShim))
-		if err != nil {
-			return fmt.Errorf("could not read shim file %s at dir %s", cnst.SignedShim, cnst.EfiDir)
-		}
-
-		err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/", writeShim), readShim, cnst.FilePerm)
-		if err != nil {
-			return fmt.Errorf("could not write shim file %s at dir %s", writeShim, cnst.EfiDir)
 		}
 
 		// Add grub.cfg in EFI that chainloads the grub.cfg in recovery
