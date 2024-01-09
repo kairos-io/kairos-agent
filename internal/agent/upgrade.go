@@ -13,6 +13,7 @@ import (
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -61,6 +62,14 @@ func Upgrade(
 	source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
+	if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+		return upgradeUki(source, dirs, strictValidations)
+	} else {
+		return upgrade(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
+	}
+}
+
+func upgrade(source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	upgradeSpec, c, err := generateUpgradeSpec(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
 	if err != nil {
 		return err
@@ -187,9 +196,7 @@ func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
 	return result, nil
 }
 
-func UkiUpgrade(source string, dirs []string, strictValidations bool) error {
-	bus.Manager.Initialize()
-
+func upgradeUki(source string, dirs []string, strictValidations bool) error {
 	cliConf, err := generateUpgradeConfForCLIArgs(source, false)
 	if err != nil {
 		return err

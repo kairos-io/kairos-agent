@@ -20,7 +20,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
@@ -700,69 +699,6 @@ The validate command expects a configuration file as its only argument. Local fi
 				fmt.Println(common.VERSION)
 			}
 			return nil
-		},
-	},
-	{
-		Name:        "uki",
-		Usage:       "UKI subcommands",
-		Description: "UKI subcommands",
-		// we could set the flag --source at this level so we could have the flag for all subcommands but that translates into an ugly command
-		// in which you need to put the source flag before the subcommand, which is a mess. Just bad UX.
-		// command level: kairos-agent uki --source oci:whatever install
-		// subcommand level: kairos-agent uki install --source oci:whatever
-		Subcommands: []*cli.Command{
-			{
-				Name: "upgrade",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "source",
-						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-						Action: func(c *cli.Context, s string) error {
-							return validateSource(s)
-						},
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if c.String("source") == "" {
-						return fmt.Errorf("On uki, source is required")
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					source := c.String("source")
-					return agent.UkiUpgrade(source, configScanDir, c.Bool("strict-validation"))
-				},
-			},
-			{
-				Name: "reset",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "source",
-						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-						Action: func(c *cli.Context, s string) error {
-							return validateSource(s)
-						},
-					},
-				},
-				Before: func(c *cli.Context) error {
-					return fmt.Errorf("not implemented")
-				},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
-					if err != nil {
-						return err
-					}
-
-					// Load the spec from the config
-					resetSpec, err := agentConfig.ReadUkiResetSpecFromConfig(config)
-					if err != nil {
-						return err
-					}
-
-					resetAction := uki.NewResetAction(config, resetSpec)
-					return resetAction.Run()
-				},
-			},
 		},
 	},
 	{
