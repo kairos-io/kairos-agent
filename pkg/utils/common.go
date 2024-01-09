@@ -520,7 +520,7 @@ const (
 func UkiBootMode() state.Boot {
 	if IsUki() {
 		_, err := os.Stat("/run/cos/uki_boot_mode")
-		if err != nil {
+		if err == nil {
 			return UkiHDD
 		}
 		return UkiRemovableMedia
