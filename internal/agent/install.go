@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"net/url"
 	"os"
 	"strings"
@@ -14,13 +16,11 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/sanity-io/litter"
 
-	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
@@ -217,66 +217,90 @@ func RunInstall(c *config.Config) error {
 		c.Install.Device = detectDevice()
 	}
 
-	// Load the installation spec from the Config
-	installSpec, err := config.ReadInstallSpecFromConfig(c)
-	if err != nil {
-		return err
-	}
-
-	f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
-	if err != nil {
-		c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
-		return err
-	}
-	defer os.RemoveAll(f.Name())
-
-	ccstring, err := c.String()
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
-	if err != nil {
-		fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
-		return err
-	}
-
-	// TODO: This should not be neccessary
-	installSpec.NoFormat = c.Install.NoFormat
-
-	// Set our cloud-init to the file we just created
-	installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
-	// Get the source of the installation if we are overriding it
-	if c.Install.Image != "" {
-		imgSource, err := v1.NewSrcFromURI(c.Install.Image)
+	// UKI path. Check if we are on UKI AND if we are running off a cd, otherwise it makes no sense to run the install
+	// From the installed system
+	if internalutils.IsUki() && internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+		// Load the spec from the config
+		installSpec, err := config.ReadUkiInstallSpecFromConfig(c)
 		if err != nil {
 			return err
 		}
-		installSpec.Active.Source = imgSource
+
+		f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
+		if err != nil {
+			c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
+			return err
+		}
+		defer os.RemoveAll(f.Name())
+
+		ccstring, err := c.String()
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
+		if err != nil {
+			fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
+			return err
+		}
+
+		// Add user's cloud-config (to run user defined "before-install" stages)
+		c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
+
+		// PRE and POST install hooks are done inside the action for UKI
+		installAction := uki.NewInstallAction(c, installSpec)
+		return installAction.Run()
+	} else { // Non-uki path
+		// Load the installation spec from the Config
+		installSpec, err := config.ReadInstallSpecFromConfig(c)
+		if err != nil {
+			return err
+		}
+
+		f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
+		if err != nil {
+			c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
+			return err
+		}
+		defer os.RemoveAll(f.Name())
+
+		ccstring, err := c.String()
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(f.Name(), []byte(ccstring), os.ModePerm)
+		if err != nil {
+			fmt.Printf("could not write cloud init to %s: %s\n", f.Name(), err.Error())
+			return err
+		}
+
+		// TODO: This should not be neccessary
+		installSpec.NoFormat = c.Install.NoFormat
+
+		// Set our cloud-init to the file we just created
+		installSpec.CloudInit = append(installSpec.CloudInit, f.Name())
+		// Get the source of the installation if we are overriding it
+		if c.Install.Image != "" {
+			imgSource, err := v1.NewSrcFromURI(c.Install.Image)
+			if err != nil {
+				return err
+			}
+			installSpec.Active.Source = imgSource
+		}
+
+		// Check if values are correct
+		err = installSpec.Sanitize()
+		if err != nil {
+			return err
+		}
+
+		// Add user's cloud-config (to run user defined "before-install" stages)
+		c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
+
+		// Create the action
+		installAction := action.NewInstallAction(c, installSpec)
+		// Run it
+		return installAction.Run()
 	}
-
-	// Check if values are correct
-	err = installSpec.Sanitize()
-	if err != nil {
-		return err
-	}
-
-	// Add user's cloud-config (to run user defined "before-install" stages)
-	c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
-
-	// Run pre-install stage
-	_ = elementalUtils.RunStage(c, "kairos-install.pre")
-	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
-	// Create the action
-	installAction := action.NewInstallAction(c, installSpec)
-	// Run it
-	if err := installAction.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	_ = elementalUtils.RunStage(c, "kairos-install.after")
-	events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
-
-	return hook.Run(*c, installSpec, hook.AfterInstall...)
 }
 
 func ensureDataSourceReady() {

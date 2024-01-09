@@ -712,47 +712,6 @@ The validate command expects a configuration file as its only argument. Local fi
 		// subcommand level: kairos-agent uki install --source oci:whatever
 		Subcommands: []*cli.Command{
 			{
-				Name:      "install",
-				Usage:     "Install to disk",
-				UsageText: "install [--device DEVICE]",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "source",
-						Usage: "Source for install. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-						Action: func(c *cli.Context, s string) error {
-							return validateSource(s)
-						},
-					},
-					&cli.StringFlag{
-						Name: "device",
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if c.String("device") == "" {
-						return fmt.Errorf("on uki, --device flag is required")
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					// Load the spec from the config
-					installSpec, err := agentConfig.ReadUkiInstallSpecFromConfig(config)
-					if err != nil {
-						return err
-					}
-
-					if c.String("device") != "" {
-						installSpec.Target = c.String("device")
-					}
-
-					installAction := uki.NewInstallAction(config, installSpec)
-					return installAction.Run()
-				},
-			},
-			{
 				Name: "upgrade",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
