@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-sdk/state"
 	"io"
 	random "math/rand"
 	"net/url"
@@ -497,4 +498,32 @@ func FindCommand(defaultPath string, options []string) string {
 
 	// Otherwise return default
 	return defaultPath
+}
+
+// IsUki returns true if the system is running in UKI mode. Checks the cmdline as UKI artifacts have the rd.immucore.uki flag
+func IsUki() bool {
+	cmdline, _ := os.ReadFile("/proc/cmdline")
+	if strings.Contains(string(cmdline), "rd.immucore.uki") {
+		return true
+	}
+	return false
+}
+
+const (
+	UkiHDD            state.Boot = "uki_boot_mode"
+	UkiRemovableMedia state.Boot = "uki_install_mode"
+)
+
+// UkiBootMode will return where the system is running from, either HDD or RemovableMedia
+// HDD means we are booting from an already installed system
+// RemovableMedia means we are booting from a live media like a CD or USB
+func UkiBootMode() state.Boot {
+	if IsUki() {
+		_, err := os.Stat("/run/cos/uki_boot_mode")
+		if err != nil {
+			return UkiHDD
+		}
+		return UkiRemovableMedia
+	}
+	return state.Unknown
 }

@@ -18,7 +18,9 @@ package action
 
 import (
 	"fmt"
+	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	events "github.com/kairos-io/kairos-sdk/bus"
 	"path/filepath"
 	"strings"
 	"time"
@@ -122,6 +124,10 @@ func (i InstallAction) Run() (err error) {
 	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
+
+	// Run pre-install stage
+	_ = utils.RunStage(i.cfg, "kairos-install.pre")
+	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 
 	// Set installation sources from a downloaded ISO
 	if i.spec.Iso != "" {
@@ -275,5 +281,8 @@ func (i InstallAction) Run() (err error) {
 		}
 	}
 
-	return err
+	_ = utils.RunStage(i.cfg, "kairos-install.after")
+	_ = events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
+
+	return hook.Run(*i.cfg, i.spec, hook.AfterInstall...)
 }
