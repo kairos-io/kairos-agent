@@ -223,7 +223,7 @@ func RunInstall(c *config.Config) error {
 		if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
 			return runInstallUki(c)
 		}
-		c.Logger.Warnf("UKI boot mode is not removable media, skipping install\n")
+		c.Logger.Warnf("UKI boot mode is not removable media, skipping install")
 		return nil
 	} else { // Non-uki path
 		return runInstall(c)
