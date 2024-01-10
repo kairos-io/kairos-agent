@@ -294,8 +294,9 @@ func dumpCCStringToFile(c *config.Config) (string, error) {
 		c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
 		return "", err
 	}
-	defer os.RemoveAll(f.Name())
-
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
 	ccstring, err := c.String()
 	if err != nil {
 		return "", err
