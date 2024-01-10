@@ -218,8 +218,13 @@ func RunInstall(c *config.Config) error {
 
 	// UKI path. Check if we are on UKI AND if we are running off a cd, otherwise it makes no sense to run the install
 	// From the installed system
-	if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
-		return runInstallUki(c)
+	if internalutils.IsUki() {
+		c.Logger.Debugf("UKI mode: %s\n", internalutils.UkiBootMode())
+		if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+			return runInstallUki(c)
+		}
+		c.Logger.Warnf("UKI boot mode is not removable media, skipping install")
+		return nil
 	} else { // Non-uki path
 		return runInstall(c)
 	}
@@ -289,8 +294,9 @@ func dumpCCStringToFile(c *config.Config) (string, error) {
 		c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
 		return "", err
 	}
-	defer os.RemoveAll(f.Name())
-
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
 	ccstring, err := c.String()
 	if err != nil {
 		return "", err
