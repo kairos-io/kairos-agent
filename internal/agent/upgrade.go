@@ -34,17 +34,23 @@ func CurrentImage() (string, error) {
 	return artifact.ContainerName(registryAndOrg)
 }
 
-func ListReleases(includePrereleases bool) ([]string, error) {
+func ListAllReleases(includePrereleases bool) ([]string, error) {
 	var err error
 
-	providerTags, err := getReleasesFromProvider(includePrereleases)
+	tagList, err := allReleases()
 	if err != nil {
-		fmt.Printf("warn: %s", err.Error())
+		return []string{}, err
 	}
 
-	if len(providerTags) != 0 {
-		return providerTags, nil
+	if !includePrereleases {
+		tagList = tagList.NoPrereleases()
 	}
+
+	return tagList.FullImages()
+}
+
+func ListNewerReleases(includePrereleases bool) ([]string, error) {
+	var err error
 
 	tagList, err := newerReleases()
 	if err != nil {
@@ -96,6 +102,25 @@ func upgrade(source string, force, strictValidations bool, dirs []string, preRel
 	}
 
 	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
+}
+
+func allReleases() (versioneer.TagList, error) {
+	artifact, err := versioneer.NewArtifactFromOSRelease()
+	if err != nil {
+		return versioneer.TagList{}, err
+	}
+
+	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
+	if err != nil {
+		return versioneer.TagList{}, err
+	}
+
+	tagList, err := artifact.TagList(registryAndOrg)
+	if err != nil {
+		return tagList, err
+	}
+
+	return tagList.OtherAnyVersion().RSorted(), nil
 }
 
 func newerReleases() (versioneer.TagList, error) {
