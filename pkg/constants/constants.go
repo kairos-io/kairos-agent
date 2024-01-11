@@ -17,7 +17,6 @@ limitations under the License.
 package constants
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -105,8 +104,8 @@ const (
 	Archx86    = "x86_64"
 	ArchArm64  = "arm64"
 	SignedShim = "shim.efi"
-
-	Rsync = "rsync"
+	SignedGrub = "grub.efi"
+	Rsync      = "rsync"
 
 	UkiSource         = "/run/install/uki"
 	UkiCdromSource    = "/run/install/cdrom"
@@ -126,20 +125,6 @@ func GetDefaultSquashfsOptions() []string {
 
 func GetDefaultSquashfsCompressionOptions() []string {
 	return []string{"-comp", "gzip"}
-}
-
-func GetGrubFilePaths(arch string) []string {
-	var archPath string
-	switch arch {
-	case ArchArm64:
-		archPath = "aarch64"
-	default:
-		archPath = Archx86
-	}
-	return []string{
-		fmt.Sprintf("/usr/share/efi/%s/grub.efi", archPath),
-		fmt.Sprintf("/usr/share/efi/%s/%s", archPath, SignedShim),
-	}
 }
 
 func GetFallBackEfi(arch string) string {

@@ -830,7 +830,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				Expect(err.Error()).To(ContainSubstring("grub"))
 				Expect(err.Error()).To(ContainSubstring("modules"))
 			})
-			It("fails with efi if no grub files exist", Label("efi"), func() {
+			It("fails with efi if no shim/grub files exist", Label("efi"), func() {
 				err := fsutils.MkdirAll(fs, filepath.Join(rootDir, "/x86_64/"), constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
 				err = fs.WriteFile(filepath.Join(rootDir, "/x86_64/loopback.mod"), []byte(""), constants.FilePerm)
@@ -840,7 +840,19 @@ var _ = Describe("Utils", Label("utils"), func() {
 				grub := utils.NewGrub(config)
 				err = grub.Install(target, rootDir, bootDir, constants.GrubConf, "", true, "")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("no such file"))
+				Expect(err.Error()).To(ContainSubstring("could not find any shim file to copy"))
+				// Create fake shim
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "/usr/share/efi/x86_64/"), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/usr/share/efi/x86_64/", constants.SignedShim), []byte(""), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/usr/share/efi/x86_64/shim.efi"), []byte(""), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				grub = utils.NewGrub(config)
+				err = grub.Install(target, rootDir, bootDir, constants.GrubConf, "", true, "")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("could not find any grub efi file to copy"))
+
 			})
 			It("installs with extra tty", func() {
 				err := fs.Mkdir("/dev", constants.DirPerm)
