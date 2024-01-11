@@ -11,16 +11,16 @@ concurrency:
   cancel-in-progress: true
 jobs:
   unit-tests:
+    strategy:
+      matrix:
+        # Match this version to the maintained FIPS version in packages at https://github.com/kairos-io/packages/blob/main/packages/toolchain-go/collection.yaml#L63
+        go-version: ["1.19.10-alpine3.18", "1.20-alpine3.18", "1.21-alpine3.18"]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ^1.20
       - name: Install earthly
         uses: Luet-lab/luet-install-action@v1
         with:
@@ -28,7 +28,7 @@ jobs:
           packages: utils/earthly
       - name: Run tests
         run: |
-          earthly -P +test
+          earthly -P +test --GO_VERSION=${{ matrix.go-version }}
       - name: Codecov
         uses: codecov/codecov-action@v3
         with:
