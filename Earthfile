@@ -3,13 +3,14 @@ FROM alpine
 # renovate: datasource=docker depName=golang
 ARG --global GOLINT_VERSION=1.52.2
 # renovate: datasource=docker depName=golang
-ARG --global GO_VERSION=1.20-alpine3.17
+ARG --global GO_VERSION=1.20-bookworm
 # renovate: datasource=docker depName=cypress/base
 ARG --global CYPRESS_VERSION=18.16.0
 
 go-deps:
     ARG GO_VERSION
     FROM golang:$GO_VERSION
+    RUN apt-get update && apt-get install -y rsync gcc bash git
     WORKDIR /build
     COPY go.mod go.sum ./
     RUN go mod download
@@ -18,7 +19,6 @@ go-deps:
 
 test:
     FROM +go-deps
-    RUN apk add rsync gcc musl-dev bash
     WORKDIR /build
     COPY . .
     ARG TEST_PATHS=./...
@@ -28,8 +28,7 @@ test:
     SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
 version:
-    FROM alpine
-    RUN apk add git
+    FROM +go-deps
     COPY . ./
     RUN --no-cache echo $(git describe --always --tags --dirty) > VERSION
     RUN --no-cache echo $(git describe --always --dirty) > COMMIT
@@ -40,7 +39,6 @@ version:
 
 build-kairos-agent:
     FROM +go-deps
-    RUN apk add upx
     COPY . .
     COPY +webui-deps/node_modules ./internal/webui/public/node_modules
     COPY github.com/kairos-io/kairos-docs:main+docs/public ./internal/webui/public/local
@@ -51,15 +49,14 @@ build-kairos-agent:
     RUN --no-cache echo "Building Version: ${VERSION} and Commit: ${COMMIT}"
     ARG LDFLAGS="-s -w -X github.com/kairos-io/kairos-agent/v2/internal/common.VERSION=${VERSION} -X github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit=$COMMIT"
     ENV CGO_ENABLED=${CGO_ENABLED}
-    RUN go build -o kairos-agent -ldflags "${LDFLAGS}" main.go && upx kairos-agent
+    RUN go build -o kairos-agent -ldflags "${LDFLAGS}" main.go
     SAVE ARTIFACT kairos-agent kairos-agent AS LOCAL build/kairos-agent
 
 build:
     BUILD +build-kairos-agent
 
 golint:
-    ARG GO_VERSION
-    FROM golang:$GO_VERSION
+    FROM +go-deps
     ARG GOLINT_VERSION
     RUN wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v$GOLINT_VERSION
     WORKDIR /build
