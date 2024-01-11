@@ -13,6 +13,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/mudler/go-pluggable"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -21,6 +22,7 @@ import (
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
+	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
@@ -95,6 +97,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 						Usage: "Output format (json|yaml|terminal)",
 					},
 					&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
+					&cli.BoolFlag{Name: "all", Usage: "Include older releases"},
 				},
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
@@ -105,18 +108,41 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					}
 					fmt.Printf("Current image:\n%s\n\n", currentImage)
 
-					fmt.Println("Available releases with higher versions:")
-					releases, err := agent.ListReleases(c.Bool("pre"))
+					var tags []string
+					tags, err = getReleasesFromProvider(c.Bool("pre"))
 					if err != nil {
 						return err
 					}
 
-					if len(releases) == 0 {
+					// Provider returns tags. Print and return.
+					if len(tags) > 0 {
+						fmt.Println("Available releases from provider:")
+						for _, r := range tags {
+							fmt.Println(r)
+							return nil
+						}
+					}
+
+					if c.Bool("all") {
+						fmt.Println("Available releases (all):")
+						tags, err = agent.ListAllReleases(c.Bool("pre"))
+						if err != nil {
+							return err
+						}
+					} else {
+						fmt.Println("Available releases with higher version:")
+						tags, err = agent.ListNewerReleases(c.Bool("pre"))
+						if err != nil {
+							return err
+						}
+					}
+
+					if len(tags) == 0 {
 						fmt.Println("No newer releases found")
 						return nil
 					}
 
-					for _, r := range releases {
+					for _, r := range tags {
 						fmt.Println(r)
 					}
 
@@ -778,4 +804,24 @@ func validateSource(source string) error {
 	}
 
 	return nil
+}
+
+func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
+	var tags []string
+	bus.Manager.Response(events.EventAvailableReleases, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+		if r.Data == "" {
+			return
+		}
+		if err := json.Unmarshal([]byte(r.Data), &tags); err != nil {
+			fmt.Printf("warn: failed unmarshalling data: '%s'\n", err.Error())
+		}
+	})
+
+	configYAML := fmt.Sprintf("IncludePreReleases: %t", includePrereleases)
+	_, err := bus.Manager.Publish(events.EventAvailableReleases, events.EventPayload{Config: configYAML})
+	if err != nil {
+		return tags, fmt.Errorf("failed publishing event: %w", err)
+	}
+
+	return tags, nil
 }
