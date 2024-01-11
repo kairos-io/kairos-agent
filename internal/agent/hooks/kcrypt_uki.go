@@ -9,6 +9,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,15 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	// If systemd version is less than 252 return
 	if systemdVersionInt < 252 {
 		c.Logger.Infof("systemd version is %s, we need 252 or higher for encrypting partitions", systemdVersion)
+		return nil
+	}
+
+	// Check for a TPM 2.0 device as its needed to encrypt
+	// Exposed by the kernel to userspace as /dev/tpmrm0 since kernel 4.12
+	// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=fdc915f7f71939ad5a3dda3389b8d2d7a7c5ee66
+	_, err = os.Stat("/dev/tpmrm0")
+	if err != nil {
+		c.Logger.Warnf("Skipping partition encryption, could not find TPM 2.0 device at /dev/tpmrm0")
 		return nil
 	}
 

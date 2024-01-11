@@ -13,6 +13,7 @@ import (
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -33,17 +34,23 @@ func CurrentImage() (string, error) {
 	return artifact.ContainerName(registryAndOrg)
 }
 
-func ListReleases(includePrereleases bool) ([]string, error) {
+func ListAllReleases(includePrereleases bool) ([]string, error) {
 	var err error
 
-	providerTags, err := getReleasesFromProvider(includePrereleases)
+	tagList, err := allReleases()
 	if err != nil {
-		fmt.Printf("warn: %s", err.Error())
+		return []string{}, err
 	}
 
-	if len(providerTags) != 0 {
-		return providerTags, nil
+	if !includePrereleases {
+		tagList = tagList.NoPrereleases()
 	}
+
+	return tagList.FullImages()
+}
+
+func ListNewerReleases(includePrereleases bool) ([]string, error) {
+	var err error
 
 	tagList, err := newerReleases()
 	if err != nil {
@@ -61,6 +68,14 @@ func Upgrade(
 	source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
+	if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+		return upgradeUki(source, dirs, strictValidations)
+	} else {
+		return upgrade(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
+	}
+}
+
+func upgrade(source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	upgradeSpec, c, err := generateUpgradeSpec(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
 	if err != nil {
 		return err
@@ -87,6 +102,25 @@ func Upgrade(
 	}
 
 	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
+}
+
+func allReleases() (versioneer.TagList, error) {
+	artifact, err := versioneer.NewArtifactFromOSRelease()
+	if err != nil {
+		return versioneer.TagList{}, err
+	}
+
+	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
+	if err != nil {
+		return versioneer.TagList{}, err
+	}
+
+	tagList, err := artifact.TagList(registryAndOrg)
+	if err != nil {
+		return tagList, err
+	}
+
+	return tagList.OtherAnyVersion().RSorted(), nil
 }
 
 func newerReleases() (versioneer.TagList, error) {
@@ -187,9 +221,7 @@ func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
 	return result, nil
 }
 
-func UkiUpgrade(source string, dirs []string, strictValidations bool) error {
-	bus.Manager.Initialize()
-
+func upgradeUki(source string, dirs []string, strictValidations bool) error {
 	cliConf, err := generateUpgradeConfForCLIArgs(source, false)
 	if err != nil {
 		return err

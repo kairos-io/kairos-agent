@@ -13,6 +13,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/mudler/go-pluggable"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -20,8 +21,8 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	"github.com/kairos-io/kairos-sdk/bundles"
+	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
@@ -96,6 +97,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 						Usage: "Output format (json|yaml|terminal)",
 					},
 					&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
+					&cli.BoolFlag{Name: "all", Usage: "Include older releases"},
 				},
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
@@ -106,18 +108,41 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					}
 					fmt.Printf("Current image:\n%s\n\n", currentImage)
 
-					fmt.Println("Available releases with higher versions:")
-					releases, err := agent.ListReleases(c.Bool("pre"))
+					var tags []string
+					tags, err = getReleasesFromProvider(c.Bool("pre"))
 					if err != nil {
 						return err
 					}
 
-					if len(releases) == 0 {
+					// Provider returns tags. Print and return.
+					if len(tags) > 0 {
+						fmt.Println("Available releases from provider:")
+						for _, r := range tags {
+							fmt.Println(r)
+							return nil
+						}
+					}
+
+					if c.Bool("all") {
+						fmt.Println("Available releases (all):")
+						tags, err = agent.ListAllReleases(c.Bool("pre"))
+						if err != nil {
+							return err
+						}
+					} else {
+						fmt.Println("Available releases with higher version:")
+						tags, err = agent.ListNewerReleases(c.Bool("pre"))
+						if err != nil {
+							return err
+						}
+					}
+
+					if len(tags) == 0 {
 						fmt.Println("No newer releases found")
 						return nil
 					}
 
-					for _, r := range releases {
+					for _, r := range tags {
 						fmt.Println(r)
 					}
 
@@ -703,110 +728,6 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 	},
 	{
-		Name:        "uki",
-		Usage:       "UKI subcommands",
-		Description: "UKI subcommands",
-		// we could set the flag --source at this level so we could have the flag for all subcommands but that translates into an ugly command
-		// in which you need to put the source flag before the subcommand, which is a mess. Just bad UX.
-		// command level: kairos-agent uki --source oci:whatever install
-		// subcommand level: kairos-agent uki install --source oci:whatever
-		Subcommands: []*cli.Command{
-			{
-				Name:      "install",
-				Usage:     "Install to disk",
-				UsageText: "install [--device DEVICE]",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "source",
-						Usage: "Source for install. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-						Action: func(c *cli.Context, s string) error {
-							return validateSource(s)
-						},
-					},
-					&cli.StringFlag{
-						Name: "device",
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if c.String("device") == "" {
-						return fmt.Errorf("on uki, --device flag is required")
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					// Load the spec from the config
-					installSpec, err := agentConfig.ReadUkiInstallSpecFromConfig(config)
-					if err != nil {
-						return err
-					}
-
-					if c.String("device") != "" {
-						installSpec.Target = c.String("device")
-					}
-
-					installAction := uki.NewInstallAction(config, installSpec)
-					return installAction.Run()
-				},
-			},
-			{
-				Name: "upgrade",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "source",
-						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-						Action: func(c *cli.Context, s string) error {
-							return validateSource(s)
-						},
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if c.String("source") == "" {
-						return fmt.Errorf("On uki, source is required")
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					source := c.String("source")
-					return agent.UkiUpgrade(source, configScanDir, c.Bool("strict-validation"))
-				},
-			},
-			{
-				Name: "reset",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "source",
-						Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
-						Action: func(c *cli.Context, s string) error {
-							return validateSource(s)
-						},
-					},
-				},
-				Before: func(c *cli.Context) error {
-					return fmt.Errorf("not implemented")
-				},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
-					if err != nil {
-						return err
-					}
-
-					// Load the spec from the config
-					resetSpec, err := agentConfig.ReadUkiResetSpecFromConfig(config)
-					if err != nil {
-						return err
-					}
-
-					resetAction := uki.NewResetAction(config, resetSpec)
-					return resetAction.Run()
-				},
-			},
-		},
-	},
-	{
 		Name:        "versioneer",
 		Usage:       "versioneer subcommands",
 		Description: "versioneer subcommands",
@@ -883,4 +804,24 @@ func validateSource(source string) error {
 	}
 
 	return nil
+}
+
+func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
+	var tags []string
+	bus.Manager.Response(events.EventAvailableReleases, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+		if r.Data == "" {
+			return
+		}
+		if err := json.Unmarshal([]byte(r.Data), &tags); err != nil {
+			fmt.Printf("warn: failed unmarshalling data: '%s'\n", err.Error())
+		}
+	})
+
+	configYAML := fmt.Sprintf("IncludePreReleases: %t", includePrereleases)
+	_, err := bus.Manager.Publish(events.EventAvailableReleases, events.EventPayload{Config: configYAML})
+	if err != nil {
+		return tags, fmt.Errorf("failed publishing event: %w", err)
+	}
+
+	return tags, nil
 }
