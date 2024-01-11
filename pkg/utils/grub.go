@@ -256,7 +256,7 @@ func (g Grub) copyShim() error {
 		}
 		_, name := filepath.Split(f)
 		// remove the .signed suffix if present
-		name, _ = strings.CutSuffix(name, ".signed")
+		name = strings.TrimSuffix(name, ".signed")
 		fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 		g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
@@ -300,7 +300,7 @@ func (g Grub) copyGrub() error {
 		}
 		_, name := filepath.Split(f)
 		// remove the .signed suffix if present
-		name, _ = strings.CutSuffix(name, ".signed")
+		name = strings.TrimSuffix(name, ".signed")
 		fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
 		g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
