@@ -194,6 +194,28 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		if err != nil {
 			return fmt.Errorf("error writing %s: %s", filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), err)
 		}
+		// Ubuntu efi searches for the grub.cfg file under /EFI/ubuntu/grub.cfg while we store it under /boot/grub2/grub.cfg
+		// workaround this by copying it there as well
+		// read the os-release from the rootfs to know if we are creating a ubuntu based iso
+		flavor, err := utils.OSRelease("FLAVOR", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+		if err != nil {
+			g.config.Logger.Warnf("Failed reading os-release from %s: %v", filepath.Join(cnst.ActiveDir, "etc/os-release"), err)
+		}
+		g.config.Logger.Infof("Detected Flavor: %s", flavor)
+		if err == nil && strings.Contains(strings.ToLower(flavor), "ubuntu") {
+			g.config.Logger.Infof("Ubuntu based ISO detected, copying grub.cfg to /EFI/ubuntu/grub.cfg")
+			err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/ubuntu/"), constants.DirPerm)
+			if err != nil {
+				g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
+				return err
+			}
+			err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/ubuntu/grub.cfg"), grubCfgContent, constants.FilePerm)
+			if err != nil {
+				g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
+				return err
+			}
+		}
+
 	}
 
 	return nil
