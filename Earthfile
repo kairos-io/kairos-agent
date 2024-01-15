@@ -23,7 +23,7 @@ test:
     COPY . .
     ARG TEST_PATHS=./...
     ARG LABEL_FILTER=
-    ENV CGO_ENABLED=1
+    ENV CGO_ENABLED=0
     RUN go run github.com/onsi/ginkgo/v2/ginkgo run --label-filter "$LABEL_FILTER" --covermode=atomic --coverprofile=coverage.out -v --race -r $TEST_PATHS
     SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
@@ -48,7 +48,7 @@ build-kairos-agent:
     ARG COMMIT=$(cat COMMIT)
     RUN --no-cache echo "Building Version: ${VERSION} and Commit: ${COMMIT}"
     ARG LDFLAGS="-s -w -X github.com/kairos-io/kairos-agent/v2/internal/common.VERSION=${VERSION} -X github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit=$COMMIT"
-    ENV CGO_ENABLED=${CGO_ENABLED}
+    ENV CGO_ENABLED=0
     RUN go build -o kairos-agent -ldflags "${LDFLAGS}" main.go
     SAVE ARTIFACT kairos-agent kairos-agent AS LOCAL build/kairos-agent
 
