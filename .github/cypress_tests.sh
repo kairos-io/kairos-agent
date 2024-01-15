@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 # Run agent in the background to bring the webui up
 /usr/bin/kairos-agent webui &
 
