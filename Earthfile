@@ -23,7 +23,7 @@ test:
     COPY . .
     ARG TEST_PATHS=./...
     ARG LABEL_FILTER=
-    ENV CGO_ENABLED=0
+    ENV CGO_ENABLED=1
     RUN go run github.com/onsi/ginkgo/v2/ginkgo run --label-filter "$LABEL_FILTER" --covermode=atomic --coverprofile=coverage.out -v --race -r $TEST_PATHS
     SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
