@@ -364,8 +364,7 @@ func generateInstallConfForCLIArgs(sourceImageURL string) string {
 	}
 
 	return fmt.Sprintf(`install:
-  system:
-    uri: %s
+  source: %s
 `, sourceImageURL)
 }
 
