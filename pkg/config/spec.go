@@ -69,11 +69,12 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	}
 	// Then any user provided source
 	if cfg.Install.Source != "" {
+		fmt.Println("Adding source!")
 		activeImg.Source, _ = v1.NewSrcFromURI(cfg.Install.Source)
 	}
 	// If we dont have any just an empty source so the sanitation fails
 	if !isoRootExists && cfg.Install.Source == "" {
-		return nil, fmt.Errorf("no installation source found")
+		activeImg.Source = v1.NewEmptySrc()
 	}
 
 	if recoveryExists {
