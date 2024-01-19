@@ -142,7 +142,7 @@ var _ = Describe("RunInstall", func() {
 		options = &config.Config{
 			Install: &config.Install{
 				Device: "/some/device",
-				Image:  "test",
+				Source: "test",
 			},
 		}
 
