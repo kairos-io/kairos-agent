@@ -84,7 +84,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
 			spec := &v1.InstallSpec{}
-			parts = agentConfig.NewInstallElementalPartitions(spec)
+			parts = agentConfig.NewInstallElementalPartitions(logger, spec)
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
@@ -149,7 +149,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
 			spec := &v1.InstallSpec{}
-			parts = agentConfig.NewInstallElementalPartitions(spec)
+			parts = agentConfig.NewInstallElementalPartitions(logger, spec)
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
@@ -198,7 +198,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var parts v1.ElementalPartitions
 		BeforeEach(func() {
 			spec := &v1.InstallSpec{}
-			parts = agentConfig.NewInstallElementalPartitions(spec)
+			parts = agentConfig.NewInstallElementalPartitions(logger, spec)
 
 			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 			Expect(err).ToNot(HaveOccurred())

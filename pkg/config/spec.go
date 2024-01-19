@@ -118,27 +118,47 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions = NewInstallElementalPartitions(spec)
+	spec.Partitions = NewInstallElementalPartitions(cfg.Logger, spec)
 
 	return spec, nil
 }
 
-func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions {
+func NewInstallElementalPartitions(log v1.Logger, spec *v1.InstallSpec) v1.ElementalPartitions {
 	pt := v1.ElementalPartitions{}
+	var oemSize uint
+	if spec.Partitions.OEM != nil && spec.Partitions.OEM.Size != 0 {
+		oemSize = spec.Partitions.OEM.Size
+	} else {
+		oemSize = constants.OEMSize
+	}
 	pt.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,
-		Size:            constants.OEMSize,
+		Size:            oemSize,
 		Name:            constants.OEMPartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
-
+	log.Infof("Setting OEM partition size to %dMb", oemSize)
 	// Double the space for recovery, as upgrades use the recovery partition to create the transition image for upgrades
 	// so we need twice the space to do a proper upgrade
+	// Check if the default/user provided values are enough to fit the images sizes
+	var recoverySize uint
+	if spec.Partitions.Recovery == nil { // This means its not configured by user so use the default
+		recoverySize = (spec.Recovery.Size * 2) + 200
+	} else {
+		if spec.Partitions.Recovery.Size < (spec.Recovery.Size*2)+200 { // Configured by user but not enough space
+			// If we had the logger here we could log a message saying that space is not enough and we are auto increasing it
+			recoverySize = (spec.Recovery.Size * 2) + 200
+			log.Warnf("Not enough space set for recovery partition(%dMb), increasing it to fit the recovery images(%dMb)", spec.Partitions.Recovery.Size, recoverySize)
+		} else {
+			recoverySize = spec.Partitions.Recovery.Size
+		}
+	}
+	log.Infof("Setting recovery partition size to %dMb", recoverySize)
 	pt.Recovery = &v1.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
-		Size:            (spec.Recovery.Size * 2) + 200,
+		Size:            recoverySize,
 		Name:            constants.RecoveryPartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.RecoveryDir,
@@ -149,23 +169,42 @@ func NewInstallElementalPartitions(spec *v1.InstallSpec) v1.ElementalPartitions 
 	// there is no coming back from that
 	// Also multiply the space for active, as upgrades use the state partition to create the transition image for upgrades
 	// so we need twice the space to do a proper upgrade
+	// Check if the default/user provided values are enough to fit the images sizes
+	var stateSize uint
+	if spec.Partitions.State == nil { // This means its not configured by user so use the default
+		stateSize = (spec.Active.Size * 2) + spec.Passive.Size + 1000
+	} else {
+		if spec.Partitions.State.Size < (spec.Active.Size*2)+spec.Passive.Size+1000 { // Configured by user but not enough space
+			stateSize = (spec.Active.Size * 2) + spec.Passive.Size + 1000
+			log.Warnf("Not enough space set for state partition(%dMb), increasing it to fit the state images(%dMb)", spec.Partitions.State.Size, stateSize)
+		} else {
+			stateSize = spec.Partitions.State.Size
+		}
+	}
+	log.Infof("Setting state partition size to %dMb", stateSize)
 	pt.State = &v1.Partition{
 		FilesystemLabel: constants.StateLabel,
-		Size:            (spec.Active.Size * 2) + spec.Passive.Size + 1000,
+		Size:            stateSize,
 		Name:            constants.StatePartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.StateDir,
 		Flags:           []string{},
 	}
-
+	var persistentSize uint
+	if spec.Partitions.Persistent == nil { // This means its not configured by user so use the default
+		persistentSize = constants.PersistentSize
+	} else {
+		persistentSize = spec.Partitions.Persistent.Size
+	}
 	pt.Persistent = &v1.Partition{
 		FilesystemLabel: constants.PersistentLabel,
-		Size:            constants.PersistentSize,
+		Size:            persistentSize,
 		Name:            constants.PersistentPartName,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
+	log.Infof("Setting persistent partition size to %dMb", persistentSize)
 	return pt
 }
 
