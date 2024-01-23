@@ -69,10 +69,10 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	}
 	// Then any user provided source
 	if cfg.Install.Source != "" {
-		fmt.Println("Adding source!")
 		activeImg.Source, _ = v1.NewSrcFromURI(cfg.Install.Source)
 	}
 	// If we dont have any just an empty source so the sanitation fails
+	// TODO: Should we directly fail here if we got no source instead of waiting for the Sanitize() to fail?
 	if !isoRootExists && cfg.Install.Source == "" {
 		activeImg.Source = v1.NewEmptySrc()
 	}
