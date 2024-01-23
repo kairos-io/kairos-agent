@@ -63,9 +63,17 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	activeImg.FS = constants.LinuxImgFs
 	activeImg.MountPoint = constants.ActiveDir
 
+	// First try to use the install media source
 	if isoRootExists {
 		activeImg.Source = v1.NewDirSrc(constants.IsoBaseTree)
-	} else {
+	}
+	// Then any user provided source
+	if cfg.Install.Source != "" {
+		activeImg.Source, _ = v1.NewSrcFromURI(cfg.Install.Source)
+	}
+	// If we dont have any just an empty source so the sanitation fails
+	// TODO: Should we directly fail here if we got no source instead of waiting for the Sanitize() to fail?
+	if !isoRootExists && cfg.Install.Source == "" {
 		activeImg.Source = v1.NewEmptySrc()
 	}
 

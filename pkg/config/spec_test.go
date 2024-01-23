@@ -192,13 +192,33 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(spec.Partitions.BIOS).NotTo(BeNil())
 			})
-			It("sets installation defaults without being on installation media", Label("install"), func() {
+			It("fails if not in installation media or without source", Label("install"), func() {
+				// Should fail if not on installation media and no source specified
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.Sanitize()).To(HaveOccurred())
+
+			})
+			It("sets installation defaults without being on installation media but with source", Label("install"), func() {
+				c.Install.Source = "oci:test:latest"
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
+				fmt.Println(litter.Sdump(spec))
+				Expect(spec.Active.Source.IsEmpty()).To(BeFalse())
+				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
+				Expect(spec.PartTable).To(Equal(v1.GPT))
+				Expect(spec.Sanitize()).ToNot(HaveOccurred())
+			})
+			It("sets installation defaults without being on installation media and no source, fails sanitize", Label("install"), func() {
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.Firmware).To(Equal(v1.BIOS))
+				fmt.Println(litter.Sdump(spec))
 				Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
 				Expect(spec.PartTable).To(Equal(v1.GPT))
+				Expect(spec.Sanitize()).To(HaveOccurred())
 			})
 		})
 		Describe("ResetSpec", Label("reset"), func() {
