@@ -1,6 +1,11 @@
 package hook
 
 import (
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -9,10 +14,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type KcryptUKI struct{}
@@ -78,7 +79,7 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 		return err
 	}
 
-	for _, p := range []string{"COS_OEM", "COS_PERSISTENT"} {
+	for _, p := range append([]string{"COS_OEM", "COS_PERSISTENT"}, c.Install.Encrypt...) {
 		c.Logger.Infof("Encrypting %s", p)
 		utils.SH("udevadm settle") //nolint:errcheck
 		utils.SH("sync")           //nolint:errcheck
