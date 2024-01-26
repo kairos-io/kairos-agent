@@ -571,6 +571,8 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	// TODO: Which key to use? install or install-uki?
 	err := unmarshallFullSpec(cfg, "install", spec)
 	// TODO: Get the actual source size to calculate the image size and partitions size for at least 3 UKI images
+	// Add default values for the skip partitions for our default entries
+	spec.SkipEntries = append(spec.SkipEntries, constants.UkiDefaultSkipEntries()...)
 	return spec, err
 }
 
