@@ -149,6 +149,10 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 	block, err := ghw.Block()
 	if err == nil {
 		for _, disk := range block.Disks {
+			// skip useless devices (/dev/ram, /dev/loop, /dev/sr, /dev/zram)
+			if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {
+				continue
+			}
 			size := float64(disk.SizeBytes) / float64(GiB)
 			if size > maxSize {
 				maxSize = size
