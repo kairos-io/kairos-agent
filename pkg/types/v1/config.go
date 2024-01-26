@@ -510,6 +510,7 @@ type InstallUkiSpec struct {
 	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
 	ExtraPartitions PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
 	CloudInit       []string            `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
+	SkipEntries     []string            `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
 }
 
 func (i *InstallUkiSpec) Sanitize() error {

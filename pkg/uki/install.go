@@ -1,6 +1,11 @@
 package uki
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/joho/godotenv"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -9,8 +14,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
-	"os"
-	"path/filepath"
+	"github.com/sanity-io/litter"
 )
 
 type InstallAction struct {
@@ -119,6 +123,52 @@ func (i *InstallAction) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	// Remove entries
+	// Read all confs
+	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint), func(path string, info os.DirEntry, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(info.Name()) != ".conf" {
+			return nil
+		}
+		i.cfg.Logger.Debugf("Checking conf file %s", path)
+		// Extract the values
+		conf, err := godotenv.Read(path)
+		if err != nil {
+			return err
+		}
+		i.cfg.Logger.Debugf("Conf file %s has values %v", path, litter.Sdump(conf))
+		if len(conf["cmdline"]) == 0 {
+			return nil
+		}
+		// Check if the cmdline matches any of the entries in the skip list
+		for _, entry := range i.spec.SkipEntries {
+			// Match the cmdline key against the entry
+			if strings.Contains(conf["cmdline"], entry) {
+				i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
+				// If match, get the efi file and remove it
+				if conf["efi"] != "" {
+					i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
+					// First remove the efi file
+					err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
+					if err != nil {
+						return err
+					}
+					// Then remove the conf file
+					i.cfg.Logger.Debugf("Removing conf file %s", path)
+					err = i.cfg.Fs.Remove(path)
+					if err != nil {
+						return err
+					}
+					// Do not continue checking the conf file, we already done all we needed
+					break
+				}
+			}
+		}
+		return nil
+	})
 
 	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
 	err = Hook(i.cfg, constants.AfterInstallHook)
