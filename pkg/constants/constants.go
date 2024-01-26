@@ -114,6 +114,10 @@ const (
 	UkiMaxEntries     = 3
 )
 
+func UkiDefaultSkipEntries() []string {
+	return []string{"interactive-install", "manual-install"}
+}
+
 func GetCloudInitPaths() []string {
 	return []string{"/system/oem", "/oem/", "/usr/local/cloud-config/"}
 }
