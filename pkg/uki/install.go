@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/joho/godotenv"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -126,17 +125,18 @@ func (i *InstallAction) Run() (err error) {
 
 	// Remove entries
 	// Read all confs
-	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint), func(path string, info os.DirEntry, err error) error {
+	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
+		i.cfg.Logger.Debugf("Checking file %s", path)
 		if info.IsDir() {
 			return nil
 		}
 		if filepath.Ext(info.Name()) != ".conf" {
 			return nil
 		}
-		i.cfg.Logger.Debugf("Checking conf file %s", path)
 		// Extract the values
-		conf, err := godotenv.Read(path)
+		conf, err := utils.SystemdBootConfReader(path)
 		if err != nil {
+			i.cfg.Logger.Errorf("Error reading conf file %s: %s", path, err)
 			return err
 		}
 		i.cfg.Logger.Debugf("Conf file %s has values %v", path, litter.Sdump(conf))
@@ -154,21 +154,26 @@ func (i *InstallAction) Run() (err error) {
 					// First remove the efi file
 					err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
 					if err != nil {
+						i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
 						return err
 					}
 					// Then remove the conf file
 					i.cfg.Logger.Debugf("Removing conf file %s", path)
 					err = i.cfg.Fs.Remove(path)
 					if err != nil {
+						i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
 						return err
 					}
 					// Do not continue checking the conf file, we already done all we needed
-					break
 				}
 			}
 		}
-		return nil
+		return err
 	})
+
+	if err != nil {
+		return err
+	}
 
 	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
 	err = Hook(i.cfg, constants.AfterInstallHook)
