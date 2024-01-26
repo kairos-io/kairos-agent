@@ -68,6 +68,21 @@ func (i *InstallAction) Run() (err error) {
 		return e.UnmountImage(image)
 	})
 
+	source := v1.NewDirSrc(constants.UkiSource)
+
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := config.GetSourceSize(i.cfg, source)
+	if err != nil {
+		i.cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%sMb): %s", i.spec.Partitions.EFI.Size, err.Error())
+	} else {
+		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
+		if uint(size*3) > i.spec.Partitions.EFI.Size {
+			i.spec.Partitions.EFI.Size = uint(size * 3)
+		}
+	}
+
+	i.cfg.Logger.Infof("Setting image size to %dMb", i.spec.Partitions.EFI.Size)
+
 	// Create EFI partition (fat32), we already create the efi partition on normal efi install,we can reuse that?
 	// Create COS_OEM/COS_PERSISTANT if set (optional)
 	// I guess we need to set sensible default values here for sizes? oem -> 64Mb as usual but if no persistent then EFI max size?
@@ -114,7 +129,6 @@ func (i *InstallAction) Run() (err error) {
 	}
 
 	// Copy the efi file into the proper dir
-	source := v1.NewDirSrc(constants.UkiSource)
 	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, source)
 	if err != nil {
 		return err
