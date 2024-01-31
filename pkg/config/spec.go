@@ -597,8 +597,17 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 }
 
 func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
-	spec := &v1.UpgradeUkiSpec{}
+	spec := &v1.UpgradeUkiSpec{
+		Active: v1.Image{
+			Source: v1.NewEmptySrc(),
+		},
+		EfiPartition: &v1.Partition{},
+	}
 	err := unmarshallFullSpec(cfg, "upgrade", spec)
+	if spec.Active.Source.IsEmpty() {
+		cfg.Logger.Debugf("Upgrade UKI spec: %s", litter.Sdump(spec))
+		return nil, fmt.Errorf("no source provided for the upgrade")
+	}
 	// TODO: Use this everywhere?
 	cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
 	if spec.Active.Source.IsDocker() {
