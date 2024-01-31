@@ -18,13 +18,14 @@ package config
 
 import (
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/crane"
-	"golang.org/x/sys/unix"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/crane"
+	"golang.org/x/sys/unix"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -220,6 +221,10 @@ func NewInstallElementalPartitions(log v1.Logger, spec *v1.InstallSpec) v1.Eleme
 func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	var recLabel, recFs, recMnt string
 	var active, passive, recovery v1.Image
+
+	active.Source = v1.NewEmptySrc()
+	passive.Source = v1.NewEmptySrc()
+	recovery.Source = v1.NewEmptySrc()
 
 	installState, err := cfg.LoadInstallState()
 	if err != nil {
