@@ -139,6 +139,7 @@ func (i *InstallAction) Run() (err error) {
 
 	// Remove entries
 	// Read all confs
+	i.cfg.Logger.Debugf("Checking for entries to remove")
 	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
 		i.cfg.Logger.Debugf("Checking file %s", path)
 		if info.IsDir() {

@@ -115,7 +115,7 @@ const (
 )
 
 func UkiDefaultSkipEntries() []string {
-	return []string{"interactive-install", "manual-install"}
+	return []string{"interactive-install", "install-mode-interactive"}
 }
 
 func GetCloudInitPaths() []string {
