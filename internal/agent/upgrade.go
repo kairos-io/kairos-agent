@@ -68,7 +68,7 @@ func Upgrade(
 	source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
-	if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+	if internalutils.UkiBootMode() == internalutils.UkiHDD {
 		return upgradeUki(source, dirs, strictValidations)
 	} else {
 		return upgrade(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
