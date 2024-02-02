@@ -51,7 +51,7 @@ func reset(reboot, unattended, resetOem bool, dir ...string) error {
 
 	resetAction := action.NewResetAction(cfg, resetSpec)
 	if err = resetAction.Run(); err != nil {
-		cfg.Logger.Errorf("failed to reset uki: %s", err)
+		cfg.Logger.Errorf("failed to reset: %s", err)
 		return err
 	}
 
