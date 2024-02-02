@@ -140,26 +140,25 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Co
 	bus.Manager.Publish(sdk.EventBeforeReset, sdk.EventPayload{}) //nolint:errcheck
 
 	// Prepare a config from the cli flags
-	r := map[string]map[string]interface{}{
-		"reset": {},
-	}
+	r := ExtraConfigReset{}
+	r.Reset.ResetOem = resetOem
 
 	if resetOem {
-		r["reset"]["reset-oem"] = "true"
+		r.Reset.ResetOem = true
 	}
 
 	if reboot {
-		r["reset"]["reboot"] = reboot
+		r.Reset.Reboot = reboot
 	}
 
 	// Override the config with the event options
 	// Go over the possible options sent via event
 	if len(optionsFromEvent) > 0 {
 		if p := optionsFromEvent["reset-persistent"]; p != "" {
-			r["reset"]["reset-persistent"] = p == "true"
+			r.Reset.ResetPersistent = p == "true"
 		}
 		if o := optionsFromEvent["reset-oem"]; o != "" {
-			r["reset"]["reset-oem"] = o == "true"
+			r.Reset.ResetOem = o == "true"
 		}
 	}
 
@@ -186,4 +185,13 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Co
 	utils.SetEnv(c.Env)
 
 	return c, nil
+}
+
+// ExtraConfigReset is the struct that holds the reset options that come from flags and events
+type ExtraConfigReset struct {
+	Reset struct {
+		ResetOem        bool `json:"reset-oem"`
+		ResetPersistent bool `json:"reset-persistent"`
+		Reboot          bool `json:"reboot"`
+	} `json:"reset"`
 }
