@@ -507,6 +507,33 @@ func ReadResetSpecFromConfig(c *Config) (*v1.ResetSpec, error) {
 	return resetSpec, nil
 }
 
+func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
+	spec = &v1.ResetUkiSpec{
+		FormatPersistent: true, // Persistent is formatted by default
+		Partitions:       v1.ElementalPartitions{},
+	}
+
+	_, ukiBootMode := cfg.Fs.Stat("/run/cos/uki_boot_mode")
+	if !BootedFrom(cfg.Runner, "rd.immucore.uki") && ukiBootMode == nil {
+		return spec, fmt.Errorf("uki reset can only be called from the recovery installed system")
+	}
+
+	// Fill persistent partition
+	spec.Partitions.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
+	spec.Partitions.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+
+	if spec.Partitions.Persistent == nil {
+		return spec, fmt.Errorf("persistent partition not found")
+	}
+	if spec.Partitions.OEM == nil {
+		return spec, fmt.Errorf("oem partition not found")
+	}
+
+	// Fill oem partition
+	err = unmarshallFullSpec(cfg, "reset", spec)
+	return spec, err
+}
+
 // ReadInstallSpecFromConfig will return a proper v1.InstallSpec based on an agent Config
 func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "install")
@@ -568,7 +595,6 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 		Flags:           []string{},
 	}
 
-	// TODO: Which key to use? install or install-uki?
 	err := unmarshallFullSpec(cfg, "install", spec)
 	// TODO: Get the actual source size to calculate the image size and partitions size for at least 3 UKI images
 	// Add default values for the skip partitions for our default entries
@@ -760,8 +786,7 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 	case "install-uki":
 		sp, err = NewUkiInstallSpec(r)
 	case "reset-uki":
-		// TODO: Fill with proper defaults
-		sp = &v1.ResetUkiSpec{}
+		sp, err = NewUkiResetSpec(r)
 	case "upgrade-uki":
 		sp, err = NewUkiUpgradeSpec(r)
 	default:

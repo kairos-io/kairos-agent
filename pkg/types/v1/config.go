@@ -541,8 +541,11 @@ func (i *UpgradeUkiSpec) ShouldReboot() bool   { return i.Reboot }
 func (i *UpgradeUkiSpec) ShouldShutdown() bool { return i.PowerOff }
 
 type ResetUkiSpec struct {
-	Reboot   bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	FormatPersistent bool `yaml:"reset-persistent,omitempty" mapstructure:"reset-persistent"`
+	FormatOEM        bool `yaml:"reset-oem,omitempty" mapstructure:"reset-oem"`
+	Reboot           bool `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff         bool `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	Partitions       ElementalPartitions
 }
 
 func (i *ResetUkiSpec) Sanitize() error {

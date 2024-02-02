@@ -3,7 +3,9 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,13 +22,78 @@ import (
 	"github.com/mudler/go-pluggable"
 )
 
-func Reset(reboot, unattended bool, dir ...string) error {
+func Reset(reboot, unattended, resetOem bool, dir ...string) error {
+	if internalutils.UkiBootMode() == internalutils.UkiHDD {
+		return resetUki(reboot, unattended, resetOem, dir...)
+	} else {
+		return reset(reboot, unattended, resetOem, dir...)
+	}
+}
+
+func reset(reboot, unattended, resetOem bool, dir ...string) error {
+	cfg, err := sharedReset(reboot, unattended, resetOem, dir...)
+	if err != nil {
+		return err
+	}
+	// Load the installation Config from the cloud-config data
+	resetSpec, err := config.ReadResetSpecFromConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = resetSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+
+	resetAction := action.NewResetAction(cfg, resetSpec)
+	if err = resetAction.Run(); err != nil {
+		cfg.Logger.Errorf("failed to reset uki: %s", err)
+		return err
+	}
+
+	bus.Manager.Publish(sdk.EventAfterReset, sdk.EventPayload{}) //nolint:errcheck
+
+	return hook.Run(*cfg, resetSpec, hook.AfterReset...)
+}
+
+func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
+	cfg, err := sharedReset(reboot, unattended, resetOem, dir...)
+	if err != nil {
+		return err
+	}
+	// Load the installation Config from the cloud-config data
+	resetSpec, err := config.ReadUkiResetSpecFromConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = resetSpec.Sanitize()
+	if err != nil {
+		return err
+	}
+
+	resetAction := uki.NewResetAction(cfg, resetSpec)
+	if err = resetAction.Run(); err != nil {
+		cfg.Logger.Errorf("failed to reset uki: %s", err)
+		return err
+	}
+
+	bus.Manager.Publish(sdk.EventAfterReset, sdk.EventPayload{}) //nolint:errcheck
+
+	return hook.Run(*cfg, resetSpec, hook.AfterUkiReset...)
+}
+
+// sharedReset is the common reset code for both uki and non-uki
+// sets the config, runs the event handler, publish the envent and gets the config
+func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Config, err error) {
 	bus.Manager.Initialize()
+	var optionsFromEvent map[string]string
 
 	// This config is only for reset branding.
 	agentConfig, err := LoadConfig()
 	if err != nil {
-		return err
+		return c, err
 	}
 
 	if !unattended {
@@ -58,8 +125,6 @@ func Reset(reboot, unattended bool, dir ...string) error {
 
 	ensureDataSourceReady()
 
-	optionsFromEvent := map[string]string{}
-
 	// This gets the options from an event that can be sent by anyone.
 	// This should override the default config as it's much more dynamic
 	bus.Manager.Response(sdk.EventBeforeReset, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
@@ -71,49 +136,51 @@ func Reset(reboot, unattended bool, dir ...string) error {
 
 	bus.Manager.Publish(sdk.EventBeforeReset, sdk.EventPayload{}) //nolint:errcheck
 
-	c, err := config.Scan(collector.Directories(dir...))
-	if err != nil {
-		return err
+	// Prepare a config from the cli flags
+	r := map[string]map[string]interface{}{
+		"reset": {},
 	}
 
-	utils.SetEnv(c.Env)
-
-	// Load the installation Config from the cloud-config data
-	resetSpec, err := config.ReadResetSpecFromConfig(c)
-	if err != nil {
-		return err
+	if resetOem {
+		r["reset"]["reset-oem"] = "true"
 	}
 
+	if reboot {
+		r["reset"]["reboot"] = reboot
+	}
+
+	// Override the config with the event options
 	// Go over the possible options sent via event
 	if len(optionsFromEvent) > 0 {
 		if p := optionsFromEvent["reset-persistent"]; p != "" {
-			resetSpec.FormatPersistent = p == "true"
+			r["reset"]["reset-persistent"] = p == "true"
 		}
 		if o := optionsFromEvent["reset-oem"]; o != "" {
-			resetSpec.FormatOEM = o == "true"
+			r["reset"]["reset-oem"] = o == "true"
 		}
+	}
+
+	d, err := json.Marshal(r)
+	if err != nil {
+		c.Logger.Errorf("failed to marshal reset cmdline flags/event options: %s", err)
+		return c, err
+	}
+	cliConf := string(d)
+
+	// cliconf goes last so it can override the rest of the config files
+	c, err = config.Scan(collector.Directories(dir...), collector.Readers(strings.NewReader(cliConf)))
+	if err != nil {
+		return c, err
+	}
+
+	// Set strict validation from the event
+	if len(optionsFromEvent) > 0 {
 		if s := optionsFromEvent["strict"]; s != "" {
 			c.Strict = s == "true"
 		}
 	}
 
-	// Override with flags
-	if reboot {
-		resetSpec.Reboot = reboot
-	}
+	utils.SetEnv(c.Env)
 
-	err = resetSpec.Sanitize()
-	if err != nil {
-		return err
-	}
-
-	resetAction := action.NewResetAction(c, resetSpec)
-	if err := resetAction.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	bus.Manager.Publish(sdk.EventAfterReset, sdk.EventPayload{}) //nolint:errcheck
-
-	return hook.Run(*c, resetSpec, hook.AfterReset...)
+	return c, nil
 }
