@@ -93,14 +93,6 @@ func upgrade(source string, force, strictValidations bool, dirs []string, preRel
 		return err
 	}
 
-	if upgradeSpec.Reboot {
-		utils.Reboot()
-	}
-
-	if upgradeSpec.PowerOff {
-		utils.PowerOFF()
-	}
-
 	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
 }
 
