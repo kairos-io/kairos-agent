@@ -564,6 +564,10 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 				Name:  "unattended",
 				Usage: "Do not wait for user input and provide ttys after reset. Also sets the fast mode (do not wait 60 seconds before reset)",
 			},
+			&cli.BoolFlag{
+				Name:  "reset-oem",
+				Usage: "Reset the OEM partition. Warning: this will delete any persistent data on the OEM partition.",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			return checkRoot()
@@ -571,8 +575,9 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 		Action: func(c *cli.Context) error {
 			reboot := c.Bool("reboot")
 			unattended := c.Bool("unattended")
+			resetOem := c.Bool("reset-oem")
 
-			return agent.Reset(reboot, unattended, configScanDir...)
+			return agent.Reset(reboot, unattended, resetOem, configScanDir...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `

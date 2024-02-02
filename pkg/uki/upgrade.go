@@ -2,7 +2,6 @@ package uki
 
 import (
 	"github.com/Masterminds/semver/v3"
-	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
@@ -81,7 +80,7 @@ func (i *UpgradeAction) Run() (err error) {
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.upgrade.after.hook") //nolint:errcheck
 
-	return hook.Run(*i.cfg, i.spec, hook.AfterUkiUpgrade...)
+	return nil
 }
 
 func (i *UpgradeAction) getEfiFiles() ([]string, error) {
