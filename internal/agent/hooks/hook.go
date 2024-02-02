@@ -40,11 +40,6 @@ var AfterUkiReset = []Interface{
 	&Lifecycle{},
 }
 
-// AfterUkiUpgrade sets which Hooks to run after uki runs the install action
-var AfterUkiUpgrade = []Interface{
-	&Lifecycle{},
-}
-
 func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {
 	for _, h := range hooks {
 		if err := h.Run(c, spec); err != nil {

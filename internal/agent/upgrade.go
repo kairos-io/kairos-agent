@@ -234,14 +234,6 @@ func upgradeUki(source string, dirs []string, strictValidations bool) error {
 		return err
 	}
 
-	if upgradeSpec.Reboot {
-		utils.Reboot()
-	}
-
-	if upgradeSpec.PowerOff {
-		utils.PowerOFF()
-	}
-
 	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
 }
 
