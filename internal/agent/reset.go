@@ -148,7 +148,7 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Co
 	}
 
 	if reboot {
-		r.Reset.Reboot = reboot
+		r.Reset.Reboot = true
 	}
 
 	// Override the config with the event options
