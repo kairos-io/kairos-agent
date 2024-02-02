@@ -23,8 +23,11 @@ import (
 )
 
 func Reset(reboot, unattended, resetOem bool, dir ...string) error {
+	// In both cases we want
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
 		return resetUki(reboot, unattended, resetOem, dir...)
+	} else if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+		return fmt.Errorf("reset is not supported on removable media, please run reset from the installed system recovery entry")
 	} else {
 		return reset(reboot, unattended, resetOem, dir...)
 	}
