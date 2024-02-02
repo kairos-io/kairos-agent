@@ -138,24 +138,16 @@ func newerReleases() (versioneer.TagList, error) {
 	if err != nil {
 		return tagList, err
 	}
-	//fmt.Printf("tagList.OtherAnyVersion() = %#v\n", tagList.OtherAnyVersion().Tags)
-	//fmt.Printf("tagList.Images() = %#v\n", tagList.Images().Tags)
-	// fmt.Println("Tags")
-	// tagList.NewerAnyVersion().Print()
-	// fmt.Println("---------------------------")
-
 	return tagList.NewerAnyVersion().RSorted(), nil
 }
 
 // generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
 // command line arguments. It will be added to the rest of the configurations.
 func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string, error) {
-	upgrade := map[string](map[string]interface{}){
-		"upgrade": {},
-	}
+	upgradeConfig := ExtraConfigUpgrade{}
 
 	if upgradeRecovery {
-		upgrade["upgrade"]["recovery"] = "true"
+		upgradeConfig.Upgrade.Recovery = true
 	}
 
 	// Set uri both for active and recovery because we don't know what we are
@@ -164,12 +156,8 @@ func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string,
 	// have access to that yet, we just set both uri values which shouldn't matter
 	// anyway, the right one will be used later in the process.
 	if source != "" {
-		upgrade["upgrade"]["recovery-system"] = map[string]string{
-			"uri": source,
-		}
-		upgrade["upgrade"]["system"] = map[string]string{
-			"uri": source,
-		}
+		upgradeConfig.Upgrade.RecoverySystem.URI = source
+		upgradeConfig.Upgrade.System.URI = source
 	}
 
 	d, err := json.Marshal(upgrade)
@@ -263,4 +251,17 @@ func upgradeUki(source string, dirs []string, strictValidations bool) error {
 	}
 
 	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
+}
+
+// ExtraConfigUpgrade is the struct that holds the upgrade options that come from flags and events
+type ExtraConfigUpgrade struct {
+	Upgrade struct {
+		Recovery       bool `json:"recovery,omitempty"`
+		RecoverySystem struct {
+			URI string `json:"uri,omitempty"`
+		} `json:"recovery-system,omitempty"`
+		System struct {
+			URI string `json:"uri,omitempty"`
+		} `json:"system,omitempty"`
+	} `json:"upgrade,omitempty"`
 }
