@@ -190,8 +190,8 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Co
 // ExtraConfigReset is the struct that holds the reset options that come from flags and events
 type ExtraConfigReset struct {
 	Reset struct {
-		ResetOem        bool `json:"reset-oem"`
-		ResetPersistent bool `json:"reset-persistent"`
-		Reboot          bool `json:"reboot"`
+		ResetOem        bool `json:"reset-oem,omitempty"`
+		ResetPersistent bool `json:"reset-persistent,omitempty"`
+		Reboot          bool `json:"reboot,omitempty"`
 	} `json:"reset"`
 }
