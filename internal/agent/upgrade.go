@@ -152,7 +152,7 @@ func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string,
 		upgradeConfig.Upgrade.System.URI = source
 	}
 
-	d, err := json.Marshal(upgrade)
+	d, err := json.Marshal(upgradeConfig)
 
 	return string(d), err
 }
