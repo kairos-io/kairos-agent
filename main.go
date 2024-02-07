@@ -36,7 +36,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var configScanDir = []string{"/oem", "/usr/local/cloud-config", "/run/initramfs/live"}
+var configScanDir = []string{"/oem", "/usr/local/cloud-config", "/run/initramfs/live", "/etc/kairos"}
 
 // ReleasesToOutput gets a semver.Collection and outputs it in the given format
 // Only used here.
