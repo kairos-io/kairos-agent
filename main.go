@@ -36,7 +36,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var configScanDir = []string{"/oem", "/usr/local/cloud-config", "/run/initramfs/live", "/etc/kairos"}
+var configScanDir = []string{
+	"/oem",
+	"/usr/local/cloud-config",
+	"/run/initramfs/live",
+	"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
+	"/etc/elemental", // for backwards compatibility
+}
 
 // ReleasesToOutput gets a semver.Collection and outputs it in the given format
 // Only used here.
