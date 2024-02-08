@@ -108,7 +108,7 @@ const (
 	Rsync      = "rsync"
 
 	UkiSource         = "/run/install/uki"
-	UkiCdromSource    = "/run/install/cdrom"
+	UkiCdromSource    = "/run/initramfs/live"
 	UkiEfiDir         = "/efi"
 	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
 	UkiMaxEntries     = 3

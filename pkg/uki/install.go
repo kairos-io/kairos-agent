@@ -33,33 +33,20 @@ func (i *InstallAction) Run() (err error) {
 	_ = utils.RunStage(i.cfg, "kairos-uki-install.pre")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.pre.hook")
 
+	// immucore mounts CDROM under this path
+	_, err = i.cfg.Fs.Stat(constants.UkiCdromSource)
+	if err != nil {
+		i.cfg.Logger.Errorf("Error checking if %s exists: %s", constants.UkiCdromSource, err)
+		return err
+	}
 	// Get source (from spec?)
 	// If source is empty then we need to find the media we booted from....to get the efi files...
 	// cdrom is kind fo easy...
-	// we set the label EFI_ISO_BOOT so we look for that and then mount the image inside...
-	// TODO: Extract this to a different functions or something. Maybe PrepareUKISource or something
-	_ = fsutils.MkdirAll(i.cfg.Fs, constants.UkiCdromSource, os.ModeDir|os.ModePerm)
 	_ = fsutils.MkdirAll(i.cfg.Fs, constants.UkiSource, os.ModeDir|os.ModePerm)
 
-	cdRom := &v1.Partition{
-		FilesystemLabel: "UKI_ISO_INSTALL", // TODO: Hardcoded on ISO creation
-		FS:              "iso9660",
-		Path:            "/dev/disk/by-label/UKI_ISO_INSTALL",
-		MountPoint:      constants.UkiCdromSource,
-	}
-	err = e.MountPartition(cdRom)
-
-	if err != nil {
-		return err
-	}
-	cleanup.Push(func() error {
-		return e.UnmountPartition(cdRom)
-	})
-
-	// TODO: hardcoded
 	image := &v1.Image{
-		File:       "/run/install/cdrom/efiboot.img", // TODO: Hardcoded on ISO creation
-		Label:      "UKI_SOURCE",                     // Made up, only for logging
+		File:       filepath.Join(constants.UkiCdromSource, "efiboot.img"),
+		Label:      "UKI_SOURCE", // Made up, only for logging
 		MountPoint: constants.UkiSource,
 	}
 
