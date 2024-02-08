@@ -38,6 +38,7 @@ import (
 
 var configScanDir = []string{
 	"/oem",
+	"/system/oem",
 	"/usr/local/cloud-config",
 	"/run/initramfs/live",
 	"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
