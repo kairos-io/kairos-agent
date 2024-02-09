@@ -1,6 +1,7 @@
 package uki
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,8 +36,13 @@ func (i *InstallAction) Run() (err error) {
 
 	// immucore mounts CDROM under this path
 	_, err = i.cfg.Fs.Stat(constants.UkiCdromSource)
-	if err != nil {
-		i.cfg.Logger.Errorf("Error checking if %s exists: %s", constants.UkiCdromSource, err)
+	if errors.Is(err, os.ErrNotExist) {
+		// The directory is under /run, so we can create it if not present
+		if err := fsutils.MkdirAll(i.cfg.Fs, constants.UkiCdromSource, os.ModeDir|os.ModePerm); err != nil {
+			i.cfg.Logger.Errorf("Error creating %s: %s", constants.UkiCdromSource, err)
+		}
+	} else if err != nil {
+		i.cfg.Logger.Errorf("stat error for '%s'. error: %s", constants.UkiCdromSource, err)
 		return err
 	}
 	// Get source (from spec?)
@@ -50,10 +56,14 @@ func (i *InstallAction) Run() (err error) {
 		MountPoint: constants.UkiSource,
 	}
 
-	err = e.MountImage(image)
-	if err != nil {
-		return err
+	mounted, err := i.cfg.Mounter.IsMountPoint(constants.UkiCdromSource)
+	if !mounted || err != nil {
+		err = e.MountImage(image)
+		if err != nil {
+			return err
+		}
 	}
+
 	cleanup.Push(func() error {
 		return e.UnmountImage(image)
 	})
