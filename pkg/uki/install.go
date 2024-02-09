@@ -36,7 +36,7 @@ func (i *InstallAction) Run() (err error) {
 	// immucore mounts CDROM under this path
 	_, err = i.cfg.Fs.Stat(constants.UkiCdromSource)
 	if err != nil {
-		i.cfg.Logger.Errorf("Mountpoint not ready '%s'. error: %s", constants.UkiCdromSource, err)
+		i.cfg.Logger.Errorf("mountpoint '%s' not ready. error: %s", constants.UkiCdromSource, err)
 		return err
 	}
 	// Get source (from spec?)
