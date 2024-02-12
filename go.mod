@@ -4,6 +4,7 @@ go 1.20
 
 // This versions require go1.20
 replace (
+	github.com/kairos-io/kairos-sdk => /home/dimitris/workspace/kairos/kairos-sdk
 	github.com/onsi/ginkgo/v2 v2.15.0 => github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.31.1 => github.com/onsi/gomega v1.28.0
 )
@@ -152,6 +153,7 @@ require (
 	github.com/qeesung/image2ascii v1.0.1 // indirect
 	github.com/rancher-sandbox/linuxkit v1.0.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.37.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect

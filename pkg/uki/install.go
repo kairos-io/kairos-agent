@@ -1,6 +1,7 @@
 package uki
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
+	sdkutils "github.com/kairos-io/kairos-sdk/utils"
 	"github.com/sanity-io/litter"
 )
 
@@ -81,10 +83,11 @@ func (i *InstallAction) Run() (err error) {
 
 	// Remove entries
 	// Read all confs
-	// TODO: suffix _active etc
-	i.cfg.Logger.Debugf("Checking for entries to remove")
-	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
+	i.cfg.Logger.Debugf("Parsing efi partition files (skip SkipEntries, replace placeholders etc)")
+	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint), func(path string, info os.DirEntry, err error) error {
+		filename := info.Name()
 		if err != nil {
+			i.cfg.Logger.Errorf("Error walking path: %s, %s", filename, err.Error())
 			return err
 		}
 
@@ -92,25 +95,52 @@ func (i *InstallAction) Run() (err error) {
 		if info.IsDir() {
 			return nil
 		}
-		if filepath.Ext(info.Name()) != ".conf" {
-			return nil
+
+		if filepath.Ext(filename) == ".conf" {
+			// Extract the values
+			conf, err := sdkutils.SystemdBootConfReader(path)
+			if err != nil {
+				i.cfg.Logger.Errorf("Error reading conf file to extract values %s: %s", path, err)
+				return err
+			}
+			if len(conf["cmdline"]) == 0 {
+				return nil
+			}
+
+			// Check if the cmdline matches any of the entries in the skip list
+			skip := false
+			for _, entry := range i.spec.SkipEntries {
+				if strings.Contains(conf["cmdline"], entry) {
+					i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
+					skip = true
+					break
+				}
+			}
+			if skip {
+				return i.SkipEntry(path, conf)
+			}
+
+			if !strings.Contains(filename, "artifact") {
+				return nil
+			}
+
+			if err := i.replacePlaceholders(path, "efi", "active"); err != nil {
+				return fmt.Errorf("replacing placeholders in %s: %w", filename, err)
+			}
+
+			return i.replaceFilenamePlaceholder(path, "active")
+		} else if filepath.Ext(filename) == ".efi" && strings.Contains(filename, "artifact") {
+			return i.replaceFilenamePlaceholder(path, "active")
 		}
 
-		// Extract the values
-		conf, err := utils.SystemdBootConfReader(path)
-		if err != nil {
-			i.cfg.Logger.Errorf("Error reading conf file %s: %s", path, err)
-			return err
-		}
-		i.cfg.Logger.Debugf("Conf file %s has values %v", path, litter.Sdump(conf))
-		if len(conf["cmdline"]) == 0 {
-			return nil
-		}
-
-		return i.SkipEntryIfNeeded(path, conf)
+		return nil
 	})
-
 	if err != nil {
+		return err
+	}
+
+	loaderConfPath := filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader", "loader.conf")
+	if err = i.replacePlaceholders(loaderConfPath, "default", "active"); err != nil {
 		return err
 	}
 
@@ -129,33 +159,56 @@ func (i *InstallAction) Run() (err error) {
 	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
 }
 
-func (i *InstallAction) SkipEntryIfNeeded(path string, conf map[string]string) (err error) {
-	// Check if the cmdline matches any of the entries in the skip list
-	for _, entry := range i.spec.SkipEntries {
-		// Match the cmdline key against the entry
-		if strings.Contains(conf["cmdline"], entry) {
-			i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
-			// If match, get the efi file and remove it
-			if conf["efi"] != "" {
-				i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
-				// First remove the efi file
-				err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
-				if err != nil {
-					i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
-					return err
-				}
-				// Then remove the conf file
-				i.cfg.Logger.Debugf("Removing conf file %s", path)
-				err = i.cfg.Fs.Remove(path)
-				if err != nil {
-					i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
-					return err
-				}
-				// Do not continue checking the conf file, we already done all we needed
-			}
+func (i *InstallAction) SkipEntry(path string, conf map[string]string) (err error) {
+	// If match, get the efi file and remove it
+	if conf["efi"] != "" {
+		i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
+		// First remove the efi file
+		err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
+		if err != nil {
+			i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
+			return err
 		}
+		// Then remove the conf file
+		i.cfg.Logger.Debugf("Removing conf file %s", path)
+		err = i.cfg.Fs.Remove(path)
+		if err != nil {
+			i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
+			return err
+		}
+		// Do not continue checking the conf file, we already done all we needed
 	}
 	return err
+}
+
+func (i *InstallAction) replaceFilenamePlaceholder(path, replaceString string) (err error) {
+	newName := strings.ReplaceAll(path, "artifact", replaceString)
+
+	return os.Rename(path, newName)
+}
+
+func (i *InstallAction) replacePlaceholders(path, key, replaceString string) (err error) {
+	// Extract the values
+	conf, err := sdkutils.SystemdBootConfReader(path)
+	if err != nil {
+		i.cfg.Logger.Errorf("Error reading conf file %s: %s", path, err)
+		return err
+	}
+	i.cfg.Logger.Debugf("Conf file %s has values %v", path, litter.Sdump(conf))
+
+	_, hasKey := conf[key]
+	if !hasKey {
+		return fmt.Errorf("no %s entry in .conf file", key)
+	}
+
+	conf[key] = strings.ReplaceAll(conf[key], "artifact", replaceString)
+	newContents := ""
+	for k, v := range conf {
+		newContents = fmt.Sprintf("%s%s %s\n", newContents, k, v)
+	}
+	i.cfg.Logger.Debugf("Conf file %s new values %v", path, litter.Sdump(conf))
+
+	return os.WriteFile(path, []byte(newContents), os.ModePerm)
 }
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
