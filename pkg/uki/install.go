@@ -81,8 +81,13 @@ func (i *InstallAction) Run() (err error) {
 
 	// Remove entries
 	// Read all confs
+	// TODO: suffix _active etc
 	i.cfg.Logger.Debugf("Checking for entries to remove")
 	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
 		i.cfg.Logger.Debugf("Checking file %s", path)
 		if info.IsDir() {
 			return nil
@@ -90,6 +95,7 @@ func (i *InstallAction) Run() (err error) {
 		if filepath.Ext(info.Name()) != ".conf" {
 			return nil
 		}
+
 		// Extract the values
 		conf, err := utils.SystemdBootConfReader(path)
 		if err != nil {
@@ -100,32 +106,8 @@ func (i *InstallAction) Run() (err error) {
 		if len(conf["cmdline"]) == 0 {
 			return nil
 		}
-		// Check if the cmdline matches any of the entries in the skip list
-		for _, entry := range i.spec.SkipEntries {
-			// Match the cmdline key against the entry
-			if strings.Contains(conf["cmdline"], entry) {
-				i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
-				// If match, get the efi file and remove it
-				if conf["efi"] != "" {
-					i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
-					// First remove the efi file
-					err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
-					if err != nil {
-						i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
-						return err
-					}
-					// Then remove the conf file
-					i.cfg.Logger.Debugf("Removing conf file %s", path)
-					err = i.cfg.Fs.Remove(path)
-					if err != nil {
-						i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
-						return err
-					}
-					// Do not continue checking the conf file, we already done all we needed
-				}
-			}
-		}
-		return err
+
+		return i.SkipEntryIfNeeded(path, conf)
 	})
 
 	if err != nil {
@@ -145,6 +127,35 @@ func (i *InstallAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
+}
+
+func (i *InstallAction) SkipEntryIfNeeded(path string, conf map[string]string) (err error) {
+	// Check if the cmdline matches any of the entries in the skip list
+	for _, entry := range i.spec.SkipEntries {
+		// Match the cmdline key against the entry
+		if strings.Contains(conf["cmdline"], entry) {
+			i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
+			// If match, get the efi file and remove it
+			if conf["efi"] != "" {
+				i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
+				// First remove the efi file
+				err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
+				if err != nil {
+					i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
+					return err
+				}
+				// Then remove the conf file
+				i.cfg.Logger.Debugf("Removing conf file %s", path)
+				err = i.cfg.Fs.Remove(path)
+				if err != nil {
+					i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
+					return err
+				}
+				// Do not continue checking the conf file, we already done all we needed
+			}
+		}
+	}
+	return err
 }
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
