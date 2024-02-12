@@ -33,55 +33,6 @@ func (i *InstallAction) Run() (err error) {
 	_ = utils.RunStage(i.cfg, "kairos-uki-install.pre")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.pre.hook")
 
-	// immucore mounts CDROM under this path
-	_, err = i.cfg.Fs.Stat(constants.UkiCdromSource)
-	if err != nil {
-		i.cfg.Logger.Errorf("mountpoint '%s' not ready. error: %s", constants.UkiCdromSource, err)
-		return err
-	}
-	// Get source (from spec?)
-	// If source is empty then we need to find the media we booted from....to get the efi files...
-	// cdrom is kind fo easy...
-	_ = fsutils.MkdirAll(i.cfg.Fs, constants.UkiSource, os.ModeDir|os.ModePerm)
-
-	image := &v1.Image{
-		File:       filepath.Join(constants.UkiCdromSource, "efiboot.img"),
-		Label:      "UKI_SOURCE", // Made up, only for logging
-		MountPoint: constants.UkiSource,
-	}
-
-	mounted, err := i.cfg.Mounter.IsMountPoint(constants.UkiCdromSource)
-	if !mounted || err != nil {
-		err = e.MountImage(image)
-		if err != nil {
-			return err
-		}
-	}
-
-	cleanup.Push(func() error {
-		return e.UnmountImage(image)
-	})
-
-	source := v1.NewDirSrc(constants.UkiSource)
-
-	// Get the actual source size to calculate the image size and partitions size
-	size, err := config.GetSourceSize(i.cfg, source)
-	if err != nil {
-		i.cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%sMb): %s", i.spec.Partitions.EFI.Size, err.Error())
-	} else {
-		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
-		if uint(size*3) > i.spec.Partitions.EFI.Size {
-			i.spec.Partitions.EFI.Size = uint(size * 3)
-		}
-	}
-
-	i.cfg.Logger.Infof("Setting image size to %dMb", i.spec.Partitions.EFI.Size)
-
-	// Create EFI partition (fat32), we already create the efi partition on normal efi install,we can reuse that?
-	// Create COS_OEM/COS_PERSISTANT if set (optional)
-	// I guess we need to set sensible default values here for sizes? oem -> 64Mb as usual but if no persistent then EFI max size?
-	// if persistent then EFI = source size * 2 (or maybe 3 times! so we can upgrade!) and then persistent the rest of the disk?
-
 	// Deactivate any active volume on target
 	err = e.DeactivateDevices()
 	if err != nil {
@@ -123,7 +74,7 @@ func (i *InstallAction) Run() (err error) {
 	}
 
 	// Copy the efi file into the proper dir
-	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, source)
+	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
 	if err != nil {
 		return err
 	}

@@ -565,8 +565,27 @@ func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
 }
 
 func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
+	var activeImg v1.Image
+
+	isoRootExists, _ := fsutils.Exists(cfg.Fs, constants.IsoBaseTree)
+
+	// First try to use the install media source
+	if isoRootExists {
+		activeImg.Source = v1.NewDirSrc(constants.IsoBaseTree)
+	}
+	// Then any user provided source
+	if cfg.Install.Source != "" {
+		activeImg.Source, _ = v1.NewSrcFromURI(cfg.Install.Source)
+	}
+	// If we dont have any just an empty source so the sanitation fails
+	// TODO: Should we directly fail here if we got no source instead of waiting for the Sanitize() to fail?
+	if !isoRootExists && cfg.Install.Source == "" {
+		activeImg.Source = v1.NewEmptySrc()
+	}
+
 	spec := &v1.InstallUkiSpec{
 		Target: cfg.Install.Device,
+		Active: activeImg,
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
@@ -595,8 +614,21 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 		Flags:           []string{},
 	}
 
-	err := unmarshallFullSpec(cfg, "install", spec)
-	// TODO: Get the actual source size to calculate the image size and partitions size for at least 3 UKI images
+	// Get the actual source size to calculate the image size and partitions size
+	size, err := GetSourceSize(cfg, spec.Active.Source)
+	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%sMb): %s", spec.Partitions.EFI.Size, err.Error())
+	} else {
+		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
+		if uint(size*3) > spec.Partitions.EFI.Size {
+			spec.Partitions.EFI.Size = uint(size * 3)
+		}
+	}
+
+	cfg.Logger.Infof("Setting image size to %dMb", spec.Partitions.EFI.Size)
+
+	err = unmarshallFullSpec(cfg, "install", spec)
+
 	// Add default values for the skip partitions for our default entries
 	spec.SkipEntries = append(spec.SkipEntries, constants.UkiDefaultSkipEntries()...)
 	return spec, err

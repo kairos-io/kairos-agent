@@ -504,6 +504,7 @@ type DockerImageMeta struct {
 }
 
 type InstallUkiSpec struct {
+	Active          Image               `yaml:"system,omitempty" mapstructure:"system"`
 	Target          string              `yaml:"device,omitempty" mapstructure:"device"`
 	Reboot          bool                `yaml:"reboot,omitempty" mapstructure:"reboot"`
 	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
