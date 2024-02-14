@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,15 +36,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
-
-var configScanDir = []string{
-	"/oem",
-	"/system/oem",
-	"/usr/local/cloud-config",
-	"/run/initramfs/live",
-	"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
-	"/etc/elemental", // for backwards compatibility
-}
 
 // ReleasesToOutput gets a semver.Collection and outputs it in the given format
 // Only used here.
@@ -186,7 +178,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			}
 
 			return agent.Upgrade(source, c.Bool("force"),
-				c.Bool("strict-validation"), configScanDir,
+				c.Bool("strict-validation"), constants.GetConfigScanDirs(),
 				c.Bool("pre"), c.Bool("recovery"),
 			)
 		},
@@ -330,7 +322,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
 				Aliases:     []string{},
 				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+					config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
 					if err != nil {
 						return err
 					}
@@ -359,7 +351,7 @@ enabled: true`,
 				Description: "It allows to navigate the YAML config file by searching with 'yq' style keywords as `config get k3s` to retrieve the k3s config block",
 				Aliases:     []string{"g"},
 				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
 						return err
 					}
@@ -430,7 +422,7 @@ enabled: true`,
 		},
 		Action: func(c *cli.Context) error {
 
-			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 			if err != nil {
 				return err
 			}
@@ -540,7 +532,7 @@ This command is meant to be used from the boot GRUB menu, but can be started man
 		Action: func(c *cli.Context) error {
 			source := c.String("source")
 
-			return agent.Install(source, configScanDir...)
+			return agent.Install(source, constants.GetConfigScanDirs()...)
 		},
 	},
 	{
@@ -584,7 +576,7 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 			unattended := c.Bool("unattended")
 			resetOem := c.Bool("reset-oem")
 
-			return agent.Reset(reboot, unattended, resetOem, configScanDir...)
+			return agent.Reset(reboot, unattended, resetOem, constants.GetConfigScanDirs()...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `
@@ -663,7 +655,7 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 		Action: func(c *cli.Context) error {
 			stage := c.Args().First()
-			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
 			config.Strict = c.Bool("strict")
 
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
@@ -706,7 +698,7 @@ The validate command expects a configuration file as its only argument. Local fi
 			if err != nil {
 				return fmt.Errorf("invalid path %s", destination)
 			}
-			config, err := agentConfig.Scan(collector.Directories(configScanDir...), collector.NoLogs)
+			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
 			if err != nil {
 				return err
 			}
@@ -744,6 +736,36 @@ The validate command expects a configuration file as its only argument. Local fi
 		Usage:       "versioneer subcommands",
 		Description: "versioneer subcommands",
 		Subcommands: versioneer.CliCommands(),
+	},
+	{
+		Name:        "bootentry",
+		Usage:       "bootentry [--select]",
+		Description: "bootentry subcommands",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "select",
+				Usage:   "Select the boot entry",
+				Aliases: []string{"s"},
+			},
+		},
+		Before: func(c *cli.Context) error {
+			return checkRoot()
+		},
+		Action: func(c *cli.Context) error {
+			cfg, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
+			if err != nil {
+				return err
+			}
+			s := c.String("select")
+			// Here we should separate the call between uki and non-uki
+			// uki deals with systemd-boot and non-uki with grub
+			// so its a different path
+			// currently implementation is uki only
+			if s != "" {
+				return action.SelectBootEntry(cfg, s)
+			}
+			return action.ListBootEntries(cfg)
+		},
 	},
 }
 

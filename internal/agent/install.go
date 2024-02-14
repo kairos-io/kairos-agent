@@ -219,7 +219,7 @@ func RunInstall(c *config.Config) error {
 
 	// UKI path. Check if we are on UKI AND if we are running off a cd, otherwise it makes no sense to run the install
 	// From the installed system
-	if internalutils.IsUki() {
+	if internalutils.IsUkiWithFs(c.Fs) {
 		c.Logger.Debugf("UKI mode: %s\n", internalutils.UkiBootMode())
 		if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
 			return runInstallUki(c)

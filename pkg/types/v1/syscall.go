@@ -23,6 +23,7 @@ import (
 type SyscallInterface interface {
 	Chroot(string) error
 	Chdir(string) error
+	Mount(string, string, string, uintptr, string) error
 }
 
 type RealSyscall struct{}
@@ -33,4 +34,7 @@ func (r *RealSyscall) Chroot(path string) error {
 
 func (r *RealSyscall) Chdir(path string) error {
 	return syscall.Chdir(path)
+}
+func (r *RealSyscall) Mount(source string, target string, fstype string, flags uintptr, data string) error {
+	return syscall.Mount(source, target, fstype, flags, data)
 }

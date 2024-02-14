@@ -44,4 +44,14 @@ var _ = Describe("Syscall", Label("types", "syscall"), func() {
 		// We need elevated privs to chroot so this should fail
 		Expect(err).To(BeNil())
 	})
+	It("Calling mount on the fake syscall should not fail", func() {
+		r := v1mock.FakeSyscall{}
+		err := r.Mount("source", "target", "fstype", 0, "data")
+		Expect(err).To(BeNil())
+	})
+	It("Calling mount on the real syscall fail (wrong args)", func() {
+		r := v1.RealSyscall{}
+		err := r.Mount("source", "target", "fstype", 0, "data")
+		Expect(err).To(HaveOccurred())
+	})
 })

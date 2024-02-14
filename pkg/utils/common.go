@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -510,6 +511,17 @@ func IsUki() bool {
 	return false
 }
 
+// IsUkiWithFs checks if the system is running in UKI mode
+// by checking the kernel command line for the rd.immucore.uki flag
+// Uses a v1.Fs interface to allow for testing
+func IsUkiWithFs(fs v1.FS) bool {
+	cmdline, _ := fs.ReadFile("/proc/cmdline")
+	if strings.Contains(string(cmdline), "rd.immucore.uki") {
+		return true
+	}
+	return false
+}
+
 const (
 	UkiHDD            state.Boot = "uki_boot_mode"
 	UkiRemovableMedia state.Boot = "uki_install_mode"
@@ -527,4 +539,59 @@ func UkiBootMode() state.Boot {
 		return UkiRemovableMedia
 	}
 	return state.Unknown
+}
+
+// SystemdBootConfReader reads a systemd-boot conf file and returns a map with the key/value pairs
+func SystemdBootConfReader(fs v1.FS, filePath string) (map[string]string, error) {
+	file, err := fs.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	result := make(map[string]string)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) == 2 {
+			result[parts[0]] = parts[1]
+		}
+		if len(parts) == 1 {
+			result[parts[0]] = ""
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// SystemdBootConfWriter writes a map to a systemd-boot conf file
+func SystemdBootConfWriter(fs v1.FS, filePath string, conf map[string]string) error {
+	file, err := fs.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	writer := bufio.NewWriter(file)
+	for k, v := range conf {
+		if v == "" {
+			_, err = writer.WriteString(fmt.Sprintf("%s \n", k))
+		} else {
+			_, err = writer.WriteString(fmt.Sprintf("%s %s\n", k, v))
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return writer.Flush()
 }

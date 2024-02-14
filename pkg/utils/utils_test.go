@@ -1071,4 +1071,78 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(err.Error()).To(ContainSubstring("Cleanup error 3"))
 		})
 	})
+	Describe("GetEfiPartition", func() {
+		var ghwTest v1mock.GhwMock
+
+		BeforeEach(func() {
+			mainDisk := block.Disk{
+				Name: "device",
+				Partitions: []*block.Partition{
+					{
+						Name:            "device1",
+						FilesystemLabel: "COS_GRUB",
+						Type:            "ext4",
+						MountPoint:      "/efi",
+					},
+				},
+			}
+			ghwTest = v1mock.GhwMock{}
+			ghwTest.AddDisk(mainDisk)
+			ghwTest.CreateDevices()
+		})
+		It("returns the efi partition", func() {
+			efi, err := partitions.GetEfiPartition()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(efi.FilesystemLabel).To(Equal("COS_GRUB"))
+			Expect(efi.Name).To(Equal("device1")) // Just to make sure its our mocked system
+		})
+		It("fails to find the efi partition", func() {
+			ghwTest.Clean() // Remove the disk
+			efi, err := partitions.GetEfiPartition()
+			Expect(err).To(HaveOccurred())
+			Expect(efi).To(BeNil())
+		})
+	})
+	Describe("SystemdBootConfWriter/SystemdBootConfReader", func() {
+		BeforeEach(func() {
+			err := fsutils.MkdirAll(fs, "/efi/loader/entries", os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("writes the conf file with proper attrs", func() {
+			conf := map[string]string{
+				"timeout": "5",
+				"default": "kairos",
+				"empty":   "",
+			}
+			err := utils.SystemdBootConfWriter(fs, "/efi/loader/entries/test1.conf", conf)
+			Expect(err).ToNot(HaveOccurred())
+			reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/entries/test1.conf")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reader["timeout"]).To(Equal("5"))
+			Expect(reader["default"]).To(Equal("kairos"))
+			Expect(reader["recovery"]).To(Equal(""))
+		})
+		It("reads the conf file with proper k,v attrs", func() {
+			err := fs.WriteFile("/efi/loader/entries/test2.conf", []byte("timeout 5\ndefault kairos\nrecovery\n"), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/entries/test2.conf")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reader["timeout"]).To(Equal("5"))
+			Expect(reader["default"]).To(Equal("kairos"))
+			Expect(reader["recovery"]).To(Equal(""))
+		})
+
+	})
+	Describe("IsUkiWithFs", func() {
+		It("returns true if rd.immucore.uki is present", func() {
+			err := fs.Mkdir("/proc", os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/proc/cmdline", []byte("rd.immucore.uki"), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(utils.IsUkiWithFs(fs)).To(BeTrue())
+		})
+		It("returns false if rd.immucore.uki is not present", func() {
+			Expect(utils.IsUkiWithFs(fs)).To(BeFalse())
+		})
+	})
 })

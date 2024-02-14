@@ -16,13 +16,24 @@ limitations under the License.
 
 package mocks
 
-import "errors"
+import (
+	"errors"
+)
 
 // FakeSyscall is a test helper method to track calls to syscall
 // It can also fail on Chroot command
 type FakeSyscall struct {
 	chrootHistory []string // Track calls to chroot
 	ErrorOnChroot bool
+	mounts        []FakeMount
+}
+
+type FakeMount struct {
+	Source string
+	Target string
+	Fstype string
+	Flags  uintptr
+	Data   string
 }
 
 // Chroot will store the chroot call
@@ -43,6 +54,26 @@ func (f *FakeSyscall) Chdir(path string) error {
 func (f *FakeSyscall) WasChrootCalledWith(path string) bool {
 	for _, c := range f.chrootHistory {
 		if c == path {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *FakeSyscall) Mount(source string, target string, fstype string, flags uintptr, data string) error {
+	f.mounts = append(f.mounts, FakeMount{
+		Source: source,
+		Target: target,
+		Fstype: fstype,
+		Flags:  flags,
+		Data:   data,
+	})
+	return nil
+}
+
+func (f *FakeSyscall) WasMountCalledWith(source string, target string, fstype string, flags uintptr, data string) bool {
+	for _, m := range f.mounts {
+		if m.Source == source && m.Target == target && m.Fstype == fstype && m.Flags == flags && m.Data == data {
 			return true
 		}
 	}
