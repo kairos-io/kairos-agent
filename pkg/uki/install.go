@@ -2,7 +2,6 @@ package uki
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +15,6 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	sdkutils "github.com/kairos-io/kairos-sdk/utils"
-	"github.com/sanity-io/litter"
 )
 
 type InstallAction struct {
@@ -76,6 +74,9 @@ func (i *InstallAction) Run() (err error) {
 		return err
 	}
 
+	// TODO: Check if the size of the files we are going to copy, will fit in the
+	// partition. If not stop here.
+
 	// Copy the efi file into the proper dir
 	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
 	if err != nil {
@@ -128,19 +129,19 @@ func (i *InstallAction) Run() (err error) {
 		return err
 	}
 
-	for _, entry := range []string{"active", "passive", "recovery"} {
-		if err = installArtifactSet(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, entry, i.cfg.Logger); err != nil {
-			return fmt.Errorf("installing artifact set %s: %w", entry, err)
+	for _, role := range []string{"active", "passive", "recovery"} {
+		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
+			return fmt.Errorf("installing the new artifact set as %s: %w", role, err)
 		}
 	}
 
 	loaderConfPath := filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader", "loader.conf")
-	if err = replacePlaceholders(loaderConfPath, "default", "active", i.cfg.Logger); err != nil {
+	if err = replaceRoleInKey(loaderConfPath, "default", UnassignedArtifactRole, "active", i.cfg.Logger); err != nil {
 		return err
 	}
 
-	if err = removeArtifactSet(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint); err != nil {
-		return fmt.Errorf("removing artifact set: %w", err)
+	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole); err != nil {
+		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
 	}
 
 	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
@@ -156,70 +157,6 @@ func (i *InstallAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
-}
-func copy(src, dst string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		panic(err)
-	}
-	defer sourceFile.Close()
-
-	destinationFile, err := os.Create(dst)
-	if err != nil {
-		panic(err)
-	}
-	defer destinationFile.Close()
-
-	if _, err = io.Copy(destinationFile, sourceFile); err != nil {
-		return err
-	}
-
-	// Flushes any buffered data to the destination file
-	if err = destinationFile.Sync(); err != nil {
-		return err
-	}
-
-	if err = sourceFile.Close(); err != nil {
-		return err
-	}
-
-	return destinationFile.Close()
-}
-
-// copy the source file but ranme the base name to as
-func copyArtifact(source string, as string) (string, error) {
-	newName := strings.ReplaceAll(source, "artifact", as)
-	return newName, copy(source, newName)
-}
-
-func removeArtifactSet(fs v1.FS, artifactDir string) error {
-	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
-		if !info.IsDir() && strings.HasPrefix(info.Name(), "artifact") {
-			return os.Remove(path)
-		}
-
-		return nil
-	})
-}
-
-func installArtifactSet(fs v1.FS, artifactDir, as string, logger v1.Logger) error {
-	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
-		if !strings.HasPrefix(info.Name(), "artifact") {
-			return nil
-		}
-
-		newPath, err := copyArtifact(path, as)
-		if err != nil {
-			return fmt.Errorf("copying artifact from %s to %s: %w", path, newPath, err)
-		}
-		if strings.HasSuffix(path, ".conf") {
-			if err := replacePlaceholders(newPath, "efi", as, logger); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
 }
 
 func (i *InstallAction) SkipEntry(path string, conf map[string]string) (err error) {
@@ -242,36 +179,6 @@ func (i *InstallAction) SkipEntry(path string, conf map[string]string) (err erro
 		// Do not continue checking the conf file, we already done all we needed
 	}
 	return err
-}
-
-func (i *InstallAction) replaceFilenamePlaceholder(path, replaceString string) (err error) {
-	newName := strings.ReplaceAll(path, "artifact", replaceString)
-
-	return os.Rename(path, newName)
-}
-
-func replacePlaceholders(path, key, replaceString string, logger v1.Logger) (err error) {
-	// Extract the values
-	conf, err := sdkutils.SystemdBootConfReader(path)
-	if err != nil {
-		logger.Errorf("Error reading conf file %s: %s", path, err)
-		return err
-	}
-	logger.Debugf("Conf file %s has values %v", path, litter.Sdump(conf))
-
-	_, hasKey := conf[key]
-	if !hasKey {
-		return fmt.Errorf("no %s entry in .conf file", key)
-	}
-
-	conf[key] = strings.ReplaceAll(conf[key], "artifact", replaceString)
-	newContents := ""
-	for k, v := range conf {
-		newContents = fmt.Sprintf("%s%s %s\n", newContents, k, v)
-	}
-	logger.Debugf("Conf file %s new values %v", path, litter.Sdump(conf))
-
-	return os.WriteFile(path, []byte(newContents), os.ModePerm)
 }
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
