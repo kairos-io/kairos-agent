@@ -49,6 +49,9 @@ func removeArtifactSetWithRole(fs v1.FS, artifactDir, role string) error {
 
 func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger v1.Logger) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if !strings.HasPrefix(info.Name(), oldRole) {
 			return nil
 		}
