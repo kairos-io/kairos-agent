@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
-	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"net/url"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/sanity-io/litter"

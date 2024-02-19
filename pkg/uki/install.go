@@ -1,6 +1,7 @@
 package uki
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/sanity-io/litter"
+	sdkutils "github.com/kairos-io/kairos-sdk/utils"
 )
 
 type InstallAction struct {
@@ -73,6 +74,9 @@ func (i *InstallAction) Run() (err error) {
 		return err
 	}
 
+	// TODO: Check if the size of the files we are going to copy, will fit in the
+	// partition. If not stop here.
+
 	// Copy the efi file into the proper dir
 	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
 	if err != nil {
@@ -81,55 +85,63 @@ func (i *InstallAction) Run() (err error) {
 
 	// Remove entries
 	// Read all confs
-	i.cfg.Logger.Debugf("Checking for entries to remove")
-	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
+	i.cfg.Logger.Debugf("Parsing efi partition files (skip SkipEntries, replace placeholders etc)")
+	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint), func(path string, info os.DirEntry, err error) error {
+		filename := info.Name()
+		if err != nil {
+			i.cfg.Logger.Errorf("Error walking path: %s, %s", filename, err.Error())
+			return err
+		}
+
 		i.cfg.Logger.Debugf("Checking file %s", path)
 		if info.IsDir() {
 			return nil
 		}
-		if filepath.Ext(info.Name()) != ".conf" {
-			return nil
-		}
-		// Extract the values
-		conf, err := utils.SystemdBootConfReader(path)
-		if err != nil {
-			i.cfg.Logger.Errorf("Error reading conf file %s: %s", path, err)
-			return err
-		}
-		i.cfg.Logger.Debugf("Conf file %s has values %v", path, litter.Sdump(conf))
-		if len(conf["cmdline"]) == 0 {
-			return nil
-		}
-		// Check if the cmdline matches any of the entries in the skip list
-		for _, entry := range i.spec.SkipEntries {
-			// Match the cmdline key against the entry
-			if strings.Contains(conf["cmdline"], entry) {
-				i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
-				// If match, get the efi file and remove it
-				if conf["efi"] != "" {
-					i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
-					// First remove the efi file
-					err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
-					if err != nil {
-						i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
-						return err
-					}
-					// Then remove the conf file
-					i.cfg.Logger.Debugf("Removing conf file %s", path)
-					err = i.cfg.Fs.Remove(path)
-					if err != nil {
-						i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
-						return err
-					}
-					// Do not continue checking the conf file, we already done all we needed
+
+		if filepath.Ext(filename) == ".conf" {
+			// Extract the values
+			conf, err := sdkutils.SystemdBootConfReader(path)
+			if err != nil {
+				i.cfg.Logger.Errorf("Error reading conf file to extract values %s: %s", path, err)
+				return err
+			}
+			if len(conf["cmdline"]) == 0 {
+				return nil
+			}
+
+			// Check if the cmdline matches any of the entries in the skip list
+			skip := false
+			for _, entry := range i.spec.SkipEntries {
+				if strings.Contains(conf["cmdline"], entry) {
+					i.cfg.Logger.Debugf("Found match for %s in %s", entry, path)
+					skip = true
+					break
 				}
 			}
+			if skip {
+				return i.SkipEntry(path, conf)
+			}
 		}
-		return err
-	})
 
+		return nil
+	})
 	if err != nil {
 		return err
+	}
+
+	for _, role := range []string{"active", "passive", "recovery"} {
+		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
+			return fmt.Errorf("installing the new artifact set as %s: %w", role, err)
+		}
+	}
+
+	loaderConfPath := filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader", "loader.conf")
+	if err = replaceRoleInKey(loaderConfPath, "default", UnassignedArtifactRole, "active", i.cfg.Logger); err != nil {
+		return err
+	}
+
+	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole); err != nil {
+		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
 	}
 
 	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
@@ -145,6 +157,28 @@ func (i *InstallAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
+}
+
+func (i *InstallAction) SkipEntry(path string, conf map[string]string) (err error) {
+	// If match, get the efi file and remove it
+	if conf["efi"] != "" {
+		i.cfg.Logger.Debugf("Removing efi file %s", conf["efi"])
+		// First remove the efi file
+		err = i.cfg.Fs.Remove(filepath.Join(i.spec.Partitions.EFI.MountPoint, conf["efi"]))
+		if err != nil {
+			i.cfg.Logger.Errorf("Error removing efi file %s: %s", conf["efi"], err)
+			return err
+		}
+		// Then remove the conf file
+		i.cfg.Logger.Debugf("Removing conf file %s", path)
+		err = i.cfg.Fs.Remove(path)
+		if err != nil {
+			i.cfg.Logger.Errorf("Error removing conf file %s: %s", path, err)
+			return err
+		}
+		// Do not continue checking the conf file, we already done all we needed
+	}
+	return err
 }
 
 // Hook is RunStage wrapper that only adds logic to ignore errors

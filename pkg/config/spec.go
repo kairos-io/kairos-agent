@@ -18,13 +18,14 @@ package config
 
 import (
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/crane"
-	"golang.org/x/sys/unix"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/crane"
+	"golang.org/x/sys/unix"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -656,7 +657,9 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 
 func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	spec := &v1.UpgradeUkiSpec{}
-	err := unmarshallFullSpec(cfg, "upgrade", spec)
+	if err := unmarshallFullSpec(cfg, "upgrade", spec); err != nil {
+		return nil, fmt.Errorf("failed unmarshalling full spec: %w", err)
+	}
 	// TODO: Use this everywhere?
 	cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
 	if spec.Active.Source.IsDocker() {
