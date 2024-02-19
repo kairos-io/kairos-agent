@@ -368,6 +368,8 @@ github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/kairos-io/kairos-sdk v0.0.25 h1:/wQ8lHmmqJgKPaxzLllTgMQNWRje80XKdj8F0XlFXl0=
+github.com/kairos-io/kairos-sdk v0.0.25/go.mod h1:btSB2QAds/WSyIyPxnQ3jueMbkkZ75pHUUCj+yHpthQ=
 github.com/kairos-io/kcrypt v0.9.1 h1:bMDXZ8MiPY/fgLe5CXQPfUIRchzxErlJ8nfZM/JPfEU=
 github.com/kairos-io/kcrypt v0.9.1/go.mod h1:odsVL3ab2GJUgDnvDGJi54jrWUe6tjfW9875knT/ltU=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=

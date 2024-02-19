@@ -4,7 +4,6 @@ go 1.20
 
 // This versions require go1.20
 replace (
-	github.com/kairos-io/kairos-sdk => /home/dimitris/workspace/kairos/kairos-sdk
 	github.com/onsi/ginkgo/v2 v2.15.0 => github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.31.1 => github.com/onsi/gomega v1.28.0
 )
@@ -20,7 +19,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.0.24
+	github.com/kairos-io/kairos-sdk v0.0.25
 	github.com/kairos-io/kcrypt v0.9.1
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/mitchellh/mapstructure v1.5.0
