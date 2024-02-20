@@ -69,7 +69,7 @@ func Upgrade(
 	bus.Manager.Initialize()
 
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
-		return upgradeUki(source, dirs, strictValidations)
+		return upgradeUki(source, dirs, strictValidations, upgradeRecovery)
 	} else {
 		return upgrade(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
 	}
@@ -201,8 +201,8 @@ func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
 	return result, nil
 }
 
-func upgradeUki(source string, dirs []string, strictValidations bool) error {
-	cliConf, err := generateUpgradeConfForCLIArgs(source, false)
+func upgradeUki(source string, dirs []string, strictValidations, upgradeRecovery bool) error {
+	cliConf, err := generateUpgradeConfForCLIArgs(source, upgradeRecovery)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func upgradeUki(source string, dirs []string, strictValidations bool) error {
 	utils.SetEnv(c.Env)
 
 	// Load the upgrade Config from the system
-	upgradeSpec, err := config.ReadUkiUpgradeFromConfig(c)
+	upgradeSpec, err := config.ReadUkiUpgradeSpecFromConfig(c)
 	if err != nil {
 		return err
 	}

@@ -706,8 +706,8 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	return spec, err
 }
 
-// ReadUkiUpgradeFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
-func ReadUkiUpgradeFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
+// ReadUkiUpgradeSpecFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
+func ReadUkiUpgradeSpecFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "upgrade-uki")
 	if err != nil {
 		return &v1.UpgradeUkiSpec{}, err
