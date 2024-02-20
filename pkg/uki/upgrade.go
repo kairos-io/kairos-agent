@@ -2,6 +2,7 @@ package uki
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -42,6 +43,13 @@ func (i *UpgradeAction) Run() (err error) {
 	// If we decide to first copy and then rotate, we need ~4 times the size of
 	// the artifact set [TBD]
 
+	// When upgrading recovery, we don't want to replace loader.conf or any other
+	// files, thus we take a simpler approach and only install the new efi file
+	// and the relevant conf
+	if i.spec.RecoveryUpgrade {
+		return i.installRecovery()
+	}
+
 	// Dump artifact to efi dir
 	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {
@@ -73,4 +81,38 @@ func (i *UpgradeAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.upgrade.after.hook") //nolint:errcheck
 
 	return nil
+}
+
+// installRecovery replaces the "recovery" role efi and conf files with
+// the UnassignedArtifactRole efi and loader files from dir
+func (i *UpgradeAction) installRecovery() error {
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return fmt.Errorf("creating a tmp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Dump artifact to tmp dir
+	e := elemental.NewElemental(i.cfg)
+	_, err = e.DumpSource(tmpDir, i.spec.Active.Source)
+	if err != nil {
+		return err
+	}
+
+	err = copyFile(
+		filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"),
+		filepath.Join(constants.UkiEfiDir, "EFI", "kairos", "recovery.efi"))
+	if err != nil {
+		return err
+	}
+
+	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", "recovery.conf")
+	err = copyFile(
+		filepath.Join(tmpDir, "loader", "entries", UnassignedArtifactRole+".conf"),
+		targetConfPath)
+	if err != nil {
+		return err
+	}
+
+	return replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", i.cfg.Logger)
 }
