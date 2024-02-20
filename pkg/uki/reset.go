@@ -1,7 +1,10 @@
 package uki
 
 import (
+	"fmt"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
@@ -53,6 +56,12 @@ func (r *ResetAction) Run() (err error) {
 				return err
 			}
 		}
+	}
+
+	// Copy "recovery" to "active"
+	err = overwriteArtifactSetRole(r.cfg.Fs, constants.UkiEfiDir, "recovery", "active", r.cfg.Logger)
+	if err != nil {
+		return fmt.Errorf("copying recovery to active: %w", err)
 	}
 
 	_ = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.after")
