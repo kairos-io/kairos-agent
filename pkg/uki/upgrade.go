@@ -47,7 +47,7 @@ func (i *UpgradeAction) Run() (err error) {
 	// files, thus we take a simpler approach and only install the new efi file
 	// and the relevant conf
 	if i.spec.RecoveryUpgrade {
-		return i.installRecovery(i.cfg.Logger)
+		return i.installRecovery()
 	}
 
 	// Dump artifact to efi dir
@@ -85,7 +85,7 @@ func (i *UpgradeAction) Run() (err error) {
 
 // installRecovery replaces the "recovery" role efi and conf files with
 // the UnassignedArtifactRole efi and loader files from dir
-func (i *UpgradeAction) installRecovery(logger v1.Logger) error {
+func (i *UpgradeAction) installRecovery() error {
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return fmt.Errorf("creating a tmp dir: %w", err)
@@ -114,5 +114,5 @@ func (i *UpgradeAction) installRecovery(logger v1.Logger) error {
 		return err
 	}
 
-	return replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", logger)
+	return replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", i.cfg.Logger)
 }
