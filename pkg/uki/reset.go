@@ -58,6 +58,13 @@ func (r *ResetAction) Run() (err error) {
 		}
 	}
 
+	// REMOUNT /efi as RW (its RO by default)
+	umount, err := e.MountRWPartition(r.spec.Partitions.EFI)
+	if err != nil {
+		return err
+	}
+	cleanup.Push(umount)
+
 	// Copy "recovery" to "active"
 	err = overwriteArtifactSetRole(r.cfg.Fs, constants.UkiEfiDir, "recovery", "active", r.cfg.Logger)
 	if err != nil {
