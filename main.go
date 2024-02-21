@@ -757,10 +757,7 @@ The validate command expects a configuration file as its only argument. Local fi
 				return err
 			}
 			s := c.String("select")
-			// Here we should separate the call between uki and non-uki
-			// uki deals with systemd-boot and non-uki with grub
-			// so its a different path
-			// currently implementation is uki only
+			// If we got a selection just go for it, otherwise enter an interactive mode to show entries and let user choose one
 			if s != "" {
 				return action.SelectBootEntry(cfg, s)
 			}

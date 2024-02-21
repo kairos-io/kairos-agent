@@ -542,6 +542,7 @@ func UkiBootMode() state.Boot {
 }
 
 // SystemdBootConfReader reads a systemd-boot conf file and returns a map with the key/value pairs
+// TODO: Move this to the sdk with the FS interface
 func SystemdBootConfReader(fs v1.FS, filePath string) (map[string]string, error) {
 	file, err := fs.Open(filePath)
 	if err != nil {
@@ -572,6 +573,7 @@ func SystemdBootConfReader(fs v1.FS, filePath string) (map[string]string, error)
 }
 
 // SystemdBootConfWriter writes a map to a systemd-boot conf file
+// TODO: Move this to the sdk with the FS interface
 func SystemdBootConfWriter(fs v1.FS, filePath string, conf map[string]string) error {
 	file, err := fs.Create(filePath)
 	if err != nil {
