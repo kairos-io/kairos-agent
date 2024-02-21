@@ -3,6 +3,7 @@ package uki
 import (
 	"fmt"
 
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
@@ -69,6 +70,12 @@ func (r *ResetAction) Run() (err error) {
 	err = overwriteArtifactSetRole(r.cfg.Fs, constants.UkiEfiDir, "recovery", "active", r.cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("copying recovery to active: %w", err)
+	}
+	// SelectBootEntry sets the default boot entry to the selected entry
+	err = action.SelectBootEntry(r.cfg, "active")
+	// Should we fail? Or warn?
+	if err != nil {
+		return err
 	}
 
 	_ = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.after")

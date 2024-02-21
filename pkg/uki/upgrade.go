@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
@@ -75,6 +76,13 @@ func (i *UpgradeAction) Run() (err error) {
 
 	if err = removeArtifactSetWithRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole); err != nil {
 		return fmt.Errorf("removing artifact set: %w", err)
+	}
+
+	// SelectBootEntry sets the default boot entry to the selected entry
+	err = action.SelectBootEntry(i.cfg, "active")
+	// Should we fail? Or warn?
+	if err != nil {
+		return err
 	}
 
 	_ = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after")

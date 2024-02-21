@@ -27,6 +27,7 @@ import (
 	"github.com/jaypipes/ghw/pkg/context"
 	"github.com/jaypipes/ghw/pkg/linuxpath"
 	ghwUtil "github.com/jaypipes/ghw/pkg/util"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	log "github.com/sirupsen/logrus"
 )
@@ -208,4 +209,23 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 		}
 	}
 	return part
+}
+
+// GetEfiPartition returns the EFI partition by looking for the partition with the label "COS_GRUB"
+func GetEfiPartition() (*v1.Partition, error) {
+	var efiPartition *v1.Partition
+	parts, err := GetAllPartitions()
+	if err != nil {
+		return efiPartition, fmt.Errorf("could not read host partitions")
+	}
+	for _, p := range parts {
+		if p.FilesystemLabel == constants.EfiLabel {
+			efiPartition = p
+			break
+		}
+	}
+	if efiPartition == nil {
+		return efiPartition, fmt.Errorf("could not find EFI partition")
+	}
+	return efiPartition, nil
 }
