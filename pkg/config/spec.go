@@ -523,11 +523,26 @@ func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
 	spec.Partitions.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
 	spec.Partitions.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
 
+	// Get EFI partition
+	parts, err := partitions.GetAllPartitions()
+	if err != nil {
+		return spec, fmt.Errorf("could not read host partitions")
+	}
+	for _, p := range parts {
+		if p.FilesystemLabel == constants.EfiLabel {
+			spec.Partitions.EFI = p
+			break
+		}
+	}
+
 	if spec.Partitions.Persistent == nil {
 		return spec, fmt.Errorf("persistent partition not found")
 	}
 	if spec.Partitions.OEM == nil {
 		return spec, fmt.Errorf("oem partition not found")
+	}
+	if spec.Partitions.EFI == nil {
+		return spec, fmt.Errorf("efi partition not found")
 	}
 
 	// Fill oem partition
