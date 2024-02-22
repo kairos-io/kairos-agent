@@ -607,15 +607,15 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
 	spec.Partitions.EFI = &v1.Partition{
 		FilesystemLabel: constants.EfiLabel,
-		Size:            constants.ImgSize,
+		Size:            constants.EfiSize,
 		Name:            constants.EfiPartName,
 		FS:              constants.EfiFs,
 		MountPoint:      constants.EfiDir,
 		Flags:           []string{"esp"},
 	}
 	spec.Partitions.XBOOTLDR = &v1.Partition{
-		FilesystemLabel: "XBOOTLOADER",
-		Name:            "XBOOTLOADER",
+		FilesystemLabel: constants.XbootloaderLabel,
+		Name:            constants.XbootloaderPartName,
 		Size:            constants.ImgSize * 5,
 		FS:              constants.LinuxFs,
 		MountPoint:      constants.XBOOTLOADERDir,
@@ -644,8 +644,8 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%sMb): %s", spec.Partitions.EFI.Size, err.Error())
 	} else {
 		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
-		if uint(size*3) > spec.Partitions.EFI.Size {
-			spec.Partitions.EFI.Size = uint(size * 3)
+		if uint(size*3) > spec.Partitions.XBOOTLDR.Size {
+			spec.Partitions.XBOOTLDR.Size = uint(size * 3)
 		}
 	}
 

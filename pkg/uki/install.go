@@ -115,6 +115,7 @@ func (i *InstallAction) Run() (err error) {
 
 	// Copy drivers for FS into the efi dir
 	// download file from https://github.com/pbatard/efifs/releases/download/v1.9/ext2_x64.efi
+	// TODO: provide this like the systemd artifacts, as part of the install media via luet package, maybe with the systemd-boot package?
 	err = DownloadFile(filepath.Join(i.spec.Partitions.EFI.MountPoint, "EFI", "systemd", "drivers", "ext2_x64.efi"), "https://github.com/pbatard/efifs/releases/download/v1.9/ext2_x64.efi")
 	if err != nil {
 		return err
