@@ -113,6 +113,7 @@ func (e *Elemental) createAndFormatPartition(disk *partitioner.Disk, part *v1.Pa
 
 func (e *Elemental) createPartitions(disk *partitioner.Disk, parts v1.PartitionList) error {
 	for _, part := range parts {
+		fmt.Printf("Creating partition %s\n", part.Name)
 		err := e.createAndFormatPartition(disk, part)
 		if err != nil {
 			return err

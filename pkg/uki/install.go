@@ -2,6 +2,8 @@ package uki
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,20 +75,60 @@ func (i *InstallAction) Run() (err error) {
 	if err != nil {
 		return err
 	}
-
-	// TODO: Check if the size of the files we are going to copy, will fit in the
-	// partition. If not stop here.
-
-	// Copy the efi file into the proper dir
-	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
+	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "EFI", "systemd", "drivers"), constants.DirPerm)
+	if err != nil {
+		return err
+	}
+	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "loader", "entries"), constants.DirPerm)
+	if err != nil {
+		return err
+	}
+	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.XBOOTLOADERDir, "EFI"), constants.DirPerm)
+	if err != nil {
+		return err
+	}
+	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.XBOOTLOADERDir, "loader", "entries"), constants.DirPerm)
 	if err != nil {
 		return err
 	}
 
+	// TODO: Check if the size of the files we are going to copy, will fit in the
+	// partition. If not stop here.
+
+	// Copy the efi files into the XBOOTLDR dir
+	_, err = e.DumpSource(i.spec.Partitions.XBOOTLDR.MountPoint, i.spec.Active.Source)
+	if err != nil {
+		return err
+	}
+
+	// Copy the systemd-boot efi files into the EFI dir
+	for _, efiFile := range []string{"/EFI/BOOT/bootaa64.efi", "/EFI/BOOT/BOOTX64.efi"} {
+		if yes, _ := fsutils.Exists(i.cfg.Fs, filepath.Join(i.spec.Active.Source.Value(), efiFile)); yes {
+			err = copyFile(filepath.Join(i.spec.Active.Source.Value(), efiFile), filepath.Join(i.spec.Partitions.EFI.MountPoint, efiFile))
+			if err != nil {
+				i.cfg.Logger.Debugf("Error copying efi file %s: %s", efiFile, err)
+			}
+		} else {
+			i.cfg.Logger.Debugf("File %s does not exist", efiFile)
+		}
+	}
+
+	// Copy drivers for FS into the efi dir
+	// download file from https://github.com/pbatard/efifs/releases/download/v1.9/ext2_x64.efi
+	err = DownloadFile(filepath.Join(i.spec.Partitions.EFI.MountPoint, "EFI", "systemd", "drivers", "ext2_x64.efi"), "https://github.com/pbatard/efifs/releases/download/v1.9/ext2_x64.efi")
+	if err != nil {
+		return err
+	}
+
+	// Copy the loader files into the EFI dir
+	err = copyFile(filepath.Join(i.spec.Active.Source.Value(), "/loader/loader.conf"), filepath.Join(i.spec.Partitions.EFI.MountPoint, "/loader/loader.conf"))
+	if err != nil {
+		i.cfg.Logger.Debugf("Error copying efi file %s: %s", "/loader/loader.conf", err)
+	}
 	// Remove entries
 	// Read all confs
 	i.cfg.Logger.Debugf("Parsing efi partition files (skip SkipEntries, replace placeholders etc)")
-	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.EFI.MountPoint), func(path string, info os.DirEntry, err error) error {
+	err = fsutils.WalkDirFs(i.cfg.Fs, filepath.Join(i.spec.Partitions.XBOOTLDR.MountPoint), func(path string, info os.DirEntry, err error) error {
 		filename := info.Name()
 		if err != nil {
 			i.cfg.Logger.Errorf("Error walking path: %s, %s", filename, err.Error())
@@ -130,7 +172,7 @@ func (i *InstallAction) Run() (err error) {
 	}
 
 	for _, role := range []string{"active", "passive", "recovery"} {
-		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
+		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.XBOOTLDR.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
 			return fmt.Errorf("installing the new artifact set as %s: %w", role, err)
 		}
 	}
@@ -141,6 +183,9 @@ func (i *InstallAction) Run() (err error) {
 	}
 
 	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole); err != nil {
+		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
+	}
+	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.XBOOTLDR.MountPoint, UnassignedArtifactRole); err != nil {
 		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
 	}
 
@@ -189,5 +234,25 @@ func Hook(config *config.Config, hook string) error {
 	if !config.Strict {
 		err = nil
 	}
+	return err
+}
+
+func DownloadFile(filepath string, url string) error {
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
 	return err
 }
