@@ -52,19 +52,19 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// Dump artifact to efi dir
-	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
+	_, err = e.DumpSource(constants.XbootloaderDir, i.spec.Active.Source)
 	if err != nil {
 		return err
 	}
 
 	// Rotate first
-	err = overwriteArtifactSetRole(i.cfg.Fs, constants.UkiEfiDir, "active", "passive", i.cfg.Logger)
+	err = overwriteArtifactSetRole(i.cfg.Fs, constants.XbootloaderDir, "active", "passive", i.cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("rotating active to passive: %w", err)
 	}
 
 	// Install the new artifacts as "active"
-	err = overwriteArtifactSetRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole, "active", i.cfg.Logger)
+	err = overwriteArtifactSetRole(i.cfg.Fs, constants.XbootloaderDir, UnassignedArtifactRole, "active", i.cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("installing the new artifacts as active: %w", err)
 	}
@@ -74,7 +74,7 @@ func (i *UpgradeAction) Run() (err error) {
 		return err
 	}
 
-	if err = removeArtifactSetWithRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole); err != nil {
+	if err = removeArtifactSetWithRole(i.cfg.Fs, constants.XbootloaderDir, UnassignedArtifactRole); err != nil {
 		return fmt.Errorf("removing artifact set: %w", err)
 	}
 
@@ -109,12 +109,12 @@ func (i *UpgradeAction) installRecovery() error {
 
 	err = copyFile(
 		filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"),
-		filepath.Join(constants.UkiEfiDir, "EFI", "kairos", "recovery.efi"))
+		filepath.Join(constants.XbootloaderDir, "EFI", "kairos", "recovery.efi"))
 	if err != nil {
 		return err
 	}
 
-	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", "recovery.conf")
+	targetConfPath := filepath.Join(constants.XbootloaderDir, "loader", "entries", "recovery.conf")
 	err = copyFile(
 		filepath.Join(tmpDir, "loader", "entries", UnassignedArtifactRole+".conf"),
 		targetConfPath)

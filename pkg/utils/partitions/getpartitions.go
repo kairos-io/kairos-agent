@@ -229,3 +229,22 @@ func GetEfiPartition() (*v1.Partition, error) {
 	}
 	return efiPartition, nil
 }
+
+// GetXbootloaderPartition returns the Xbootloader partition by looking for the partition with the label "COS_XBOOTLOADER"
+func GetXbootLoaderPartition() (*v1.Partition, error) {
+	var xbootloaderPartition *v1.Partition
+	parts, err := GetAllPartitions()
+	if err != nil {
+		return xbootloaderPartition, fmt.Errorf("could not read host partitions")
+	}
+	for _, p := range parts {
+		if p.FilesystemLabel == constants.XbootloaderLabel {
+			xbootloaderPartition = p
+			break
+		}
+	}
+	if xbootloaderPartition == nil {
+		return xbootloaderPartition, fmt.Errorf("could not find Xbootloader partition")
+	}
+	return xbootloaderPartition, nil
+}

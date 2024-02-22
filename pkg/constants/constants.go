@@ -110,11 +110,9 @@ const (
 	SignedGrub = "grub.efi"
 	Rsync      = "rsync"
 
-	UkiSource         = "/run/install/uki"
-	UkiCdromSource    = "/run/initramfs/live"
-	UkiEfiDir         = "/efi"
-	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
-	UkiMaxEntries     = 3
+	UkiEfiDir      = "/efi"
+	XbootloaderDir = "/boot"
+	UkiMaxEntries  = 3
 )
 
 func UkiDefaultSkipEntries() []string {

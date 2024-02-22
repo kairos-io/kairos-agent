@@ -77,8 +77,12 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 	if err != nil {
 		return err
 	}
+	xbootLoaderPartition, err := partitions.GetXbootLoaderPartition()
+	if err != nil {
+		return err
+	}
 	// Validate entry exists
-	entries, err := listSystemdEntries(cfg, efiPartition)
+	entries, err := listSystemdEntries(cfg, xbootLoaderPartition)
 	if err != nil {
 		return err
 
@@ -156,7 +160,11 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 		return err
 	}
 
-	entries, err := listSystemdEntries(cfg, efiPartition)
+	xbootloaderPartition, err := partitions.GetXbootLoaderPartition()
+	if err != nil {
+		return err
+	}
+	entries, err := listSystemdEntries(cfg, xbootloaderPartition)
 
 	// create a selector
 	selector := selection.New(fmt.Sprintf("Select Boot Entry (current entry: %s)", loaderConf["default"]), entries)

@@ -533,6 +533,10 @@ func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
 			spec.Partitions.EFI = p
 			break
 		}
+		if p.FilesystemLabel == constants.XbootloaderLabel {
+			spec.Partitions.XBOOTLDR = p
+			break
+		}
 	}
 
 	if spec.Partitions.Persistent == nil {
@@ -543,6 +547,9 @@ func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
 	}
 	if spec.Partitions.EFI == nil {
 		return spec, fmt.Errorf("efi partition not found")
+	}
+	if spec.Partitions.XBOOTLDR == nil {
+		return spec, fmt.Errorf("XBOOTLDR partition not found")
 	}
 
 	// Fill oem partition
@@ -711,6 +718,10 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
 	for _, p := range parts {
+		if p.FilesystemLabel == constants.XbootloaderLabel {
+			spec.XbootLoaderPartition = p
+			break
+		}
 		if p.FilesystemLabel == constants.EfiLabel {
 			spec.EfiPartition = p
 			break
@@ -718,12 +729,12 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	}
 	// Get free size of partition
 	var stat unix.Statfs_t
-	_ = unix.Statfs(spec.EfiPartition.MountPoint, &stat)
+	_ = unix.Statfs(spec.XbootLoaderPartition.MountPoint, &stat)
 	freeSize := stat.Bfree * uint64(stat.Bsize) / 1000 / 1000
-	cfg.Logger.Debugf("Partition on mountpoint %s has %dMb free", spec.EfiPartition.MountPoint, freeSize)
+	cfg.Logger.Debugf("Partition on mountpoint %s has %dMb free", spec.XbootLoaderPartition.MountPoint, freeSize)
 	// Check if the source is over the free size
 	if spec.Active.Size > uint(freeSize) {
-		return spec, fmt.Errorf("source size(%d) is bigger than the free space(%d) on the EFI partition(%s)", spec.Active.Size, freeSize, spec.EfiPartition.MountPoint)
+		return spec, fmt.Errorf("source size(%d) is bigger than the free space(%d) on the EFI partition(%s)", spec.Active.Size, freeSize, spec.XbootLoaderPartition.MountPoint)
 	}
 
 	return spec, err
