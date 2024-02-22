@@ -606,12 +606,12 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
 	spec.Partitions.EFI = &v1.Partition{
-		FilesystemLabel: constants.EfiLabel,
+		FilesystemLabel: "",
 		Size:            constants.ImgSize * 5, // 15Gb for the EFI partition as default
-		Name:            constants.EfiPartName,
+		Name:            "",
 		FS:              constants.EfiFs,
 		MountPoint:      constants.EfiDir,
-		Flags:           []string{"esp"},
+		Flags:           []string{"esp", "boot"},
 	}
 	spec.Partitions.OEM = &v1.Partition{
 		FilesystemLabel: constants.OEMLabel,
