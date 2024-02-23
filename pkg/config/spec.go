@@ -97,6 +97,7 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 		FS:     constants.LinuxImgFs,
 		Size:   constants.ImgSize,
 	}
+	fmt.Printf("!!!!!!!!!!!!!!! cfg.Install.Device = %+v\n", cfg.Install.Device)
 
 	spec := &v1.InstallSpec{
 		Target:    cfg.Install.Device,
@@ -564,6 +565,8 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
 	// as its the soonest we have access to both
 	if installSpec.Target == "auto" {
+		fmt.Printf("!!!!!!! installSpec.Target = %+v\n", installSpec.Target)
+		fmt.Printf("!!!!!!! c.Install.Device = %+v\n", c.Install.Device)
 		installSpec.Target = c.Install.Device
 	}
 	return installSpec, nil

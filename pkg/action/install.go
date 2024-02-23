@@ -146,6 +146,7 @@ func (i InstallAction) Run() (err error) {
 
 	// Check no-format flag
 	if i.spec.NoFormat {
+		fmt.Println("!!!!!!!!!!!! won't format")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
 		if e.CheckActiveDeployment(labels) && !i.spec.Force {
@@ -163,6 +164,8 @@ func (i InstallAction) Run() (err error) {
 			return err
 		}
 	}
+
+	fmt.Printf("!!!!!!!!!!!! i.spec.Target = %+v\n", i.spec.Target)
 
 	err = e.MountPartitions(i.spec.Partitions.PartitionsByMountPoint(false))
 	if err != nil {
