@@ -313,8 +313,6 @@ func (ep *ElementalPartitions) SetDefaultLabels() {
 	ep.Persistent.Name = constants.PersistentPartName
 	ep.Recovery.FilesystemLabel = constants.RecoveryLabel
 	ep.Recovery.Name = constants.RecoveryPartName
-	ep.XBOOTLDR.FilesystemLabel = constants.XbootloaderLabel
-	ep.XBOOTLDR.Name = constants.XbootloaderPartName
 }
 
 // NewElementalPartitionsFromList fills an ElementalPartitions instance from given
