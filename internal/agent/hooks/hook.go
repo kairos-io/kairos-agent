@@ -13,7 +13,6 @@ var AfterInstall = []Interface{
 	&GrubOptions{}, // Set custom GRUB options
 	&BundlePostInstall{},
 	&CustomMounts{},
-	&Kcrypt{},
 	&Lifecycle{}, // Handles poweroff/reboot by config options
 }
 
@@ -31,8 +30,14 @@ var FirstBoot = []Interface{
 }
 
 // AfterUkiInstall sets which Hooks to run after uki runs the install action
-var AfterUkiInstall = []Interface{
+var AfterUkiInstall = []Interface{}
+
+var UKIEncryptionHooks = []Interface{
 	&KcryptUKI{},
+}
+
+var EncryptionHooks = []Interface{
+	&Kcrypt{},
 }
 
 func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {

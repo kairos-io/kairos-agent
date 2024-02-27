@@ -144,6 +144,11 @@ func (i *InstallAction) Run() (err error) {
 		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
 	}
 
+	err = hook.Run(*i.cfg, i.spec, hook.UKIEncryptionHooks...)
+	if err != nil {
+		return err
+	}
+
 	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
 	err = Hook(i.cfg, constants.AfterInstallHook)
 	if err != nil {
