@@ -175,7 +175,7 @@ func (u *UpgradeAction) Run() (err error) {
 			u.Debug("mounting persistent partition")
 			umount, err = e.MountRWPartition(persistentPart)
 			if err != nil {
-				u.config.Logger.Warn("could not mount persistent partition: %s", err.Error())
+				u.config.Logger.Warnf("could not mount persistent partition: %s", err.Error())
 			}
 		}
 	}
@@ -259,7 +259,7 @@ func (u *UpgradeAction) Run() (err error) {
 		out, err := u.config.Runner.Run("tune2fs", "-L", u.spec.Passive.Label, u.spec.Passive.File)
 		if err != nil {
 			u.Error("Error while labeling the passive image %s: %s", u.spec.Passive.File, err)
-			u.Debug("Error while labeling the passive image %s, command output: %s", out)
+			u.Debug("Error while labeling the passive image %s, command output: %s", u.spec.Passive.File, out)
 			return err
 		}
 		_, _ = u.config.Runner.Run("sync")

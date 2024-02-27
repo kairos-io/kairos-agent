@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs"
@@ -19,7 +19,7 @@ var _ = Describe("Common action tests", func() {
 	Describe("createExtraDirsInRootfs", func() {
 		var config *agentConfig.Config
 		var fs vfs.FS
-		var logger v1.Logger
+		var logger sdkTypes.KairosLogger
 		var runner *v1mock.FakeRunner
 		var mounter *v1mock.ErrorMounter
 		var syscall *v1mock.FakeSyscall
@@ -35,9 +35,9 @@ var _ = Describe("Common action tests", func() {
 			mounter = v1mock.NewErrorMounter()
 			client = &v1mock.FakeHTTPClient{}
 			memLog = &bytes.Buffer{}
-			logger = v1.NewBufferLogger(memLog)
+			logger = sdkTypes.NewBufferLogger(memLog)
 			extractor = v1mock.NewFakeImageExtractor(logger)
-			logger.SetLevel(v1.DebugLevel())
+			logger.SetLevel("debug")
 			var err error
 			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
 			Expect(err).Should(BeNil())

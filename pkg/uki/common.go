@@ -2,6 +2,7 @@ package uki
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
 	"os"
 	"strings"
@@ -19,7 +20,7 @@ const UnassignedArtifactRole = "norole"
 // the artifacts prefixed with oldRole as newRole.
 // E.g. removes "passive" and moved "active" to "passive"
 // This is a step that should happen before a new passive is installed on upgrades.
-func overwriteArtifactSetRole(fs v1.FS, dir, oldRole, newRole string, logger v1.Logger) error {
+func overwriteArtifactSetRole(fs v1.FS, dir, oldRole, newRole string, logger sdkTypes.KairosLogger) error {
 	if err := removeArtifactSetWithRole(fs, dir, newRole); err != nil {
 		return fmt.Errorf("deleting role %s: %w", newRole, err)
 	}
@@ -47,7 +48,7 @@ func removeArtifactSetWithRole(fs v1.FS, artifactDir, role string) error {
 	})
 }
 
-func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger v1.Logger) error {
+func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger sdkTypes.KairosLogger) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -70,7 +71,7 @@ func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger 
 	})
 }
 
-func replaceRoleInKey(path, key, oldRole, newRole string, logger v1.Logger) (err error) {
+func replaceRoleInKey(path, key, oldRole, newRole string, logger sdkTypes.KairosLogger) (err error) {
 	// Extract the values
 	conf, err := sdkutils.SystemdBootConfReader(path)
 	if err != nil {

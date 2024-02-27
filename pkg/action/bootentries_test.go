@@ -9,6 +9,7 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs"
@@ -20,7 +21,7 @@ import (
 var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 	var config *agentConfig.Config
 	var fs vfs.FS
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var runner *v1mock.FakeRunner
 	var mounter *v1mock.ErrorMounter
 	var syscallMock *v1mock.FakeSyscall
@@ -37,9 +38,9 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = v1.NewBufferLogger(memLog)
+		logger = sdkTypes.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
-		logger.SetLevel(v1.DebugLevel())
+		logger.SetLevel("debug")
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
 		// Create proper dir structure for our EFI partition contentens

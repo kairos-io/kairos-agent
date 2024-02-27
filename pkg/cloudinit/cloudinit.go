@@ -18,6 +18,7 @@ package cloudinit
 
 import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"github.com/mudler/yip/pkg/executor"
 	"github.com/mudler/yip/pkg/plugins"
 	"github.com/mudler/yip/pkg/schema"
@@ -32,7 +33,7 @@ type YipCloudInitRunner struct {
 
 // NewYipCloudInitRunner returns a default yip cloud init executor with the Elemental plugin set.
 // It accepts a logger which is used inside the runner.
-func NewYipCloudInitRunner(l v1.Logger, r v1.Runner, fs vfs.FS) *YipCloudInitRunner {
+func NewYipCloudInitRunner(l sdkTypes.KairosLogger, r v1.Runner, fs vfs.FS) *YipCloudInitRunner {
 	exec := executor.NewExecutor(
 		executor.WithConditionals(
 			plugins.NodeConditional,

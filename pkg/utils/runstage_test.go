@@ -21,6 +21,7 @@ import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
@@ -29,7 +30,6 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
 )
@@ -44,7 +44,7 @@ func writeCmdline(s string, fs v1.FS) error {
 var _ = Describe("run stage", Label("RunStage"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
@@ -58,8 +58,8 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		// Use a different config with a buffer for logger, so we can check the output
 		// We also use the real fs
 		memLog = &bytes.Buffer{}
-		logger = v1.NewBufferLogger(memLog)
-		logger.SetLevel(log.DebugLevel)
+		logger = sdkTypes.NewBufferLogger(memLog)
+		logger.SetLevel("debug")
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 
 		config = agentConfig.NewConfig(
@@ -86,7 +86,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	It("does not fail but prints errors by default", Label("strict"), func() {
 		writeCmdline("stages.c3po[0].datasource", fs)
 
-		config.Logger.SetLevel(log.DebugLevel)
+		config.Logger.SetLevel("debug")
 		out := utils.RunStage(config, "c3po")
 		Expect(out).To(BeNil())
 		Expect(memLog.String()).To(ContainSubstring("parsing returned errors"))
@@ -95,7 +95,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	It("Goes over extra paths", func() {
 		d, err := fsutils.TempDir(fs, "", "elemental")
 		Expect(err).ToNot(HaveOccurred())
-		config.Logger.SetLevel(log.DebugLevel)
+		config.Logger.SetLevel("debug")
 		config.CloudInitPaths = []string{d}
 
 		Expect(utils.RunStage(config, "luke")).To(BeNil())
@@ -118,7 +118,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 
 	It("parses cmdline uri with dotnotation", func() {
 		writeCmdline("stages.leia[0].commands[0]='echo beepboop'", fs)
-		config.Logger.SetLevel(log.DebugLevel)
+		config.Logger.SetLevel("debug")
 		Expect(utils.RunStage(config, "leia")).To(BeNil())
 		Expect(memLog).To(ContainSubstring("leia"))
 		Expect(memLog).To(ContainSubstring("running command `echo beepboop`"))
@@ -133,7 +133,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	})
 
 	It("ignores YAML errors", func() {
-		config.Logger.SetLevel(log.DebugLevel)
+		config.Logger.SetLevel("debug")
 		writeCmdline("BOOT=death-star sing1!~@$%6^&**le /varlib stag_#var<Lib stages[0]='utterly broken by breaking schema'", fs)
 		Expect(utils.RunStage(config, "leia")).To(BeNil())
 		Expect(memLog.String()).To(ContainSubstring("/proc/cmdline parsing returned errors while unmarshalling"))

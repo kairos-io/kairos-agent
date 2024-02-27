@@ -19,6 +19,7 @@ package elemental_test
 import (
 	"errors"
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,7 +53,7 @@ func TestElementalSuite(t *testing.T) {
 var _ = Describe("Elemental", Label("elemental"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var syscall v1.SyscallInterface
 	var client *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
@@ -65,7 +66,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
-		logger = v1.NewNullLogger()
+		logger = sdkTypes.NewNullLogger()
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		config = agentConfig.NewConfig(

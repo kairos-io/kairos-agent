@@ -19,6 +19,7 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -31,7 +32,6 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/twpayne/go-vfs"
 	"github.com/twpayne/go-vfs/vfst"
 )
@@ -40,7 +40,7 @@ var _ = Describe("Runtime Actions", func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
@@ -56,8 +56,8 @@ var _ = Describe("Runtime Actions", func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = v1.NewBufferLogger(memLog)
-		logger.SetLevel(logrus.DebugLevel)
+		logger = sdkTypes.NewBufferLogger(memLog)
+		logger.SetLevel("debug")
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
@@ -92,11 +92,11 @@ var _ = Describe("Runtime Actions", func() {
 
 		BeforeEach(func() {
 			memLog = &bytes.Buffer{}
-			logger = v1.NewBufferLogger(memLog)
+			logger = sdkTypes.NewBufferLogger(memLog)
 			extractor = v1mock.NewFakeImageExtractor(logger)
 			config.Logger = logger
 			config.ImageExtractor = extractor
-			logger.SetLevel(logrus.DebugLevel)
+			logger.SetLevel("debug")
 
 			// Create paths used by tests
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)

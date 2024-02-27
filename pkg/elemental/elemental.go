@@ -175,7 +175,7 @@ func (e Elemental) MountRWPartition(part *v1.Partition) (umount func() error, er
 	} else {
 		err = e.MountPartition(part, "rw")
 		if err != nil {
-			e.config.Logger.Error("failed mounting %s partition: %v", part.Name, err)
+			e.config.Logger.Errorf("failed mounting %s partition: %v", part.Name, err)
 			return nil, err
 		}
 		umount = func() error { return e.UnmountPartition(part) }
@@ -336,7 +336,7 @@ func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interfac
 	} else if img.Label != "" && img.FS != cnst.SquashFs {
 		_, err = e.config.Runner.Run("tune2fs", "-L", img.Label, img.File)
 		if err != nil {
-			e.config.Logger.Errorf("Failed to apply label %s to $s", img.Label, img.File)
+			e.config.Logger.Errorf("Failed to apply label %s to %s", img.Label, img.File)
 			_ = e.config.Fs.Remove(img.File)
 			return nil, err
 		}
@@ -362,10 +362,10 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 
 	if imgSrc.IsDocker() {
 		if e.config.Cosign {
-			e.config.Logger.Infof("Running cosing verification for %s", imgSrc.Value())
+			e.config.Logger.Infof("Running cosign verification for %s", imgSrc.Value())
 			out, err := utils.CosignVerify(
 				e.config.Fs, e.config.Runner, imgSrc.Value(),
-				e.config.CosignPubKey, v1.IsDebugLevel(e.config.Logger),
+				e.config.CosignPubKey,
 			)
 			if err != nil {
 				e.config.Logger.Errorf("Cosign verification failed: %s", out)

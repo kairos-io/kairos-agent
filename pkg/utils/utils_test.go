@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,7 +52,7 @@ func getNamesFromListFiles(list []os.FileInfo) []string {
 var _ = Describe("Utils", Label("utils"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
@@ -64,8 +65,8 @@ var _ = Describe("Utils", Label("utils"), func() {
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
-		logger = v1.NewNullLogger()
-		realRunner = &v1.RealRunner{Logger: logger}
+		logger = sdkTypes.NewNullLogger()
+		realRunner = &v1.RealRunner{Logger: &logger}
 		// Ensure /tmp exists in the VFS
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 		fs.Mkdir("/tmp", constants.DirPerm)
@@ -285,19 +286,19 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("CosignVerify", Label("cosign"), func() {
 		It("runs a keyless verification", func() {
-			_, err := utils.CosignVerify(fs, runner, "some/image:latest", "", true)
+			_, err := utils.CosignVerify(fs, runner, "some/image:latest", "")
 			Expect(err).To(BeNil())
-			Expect(runner.CmdsMatch([][]string{{"cosign", "-d=true", "some/image:latest"}})).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{{"cosign", "some/image:latest"}})).To(BeNil())
 		})
 		It("runs a verification using a public key", func() {
-			_, err := utils.CosignVerify(fs, runner, "some/image:latest", "https://mykey.pub", false)
+			_, err := utils.CosignVerify(fs, runner, "some/image:latest", "https://mykey.pub")
 			Expect(err).To(BeNil())
 			Expect(runner.CmdsMatch(
 				[][]string{{"cosign", "-key", "https://mykey.pub", "some/image:latest"}},
 			)).To(BeNil())
 		})
 		It("Fails to to create temporary directories", func() {
-			_, err := utils.CosignVerify(vfs.NewReadOnlyFS(fs), runner, "some/image:latest", "", true)
+			_, err := utils.CosignVerify(vfs.NewReadOnlyFS(fs), runner, "some/image:latest", "")
 			Expect(err).NotTo(BeNil())
 		})
 	})
@@ -761,8 +762,8 @@ var _ = Describe("Utils", Label("utils"), func() {
 				rootDir = constants.ActiveDir
 				bootDir = constants.StateDir
 				buf = &bytes.Buffer{}
-				logger = v1.NewBufferLogger(buf)
-				logger.SetLevel(v1.DebugLevel())
+				logger = sdkTypes.NewBufferLogger(buf)
+				logger.SetLevel("debug")
 				config.Logger = logger
 
 				err := fsutils.MkdirAll(fs, filepath.Join(bootDir, "grub2"), constants.DirPerm)

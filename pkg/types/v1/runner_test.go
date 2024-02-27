@@ -20,9 +20,9 @@ import (
 	"bytes"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Runner", Label("types", "runner"), func() {
@@ -39,24 +39,24 @@ var _ = Describe("Runner", Label("types", "runner"), func() {
 	It("Sets and gets the logger on the fake runner", func() {
 		r := v1mock.NewFakeRunner()
 		Expect(r.GetLogger()).To(BeNil())
-		logger := v1.NewNullLogger()
-		r.SetLogger(logger)
-		Expect(r.GetLogger()).To(Equal(logger))
+		logger := sdkTypes.NewNullLogger()
+		r.SetLogger(&logger)
+		Expect(r.GetLogger()).ToNot(BeNil())
 	})
 	It("Sets and gets the logger on the real runner", func() {
 		r := v1.RealRunner{}
 		Expect(r.GetLogger()).To(BeNil())
-		logger := v1.NewNullLogger()
-		r.SetLogger(logger)
-		Expect(r.GetLogger()).To(Equal(logger))
+		logger := sdkTypes.NewNullLogger()
+		r.SetLogger(&logger)
+		Expect(r.GetLogger()).ToNot(BeNil())
 	})
 
 	It("logs the command when on debug", func() {
 
 		memLog := &bytes.Buffer{}
-		logger := v1.NewBufferLogger(memLog)
-		logger.SetLevel(logrus.DebugLevel)
-		r := v1.RealRunner{Logger: logger}
+		logger := sdkTypes.NewBufferLogger(memLog)
+		logger.SetLevel("debug")
+		r := v1.RealRunner{Logger: &logger}
 		_, err := r.Run("command", "with", "args")
 		Expect(err).ToNot(BeNil()) // Command will fail
 		Expect(memLog.String()).To(ContainSubstring("command with args"))

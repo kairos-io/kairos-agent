@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io/ioutil"
 	"log"
 	"os"
@@ -47,7 +48,7 @@ const printOutput = `BYT;
 var _ = Describe("CloudRunner", Label("CloudRunner", "types", "cloud-init"), func() {
 	// unit test stolen from yip
 	Describe("loading yaml files", func() {
-		logger := v1.NewNullLogger()
+		logger := sdkTypes.NewNullLogger()
 
 		It("executes commands", func() {
 
@@ -104,10 +105,10 @@ stages:
 		var partNum int
 		var cleanup func()
 		var logs *bytes.Buffer
-		var logger v1.Logger
+		var logger sdkTypes.KairosLogger
 		BeforeEach(func() {
 			logs = &bytes.Buffer{}
-			logger = v1.NewBufferLogger(logs)
+			logger = sdkTypes.NewBufferLogger(logs)
 
 			afs, cleanup, _ = vfst.NewTestFS(nil)
 			err := fsutils.MkdirAll(afs, "/some/yip", constants.DirPerm)

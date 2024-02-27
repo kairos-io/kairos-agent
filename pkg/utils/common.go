@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
 	random "math/rand"
 	"net/url"
@@ -155,7 +156,7 @@ func CreateDirStructure(fs v1.FS, target string) error {
 
 // SyncData rsync's source folder contents to a target folder content,
 // both are expected to exist beforehand.
-func SyncData(log v1.Logger, runner v1.Runner, fs v1.FS, source string, target string, excludes ...string) error {
+func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source string, target string, excludes ...string) error {
 	if fs != nil {
 		if s, err := fs.RawPath(source); err == nil {
 			source = s
@@ -196,7 +197,7 @@ func SyncData(log v1.Logger, runner v1.Runner, fs v1.FS, source string, target s
 	return nil
 }
 
-func displayProgress(log v1.Logger, tick time.Duration, message string) chan bool {
+func displayProgress(log sdkTypes.KairosLogger, tick time.Duration, message string) chan bool {
 	ticker := time.NewTicker(tick)
 	done := make(chan bool)
 
@@ -231,12 +232,9 @@ func Shutdown(runner v1.Runner, delay time.Duration) error {
 
 // CosignVerify runs a cosign validation for the give image and given public key. If no
 // key is provided then it attempts a keyless validation (experimental feature).
-func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string, debug bool) (string, error) {
+func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string) (string, error) {
 	args := []string{}
 
-	if debug {
-		args = append(args, "-d=true")
-	}
 	if publicKey != "" {
 		args = append(args, "-key", publicKey)
 	} else {
@@ -264,7 +262,7 @@ func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string, de
 
 // CreateSquashFS creates a squash file at destination from a source, with options
 // TODO: Check validity of source maybe?
-func CreateSquashFS(runner v1.Runner, logger v1.Logger, source string, destination string, options []string) error {
+func CreateSquashFS(runner v1.Runner, logger sdkTypes.KairosLogger, source string, destination string, options []string) error {
 	// create args
 	args := []string{source, destination}
 	// append options passed to args in order to have the correct order

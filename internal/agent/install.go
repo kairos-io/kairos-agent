@@ -292,7 +292,7 @@ func runInstall(c *config.Config) error {
 func dumpCCStringToFile(c *config.Config) (string, error) {
 	f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
 	if err != nil {
-		c.Logger.Error("Error creating temporary file for install config: %s\n", err.Error())
+		c.Logger.Errorf("Error creating temporary file for install config: %s", err.Error())
 		return "", err
 	}
 	defer func(f *os.File) {

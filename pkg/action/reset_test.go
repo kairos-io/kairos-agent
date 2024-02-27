@@ -22,6 +22,7 @@ import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
 	"regexp"
 
@@ -41,7 +42,7 @@ var _ = Describe("Reset action tests", func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
@@ -57,7 +58,7 @@ var _ = Describe("Reset action tests", func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = v1.NewBufferLogger(memLog)
+		logger = sdkTypes.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})

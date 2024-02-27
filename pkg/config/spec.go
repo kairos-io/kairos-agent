@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,14 +28,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"golang.org/x/sys/unix"
 
-	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -132,7 +131,7 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	return spec, nil
 }
 
-func NewInstallElementalPartitions(log v1.Logger, spec *v1.InstallSpec) v1.ElementalPartitions {
+func NewInstallElementalPartitions(log sdkTypes.KairosLogger, spec *v1.InstallSpec) v1.ElementalPartitions {
 	pt := v1.ElementalPartitions{}
 	var oemSize uint
 	if spec.Partitions.OEM != nil && spec.Partitions.OEM.Size != 0 {
@@ -633,7 +632,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
-		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%sMb): %s", spec.Partitions.EFI.Size, err.Error())
+		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%dMb): %s", spec.Partitions.EFI.Size, err.Error())
 	} else {
 		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
 		if uint(size*3) > spec.Partitions.EFI.Size {
@@ -853,50 +852,6 @@ func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
 
 	r.Logger.Debugf("Loaded %s spec: %s", spec, litter.Sdump(sp))
 	return sp, nil
-}
-
-func configLogger(log v1.Logger, vfs v1.FS) {
-	// Set debug level
-	if viper.GetBool("debug") {
-		log.SetLevel(v1.DebugLevel())
-	}
-
-	// Set formatter so both file and stdout format are equal
-	log.SetFormatter(&logrus.TextFormatter{
-		ForceColors:      true,
-		DisableColors:    false,
-		DisableTimestamp: false,
-		FullTimestamp:    true,
-	})
-
-	// Logfile
-	// Not being used for now, disable it until we plug it again in our cli
-	/*
-		logfile := viper.GetString("logfile")
-		if logfile != "" {
-			o, err := vfs.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModePerm)
-
-			if err != nil {
-				log.Errorf("Could not open %s for logging to file: %s", logfile, err.Error())
-			}
-
-			if viper.GetBool("quiet") { // if quiet is set, only set the log to the file
-				log.SetOutput(o)
-			} else { // else set it to both stdout and the file
-				mw := io.MultiWriter(os.Stdout, o)
-				log.SetOutput(mw)
-			}
-		} else { // no logfile
-			if viper.GetBool("quiet") { // quiet is enabled so discard all logging
-				log.SetOutput(io.Discard)
-			} else { // default to stdout
-				log.SetOutput(os.Stdout)
-			}
-		}
-	*/
-
-	v := common.GetVersion()
-	log.Infof("kairos-agent version %s", v)
 }
 
 var decodeHook = viper.DecodeHook(

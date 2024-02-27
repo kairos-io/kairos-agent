@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1
 
+import sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 type HTTPClient interface {
-	GetURL(log Logger, url string, destination string) error
+	GetURL(log sdkTypes.KairosLogger, url string, destination string) error
 }

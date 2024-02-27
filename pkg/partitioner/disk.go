@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"regexp"
 	"strings"
@@ -46,7 +47,7 @@ type Disk struct {
 	label   string
 	runner  v1.Runner
 	fs      v1.FS
-	logger  v1.Logger
+	logger  sdkTypes.KairosLogger
 }
 
 // MiBToSectors returns the number of sectors that correspond to the given amount
@@ -81,8 +82,9 @@ func NewDisk(device string, opts ...DiskOptions) *Disk {
 		dev.fs = vfs.OSFS
 	}
 
-	if dev.logger == nil {
-		dev.logger = v1.NewLogger()
+	l := dev.logger
+	if &l == nil {
+		dev.logger = sdkTypes.NewKairosLogger("partitioner", "info", false)
 	}
 
 	return dev
