@@ -18,12 +18,13 @@ package action
 
 import (
 	"fmt"
-	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	events "github.com/kairos-io/kairos-sdk/bus"
 	"path/filepath"
 	"strings"
 	"time"
+
+	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	events "github.com/kairos-io/kairos-sdk/bus"
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
@@ -248,6 +249,11 @@ func (i InstallAction) Run() (err error) {
 	}
 	// Install Passive
 	_, err = e.DeployImage(&i.spec.Passive, false)
+	if err != nil {
+		return err
+	}
+
+	err = hook.Run(*i.cfg, i.spec, hook.EncryptionHooks...)
 	if err != nil {
 		return err
 	}
