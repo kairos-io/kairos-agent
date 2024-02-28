@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/jaypipes/ghw"
 	"golang.org/x/sys/unix"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -35,6 +36,14 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
+)
+
+const (
+	_ = 1 << (10 * iota)
+	KiB
+	MiB
+	GiB
+	TiB
 )
 
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
@@ -557,6 +566,21 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 		return &v1.InstallSpec{}, err
 	}
 	installSpec := sp.(*v1.InstallSpec)
+
+	// TODO: Do the same for UKI
+	if installSpec.Target == "" || installSpec.Target == "auto" {
+		installSpec.Target = detectLargestDevice()
+	}
+
+	fmt.Printf("installSpec before = %+v\n", installSpec)
+	fmt.Printf("c = %+v\n", c)
+	if installSpec.NoFormat {
+		installSpec.Target = ""
+	}
+	fmt.Printf("installSpec after = %+v\n", installSpec)
+
+	fmt.Printf("!!!!!()()()()()!!!! installSPec.Target = %+v\n", installSpec.Target)
+
 	// Workaround!
 	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
 	// But on the cloud-config it will still appear as "auto" as we dont modify that
@@ -564,11 +588,11 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	// What device was choosen, and re-choosing again could lead to different results
 	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
 	// as its the soonest we have access to both
-	if installSpec.Target == "auto" {
-		fmt.Printf("!!!!!!! installSpec.Target = %+v\n", installSpec.Target)
-		fmt.Printf("!!!!!!! c.Install.Device = %+v\n", c.Install.Device)
-		installSpec.Target = c.Install.Device
-	}
+	// if installSpec.Target == "auto" {
+	// 	fmt.Printf("!!!!!!! installSpec.Target = %+v\n", installSpec.Target)
+	// 	fmt.Printf("!!!!!!! c.Install.Device = %+v\n", c.Install.Device)
+	// 	installSpec.Target = c.Install.Device
+	// }
 	return installSpec, nil
 }
 
@@ -659,6 +683,7 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 		return &v1.InstallUkiSpec{}, err
 	}
 	installSpec := sp.(*v1.InstallUkiSpec)
+
 	// Workaround!
 	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
 	// But on the cloud-config it will still appear as "auto" as we dont modify that
@@ -669,6 +694,7 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	if installSpec.Target == "auto" {
 		installSpec.Target = c.Install.Device
 	}
+
 	return installSpec, nil
 }
 
@@ -971,4 +997,47 @@ func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
 	}
 
 	return nil
+}
+
+// detectLargestDevice returns the largest disk found
+func detectLargestDevice() string {
+	preferedDevice := "/dev/sda"
+	maxSize := float64(0)
+
+	block, err := ghw.Block()
+	if err == nil {
+		for _, disk := range block.Disks {
+			size := float64(disk.SizeBytes) / float64(GiB)
+			if size > maxSize {
+				maxSize = size
+				preferedDevice = "/dev/" + disk.Name
+			}
+		}
+	}
+	return preferedDevice
+}
+
+// detectPreConfiguredDevice returns a disk that has partitions labeled with
+// Kairos labels. It can be used to detect a pre-configured device.
+func detectPreConfiguredDevice(logger v1.Logger) string {
+	block, err := ghw.Block()
+	if err != nil {
+		logger.Errorf("failed getting block devices: %w", err)
+		return ""
+	}
+
+	fmt.Println("!!!!!***!!!! detecting preconfigured")
+	for _, disk := range block.Disks {
+		fmt.Printf("!!!!!!!!!!!!!!! disk = %+v\n", disk)
+		for _, p := range disk.Partitions {
+			fmt.Printf("!!!!!!!!!!!!!!!! p = %+v\n", p)
+			fmt.Printf("p.FilesystemLabel = %+v\n", p.FilesystemLabel)
+			fmt.Printf("p.Label = %+v\n", p.Label)
+			if p.FilesystemLabel == "COS_STATE" {
+				return disk.Name
+			}
+		}
+	}
+
+	return ""
 }
