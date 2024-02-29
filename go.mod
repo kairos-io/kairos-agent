@@ -4,6 +4,7 @@ go 1.20
 
 // This versions require go1.20
 replace (
+	github.com/kairos-io/kairos-sdk => /home/dimitris/workspace/kairos/kairos-sdk
 	github.com/onsi/ginkgo/v2 v2.15.0 => github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.31.1 => github.com/onsi/gomega v1.28.0
 )
@@ -57,6 +58,7 @@ require (
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/anatol/devmapper.go v0.0.0-20220907161421-ba4de5fc0fd1 // indirect
 	github.com/anatol/luks.go v0.0.0-20230125211543-ada2562d4206 // indirect
+	github.com/apex/log v1.9.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect

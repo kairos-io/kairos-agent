@@ -145,6 +145,7 @@ func (i InstallAction) Run() (err error) {
 
 	// Check no-format flag
 	if i.spec.NoFormat {
+		fmt.Println("!!!!!!!!!!!! won't format")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
 		if e.CheckActiveDeployment(labels) && !i.spec.Force {
@@ -162,6 +163,13 @@ func (i InstallAction) Run() (err error) {
 			return err
 		}
 	}
+
+	// TODO: What about EFI?
+	disk, err := e.FindDiskWithLabel(i.spec.Partitions.BIOS.Name)
+	if err != nil {
+		return err
+	}
+	i.spec.Target = disk
 
 	err = e.MountPartitions(i.spec.Partitions.PartitionsByMountPoint(false))
 	if err != nil {
@@ -194,6 +202,7 @@ func (i InstallAction) Run() (err error) {
 	}
 	// Install grub
 	grub := utils.NewGrub(i.cfg)
+	fmt.Printf("i.spec.Target = %+v\n", i.spec.Target)
 	err = grub.Install(
 		i.spec.Target,
 		i.spec.Active.MountPoint,
