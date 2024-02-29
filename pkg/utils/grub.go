@@ -18,12 +18,13 @@ package utils
 
 import (
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-sdk/utils"
 	"io/fs"
 	"path/filepath"
 	"strings"
+
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/utils"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -54,6 +55,8 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	// only install grub on non-efi systems
 	if !efi {
 		g.config.Logger.Info("Installing GRUB..")
+
+		fmt.Printf("!!!!!!!!! -----  target = %+v\n", target)
 
 		grubargs = append(
 			grubargs,
@@ -300,7 +303,7 @@ func (g Grub) copyShim() error {
 		writeShim := cnst.GetFallBackEfi(g.config.Arch)
 		err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/", writeShim), fileContent, cnst.FilePerm)
 		if err != nil {
-			return fmt.Errorf("could not write shim file %s at dir %s", writeShim, cnst.EfiDir)
+			return fmt.Errorf("could not write shim file %s at dir %s: %w", writeShim, cnst.EfiDir, err)
 		}
 		break
 	}

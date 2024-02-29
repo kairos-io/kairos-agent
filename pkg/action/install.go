@@ -164,7 +164,12 @@ func (i InstallAction) Run() (err error) {
 		}
 	}
 
-	fmt.Printf("!!!!!!!!!!!! i.spec.Target = %+v\n", i.spec.Target)
+	// TODO: What about EFI?
+	disk, err := e.FindDiskWithLabel(i.spec.Partitions.BIOS.Name)
+	if err != nil {
+		return err
+	}
+	i.spec.Target = disk
 
 	err = e.MountPartitions(i.spec.Partitions.PartitionsByMountPoint(false))
 	if err != nil {
@@ -197,6 +202,7 @@ func (i InstallAction) Run() (err error) {
 	}
 	// Install grub
 	grub := utils.NewGrub(i.cfg)
+	fmt.Printf("i.spec.Target = %+v\n", i.spec.Target)
 	err = grub.Install(
 		i.spec.Target,
 		i.spec.Active.MountPoint,

@@ -19,10 +19,11 @@ package elemental
 import (
 	"errors"
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"strings"
+
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -454,6 +455,19 @@ func (e *Elemental) CheckActiveDeployment(labels []string) bool {
 		}
 	}
 	return false
+}
+
+// FindDiskWithLabel returns the disk that has a partition with the specified label
+func (e *Elemental) FindDiskWithLabel(label string) (string, error) {
+	e.config.Logger.Infof("Checking for active deployment disk")
+
+	fmt.Printf("label = %+v\n", label)
+	part, err := utils.GetFullDeviceByLabel(e.config.Runner, label, 1)
+	if err != nil {
+		return "", err
+	}
+
+	return part.Disk, err
 }
 
 // GetIso will try to:

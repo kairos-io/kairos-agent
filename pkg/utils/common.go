@@ -49,6 +49,14 @@ func CommandExists(command string) bool {
 	return err == nil
 }
 
+func GetDiskWithPartLabel(runner v1.Runner, label string, attempts int) (string, error) {
+	part, err := GetFullDeviceByLabel(runner, label, attempts)
+	if err != nil {
+		return "", err
+	}
+	return part.Disk, nil
+}
+
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.

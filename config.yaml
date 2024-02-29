@@ -28,7 +28,7 @@ stages:
         path: "/dev/vdb"
       add_partitions:
         - fsLabel: COS_GRUB
-          size: 1
+          size: 100
           pLabel: grub
         - fsLabel: COS_OEM
           size: 64
