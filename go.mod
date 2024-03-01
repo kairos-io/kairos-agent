@@ -37,7 +37,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.16.0
-	github.com/twpayne/go-vfs/v5 v5.0.2
+	github.com/twpayne/go-vfs/v5 v5.0.1  // 5.0.2 requires go1.21
 	github.com/urfave/cli/v2 v2.26.0
 	golang.org/x/net v0.19.0
 	golang.org/x/oauth2 v0.12.0
