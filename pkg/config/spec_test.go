@@ -18,6 +18,8 @@ package config_test
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 
@@ -31,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sanity-io/litter"
-	"github.com/sirupsen/logrus"
 	"github.com/twpayne/go-vfs/vfst"
 	"k8s.io/mount-utils"
 )
@@ -45,7 +46,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		var runner *v1mock.FakeRunner
 		var client *v1mock.FakeHTTPClient
 		var sysc *v1mock.FakeSyscall
-		var logger v1.Logger
+		var logger sdkTypes.KairosLogger
 		var ci *v1mock.FakeCloudInitRunner
 		var c *config.Config
 		BeforeEach(func() {
@@ -55,7 +56,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			runner = v1mock.NewFakeRunner()
 			client = &v1mock.FakeHTTPClient{}
 			sysc = &v1mock.FakeSyscall{}
-			logger = v1.NewNullLogger()
+			logger = sdkTypes.NewNullLogger()
 			ci = &v1mock.FakeCloudInitRunner{}
 			c = config.NewConfig(
 				config.WithFs(fs),
@@ -120,7 +121,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			It("should use the default mounter", Label("systemctl"), func() {
 				runner := v1mock.NewFakeRunner()
 				sysc := &v1mock.FakeSyscall{}
-				logger := v1.NewNullLogger()
+				logger := sdkTypes.NewNullLogger()
 				c := config.NewConfig(
 					config.WithRunner(runner),
 					config.WithSyscall(sysc),
@@ -598,7 +599,7 @@ cloud-init-paths:
 				// Now again but with no config
 				cfg, err := config.Scan(collector.Directories([]string{""}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cfg.Logger.GetLevel()).To(Equal(logrus.InfoLevel))
+				Expect(cfg.Logger.GetLevel()).To(Equal(zerolog.InfoLevel))
 			})
 			It("Sets debug level if its on the cloud-config", func() {
 				ccdata := []byte(`#cloud-config
@@ -608,7 +609,7 @@ debug: true
 				Expect(err).ToNot(HaveOccurred())
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cfg.Logger.GetLevel()).To(Equal(logrus.DebugLevel))
+				Expect(cfg.Logger.GetLevel()).To(Equal(zerolog.DebugLevel))
 
 			})
 		})
@@ -655,7 +656,7 @@ var _ = Describe("GetSourceSize", func() {
 	var tempDir string
 	var tempFilePath string
 	var err error
-	var logger v1.Logger
+	var logger sdkTypes.KairosLogger
 	var conf *config.Config
 	var imageSource *v1.ImageSource
 
@@ -663,7 +664,7 @@ var _ = Describe("GetSourceSize", func() {
 		tempDir, err = os.MkdirTemp("/tmp", "kairos-test")
 		Expect(err).To(BeNil())
 
-		logger = v1.NewNullLogger()
+		logger = sdkTypes.NewNullLogger()
 		conf = config.NewConfig(
 			config.WithLogger(logger),
 		)

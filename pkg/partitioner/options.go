@@ -18,6 +18,7 @@ package partitioner
 
 import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 )
 
 type DiskOptions func(d *Disk) error
@@ -36,7 +37,7 @@ func WithRunner(runner v1.Runner) func(d *Disk) error {
 	}
 }
 
-func WithLogger(logger v1.Logger) func(d *Disk) error {
+func WithLogger(logger sdkTypes.KairosLogger) func(d *Disk) error {
 	return func(d *Disk) error {
 		d.logger = logger
 		return nil

@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/mudler/go-pluggable"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
-
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/mudler/go-pluggable"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -30,8 +29,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/sanity-io/litter"
-	"github.com/sirupsen/logrus"
-
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -662,7 +659,7 @@ The validate command expects a configuration file as its only argument. Local fi
 				config.CloudInitPaths = append(config.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
 			}
 			if c.Bool("debug") {
-				config.Logger.SetLevel(logrus.DebugLevel)
+				config.Logger.SetLevel("debug")
 			}
 
 			if err != nil {
@@ -800,6 +797,8 @@ The kairos agent is a component to abstract away node ops, providing a common fe
 			viper.Set("debug", c.Bool("debug"))
 			if c.Bool("debug") {
 				litter.Config.HidePrivateFields = false
+				// Hide logger and client fields from litter as otherwise the config dumps are huge and a bit useless
+				litter.Config.FieldExclusions = regexp.MustCompile(`Logger|logger|Client`)
 			}
 			return nil
 		},

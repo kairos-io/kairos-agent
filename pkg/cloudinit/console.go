@@ -18,6 +18,7 @@ package cloudinit
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 
 	"github.com/hashicorp/go-multierror"
@@ -28,12 +29,12 @@ import (
 // the elemental v1.Runner interface.
 type cloudInitConsole struct {
 	runner v1.Runner
-	logger v1.Logger
+	logger sdkTypes.KairosLogger
 }
 
 // newCloudInitConsole returns an instance of the cloudInitConsole based on the
 // given v1.Runner and v1.Logger.
-func newCloudInitConsole(l v1.Logger, r v1.Runner) *cloudInitConsole {
+func newCloudInitConsole(l sdkTypes.KairosLogger, r v1.Runner) *cloudInitConsole {
 	return &cloudInitConsole{logger: l, runner: r}
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 	"strings"
 )
@@ -25,12 +26,12 @@ type Runner interface {
 	InitCmd(string, ...string) *exec.Cmd
 	Run(string, ...string) ([]byte, error)
 	RunCmd(cmd *exec.Cmd) ([]byte, error)
-	GetLogger() Logger
-	SetLogger(logger Logger)
+	GetLogger() *sdkTypes.KairosLogger
+	SetLogger(logger *sdkTypes.KairosLogger)
 }
 
 type RealRunner struct {
-	Logger Logger
+	Logger *sdkTypes.KairosLogger
 }
 
 func (r RealRunner) InitCmd(command string, args ...string) *exec.Cmd {
@@ -49,10 +50,10 @@ func (r RealRunner) Run(command string, args ...string) ([]byte, error) {
 	return r.RunCmd(cmd)
 }
 
-func (r RealRunner) GetLogger() Logger {
+func (r *RealRunner) GetLogger() *sdkTypes.KairosLogger {
 	return r.Logger
 }
 
-func (r *RealRunner) SetLogger(logger Logger) {
+func (r *RealRunner) SetLogger(logger *sdkTypes.KairosLogger) {
 	r.Logger = logger
 }
