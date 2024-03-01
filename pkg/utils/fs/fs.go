@@ -32,8 +32,8 @@ import (
 	"time"
 
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
+	"github.com/twpayne/go-vfs/v5"
+	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
 // DirSize returns the accumulated size of all files in folder
@@ -236,12 +236,7 @@ func walkDir(fs v1.FS, path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) err
 }
 
 func readDir(fs v1.FS, dirname string) ([]fs.DirEntry, error) {
-	f, err := fs.Open(dirname)
-	if err != nil {
-		return nil, err
-	}
-	dirs, err := f.ReadDir(-1)
-	f.Close()
+	dirs, err := fs.ReadDir(dirname)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
 	"path/filepath"
 
@@ -12,8 +13,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
+	"github.com/twpayne/go-vfs/v5/vfst"
 	"gopkg.in/yaml.v3"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,7 +66,7 @@ var _ = Describe("prepareConfiguration", func() {
 var _ = Describe("RunInstall", func() {
 	var options *config.Config
 	var err error
-	var fs vfs.FS
+	var fs v1.FS
 	var cleanup func()
 	var ghwTest v1mock.GhwMock
 	var cmdline func() ([]byte, error)

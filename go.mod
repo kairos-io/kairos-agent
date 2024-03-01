@@ -1,6 +1,8 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.20
+go 1.21
+
+toolchain go1.21.6
 
 // This versions require go1.20
 replace (
@@ -26,19 +28,20 @@ require (
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
-	github.com/mudler/yip v1.4.6
+	github.com/mudler/yip v1.4.7-0.20240124080254-7c7dea167622
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
 	github.com/pterm/pterm v0.12.65
+	github.com/rs/zerolog v1.32.0
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.16.0
-	github.com/twpayne/go-vfs v1.7.2
+	github.com/twpayne/go-vfs/v5 v5.0.2
 	github.com/urfave/cli/v2 v2.26.0
 	golang.org/x/net v0.19.0
 	golang.org/x/oauth2 v0.12.0
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.17.0
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -153,7 +156,6 @@ require (
 	github.com/qeesung/image2ascii v1.0.1 // indirect
 	github.com/rancher-sandbox/linuxkit v1.0.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.37.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
@@ -170,6 +172,7 @@ require (
 	github.com/swaggest/jsonschema-go v0.3.62 // indirect
 	github.com/swaggest/refl v1.3.0 // indirect
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
+	github.com/twpayne/go-vfs/v4 v4.3.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect

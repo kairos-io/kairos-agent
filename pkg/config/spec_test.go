@@ -33,7 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sanity-io/litter"
-	"github.com/twpayne/go-vfs/vfst"
+	"github.com/twpayne/go-vfs/v5/vfst"
 	"k8s.io/mount-utils"
 )
 

@@ -23,6 +23,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,11 +38,11 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
+	"github.com/twpayne/go-vfs/v5"
+	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
-func getNamesFromListFiles(list []os.FileInfo) []string {
+func getNamesFromListFiles(list []fs.DirEntry) []string {
 	var names []string
 	for _, f := range list {
 		names = append(names, f.Name())
