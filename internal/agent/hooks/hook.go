@@ -34,7 +34,7 @@ var AfterUkiInstall = []Interface{}
 
 var UKIEncryptionHooks = []Interface{
 	&KcryptUKI{},
-	&CopyLogs{},
+	&CopyLogsUki{},
 }
 
 var EncryptionHooks = []Interface{
