@@ -23,6 +23,7 @@ import (
 	"fmt"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
+	"io/fs"
 	random "math/rand"
 	"net/url"
 	"os"
@@ -109,9 +110,8 @@ func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 		}
 	}()
 
-	var sourceFile *os.File
 	for _, source := range sources {
-		sourceFile, err = fs.Open(source)
+		sourceFile, err := fs.Open(source)
 		if err != nil {
 			break
 		}
@@ -451,7 +451,8 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 		}
 		for _, p := range prefixes {
 			if strings.HasPrefix(f.Name(), p) {
-				if f.Mode()&os.ModeSymlink == os.ModeSymlink {
+				info, _ := f.Info()
+				if info.Mode()&os.ModeSymlink == os.ModeSymlink {
 					found, err := fs.Readlink(filepath.Join(path, f.Name()))
 					if err == nil {
 						if !filepath.IsAbs(found) {
@@ -541,12 +542,12 @@ func UkiBootMode() state.Boot {
 
 // SystemdBootConfReader reads a systemd-boot conf file and returns a map with the key/value pairs
 // TODO: Move this to the sdk with the FS interface
-func SystemdBootConfReader(fs v1.FS, filePath string) (map[string]string, error) {
-	file, err := fs.Open(filePath)
+func SystemdBootConfReader(vfs v1.FS, filePath string) (map[string]string, error) {
+	file, err := vfs.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer func(file *os.File) {
+	defer func(file fs.File) {
 		_ = file.Close()
 	}(file)
 

@@ -133,7 +133,6 @@ func (c *Chroot) Close() error {
 // RunCallback runs the given callback in a chroot environment
 func (c *Chroot) RunCallback(callback func() error) (err error) {
 	var currentPath string
-	var oldRootF *os.File
 
 	// Store current path
 	currentPath, err = os.Getwd()
@@ -149,7 +148,7 @@ func (c *Chroot) RunCallback(callback func() error) (err error) {
 	}()
 
 	// Store current root
-	oldRootF, err = c.config.Fs.Open("/")
+	oldRootF, err := c.config.Fs.Open("/")
 	if err != nil {
 		c.config.Logger.Errorf("Can't open current root")
 		return err
@@ -184,7 +183,8 @@ func (c *Chroot) RunCallback(callback func() error) (err error) {
 
 	// Restore to old root
 	defer func() {
-		tmpErr := oldRootF.Chdir()
+		stat, _ := oldRootF.Stat()
+		tmpErr := os.Chdir(stat.Name())
 		if tmpErr != nil {
 			c.config.Logger.Errorf("Can't change to old root dir")
 			if err == nil {
