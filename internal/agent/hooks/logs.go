@@ -26,13 +26,16 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 		return nil
 	}
 
-	// Create the directory on persistent if it doesn't exist
-	exists, _ := fsutils.Exists(c.Fs, filepath.Join(constants.PersistentDir, ".state", "var-log.bind"))
-	if !exists {
-		_ = fsutils.MkdirAll(c.Fs, filepath.Join(constants.PersistentDir, ".state", "var-log.bind"), 0755)
+	// Create the directory on persistent
+	varLog := filepath.Join(constants.PersistentDir, ".state", "var-log.bind")
+
+	err = fsutils.MkdirAll(c.Fs, varLog, 0755)
+	if err != nil {
+		c.Logger.Errorf("could not create directory on persistent partition: %s", err)
+		return nil
 	}
 	// Copy all current logs to the persistent partition
-	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, "/var/log/", filepath.Join(constants.PersistentDir, ".state", "var-log.bind"), []string{}...)
+	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, "/var/log/", varLog, []string{}...)
 	if err != nil {
 		c.Logger.Errorf("could not copy logs to persistent partition: %s", err)
 		return nil
