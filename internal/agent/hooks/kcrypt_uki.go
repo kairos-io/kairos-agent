@@ -103,6 +103,7 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 
 	err = kcrypt.UnlockAll(true)
 	if err != nil {
+		c.Logger.Errorf("could not unlock partitions: %s", err)
 		return err
 	}
 	// Close the unlocked partitions after dealing with them, otherwise we leave them open and they can be mounted by anyone
@@ -130,6 +131,16 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 			if part == "" {
 				c.Logger.Infof("Partition %s not found, waiting %d seconds before retrying", p, i)
 				time.Sleep(time.Duration(i) * time.Second)
+				// Retry the unlock as well, because maybe the partition was not refreshed on time for unlock to unlock it
+				// So no matter how many tries we do, it will still be locked and will never appear
+				err := kcrypt.UnlockAll(true)
+				if err != nil {
+					c.Logger.Debugf("UnlockAll returned: %s", err)
+				}
+				if i == 9 {
+					c.Logger.Errorf("Partition %s not unlocked/found after 10 retries", p)
+					return fmt.Errorf("partition %s not unlocked/found after 10 retries", p)
+				}
 				continue
 			}
 			c.Logger.Infof("Partition found, continuing")
