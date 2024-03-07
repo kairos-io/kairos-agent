@@ -151,7 +151,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				return err
 			}
 			if bootFromLiveMedia() {
-				return fmt.Errorf("cannot upgrade from live media")
+				return fmt.Errorf("cannot upgrade from live media/unknown boot state")
 			}
 
 			return checkRoot()
@@ -846,7 +846,7 @@ func bootFromLiveMedia() bool {
 	if err != nil {
 		return false
 	}
-	if r.BootState == state.LiveCD {
+	if r.BootState == state.LiveCD || r.BootState == state.Unknown {
 		return true
 	}
 
