@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-sdk/state"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -396,6 +397,18 @@ func Scan(opts ...collector.Option) (c *Config, err error) {
 		if v != "" {
 			result.Logger.Logger.Info().Str("version", v).Msg("Kairos System")
 		}
+	}
+
+	// Log the boot mode
+	r, err := state.NewRuntimeWithLogger(result.Logger.Logger)
+	if err == nil {
+		result.Logger.Logger.Info().Str("boot_mode", string(r.BootState)).Msg("Boot Mode")
+	}
+
+	// Detect if we are running on a UKI boot to also log it
+	cmdline, err := result.Fs.ReadFile("/proc/cmdline")
+	if err == nil {
+		result.Logger.Logger.Info().Bool("result", state.DetectUKIboot(string(cmdline))).Msg("Boot in uki mode")
 	}
 
 	result.Logger.Debugf("Loaded config: %s", litter.Sdump(result))
