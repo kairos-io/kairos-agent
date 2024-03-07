@@ -36,6 +36,7 @@ func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
 	if len(c.Install.BindMounts) == 0 && len(c.Install.EphemeralMounts) == 0 {
 		return nil
 	}
+	c.Logger.Logger.Debug().Msg("Running CustomMounts hook")
 
 	machine.Mount("COS_OEM", "/oem") //nolint:errcheck
 	defer func() {
@@ -56,5 +57,6 @@ func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
 	}}
 
 	saveCloudConfig("user_custom_mounts", config) //nolint:errcheck
+	c.Logger.Logger.Debug().Msg("Finish CustomMounts hook")
 	return nil
 }

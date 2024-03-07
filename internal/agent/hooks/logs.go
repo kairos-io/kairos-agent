@@ -17,6 +17,7 @@ import (
 type CopyLogs struct{}
 
 func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
+	c.Logger.Logger.Debug().Msg("Running CopyLogs hook")
 	c.Logger.Debugf("Copying logs to persistent partition")
 	_ = machine.Umount(constants.PersistentDir)
 
@@ -47,5 +48,6 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	}
 	syscall.Sync()
 	c.Logger.Debugf("Logs copied to persistent partition")
+	c.Logger.Logger.Debug().Msg("Finish CopyLogs hook")
 	return nil
 }
