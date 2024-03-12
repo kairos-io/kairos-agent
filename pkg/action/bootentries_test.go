@@ -45,11 +45,12 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
 		// Create proper dir structure for our EFI partition contentens
 		Expect(err).Should(BeNil())
-		err = fsutils.MkdirAll(fs, "/efi/loader/entries", os.ModeDir|os.ModePerm)
+		err = fsutils.MkdirAll(fs, "/efi/boot/loader/entries", os.ModeDir|os.ModePerm)
+		err = fsutils.MkdirAll(fs, "/efi/loader", os.ModeDir|os.ModePerm)
 		Expect(err).Should(BeNil())
 		err = fsutils.MkdirAll(fs, "/efi/EFI/BOOT", os.ModeDir|os.ModePerm)
 		Expect(err).Should(BeNil())
-		err = fsutils.MkdirAll(fs, "/efi/EFI/kairos", os.ModeDir|os.ModePerm)
+		err = fsutils.MkdirAll(fs, "/efi/boot/EFI/kairos", os.ModeDir|os.ModePerm)
 		Expect(err).Should(BeNil())
 		err = fsutils.MkdirAll(fs, "/etc/cos/", os.ModeDir|os.ModePerm)
 		Expect(err).Should(BeNil())
@@ -80,6 +81,12 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 					Type:            "ext4",
 					MountPoint:      "/efi",
 				},
+				{
+					Name:            "device2",
+					FilesystemLabel: "COS_XBOOTLOADER",
+					Type:            "ext4",
+					MountPoint:      "/efi/boot",
+				},
 			},
 		}
 		ghwTest = v1mock.GhwMock{}
@@ -107,13 +114,13 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			It("lists the boot entries if there is any", func() {
 				err := fs.WriteFile("/efi/loader/loader.conf", []byte("timeout 5\ndefault kairos\nrecovery kairos2\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/kairos.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/boot/loader/entries/kairos.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = fs.WriteFile("/efi/loader/entries/kairos2.conf", []byte("title kairos2\nlinux /vmlinuz2\ninitrd /initrd2\noptions root=LABEL=COS_GRUB2\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/boot/loader/entries/kairos2.conf", []byte("title kairos2\nlinux /vmlinuz2\ninitrd /initrd2\noptions root=LABEL=COS_GRUB2\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
-				entries, err := listSystemdEntries(config, &v1.Partition{MountPoint: "/efi"})
+				entries, err := listSystemdEntries(config, &v1.Partition{MountPoint: "/efi/boot"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(entries).To(HaveLen(2))
 				Expect(entries).To(ContainElement("kairos.conf"))
@@ -121,7 +128,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 
 			})
 			It("list empty boot entries if there is none", func() {
-				entries, err := listSystemdEntries(config, &v1.Partition{MountPoint: "/efi"})
+				entries, err := listSystemdEntries(config, &v1.Partition{MountPoint: "/efi/boot"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(entries).To(HaveLen(0))
 
@@ -134,9 +141,9 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err.Error()).To(ContainSubstring("does not exist"))
 			})
 			It("selects the boot entry", func() {
-				err := fs.WriteFile("/efi/loader/entries/kairos.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
+				err := fs.WriteFile("/efi/boot/loader/entries/kairos.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/kairos2.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/boot/loader/entries/kairos2.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
 
@@ -162,9 +169,9 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 					"")).To(BeTrue())
 			})
 			It("selects the boot entry with the missing .conf extension", func() {
-				err := fs.WriteFile("/efi/loader/entries/kairos.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
+				err := fs.WriteFile("/efi/boot/loader/entries/kairos.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/kairos2.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/boot/loader/entries/kairos2.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
 

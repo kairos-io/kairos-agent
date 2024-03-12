@@ -67,7 +67,7 @@ func (r *ResetAction) Run() (err error) {
 	cleanup.Push(umount)
 
 	// Copy "recovery" to "active"
-	err = overwriteArtifactSetRole(r.cfg.Fs, constants.UkiEfiDir, "recovery", "active", r.cfg.Logger)
+	err = overwriteArtifactSetRole(r.cfg.Fs, constants.XbootloaderDir, "recovery", "active", r.cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("copying recovery to active: %w", err)
 	}

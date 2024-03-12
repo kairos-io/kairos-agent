@@ -263,6 +263,7 @@ func (pl PartitionList) GetByLabel(label string) *Partition {
 type ElementalPartitions struct {
 	BIOS       *Partition
 	EFI        *Partition
+	XBOOTLDR   *Partition `yaml:"xbootldr,omitempty" mapstructure:"xbootldr"`
 	OEM        *Partition `yaml:"oem,omitempty" mapstructure:"oem"`
 	Recovery   *Partition `yaml:"recovery,omitempty" mapstructure:"recovery"`
 	State      *Partition `yaml:"state,omitempty" mapstructure:"state"`
@@ -341,6 +342,10 @@ func NewElementalPartitionsFromList(pl PartitionList) ElementalPartitions {
 	if ep.Persistent == nil {
 		ep.Persistent = pl.GetByLabel(constants.PersistentLabel)
 	}
+	ep.XBOOTLDR = pl.GetByName(constants.XbootloaderPartName)
+	if ep.XBOOTLDR == nil {
+		ep.XBOOTLDR = pl.GetByLabel(constants.XbootloaderLabel)
+	}
 	return ep
 }
 
@@ -365,6 +370,9 @@ func (ep ElementalPartitions) PartitionsByInstallOrder(extraPartitions Partition
 	}
 	if ep.EFI != nil && !inExcludes(ep.EFI, excludes...) {
 		partitions = append(partitions, ep.EFI)
+	}
+	if ep.XBOOTLDR != nil && !inExcludes(ep.XBOOTLDR, excludes...) {
+		partitions = append(partitions, ep.XBOOTLDR)
 	}
 	if ep.OEM != nil && !inExcludes(ep.OEM, excludes...) {
 		partitions = append(partitions, ep.OEM)
@@ -527,11 +535,12 @@ func (i *InstallUkiSpec) GetPartitions() ElementalPartitions { return i.Partitio
 func (i *InstallUkiSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
 
 type UpgradeUkiSpec struct {
-	RecoveryUpgrade bool       `yaml:"recovery,omitempty" mapstructure:"recovery"`
-	Active          Image      `yaml:"system,omitempty" mapstructure:"system"`
-	Reboot          bool       `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool       `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	EfiPartition    *Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	RecoveryUpgrade      bool       `yaml:"recovery,omitempty" mapstructure:"recovery"`
+	Active               Image      `yaml:"system,omitempty" mapstructure:"system"`
+	Reboot               bool       `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff             bool       `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	EfiPartition         *Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	XbootLoaderPartition *Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
 }
 
 func (i *UpgradeUkiSpec) Sanitize() error {
