@@ -1,11 +1,13 @@
 package uki
 
 import (
+	"errors"
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
 	"os"
 	"strings"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -65,6 +67,9 @@ func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger 
 			if err := replaceRoleInKey(newPath, "efi", oldRole, newRole, logger); err != nil {
 				return err
 			}
+			if err := replaceConfTitle(newPath, newRole); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -91,6 +96,55 @@ func replaceRoleInKey(path, key, oldRole, newRole string, logger sdkTypes.Kairos
 		newContents = fmt.Sprintf("%s%s %s\n", newContents, k, v)
 	}
 	logger.Debugf("Conf file %s new values %v", path, litter.Sdump(conf))
+
+	return os.WriteFile(path, []byte(newContents), os.ModePerm)
+}
+
+func replaceTitle(role, title string) (string, error) {
+	var baseTitle string
+	passiveSuffix := " (fallback)"
+	recoverySuffix := " recovery"
+
+	if strings.HasSuffix(title, recoverySuffix) {
+		baseTitle = strings.TrimSuffix(title, recoverySuffix)
+	} else if strings.HasSuffix(title, passiveSuffix) {
+		baseTitle = strings.TrimSuffix(title, passiveSuffix)
+	} else {
+		baseTitle = title
+	}
+
+	switch role {
+	case "active":
+		return baseTitle, nil
+	case "passive":
+		return baseTitle + passiveSuffix, nil
+	case "recovery":
+		return baseTitle + recoverySuffix, nil
+	default:
+		return "", errors.New("invalid role")
+	}
+}
+
+func replaceConfTitle(path, role string) error {
+	conf, err := sdkutils.SystemdBootConfReader(path)
+	if err != nil {
+		return err
+	}
+
+	if len(conf["title"]) == 0 {
+		return errors.New("no title in .conf file")
+	}
+
+	newTitle, err := replaceTitle(role, conf["title"])
+	if err != nil {
+		return err
+	}
+
+	conf["title"] = newTitle
+	newContents := ""
+	for k, v := range conf {
+		newContents = fmt.Sprintf("%s%s %s\n", newContents, k, v)
+	}
 
 	return os.WriteFile(path, []byte(newContents), os.ModePerm)
 }

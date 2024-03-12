@@ -121,6 +121,15 @@ func (i *UpgradeAction) installRecovery() error {
 	if err != nil {
 		return err
 	}
+	err = replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", i.cfg.Logger)
+	if err != nil {
+		return err
+	}
 
-	return replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", i.cfg.Logger)
+	err = replaceConfTitle(targetConfPath, "recovery")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
