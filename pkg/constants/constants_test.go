@@ -1,6 +1,8 @@
-package uki
+package constants_test
 
 import (
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -8,7 +10,7 @@ import (
 var _ = Describe("Replace title", func() {
 	DescribeTable("Replacing the tile",
 		func(role, oldTitle, newTitle string) {
-			Expect(replaceTitle(role, oldTitle)).To(Equal(newTitle))
+			Expect(constants.BootTitleForRole(role, oldTitle)).To(Equal(newTitle))
 		},
 		Entry("When seeting to active with a default title", "active", "My awesome OS", "My awesome OS"),
 		Entry("When setting to active with a fallback title", "active", "My awesome OS (fallback)", "My awesome OS"),

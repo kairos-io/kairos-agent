@@ -1,4 +1,4 @@
-package uki_test
+package constants_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestUki(t *testing.T) {
+func TestConstants(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "UKI Suite")
+	RunSpecs(t, "Constants Suite")
 }
