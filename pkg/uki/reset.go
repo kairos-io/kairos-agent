@@ -78,6 +78,18 @@ func (r *ResetAction) Run() (err error) {
 		return err
 	}
 
+	if mnt, err := elementalUtils.IsMounted(r.cfg, r.spec.Partitions.OEM); !mnt && err == nil {
+		err = e.MountPartition(r.spec.Partitions.OEM)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = Hook(r.cfg, constants.AfterResetHook)
+	if err != nil {
+		return err
+	}
+
 	_ = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.after.hook") //nolint:errcheck
 
