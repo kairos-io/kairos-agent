@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
+	"strings"
 	"syscall"
 
 	"github.com/erikgeiser/promptkit/confirmation"
@@ -77,6 +79,13 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		return err
 
 	}
+	originalEntries := entries
+	// when there are only 3 entries, we can assume they are active, passive and recovery
+	if len(entries) == 3 {
+		entries = []string{"cos", "fallback", "recovery"}
+	}
+	// when there are more than 3 entries, then we need to also extract the part between the first _ and the .conf in order to distinguish the entries
+
 	// Check that entry exists in the entries list
 	err = entryInList(cfg, entry, entries)
 	if err != nil {
@@ -101,6 +110,14 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 	if err != nil {
 		cfg.Logger.Errorf("could not read loader.conf: %s", err)
 		return err
+	}
+	fmt.Println("###### here ", originalEntries)
+	if !reflect.DeepEqual(originalEntries, entries) {
+		for _, e := range originalEntries {
+			if strings.HasPrefix(e, entry) {
+				entry = e
+			}
+		}
 	}
 	bootName, err := bootNameToSystemdConf(entry)
 	if err != nil {
@@ -140,29 +157,73 @@ func listBootEntriesGrub(cfg *config.Config) error {
 }
 
 func systemdConfToBootName(conf string) (string, error) {
-	switch conf {
-	case "active.conf":
-		return "cos", nil
-	case "passive.conf":
-		return "fallback", nil
-	case "recovery.conf":
-		return "recovery", nil
-	default:
+	if !strings.HasSuffix(conf, ".conf") {
 		return "", fmt.Errorf("unknown systemd-boot conf: %s", conf)
 	}
+
+	fileName := strings.TrimSuffix(conf, ".conf")
+
+	if strings.HasPrefix(fileName, "active") {
+		bootName := "cos"
+		confName := strings.TrimPrefix(fileName, "active")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
+	if strings.HasPrefix(fileName, "passive") {
+		bootName := "fallback"
+		confName := strings.TrimPrefix(fileName, "passive")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
+	if strings.HasPrefix(conf, "recovery") {
+		bootName := "recovery"
+		confName := strings.TrimPrefix(fileName, "recovery")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
+	return "", fmt.Errorf("unknown systemd-boot conf: %s", conf)
 }
 
 func bootNameToSystemdConf(name string) (string, error) {
-	switch name {
-	case "cos":
-		return "active.conf", nil
-	case "fallback":
-		return "passive.conf", nil
-	case "recovery":
-		return "recovery.conf", nil
-	default:
-		return "", fmt.Errorf("unknown boot name: %s", name)
+	differenciator := ""
+
+	if strings.HasPrefix(name, "cos") {
+		if name != "cos" {
+			differenciator = "_" + strings.TrimPrefix(name, "cos ")
+		}
+		return "active" + differenciator + ".conf", nil
 	}
+
+	if strings.HasPrefix(name, "fallback") {
+		if name != "fallback" {
+			differenciator = "_" + strings.TrimPrefix(name, "fallback ")
+		}
+		return "passive" + differenciator + ".conf", nil
+	}
+
+	if strings.HasPrefix(name, "recovery") {
+		if name != "recovery" {
+			differenciator = "_" + strings.TrimPrefix(name, "recovery ")
+		}
+		return "recovery" + differenciator + ".conf", nil
+	}
+
+	return "", fmt.Errorf("unknown boot name: %s", name)
 }
 
 // listBootEntriesSystemd lists the boot entries available in the systemd-boot config files
