@@ -150,6 +150,9 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			if err := validateSource(c.String("source")); err != nil {
 				return err
 			}
+			if bootFromLiveMedia() {
+				return fmt.Errorf("cannot upgrade from live media/unknown boot state")
+			}
 
 			return checkRoot()
 		},
@@ -834,6 +837,20 @@ func validateSource(source string) error {
 	}
 
 	return nil
+}
+
+// Check
+func bootFromLiveMedia() bool {
+	// Check if the system is booted from a LIVE media by checking if the file /run/cos/livecd is present
+	r, err := state.NewRuntime()
+	if err != nil {
+		return false
+	}
+	if r.BootState == state.LiveCD || r.BootState == state.Unknown {
+		return true
+	}
+
+	return false
 }
 
 func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
