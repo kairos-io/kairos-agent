@@ -111,7 +111,6 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		cfg.Logger.Errorf("could not read loader.conf: %s", err)
 		return err
 	}
-	fmt.Println("###### here ", originalEntries)
 	if !reflect.DeepEqual(originalEntries, entries) {
 		for _, e := range originalEntries {
 			if strings.HasPrefix(e, entry) {
