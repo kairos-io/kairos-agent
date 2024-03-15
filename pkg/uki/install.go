@@ -31,22 +31,29 @@ func (i *InstallAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Run pre-install stage
-	_ = utils.RunStage(i.cfg, "kairos-uki-install.pre")
-	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.pre.hook")
+	if err = utils.RunStage(i.cfg, "kairos-uki-install.pre"); err != nil {
+		i.cfg.Logger.Errorf("running kairos-uki-install.pre stage: %s", err.Error())
+	}
+	if err = events.RunHookScript("/usr/bin/kairos-agent.uki.install.pre.hook"); err != nil {
+		i.cfg.Logger.Errorf("running kairos-uki-install.pre hook script: %s", err.Error())
+	}
 
 	// Deactivate any active volume on target
 	err = e.DeactivateDevices()
 	if err != nil {
+		i.cfg.Logger.Errorf("deactivating devices: %s", err.Error())
 		return err
 	}
 	// Partition device
 	err = e.PartitionAndFormatDevice(i.spec)
 	if err != nil {
+		i.cfg.Logger.Errorf("partitioning and formating devices: %s", err.Error())
 		return err
 	}
 
 	err = e.MountPartitions(i.spec.GetPartitions().PartitionsByMountPoint(false))
 	if err != nil {
+		i.cfg.Logger.Errorf("mounting partitions: %s", err.Error())
 		return err
 	}
 	cleanup.Push(func() error {
@@ -56,6 +63,7 @@ func (i *InstallAction) Run() (err error) {
 	// Before install hook happens after partitioning but before the image OS is applied (this is for compatibility with normal install, so users can reuse their configs)
 	err = Hook(i.cfg, constants.BeforeInstallHook)
 	if err != nil {
+		i.cfg.Logger.Errorf("running before install hook: %s", err.Error())
 		return err
 	}
 
@@ -63,6 +71,7 @@ func (i *InstallAction) Run() (err error) {
 	// Copy cloud-init if any
 	err = e.CopyCloudConfig(i.spec.CloudInit)
 	if err != nil {
+		i.cfg.Logger.Errorf("copying cloud config: %s", err.Error())
 		return err
 	}
 	// Create dir structure
@@ -71,6 +80,7 @@ func (i *InstallAction) Run() (err error) {
 
 	err = fsutils.MkdirAll(i.cfg.Fs, filepath.Join(constants.EfiDir, "EFI", "BOOT"), constants.DirPerm)
 	if err != nil {
+		i.cfg.Logger.Errorf("creating efi directories: %s", err.Error())
 		return err
 	}
 
@@ -80,6 +90,7 @@ func (i *InstallAction) Run() (err error) {
 	// Copy the efi file into the proper dir
 	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
 	if err != nil {
+		i.cfg.Logger.Errorf("dumping source: %s", err.Error())
 		return err
 	}
 
@@ -126,40 +137,51 @@ func (i *InstallAction) Run() (err error) {
 		return nil
 	})
 	if err != nil {
+		i.cfg.Logger.Errorf("error happened: %s", err.Error())
 		return err
 	}
 
 	for _, role := range []string{"active", "passive", "recovery"} {
 		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
+			i.cfg.Logger.Errorf("installing the new artifact set as %s: %s", role, err.Error())
 			return fmt.Errorf("installing the new artifact set as %s: %w", role, err)
 		}
 	}
 
 	loaderConfPath := filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader", "loader.conf")
 	if err = replaceRoleInKey(loaderConfPath, "default", UnassignedArtifactRole, "active", i.cfg.Logger); err != nil {
+		i.cfg.Logger.Errorf("replacing role in key %s: %s", "default", err.Error())
 		return err
 	}
 
 	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole); err != nil {
+		i.cfg.Logger.Errorf("removing artifact set with role %s: %s", UnassignedArtifactRole, err.Error())
 		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
 	}
 
 	err = hook.Run(*i.cfg, i.spec, hook.UKIEncryptionHooks...)
 	if err != nil {
+		i.cfg.Logger.Errorf("running uki encryption hooks: %s", err.Error())
 		return err
 	}
 
 	// after install hook happens after install (this is for compatibility with normal install, so users can reuse their configs)
 	err = Hook(i.cfg, constants.AfterInstallHook)
 	if err != nil {
+		i.cfg.Logger.Errorf("running after install hook: %s", err.Error())
 		return err
 	}
 	// Remove all boot manager entries?
 	// Create boot manager entry
 	// Set default entry to the one we just created
 	// Probably copy efi utils, like the Mokmanager and even the shim or grub efi to help with troubleshooting?
-	_ = utils.RunStage(i.cfg, "kairos-uki-install.after")
-	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook") //nolint:errcheck
+	if err = utils.RunStage(i.cfg, "kairos-uki-install.after"); err != nil {
+		i.cfg.Logger.Errorf("running kairos-uki-install.after stage: %s", err.Error())
+	}
+
+	if err = events.RunHookScript("/usr/bin/kairos-agent.uki.install.after.hook"); err != nil {
+		i.cfg.Logger.Errorf("running kairos-uki-install.after hook script: %s", err.Error())
+	}
 
 	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
 }
