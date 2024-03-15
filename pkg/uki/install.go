@@ -162,6 +162,9 @@ func (i *InstallAction) Run() (err error) {
 
 	// SelectBootEntry sets the default boot entry to the selected entry
 	err = action.SelectBootEntry(i.cfg, "active")
+	if err != nil {
+		i.cfg.Logger.Warnf("selecting active boot entry: %s", err.Error())
+	}
 
 	err = hook.Run(*i.cfg, i.spec, hook.UKIEncryptionHooks...)
 	if err != nil {
