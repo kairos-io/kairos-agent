@@ -292,13 +292,14 @@ func listSystemdEntries(cfg *config.Config, efiPartition *v1.Partition) ([]strin
 
 // listGrubEntries reads the grub config files and returns a list of entries found
 func listGrubEntries(cfg *config.Config) ([]string, error) {
-	// Read grub config from 3 places
+	// Read grub config from 4 places
 	// /etc/cos/grub.cfg
 	// /run/initramfs/cos-state/grub/grub.cfg
+	// /run/initramfs/cos-state/grub2/grub.cfg
 	// /etc/kairos/branding/grubmenu.cfg
 	// And grep the entries by checking the --id\s([A-z0-9]*)\s{ pattern
 	var entries []string
-	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg"} {
+	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg", "/run/initramfs/cos-state/grub2/grub.cfg"} {
 		f, err := cfg.Fs.ReadFile(file)
 		if err != nil {
 			cfg.Logger.Errorf("could not read file %s: %s", file, err)
