@@ -43,7 +43,7 @@ import (
 	"github.com/joho/godotenv"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/twpayne/go-vfs/v5"
+	"github.com/twpayne/go-vfs/v4"
 )
 
 func CommandExists(command string) bool {

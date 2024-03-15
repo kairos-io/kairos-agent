@@ -13,7 +13,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs/v5/vfst"
+	"github.com/twpayne/go-vfs/v4/vfst"
 	"gopkg.in/yaml.v3"
 
 	. "github.com/onsi/ginkgo/v2"

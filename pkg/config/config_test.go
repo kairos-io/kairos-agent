@@ -26,8 +26,8 @@ import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs/v5"
-	"github.com/twpayne/go-vfs/v5/vfst"
+	"github.com/twpayne/go-vfs/v4"
+	"github.com/twpayne/go-vfs/v4/vfst"
 
 	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	. "github.com/kairos-io/kairos-sdk/schema"
