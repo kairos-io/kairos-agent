@@ -2,6 +2,7 @@ package uki
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"os"
 	"path/filepath"
 	"strings"
@@ -157,6 +158,12 @@ func (i *InstallAction) Run() (err error) {
 	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole); err != nil {
 		i.cfg.Logger.Errorf("removing artifact set with role %s: %s", UnassignedArtifactRole, err.Error())
 		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
+	}
+
+	// SelectBootEntry sets the default boot entry to the selected entry
+	err = action.SelectBootEntry(i.cfg, "active")
+	if err != nil {
+		i.cfg.Logger.Warnf("selecting active boot entry: %s", err.Error())
 	}
 
 	err = hook.Run(*i.cfg, i.spec, hook.UKIEncryptionHooks...)

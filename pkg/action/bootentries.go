@@ -2,6 +2,8 @@ package action
 
 import (
 	"fmt"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -229,11 +231,28 @@ func bootNameToSystemdConf(name string) (string, error) {
 // and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
 func listBootEntriesSystemd(cfg *config.Config) error {
+	var err error
+	e := elemental.NewElemental(cfg)
+	cleanup := utils.NewCleanStack()
+	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
 	efiPartition, err := partitions.GetEfiPartition()
 	if err != nil {
 		return err
 	}
+	// mount if not mounted
+	if mounted, err := utils.IsMounted(cfg, efiPartition); !mounted && err == nil {
+		if efiPartition.MountPoint == "" {
+			efiPartition.MountPoint = cnst.EfiDir
+		}
+		err = e.MountPartition(efiPartition)
+		if err != nil {
+			cfg.Logger.Errorf("could not mount EFI partition: %s", err)
+			return err
+		}
+		cleanup.Push(func() error { return e.UnmountPartition(efiPartition) })
+	}
+
 	// Get default entry from loader.conf
 	loaderConf, err := utils.SystemdBootConfReader(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"))
 	if err != nil {
@@ -298,6 +317,7 @@ func listGrubEntries(cfg *config.Config) ([]string, error) {
 	// /run/initramfs/cos-state/grub2/grub.cfg
 	// /etc/kairos/branding/grubmenu.cfg
 	// And grep the entries by checking the --id\s([A-z0-9]*)\s{ pattern
+	// TODO: Check how to run this from livecd as it requires mounting state and grub?
 	var entries []string
 	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg", "/run/initramfs/cos-state/grub2/grub.cfg"} {
 		f, err := cfg.Fs.ReadFile(file)
