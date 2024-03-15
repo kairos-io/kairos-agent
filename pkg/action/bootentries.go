@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"syscall"
@@ -65,11 +66,6 @@ func selectBootEntryGrub(cfg *config.Config, entry string) error {
 // selectBootEntrySystemd sets the default boot entry to the selected entry via modifying the loader.conf file
 // also validates that the entry exists in our list of entries
 func selectBootEntrySystemd(cfg *config.Config, entry string) error {
-	// Read the systemd-boot conf file
-	if !strings.HasSuffix(entry, ".conf") {
-		entry = entry + ".conf"
-	}
-
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
 
 	// Get EFI partition
@@ -83,6 +79,13 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		return err
 
 	}
+	originalEntries := entries
+	// when there are only 3 entries, we can assume they are active, passive and recovery
+	if len(entries) == 3 {
+		entries = []string{"cos", "fallback", "recovery"}
+	}
+	// when there are more than 3 entries, then we need to also extract the part between the first _ and the .conf in order to distinguish the entries
+
 	// Check that entry exists in the entries list
 	err = entryInList(cfg, entry, entries)
 	if err != nil {
@@ -108,8 +111,19 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		cfg.Logger.Errorf("could not read loader.conf: %s", err)
 		return err
 	}
+	if !reflect.DeepEqual(originalEntries, entries) {
+		for _, e := range originalEntries {
+			if strings.HasPrefix(e, entry) {
+				entry = e
+			}
+		}
+	}
+	bootName, err := bootNameToSystemdConf(entry)
+	if err != nil {
+		return err
+	}
 	// Set the default entry to the selected entry
-	systemdConf["default"] = entry
+	systemdConf["default"] = bootName
 	err = utils.SystemdBootConfWriter(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"), systemdConf)
 	if err != nil {
 		cfg.Logger.Errorf("could not write loader.conf: %s", err)
@@ -141,6 +155,76 @@ func listBootEntriesGrub(cfg *config.Config) error {
 	return err
 }
 
+func systemdConfToBootName(conf string) (string, error) {
+	if !strings.HasSuffix(conf, ".conf") {
+		return "", fmt.Errorf("unknown systemd-boot conf: %s", conf)
+	}
+
+	fileName := strings.TrimSuffix(conf, ".conf")
+
+	if strings.HasPrefix(fileName, "active") {
+		bootName := "cos"
+		confName := strings.TrimPrefix(fileName, "active")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
+	if strings.HasPrefix(fileName, "passive") {
+		bootName := "fallback"
+		confName := strings.TrimPrefix(fileName, "passive")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
+	if strings.HasPrefix(conf, "recovery") {
+		bootName := "recovery"
+		confName := strings.TrimPrefix(fileName, "recovery")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
+	return "", fmt.Errorf("unknown systemd-boot conf: %s", conf)
+}
+
+func bootNameToSystemdConf(name string) (string, error) {
+	differenciator := ""
+
+	if strings.HasPrefix(name, "cos") {
+		if name != "cos" {
+			differenciator = "_" + strings.TrimPrefix(name, "cos ")
+		}
+		return "active" + differenciator + ".conf", nil
+	}
+
+	if strings.HasPrefix(name, "fallback") {
+		if name != "fallback" {
+			differenciator = "_" + strings.TrimPrefix(name, "fallback ")
+		}
+		return "passive" + differenciator + ".conf", nil
+	}
+
+	if strings.HasPrefix(name, "recovery") {
+		if name != "recovery" {
+			differenciator = "_" + strings.TrimPrefix(name, "recovery ")
+		}
+		return "recovery" + differenciator + ".conf", nil
+	}
+
+	return "", fmt.Errorf("unknown boot name: %s", name)
+}
+
 // listBootEntriesSystemd lists the boot entries available in the systemd-boot config files
 // and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
@@ -157,15 +241,24 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 	}
 
 	entries, err := listSystemdEntries(cfg, efiPartition)
+	if err != nil {
+		return err
+	}
+
+	currentlySelected, err := systemdConfToBootName(loaderConf["default"])
 
 	// create a selector
-	selector := selection.New(fmt.Sprintf("Select Boot Entry (current entry: %s)", loaderConf["default"]), entries)
+	selector := selection.New(fmt.Sprintf("Select Boot Entry (current entry: %s)", currentlySelected), entries)
 	selector.Filter = nil        // Remove the filter
 	selector.ResultTemplate = `` // Do not print the result as we are asking for confirmation afterwards
 	selected, _ := selector.RunPrompt()
 	c := confirmation.New("Are you sure you want to change the boot entry to "+selected, confirmation.Yes)
 	c.ResultTemplate = ``
 	confirm, err := c.RunPrompt()
+	if err != nil {
+		return err
+	}
+
 	if confirm {
 		return SelectBootEntry(cfg, selected)
 	}
@@ -186,7 +279,12 @@ func listSystemdEntries(cfg *config.Config, efiPartition *v1.Partition) ([]strin
 		if filepath.Ext(info.Name()) != ".conf" {
 			return nil
 		}
-		entries = append(entries, info.Name())
+		entry, err := systemdConfToBootName(info.Name())
+		if err != nil {
+			return err
+		}
+
+		entries = append(entries, entry)
 		return nil
 	})
 	return entries, err
