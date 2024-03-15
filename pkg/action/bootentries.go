@@ -316,6 +316,7 @@ func listGrubEntries(cfg *config.Config) ([]string, error) {
 	// /run/initramfs/cos-state/grub/grub.cfg
 	// /etc/kairos/branding/grubmenu.cfg
 	// And grep the entries by checking the --id\s([A-z0-9]*)\s{ pattern
+	// TODO: Check how to run this from livecd as it requires mounting state and grub?
 	var entries []string
 	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg"} {
 		f, err := cfg.Fs.ReadFile(file)
