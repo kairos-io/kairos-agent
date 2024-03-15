@@ -241,7 +241,7 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 		return err
 	}
 	// mount if not mounted
-	if mounted, _ := utils.IsMounted(cfg, efiPartition); !mounted {
+	if mounted, err := utils.IsMounted(cfg, efiPartition); !mounted && err == nil {
 		if efiPartition.MountPoint == "" {
 			efiPartition.MountPoint = cnst.EfiDir
 		}
