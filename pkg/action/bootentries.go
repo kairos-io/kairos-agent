@@ -2,6 +2,8 @@ package action
 
 import (
 	"fmt"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -229,11 +231,28 @@ func bootNameToSystemdConf(name string) (string, error) {
 // and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
 func listBootEntriesSystemd(cfg *config.Config) error {
+	var err error
+	e := elemental.NewElemental(cfg)
+	cleanup := utils.NewCleanStack()
+	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
 	efiPartition, err := partitions.GetEfiPartition()
 	if err != nil {
 		return err
 	}
+	// mount if not mounted
+	if mounted, _ := utils.IsMounted(cfg, efiPartition); !mounted {
+		if efiPartition.MountPoint == "" {
+			efiPartition.MountPoint = cnst.EfiDir
+		}
+		err = e.MountPartition(efiPartition)
+		if err != nil {
+			cfg.Logger.Errorf("could not mount EFI partition: %s", err)
+			return err
+		}
+		cleanup.Push(func() error { return e.UnmountPartition(efiPartition) })
+	}
+
 	// Get default entry from loader.conf
 	loaderConf, err := utils.SystemdBootConfReader(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"))
 	if err != nil {
