@@ -108,17 +108,19 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			It("lists the boot entries if there is any", func() {
 				err := fs.WriteFile("/efi/loader/loader.conf", []byte("timeout 5\ndefault kairos\nrecovery kairos2\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\nlinux /vmlinuz\ninitrd /initrd\noptions root=LABEL=COS_GRUB\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-
-				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title kairos2\nlinux /vmlinuz2\ninitrd /initrd2\noptions root=LABEL=COS_GRUB2\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
 				entries, err := listSystemdEntries(config, &v1.Partition{MountPoint: "/efi"})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(entries).To(HaveLen(2))
+				Expect(entries).To(HaveLen(3))
 				Expect(entries).To(ContainElement("cos"))
 				Expect(entries).To(ContainElement("fallback"))
+				Expect(entries).To(ContainElement("recovery"))
 
 			})
 			It("list empty boot entries if there is none", func() {
@@ -185,7 +187,51 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 					"",
 					syscall.MS_REMOUNT|syscall.MS_RDONLY,
 					"")).To(BeTrue())
+
+				err = SelectBootEntry(config, "cos")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("active.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+
+				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
+				err = SelectBootEntry(config, "active")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("active.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
 			})
+
 			It("selects the boot entry in a extend-cmdline installation with boot branding", func() {
 				err := fs.WriteFile("/efi/loader/entries/active_install-mode_awesomeos.conf", []byte("title awesomeos\nefi /EFI/kairos/active_install-mode_awesomeos.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -241,6 +287,28 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("active_install-mode_awesomeos.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+
+				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
+				err = SelectBootEntry(config, "active")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(reader["default"]).To(Equal("active_install-mode_awesomeos.conf"))
@@ -401,9 +469,52 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 					"",
 					syscall.MS_REMOUNT|syscall.MS_RDONLY,
 					"")).To(BeTrue())
+
+				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
+				err = SelectBootEntry(config, "active")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("active.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+				err = SelectBootEntry(config, "active foobar")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active foobar"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("active_foobar.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
 			})
 		})
 	})
+
 	Context("Under grub", func() {
 		Context("ListBootEntries", func() {
 			It("fails to list the boot entries when there is no grub files", func() {

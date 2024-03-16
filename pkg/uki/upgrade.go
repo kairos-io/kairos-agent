@@ -90,7 +90,7 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// SelectBootEntry sets the default boot entry to the selected entry
-	err = action.SelectBootEntry(i.cfg, "active")
+	err = action.SelectBootEntry(i.cfg, "cos")
 	// Should we fail? Or warn?
 	if err != nil {
 		i.cfg.Logger.Errorf("selecting boot entry: %s", err.Error())

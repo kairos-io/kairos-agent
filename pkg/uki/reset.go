@@ -81,7 +81,7 @@ func (r *ResetAction) Run() (err error) {
 		return fmt.Errorf("copying recovery to active: %w", err)
 	}
 	// SelectBootEntry sets the default boot entry to the selected entry
-	err = action.SelectBootEntry(r.cfg, "active")
+	err = action.SelectBootEntry(r.cfg, "cos")
 	// Should we fail? Or warn?
 	if err != nil {
 		r.cfg.Logger.Errorf("selecting boot entry : %s", err.Error())
