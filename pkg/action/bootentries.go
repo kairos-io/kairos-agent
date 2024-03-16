@@ -2,14 +2,15 @@ package action
 
 import (
 	"fmt"
-	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
 	"syscall"
+
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
@@ -82,15 +83,15 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 
 	}
 	originalEntries := entries
-	// when there are only 3 entries, we can assume they are active, passive and recovery
+	// when there are only 3 entries, we can assume they are either cos (which will be replaced eventually), fallback or recovery
 	if len(entries) == 3 {
 		entries = []string{"cos", "fallback", "recovery"}
 	}
-	// when there are more than 3 entries, then we need to also extract the part between the first _ and the .conf in order to distinguish the entries
 
 	// Check that entry exists in the entries list
 	err = entryInList(cfg, entry, entries)
-	if err != nil {
+	// we also accept "active" as a selection so we can migrate eventually from cos
+	if err != nil && !strings.HasPrefix(entry, "active") {
 		return err
 	}
 
@@ -113,7 +114,12 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		cfg.Logger.Errorf("could not read loader.conf: %s", err)
 		return err
 	}
+	originalEntry := entry
 	if !reflect.DeepEqual(originalEntries, entries) {
+		// since we temporarily allow also active, here we need to first set entry to "cos" so it will match with the originalEntries
+		if strings.HasPrefix(entry, "active") {
+			entry = "cos"
+		}
 		for _, e := range originalEntries {
 			if strings.HasPrefix(e, entry) {
 				entry = e
@@ -131,7 +137,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		cfg.Logger.Errorf("could not write loader.conf: %s", err)
 		return err
 	}
-	cfg.Logger.Infof("Default boot entry set to %s", entry)
+	cfg.Logger.Infof("Default boot entry set to %s", originalEntry)
 	return err
 }
 
@@ -206,6 +212,13 @@ func bootNameToSystemdConf(name string) (string, error) {
 	if strings.HasPrefix(name, "cos") {
 		if name != "cos" {
 			differenciator = "_" + strings.TrimPrefix(name, "cos ")
+		}
+		return "active" + differenciator + ".conf", nil
+	}
+
+	if strings.HasPrefix(name, "active") {
+		if name != "active" {
+			differenciator = "_" + strings.TrimPrefix(name, "active ")
 		}
 		return "active" + differenciator + ".conf", nil
 	}
