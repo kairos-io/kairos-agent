@@ -133,18 +133,15 @@ func (i InstallAction) Run() (err error) {
 	// Set installation sources from a downloaded ISO
 
 	if i.spec.Iso != "" {
-		fmt.Println("Downloading ISO")
 		tmpDir, err := e.GetIso(i.spec.Iso)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Updating sources from downloaded ISO")
 		cleanup.Push(func() error { return i.cfg.Fs.RemoveAll(tmpDir) })
 		err = e.UpdateSourcesFormDownloadedISO(tmpDir, &i.spec.Active, &i.spec.Recovery)
 		if err != nil {
 			return err
 		}
-		fmt.Println("ISO downloaded and sources updated")
 	}
 
 	// Check no-format flag

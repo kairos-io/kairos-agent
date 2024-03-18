@@ -304,7 +304,7 @@ var _ = Describe("Install action tests", func() {
 
 		It("Fails to install from ISO as rsync can't find the temporary root tree", Label("iso"), func() {
 			fs.Create("cOS.iso")
-			spec.Iso = "cOS.iso"
+			spec.Iso = "http://cOS.iso"
 			spec.Target = device
 			err := installer.Run()
 			Expect(err).To(BeNil())
