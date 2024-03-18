@@ -12,6 +12,6 @@
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
-    "cypress": "^12.9.0"
+    "cypress": "^13.0.0"
   }
 }
