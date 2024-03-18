@@ -22,7 +22,7 @@ import (
 	yip "github.com/mudler/yip/pkg/schema"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
-	"github.com/twpayne/go-vfs"
+	"github.com/twpayne/go-vfs/v4"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
 )
