@@ -24,8 +24,12 @@ func NewResetAction(cfg *config.Config, spec *v1.ResetUkiSpec) *ResetAction {
 
 func (r *ResetAction) Run() (err error) {
 	// Run pre-install stage
-	_ = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.pre")
-	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.pre.hook")
+	if err = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.pre"); err != nil {
+		r.cfg.Logger.Errorf("running kairos-uki-reset.pre stage: %s", err.Error())
+	}
+	if err = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.pre.hook"); err != nil {
+		r.cfg.Logger.Errorf("running kairos-uki-reset.pre hook script: %s", err.Error())
+	}
 
 	e := elemental.NewElemental(r.cfg)
 	cleanup := utils.NewCleanStack()
@@ -34,6 +38,7 @@ func (r *ResetAction) Run() (err error) {
 	// Unmount partitions if any is already mounted before formatting
 	err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true))
 	if err != nil {
+		r.cfg.Logger.Errorf("unmounting partitions: %s", err.Error())
 		return err
 	}
 
@@ -43,6 +48,7 @@ func (r *ResetAction) Run() (err error) {
 		if persistent != nil {
 			err = e.FormatPartition(persistent)
 			if err != nil {
+				r.cfg.Logger.Errorf("formatting persistent partition: %s", err.Error())
 				return err
 			}
 		}
@@ -54,6 +60,7 @@ func (r *ResetAction) Run() (err error) {
 		if oem != nil {
 			err = e.FormatPartition(oem)
 			if err != nil {
+				r.cfg.Logger.Errorf("formatting OEM partition: %s", err.Error())
 				return err
 			}
 		}
@@ -62,6 +69,7 @@ func (r *ResetAction) Run() (err error) {
 	// REMOUNT /efi as RW (its RO by default)
 	umount, err := e.MountRWPartition(r.spec.Partitions.EFI)
 	if err != nil {
+		r.cfg.Logger.Errorf("mounting EFI partition as RW: %s", err.Error())
 		return err
 	}
 	cleanup.Push(umount)
@@ -69,33 +77,43 @@ func (r *ResetAction) Run() (err error) {
 	// Copy "recovery" to "active"
 	err = overwriteArtifactSetRole(r.cfg.Fs, constants.UkiEfiDir, "recovery", "active", r.cfg.Logger)
 	if err != nil {
+		r.cfg.Logger.Errorf("copying recovery to active: %s", err.Error())
 		return fmt.Errorf("copying recovery to active: %w", err)
 	}
 	// SelectBootEntry sets the default boot entry to the selected entry
-	err = action.SelectBootEntry(r.cfg, "active")
+	err = action.SelectBootEntry(r.cfg, "cos")
 	// Should we fail? Or warn?
 	if err != nil {
+		r.cfg.Logger.Errorf("selecting boot entry : %s", err.Error())
 		return err
 	}
 
 	if mnt, err := elementalUtils.IsMounted(r.cfg, r.spec.Partitions.OEM); !mnt && err == nil {
 		err = e.MountPartition(r.spec.Partitions.OEM)
 		if err != nil {
+			r.cfg.Logger.Errorf("mounting oem partition: %s", err.Error())
 			return err
 		}
 	}
 
 	err = Hook(r.cfg, constants.AfterResetHook)
 	if err != nil {
+		r.cfg.Logger.Errorf("running after install hook: %s", err.Error())
 		return err
 	}
 
-	_ = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.after")
-	_ = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.after.hook") //nolint:errcheck
+	if err = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.after"); err != nil {
+		r.cfg.Logger.Errorf("running kairos-uki-reset.after stage: %s", err.Error())
+	}
+
+	if err = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.after.hook"); err != nil {
+		r.cfg.Logger.Errorf("running kairos-uki-reset.after hook script: %s", err.Error())
+	}
 
 	// Do not reboot/poweroff on cleanup errors
 	err = cleanup.Cleanup(err)
 	if err != nil {
+		r.cfg.Logger.Errorf("running cleanup: %s", err.Error())
 		return err
 	}
 	return nil

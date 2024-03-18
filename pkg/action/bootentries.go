@@ -9,6 +9,9 @@ import (
 	"strings"
 	"syscall"
 
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
+
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -80,15 +83,15 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 
 	}
 	originalEntries := entries
-	// when there are only 3 entries, we can assume they are active, passive and recovery
+	// when there are only 3 entries, we can assume they are either cos (which will be replaced eventually), fallback or recovery
 	if len(entries) == 3 {
 		entries = []string{"cos", "fallback", "recovery"}
 	}
-	// when there are more than 3 entries, then we need to also extract the part between the first _ and the .conf in order to distinguish the entries
 
 	// Check that entry exists in the entries list
 	err = entryInList(cfg, entry, entries)
-	if err != nil {
+	// we also accept "active" as a selection so we can migrate eventually from cos
+	if err != nil && !strings.HasPrefix(entry, "active") {
 		return err
 	}
 
@@ -111,7 +114,12 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		cfg.Logger.Errorf("could not read loader.conf: %s", err)
 		return err
 	}
+	originalEntry := entry
 	if !reflect.DeepEqual(originalEntries, entries) {
+		// since we temporarily allow also active, here we need to first set entry to "cos" so it will match with the originalEntries
+		if strings.HasPrefix(entry, "active") {
+			entry = "cos"
+		}
 		for _, e := range originalEntries {
 			if strings.HasPrefix(e, entry) {
 				entry = e
@@ -129,7 +137,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 		cfg.Logger.Errorf("could not write loader.conf: %s", err)
 		return err
 	}
-	cfg.Logger.Infof("Default boot entry set to %s", entry)
+	cfg.Logger.Infof("Default boot entry set to %s", originalEntry)
 	return err
 }
 
@@ -208,6 +216,13 @@ func bootNameToSystemdConf(name string) (string, error) {
 		return "active" + differenciator + ".conf", nil
 	}
 
+	if strings.HasPrefix(name, "active") {
+		if name != "active" {
+			differenciator = "_" + strings.TrimPrefix(name, "active ")
+		}
+		return "active" + differenciator + ".conf", nil
+	}
+
 	if strings.HasPrefix(name, "fallback") {
 		if name != "fallback" {
 			differenciator = "_" + strings.TrimPrefix(name, "fallback ")
@@ -229,11 +244,28 @@ func bootNameToSystemdConf(name string) (string, error) {
 // and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
 func listBootEntriesSystemd(cfg *config.Config) error {
+	var err error
+	e := elemental.NewElemental(cfg)
+	cleanup := utils.NewCleanStack()
+	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
 	efiPartition, err := partitions.GetEfiPartition()
 	if err != nil {
 		return err
 	}
+	// mount if not mounted
+	if mounted, err := utils.IsMounted(cfg, efiPartition); !mounted && err == nil {
+		if efiPartition.MountPoint == "" {
+			efiPartition.MountPoint = cnst.EfiDir
+		}
+		err = e.MountPartition(efiPartition)
+		if err != nil {
+			cfg.Logger.Errorf("could not mount EFI partition: %s", err)
+			return err
+		}
+		cleanup.Push(func() error { return e.UnmountPartition(efiPartition) })
+	}
+
 	// Get default entry from loader.conf
 	loaderConf, err := utils.SystemdBootConfReader(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"))
 	if err != nil {
@@ -292,13 +324,15 @@ func listSystemdEntries(cfg *config.Config, efiPartition *v1.Partition) ([]strin
 
 // listGrubEntries reads the grub config files and returns a list of entries found
 func listGrubEntries(cfg *config.Config) ([]string, error) {
-	// Read grub config from 3 places
+	// Read grub config from 4 places
 	// /etc/cos/grub.cfg
 	// /run/initramfs/cos-state/grub/grub.cfg
+	// /run/initramfs/cos-state/grub2/grub.cfg
 	// /etc/kairos/branding/grubmenu.cfg
 	// And grep the entries by checking the --id\s([A-z0-9]*)\s{ pattern
+	// TODO: Check how to run this from livecd as it requires mounting state and grub?
 	var entries []string
-	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg"} {
+	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg", "/run/initramfs/cos-state/grub2/grub.cfg"} {
 		f, err := cfg.Fs.ReadFile(file)
 		if err != nil {
 			cfg.Logger.Errorf("could not read file %s: %s", file, err)
