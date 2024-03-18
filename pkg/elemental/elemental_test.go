@@ -36,7 +36,7 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs/vfst"
+	"github.com/twpayne/go-vfs/v4/vfst"
 	"k8s.io/mount-utils"
 )
 
@@ -55,7 +55,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	var runner *v1mock.FakeRunner
 	var logger sdkTypes.KairosLogger
 	var syscall v1.SyscallInterface
-	var client *v1mock.FakeHTTPClient
+	var cl *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
 	var fs *vfst.TestFS
 	var cleanup func()
@@ -65,8 +65,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		runner = v1mock.NewFakeRunner()
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
-		client = &v1mock.FakeHTTPClient{}
-		logger = sdkTypes.NewNullLogger()
+		cl = &v1mock.FakeHTTPClient{}
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		config = agentConfig.NewConfig(
@@ -75,7 +74,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			agentConfig.WithLogger(logger),
 			agentConfig.WithMounter(mounter),
 			agentConfig.WithSyscall(syscall),
-			agentConfig.WithClient(client),
+			agentConfig.WithClient(cl),
 			agentConfig.WithImageExtractor(extractor),
 		)
 	})
@@ -793,7 +792,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			fsutils.Exists(fs, filepath.Join(isoDir, "cOs.iso"))
 		})
 		It("Fails if it cant find the iso", func() {
-			iso := "whatever"
+			iso := "http://whatever"
+			cl.Error = true
 			e := elemental.NewElemental(config)
 			_, err := e.GetIso(iso)
 			Expect(err).ToNot(BeNil())

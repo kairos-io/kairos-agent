@@ -55,6 +55,8 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 		return nil
 	}
 
+	c.Logger.Logger.Debug().Msg("Running KcryptUKI hook")
+
 	// We always encrypt OEM and PERSISTENT under UKI
 	// If mounted, unmount it
 	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
@@ -188,5 +190,6 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 	}
 	syscall.Sync()
 	c.Logger.Debug("Logs copied to persistent partition")
+	c.Logger.Logger.Debug().Msg("Finish KcryptUKI hook")
 	return nil
 }

@@ -131,6 +131,7 @@ func (i InstallAction) Run() (err error) {
 	events.RunHookScript("/usr/bin/kairos-agent.install.pre.hook") //nolint:errcheck
 
 	// Set installation sources from a downloaded ISO
+
 	if i.spec.Iso != "" {
 		tmpDir, err := e.GetIso(i.spec.Iso)
 		if err != nil {

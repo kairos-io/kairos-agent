@@ -35,8 +35,8 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs"
-	"github.com/twpayne/go-vfs/vfst"
+	"github.com/twpayne/go-vfs/v4"
+	"github.com/twpayne/go-vfs/v4/vfst"
 )
 
 const printOutput = `BYT;
@@ -51,7 +51,7 @@ var _ = Describe("Install action tests", func() {
 	var logger sdkTypes.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
-	var client *v1mock.FakeHTTPClient
+	var cl *v1mock.FakeHTTPClient
 	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
 	var memLog *bytes.Buffer
@@ -62,7 +62,7 @@ var _ = Describe("Install action tests", func() {
 		runner = v1mock.NewFakeRunner()
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
-		client = &v1mock.FakeHTTPClient{}
+		cl = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
 		logger = sdkTypes.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
@@ -78,7 +78,7 @@ var _ = Describe("Install action tests", func() {
 			agentConfig.WithLogger(logger),
 			agentConfig.WithMounter(mounter),
 			agentConfig.WithSyscall(syscall),
-			agentConfig.WithClient(client),
+			agentConfig.WithClient(cl),
 			agentConfig.WithCloudInitRunner(cloudInit),
 			agentConfig.WithImageExtractor(extractor),
 		)
@@ -277,7 +277,7 @@ var _ = Describe("Install action tests", func() {
 			_, err := fs.Create(filepath.Join(constants.OEMDir, "90_custom.yaml"))
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(installer.Run()).To(BeNil())
-			Expect(client.WasGetCalledWith("http://my.config.org")).To(BeTrue())
+			Expect(cl.WasGetCalledWith("http://my.config.org")).To(BeTrue())
 		})
 
 		It("Fails if disk doesn't exist", Label("disk"), func() {
@@ -293,16 +293,21 @@ var _ = Describe("Install action tests", func() {
 		})
 
 		It("Fails to install from ISO if the ISO is not found", Label("iso"), func() {
-			spec.Iso = "nonexistingiso"
+			// Remove the ISO base tree so the mounted ISO is not found
+			err = fs.RemoveAll(constants.IsoBaseTree)
+			spec.Iso = "http://nonexistingiso"
 			spec.Target = device
+			cl.Error = true
 			Expect(installer.Run()).NotTo(BeNil())
+			Expect(cl.WasGetCalledWith("http://nonexistingiso")).To(BeTrue())
 		})
 
 		It("Fails to install from ISO as rsync can't find the temporary root tree", Label("iso"), func() {
 			fs.Create("cOS.iso")
-			spec.Iso = "cOS.iso"
+			spec.Iso = "http://cOS.iso"
 			spec.Target = device
-			Expect(installer.Run()).NotTo(BeNil())
+			err := installer.Run()
+			Expect(err).To(BeNil())
 			Expect(spec.Active.Source.Value()).To(ContainSubstring("/rootfs"))
 			Expect(spec.Active.Source.IsDir()).To(BeTrue())
 		})
@@ -358,9 +363,9 @@ var _ = Describe("Install action tests", func() {
 		It("Fails if requested remote cloud config can't be downloaded", Label("cloud-config"), func() {
 			spec.Target = device
 			spec.CloudInit = []string{"http://my.config.org"}
-			client.Error = true
+			cl.Error = true
 			Expect(installer.Run()).NotTo(BeNil())
-			Expect(client.WasGetCalledWith("http://my.config.org")).To(BeTrue())
+			Expect(cl.WasGetCalledWith("http://my.config.org")).To(BeTrue())
 		})
 
 		It("Fails on grub2-install errors", Label("grub"), func() {

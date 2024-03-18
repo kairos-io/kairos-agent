@@ -17,7 +17,9 @@ limitations under the License.
 package constants
 
 import (
+	"errors"
 	"os"
+	"strings"
 )
 
 const (
@@ -112,6 +114,10 @@ const (
 	UkiEfiDir         = "/efi"
 	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
 	UkiMaxEntries     = 3
+
+	// Boot labeling
+	PassiveBootSuffix  = " (fallback)"
+	RecoveryBootSuffix = " recovery"
 )
 
 func UkiDefaultSkipEntries() []string {
@@ -158,5 +164,27 @@ func GetConfigScanDirs() []string {
 		"/run/initramfs/live",
 		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
 		"/etc/elemental", // for backwards compatibility
+	}
+}
+
+func BaseBootTitle(title string) string {
+	if strings.HasSuffix(title, RecoveryBootSuffix) {
+		return strings.TrimSuffix(title, RecoveryBootSuffix)
+	} else if strings.HasSuffix(title, PassiveBootSuffix) {
+		return strings.TrimSuffix(title, PassiveBootSuffix)
+	}
+	return title
+}
+
+func BootTitleForRole(role, title string) (string, error) {
+	switch role {
+	case ActiveImgName:
+		return BaseBootTitle(title), nil
+	case PassiveImgName:
+		return BaseBootTitle(title) + PassiveBootSuffix, nil
+	case RecoveryImgName:
+		return BaseBootTitle(title) + RecoveryBootSuffix, nil
+	default:
+		return "", errors.New("invalid role")
 	}
 }

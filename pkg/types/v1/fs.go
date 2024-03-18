@@ -22,7 +22,7 @@ import (
 )
 
 type FS interface {
-	Open(name string) (*os.File, error)
+	Open(name string) (fs.File, error)
 	Chmod(name string, mode os.FileMode) error
 	Create(name string) (*os.File, error)
 	Mkdir(name string, perm os.FileMode) error
@@ -32,7 +32,7 @@ type FS interface {
 	ReadFile(filename string) ([]byte, error)
 	Readlink(name string) (string, error)
 	RawPath(name string) (string, error)
-	ReadDir(dirname string) ([]os.FileInfo, error)
+	ReadDir(dirname string) ([]fs.DirEntry, error)
 	Remove(name string) error
 	OpenFile(name string, flag int, perm fs.FileMode) (*os.File, error)
 	WriteFile(filename string, data []byte, perm os.FileMode) error

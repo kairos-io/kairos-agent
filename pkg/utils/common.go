@@ -23,6 +23,7 @@ import (
 	"fmt"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
+	"io/fs"
 	random "math/rand"
 	"net/url"
 	"os"
@@ -42,7 +43,7 @@ import (
 	"github.com/joho/godotenv"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/twpayne/go-vfs"
+	"github.com/twpayne/go-vfs/v4"
 )
 
 func CommandExists(command string) bool {
@@ -109,9 +110,8 @@ func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 		}
 	}()
 
-	var sourceFile *os.File
 	for _, source := range sources {
-		sourceFile, err = fs.Open(source)
+		sourceFile, err := fs.Open(source)
 		if err != nil {
 			break
 		}
@@ -163,6 +163,14 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 		}
 		if t, err := fs.RawPath(target); err == nil {
 			target = t
+			// create target path if it doesnt exists
+			if _, err := os.Stat(target); err != nil {
+				err = fsutils.MkdirAll(fs, target, cnst.DirPerm)
+				if err != nil {
+					log.Errorf("Error creating target path: %s", err.Error())
+					return err
+				}
+			}
 		}
 	}
 
@@ -401,6 +409,10 @@ func GetSource(config *agentConfig.Config, source string, destination string) er
 	}
 	if local {
 		u, _ := url.Parse(source)
+		_, err := config.Fs.Stat(u.Path)
+		if err != nil {
+			return fmt.Errorf("source %s does not exist", source)
+		}
 		err = CopyFile(config.Fs, u.Path, destination)
 		if err != nil {
 			config.Logger.Debugf("error copying source from %s to %s: %s\n", source, destination, err.Error())
@@ -451,7 +463,8 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 		}
 		for _, p := range prefixes {
 			if strings.HasPrefix(f.Name(), p) {
-				if f.Mode()&os.ModeSymlink == os.ModeSymlink {
+				info, _ := f.Info()
+				if info.Mode()&os.ModeSymlink == os.ModeSymlink {
 					found, err := fs.Readlink(filepath.Join(path, f.Name()))
 					if err == nil {
 						if !filepath.IsAbs(found) {
@@ -541,12 +554,12 @@ func UkiBootMode() state.Boot {
 
 // SystemdBootConfReader reads a systemd-boot conf file and returns a map with the key/value pairs
 // TODO: Move this to the sdk with the FS interface
-func SystemdBootConfReader(fs v1.FS, filePath string) (map[string]string, error) {
-	file, err := fs.Open(filePath)
+func SystemdBootConfReader(vfs v1.FS, filePath string) (map[string]string, error) {
+	file, err := vfs.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer func(file *os.File) {
+	defer func(file fs.File) {
 		_ = file.Close()
 	}(file)
 

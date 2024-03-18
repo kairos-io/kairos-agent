@@ -9,7 +9,8 @@ import (
 
 type Lifecycle struct{}
 
-func (s Lifecycle) Run(_ config.Config, spec v1.Spec) error {
+func (s Lifecycle) Run(c config.Config, spec v1.Spec) error {
+	c.Logger.Logger.Debug().Msg("Running Lifecycle hook")
 	if spec.ShouldReboot() {
 		time.Sleep(5)
 		utils.Reboot()
@@ -19,5 +20,6 @@ func (s Lifecycle) Run(_ config.Config, spec v1.Spec) error {
 		time.Sleep(5)
 		utils.PowerOFF()
 	}
+	c.Logger.Logger.Debug().Msg("Finish Lifecycle hook")
 	return nil
 }

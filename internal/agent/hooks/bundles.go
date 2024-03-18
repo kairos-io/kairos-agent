@@ -27,6 +27,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	// - umount the bind dir
 	// Note that the binding of /usr/local/.state/var-lib-extensions.bind to /var/lib/extensions on active/passive its done by inmmucore based on the
 	// 00_rootfs.yaml config which sets the bind and ephemeral paths.
+	c.Logger.Logger.Debug().Msg("Running BundlePostInstall hook")
 
 	machine.Mount("COS_PERSISTENT", "/usr/local") //nolint:errcheck
 	defer func() {
@@ -61,7 +62,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
-
+	c.Logger.Logger.Debug().Msg("Finish BundlePostInstall hook")
 	return nil
 }
 
@@ -69,10 +70,12 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 type BundleFirstBoot struct{}
 
 func (b BundleFirstBoot) Run(c config.Config, _ v1.Spec) error {
+	c.Logger.Logger.Debug().Msg("Running BundleFirstBoot hook")
 	opts := c.Bundles.Options()
 	err := bundles.RunBundles(opts...)
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
+	c.Logger.Logger.Debug().Msg("Finish BundleFirstBoot hook")
 	return nil
 }
