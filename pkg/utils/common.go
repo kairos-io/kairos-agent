@@ -163,6 +163,14 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 		}
 		if t, err := fs.RawPath(target); err == nil {
 			target = t
+			// create target path if it doesnt exists
+			if _, err := os.Stat(target); err != nil {
+				err = fsutils.MkdirAll(fs, target, cnst.DirPerm)
+				if err != nil {
+					log.Errorf("Error creating target path: %s", err.Error())
+					return err
+				}
+			}
 		}
 	}
 
@@ -401,6 +409,10 @@ func GetSource(config *agentConfig.Config, source string, destination string) er
 	}
 	if local {
 		u, _ := url.Parse(source)
+		_, err := config.Fs.Stat(u.Path)
+		if err != nil {
+			return fmt.Errorf("source %s does not exist", source)
+		}
 		err = CopyFile(config.Fs, u.Path, destination)
 		if err != nil {
 			config.Logger.Debugf("error copying source from %s to %s: %s\n", source, destination, err.Error())

@@ -397,10 +397,8 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(e).To(BeTrue())
 		})
 		It("Fails to open non existing file", func() {
-			err := fsutils.MkdirAll(fs, "/some", constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(utils.CopyFile(fs, "/some/file", "/some/otherfile")).NotTo(BeNil())
-			_, err = fs.Stat("/some/otherfile")
+			Expect(utils.CopyFile(fs, "file:/file", "/some/otherfile")).NotTo(BeNil())
+			_, err := fs.Stat("/some/otherfile")
 			Expect(err).NotTo(BeNil())
 		})
 		It("Fails to copy on non writable target", func() {
@@ -549,10 +547,10 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir)).To(BeNil())
 		})
 		It("should NOT fail if destination does not exist", func() {
-			sourceDir, err := os.MkdirTemp("", "elemental")
-			err = os.WriteFile(filepath.Join(sourceDir, "testfile"), []byte("sdjfnsdjkfjkdsanfkjsnda"), os.ModePerm)
+			sourceDir, err := fsutils.TempDir(fs, "", "elemental")
+			err = fs.WriteFile(filepath.Join(sourceDir, "testfile"), []byte("sdjfnsdjkfjkdsanfkjsnda"), os.ModePerm)
 			Expect(err).ToNot(HaveOccurred())
-			err = utils.SyncData(logger, realRunner, nil, sourceDir, "/welp")
+			err = utils.SyncData(logger, realRunner, fs, sourceDir, "/welp")
 			Expect(err).To(BeNil())
 		})
 		It("should fail if source does not exist", func() {
