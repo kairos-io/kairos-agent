@@ -25,7 +25,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
-	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
+	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
 	github.com/mudler/yip v1.5.0
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.15.0
@@ -126,6 +126,7 @@ require (
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/makiuchi-d/gozxing v0.1.1 // indirect
@@ -156,6 +157,7 @@ require (
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/qeesung/image2ascii v1.0.1 // indirect
 	github.com/rancher-sandbox/linuxkit v1.0.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
@@ -164,6 +166,8 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
+	github.com/shirou/gopsutil/v3 v3.23.7 // indirect
+	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
@@ -176,6 +180,8 @@ require (
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/swaggest/jsonschema-go v0.3.62 // indirect
 	github.com/swaggest/refl v1.3.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.11 // indirect
+	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -189,6 +195,7 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	github.com/zcalusic/sysinfo v1.0.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
