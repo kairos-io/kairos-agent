@@ -14,7 +14,7 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/distribution/distribution v2.8.3+incompatible
 	github.com/erikgeiser/promptkit v0.9.0
-	github.com/google/go-containerregistry v0.17.0
+	github.com/google/go-containerregistry v0.19.1
 	github.com/google/go-github/v40 v40.0.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
@@ -31,6 +31,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
 	github.com/pterm/pterm v0.12.65
+	github.com/rs/zerolog v1.32.0
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.16.0
@@ -153,7 +154,6 @@ require (
 	github.com/qeesung/image2ascii v1.0.1 // indirect
 	github.com/rancher-sandbox/linuxkit v1.0.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.37.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
