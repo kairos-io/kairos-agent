@@ -1,6 +1,8 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.19
+go 1.21
+
+toolchain go1.22.1
 
 // This versions require go1.20
 replace (
@@ -43,7 +45,7 @@ require (
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/mount-utils v0.27.4
+	k8s.io/mount-utils v0.29.3
 )
 
 require (
@@ -210,8 +212,8 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	howett.net/plist v1.0.0 // indirect
 	k8s.io/apimachinery v0.26.2 // indirect
-	k8s.io/klog/v2 v2.90.1 // indirect
-	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
+	k8s.io/klog/v2 v2.110.1 // indirect
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	pault.ag/go/modprobe v0.1.2 // indirect
 	pault.ag/go/topsort v0.1.1 // indirect
 )
