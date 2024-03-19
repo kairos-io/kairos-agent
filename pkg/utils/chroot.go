@@ -49,6 +49,7 @@ func NewChroot(path string, config *agentConfig.Config) *Chroot {
 
 // ChrootedCallback runs the given callback in a chroot environment
 func ChrootedCallback(cfg *agentConfig.Config, path string, bindMounts map[string]string, callback func() error) error {
+	cfg.Logger.Debugf("Extra mounts: %v", bindMounts)
 	chroot := NewChroot(path, cfg)
 	chroot.SetExtraMounts(bindMounts)
 	return chroot.RunCallback(callback)
@@ -78,6 +79,7 @@ func (c *Chroot) Prepare() error {
 	}()
 
 	for _, mnt := range c.defaultMounts {
+		c.config.Logger.Debugf("Mounting %s to chroot", mnt)
 		mountPoint := fmt.Sprintf("%s%s", strings.TrimSuffix(c.path, "/"), mnt)
 		err = fsutils.MkdirAll(c.config.Fs, mountPoint, constants.DirPerm)
 		if err != nil {
@@ -88,6 +90,7 @@ func (c *Chroot) Prepare() error {
 			return err
 		}
 		c.activeMounts = append(c.activeMounts, mountPoint)
+		c.config.Logger.Debugf("Mounted %s to %s", mnt, mountPoint)
 	}
 
 	for k := range c.extraMounts {
@@ -95,6 +98,7 @@ func (c *Chroot) Prepare() error {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
+		c.config.Logger.Debugf("Mounting %s to chroot", k)
 		mountPoint := fmt.Sprintf("%s%s", strings.TrimSuffix(c.path, "/"), c.extraMounts[k])
 		err = fsutils.MkdirAll(c.config.Fs, mountPoint, constants.DirPerm)
 		if err != nil {
@@ -105,6 +109,7 @@ func (c *Chroot) Prepare() error {
 			return err
 		}
 		c.activeMounts = append(c.activeMounts, mountPoint)
+		c.config.Logger.Debugf("Mounted %s to %s", k, mountPoint)
 	}
 
 	return nil
@@ -122,6 +127,7 @@ func (c *Chroot) Close() error {
 			c.config.Logger.Errorf("Error unmounting %s: %s", curr, err)
 			failures = append(failures, curr)
 		}
+
 	}
 	if len(failures) > 0 {
 		c.activeMounts = failures
@@ -133,6 +139,7 @@ func (c *Chroot) Close() error {
 // RunCallback runs the given callback in a chroot environment
 func (c *Chroot) RunCallback(callback func() error) (err error) {
 	var currentPath string
+	var oldRootF *os.File
 
 	// Store current path
 	currentPath, err = os.Getwd()
@@ -148,11 +155,12 @@ func (c *Chroot) RunCallback(callback func() error) (err error) {
 	}()
 
 	// Store current root
-	rootPath, _ := c.config.Fs.RawPath("/")
+	oldRootF, err = c.config.Fs.OpenFile("/", os.O_RDONLY, 0)
 	if err != nil {
 		c.config.Logger.Errorf("Can't open current root")
 		return err
 	}
+	defer oldRootF.Close()
 
 	if len(c.activeMounts) == 0 {
 		err = c.Prepare()
@@ -182,7 +190,7 @@ func (c *Chroot) RunCallback(callback func() error) (err error) {
 
 	// Restore to old root
 	defer func() {
-		tmpErr := os.Chdir(rootPath)
+		tmpErr := oldRootF.Chdir()
 		if tmpErr != nil {
 			c.config.Logger.Errorf("Can't change to old root dir")
 			if err == nil {
