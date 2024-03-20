@@ -28,7 +28,7 @@ import (
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func displayInfo(agentConfig *Config) {
