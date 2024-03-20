@@ -351,7 +351,7 @@ enabled: true`,
 				Description: "It allows to navigate the YAML config file by searching with 'yq' style keywords as `config get k3s` to retrieve the k3s config block",
 				Aliases:     []string{"g"},
 				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					config, err := agentConfig.ScanNoLogs(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 					if err != nil {
 						return err
 					}

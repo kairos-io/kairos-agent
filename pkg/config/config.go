@@ -329,10 +329,22 @@ func FilterKeys(d []byte) ([]byte, error) {
 	return out, nil
 }
 
-func Scan(opts ...collector.Option) (c *Config, err error) {
-	// Init new config with some default options
-	result := NewConfig()
+// ScanNoLogs is a wrapper around Scan that sets the logger to null
+func ScanNoLogs(opts ...collector.Option) (c *Config, err error) {
+	log := sdkTypes.NewNullLogger()
+	result := NewConfig(WithLogger(log))
+	return scan(result, opts...)
+}
 
+// Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger
+func Scan(opts ...collector.Option) (c *Config, err error) {
+	result := NewConfig()
+	return scan(result, opts...)
+}
+
+// scan is the internal function that does the actual scanning of the configs
+func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
+	// Init new config with some default options
 	o := &collector.Options{}
 	if err := o.Apply(opts...); err != nil {
 		return result, err
