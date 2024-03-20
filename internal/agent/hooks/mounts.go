@@ -11,7 +11,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/mudler/yip/pkg/schema"
 	yip "github.com/mudler/yip/pkg/schema"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v3"
 )
 
 type CustomMounts struct{}
