@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
 	random "math/rand"
 	"net/url"
@@ -31,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/kairos-io/kairos-sdk/state"
 
@@ -437,37 +438,15 @@ func ValidTaggedContainerReference(ref string) bool {
 	return true
 }
 
+func FindFileWithPrefixRecursively(fs v1.FS, path string, prefixes ...string) (string, error) {
+	return findFileWithPrefix(true, fs, filepath.Join(path, path), prefixes...)
+}
+
 // FindFileWithPrefix looks for a file in the given path matching one of the given
 // prefixes. Returns the found file path including the given path. It does not
 // check subfolders recusively
 func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, error) {
-	files, err := fs.ReadDir(path)
-	if err != nil {
-		return "", err
-	}
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		for _, p := range prefixes {
-			if strings.HasPrefix(f.Name(), p) {
-				if f.Mode()&os.ModeSymlink == os.ModeSymlink {
-					found, err := fs.Readlink(filepath.Join(path, f.Name()))
-					if err == nil {
-						if !filepath.IsAbs(found) {
-							found = filepath.Join(path, found)
-						}
-						if exists, _ := fsutils.Exists(fs, found); exists {
-							return found, nil
-						}
-					}
-				} else {
-					return filepath.Join(path, f.Name()), nil
-				}
-			}
-		}
-	}
-	return "", fmt.Errorf("No file found with prefixes: %v", prefixes)
+	return findFileWithPrefix(false, fs, filepath.Join(path, path), prefixes...)
 }
 
 // CalcFileChecksum opens the given file and returns the sha256 checksum of it.
@@ -594,4 +573,40 @@ func SystemdBootConfWriter(fs v1.FS, filePath string, conf map[string]string) er
 	}
 
 	return writer.Flush()
+}
+
+func findFileWithPrefix(recursively bool, fs v1.FS, path string, prefixes ...string) (string, error) {
+	files, err := fs.ReadDir(path)
+	if err != nil {
+		return "", err
+	}
+	for _, f := range files {
+		if f.IsDir() {
+			if recursively {
+				f, err := findFileWithPrefix(recursively, fs, filepath.Join(path, f.Name()), prefixes...)
+				if err == nil {
+					return f, nil
+				}
+			}
+			continue
+		}
+		for _, p := range prefixes {
+			if strings.HasPrefix(f.Name(), p) {
+				if f.Mode()&os.ModeSymlink == os.ModeSymlink {
+					found, err := fs.Readlink(filepath.Join(path, f.Name()))
+					if err == nil {
+						if !filepath.IsAbs(found) {
+							found = filepath.Join(path, found)
+						}
+						if exists, _ := fsutils.Exists(fs, found); exists {
+							return found, nil
+						}
+					}
+				} else {
+					return filepath.Join(path, f.Name()), nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("No file found with prefixes: %v", prefixes)
 }
