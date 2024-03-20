@@ -19,10 +19,11 @@ package elemental
 import (
 	"errors"
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"strings"
+
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -560,12 +561,12 @@ func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint stri
 func (e Elemental) FindKernelInitrd(rootDir string) (kernel string, initrd string, err error) {
 	kernelNames := []string{"uImage", "Image", "zImage", "vmlinuz", "image"}
 	initrdNames := []string{"initrd", "initramfs"}
-	kernel, err = utils.FindFileWithPrefix(e.config.Fs, filepath.Join(rootDir, "boot"), kernelNames...)
+	kernel, err = utils.FindFileWithPrefixRecursively(e.config.Fs, filepath.Join(rootDir, "boot"), kernelNames...)
 	if err != nil {
 		e.config.Logger.Errorf("No Kernel file found")
 		return "", "", err
 	}
-	initrd, err = utils.FindFileWithPrefix(e.config.Fs, filepath.Join(rootDir, "boot"), initrdNames...)
+	initrd, err = utils.FindFileWithPrefixRecursively(e.config.Fs, filepath.Join(rootDir, "boot"), initrdNames...)
 	if err != nil {
 		e.config.Logger.Errorf("No initrd file found")
 		return "", "", err
