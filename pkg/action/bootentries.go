@@ -85,7 +85,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 	originalEntries := entries
 	// when there are only 3 entries, we can assume they are either cos (which will be replaced eventually), fallback or recovery
 	if len(entries) == 3 {
-		entries = []string{"cos", "fallback", "recovery"}
+		entries = []string{"cos", "fallback", "recovery", "autoreset"}
 	}
 
 	// Check that entry exists in the entries list
@@ -203,6 +203,17 @@ func systemdConfToBootName(conf string) (string, error) {
 		return bootName, nil
 	}
 
+	if strings.HasPrefix(conf, "autoreset") {
+		bootName := "auto reset"
+		confName := strings.TrimPrefix(fileName, "autoreset")
+
+		if confName != "" {
+			bootName = bootName + " " + strings.Trim(confName, "_")
+		}
+
+		return bootName, nil
+	}
+
 	return "", fmt.Errorf("unknown systemd-boot conf: %s", conf)
 }
 
@@ -235,6 +246,14 @@ func bootNameToSystemdConf(name string) (string, error) {
 			differenciator = "_" + strings.TrimPrefix(name, "recovery ")
 		}
 		return "recovery" + differenciator + ".conf", nil
+	}
+
+	if strings.HasPrefix(name, "autoreset") {
+		if name != "autoreset" {
+			differenciator = "_" + strings.TrimPrefix(name, "autoreset ")
+		}
+		return "autoreset" + differenciator + ".conf", nil
+
 	}
 
 	return "", fmt.Errorf("unknown boot name: %s", name)
