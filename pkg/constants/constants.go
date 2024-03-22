@@ -83,6 +83,7 @@ const (
 	ActiveImgName           = "active"
 	PassiveImgName          = "passive"
 	RecoveryImgName         = "recovery"
+	AutoResetEntryName      = "autoreset"
 	GPT                     = "gpt"
 	UsrLocalPath            = "/usr/local"
 	OEMPath                 = "/oem"
@@ -172,6 +173,8 @@ func BaseBootTitle(title string) string {
 		return strings.TrimSuffix(title, RecoveryBootSuffix)
 	} else if strings.HasSuffix(title, PassiveBootSuffix) {
 		return strings.TrimSuffix(title, PassiveBootSuffix)
+	} else if strings.HasSuffix(title, AutoResetEntryName) {
+		return strings.TrimSuffix(title, AutoResetEntryName)
 	}
 	return title
 }
@@ -184,6 +187,8 @@ func BootTitleForRole(role, title string) (string, error) {
 		return BaseBootTitle(title) + PassiveBootSuffix, nil
 	case RecoveryImgName:
 		return BaseBootTitle(title) + RecoveryBootSuffix, nil
+	case AutoResetEntryName:
+		return BaseBootTitle(title) + " " + AutoResetEntryName, nil
 	default:
 		return "", errors.New("invalid role")
 	}
