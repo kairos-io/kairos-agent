@@ -4,7 +4,9 @@ import (
 	"fmt"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"time"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -17,6 +19,17 @@ import (
 
 // Run starts the agent provider emitting the bootstrap event.
 func Run(opts ...Option) error {
+	// capture ctrl+c and exit cleanly
+	channel := make(chan os.Signal, 1)
+	signal.Notify(channel, os.Interrupt)
+	go func() {
+		for sig := range channel {
+			// sig is a ^C, handle it
+			fmt.Printf("Got %s signal, exiting\n", sig)
+			os.Exit(1)
+		}
+	}()
+
 	o := &Options{}
 	if err := o.Apply(opts...); err != nil {
 		return err
@@ -25,7 +38,7 @@ func Run(opts ...Option) error {
 	os.MkdirAll("/usr/local/.kairos", 0600) //nolint:errcheck
 
 	// Reads config
-	c, err := config.Scan(collector.Directories(o.Dir...))
+	c, err := config.Scan(collector.Directories(o.Dir...), collector.NoLogs)
 	if err != nil {
 		return err
 	}
@@ -79,5 +92,7 @@ func Run(opts ...Option) error {
 		fmt.Println("Warning: Agent failed, restarting: ", err.Error())
 		return Run(opts...)
 	}
-	return err
+	fmt.Printf("Nothing done, sleeping 10 seconds and checking again\n")
+	time.Sleep(10 * time.Second)
+	return Run(opts...)
 }
