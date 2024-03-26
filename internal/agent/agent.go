@@ -1,18 +1,17 @@
 package agent
 
 import (
-	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"os"
-	"path/filepath"
-
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"github.com/kairos-io/kairos-sdk/utils"
+	"github.com/spf13/viper"
+	"os"
 )
 
 // Run starts the agent provider emitting the bootstrap event.
@@ -29,30 +28,25 @@ func Run(opts ...Option) error {
 	if err != nil {
 		return err
 	}
+	// Recreate the logger with a different name
+	c.Logger = sdkTypes.NewKairosLogger("agent-provider", "info", false)
+	if viper.GetBool("debug") {
+		c.Logger.SetLevel("debug")
+	}
 
 	utils.SetEnv(c.Env)
 	bf := machine.BootFrom()
 	if c.Install != nil && c.Install.Auto && (bf == machine.NetBoot || bf == machine.LiveCDBoot) {
 		// Don't go ahead if we are asked to install from a booting live medium
-		fmt.Println("Agent run aborted. Installation being performed from live medium")
+		c.Logger.Info("Agent run aborted. Installation being performed from live medium")
 		return nil
 	}
 
-	os.MkdirAll("/var/log/kairos", 0600) //nolint:errcheck
-
-	fileName := filepath.Join("/var/log/kairos", "agent-provider.log")
-
-	// Create if not exist
-	if _, err := os.Stat(fileName); err != nil {
-		err = os.WriteFile(fileName, []byte{}, os.ModePerm)
-		if err != nil {
-			return err
-		}
-	}
-
 	if !machine.SentinelExist("firstboot") {
+		c.Logger.Info("First boot detected, running first boot hooks")
 		spec := v1.EmptySpec{}
 		if err := hook.Run(*c, &spec, hook.FirstBoot...); err != nil {
+			c.Logger.Error("First boot hooks failed: ", err)
 			return err
 		}
 
@@ -60,6 +54,7 @@ func Run(opts ...Option) error {
 		bus.Reload()
 		err = machine.CreateSentinel("firstboot")
 		if c.FailOnBundleErrors && err != nil {
+			c.Logger.Error("Failed to create firstboot sentinel: ", err)
 			return err
 		}
 
@@ -73,10 +68,10 @@ func Run(opts ...Option) error {
 	if err != nil {
 		panic(err)
 	}
-	_, err = bus.Manager.Publish(events.EventBootstrap, events.BootstrapPayload{APIAddress: o.APIAddress, Config: configStr, Logfile: fileName})
+	_, err = bus.Manager.Publish(events.EventBootstrap, events.BootstrapPayload{APIAddress: o.APIAddress, Config: configStr})
 
 	if o.Restart && err != nil {
-		fmt.Println("Warning: Agent failed, restarting: ", err.Error())
+		c.Logger.Warnf("Warning: Agent failed, restarting: %s", err.Error())
 		return Run(opts...)
 	}
 	return err
