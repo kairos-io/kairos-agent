@@ -143,7 +143,7 @@ func (i *InstallAction) Run() (err error) {
 		return err
 	}
 
-	for _, role := range constants.UkiDefaultMenuEntries() {
+	for _, role := range []string{"active", "passive", "recovery", "statereset"} {
 		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
 			i.cfg.Logger.Errorf("installing the new artifact set as %s: %s", role, err.Error())
 			return fmt.Errorf("installing the new artifact set as %s: %w", role, err)
