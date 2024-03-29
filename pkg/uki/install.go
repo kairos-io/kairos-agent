@@ -2,10 +2,11 @@ package uki
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -142,7 +143,7 @@ func (i *InstallAction) Run() (err error) {
 		return err
 	}
 
-	for _, role := range []string{"active", "passive", "recovery", "autoreset"} {
+	for _, role := range constants.UkiDefaultMenuEntries() {
 		if err = copyArtifactSetRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole, role, i.cfg.Logger); err != nil {
 			i.cfg.Logger.Errorf("installing the new artifact set as %s: %s", role, err.Error())
 			return fmt.Errorf("installing the new artifact set as %s: %w", role, err)

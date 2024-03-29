@@ -114,13 +114,16 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/recovery.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/autoreset.conf", []byte("title kairos autoreset\nefi /EFI/kairos/autoreset.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
 
 				entries, err := listSystemdEntries(config, &v1.Partition{MountPoint: "/efi"})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(entries).To(HaveLen(3))
+				Expect(entries).To(HaveLen(4))
 				Expect(entries).To(ContainElement("cos"))
 				Expect(entries).To(ContainElement("fallback"))
 				Expect(entries).To(ContainElement("recovery"))
+				Expect(entries).To(ContainElement("autoreset"))
 
 			})
 			It("list empty boot entries if there is none", func() {
@@ -142,6 +145,8 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/recovery.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/autoreset.conf", []byte("title kairos autoreset\nefi /EFI/kairos/autoreset.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -173,6 +178,27 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(reader["default"]).To(Equal("recovery.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+
+				err = SelectBootEntry(config, "autoreset")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to autoreset"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("autoreset.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -239,6 +265,8 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/recovery_install-mode_awesomeos.conf", []byte("title awesomeos recovery\nefi /EFI/kairos/recovery_install-mode_awesomeos.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/autoreset_install-mode_awesomeos.conf", []byte("title awesomeos autoreset\nefi /EFI/kairos/autoreset_install-mode_awesomeos.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -269,6 +297,27 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(reader["default"]).To(Equal("recovery_install-mode_awesomeos.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+
+				err = SelectBootEntry(config, "autoreset")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to autoreset"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("autoreset_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -340,6 +389,10 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = fs.WriteFile("/efi/loader/entries/recovery.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/recovery_foobar.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery_foobar.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/autoreset.conf", []byte("title Kairos autoreset\nefi /EFI/kairos/autoreset.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/autoreset_foobar.conf", []byte("title Kairos autoreset\nefi /EFI/kairos/autoreset_foobar.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -413,6 +466,48 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(reader["default"]).To(Equal("recovery_foobar.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+
+				err = SelectBootEntry(config, "autoreset")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to autoreset"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("autoreset.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+
+				err = SelectBootEntry(config, "autoreset foobar")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to autoreset foobar"))
+				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("autoreset_foobar.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",

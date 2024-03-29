@@ -121,6 +121,10 @@ const (
 	RecoveryBootSuffix = " recovery"
 )
 
+func UkiDefaultMenuEntries() []string {
+	return []string{"cos", "fallback", "recovery", "autoreset"}
+}
+
 func UkiDefaultSkipEntries() []string {
 	return []string{"interactive-install", "install-mode-interactive"}
 }

@@ -83,9 +83,9 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 
 	}
 	originalEntries := entries
-	// when there are only 3 entries, we can assume they are either cos (which will be replaced eventually), fallback or recovery
-	if len(entries) == 3 {
-		entries = []string{"cos", "fallback", "recovery", "autoreset"}
+	// when there are only 4 entries, we can assume they are either cos (which will be replaced eventually), fallback, recovery or autoreset
+	if len(entries) == len(cnst.UkiDefaultMenuEntries()) {
+		entries = cnst.UkiDefaultMenuEntries()
 	}
 
 	// Check that entry exists in the entries list
@@ -204,7 +204,7 @@ func systemdConfToBootName(conf string) (string, error) {
 	}
 
 	if strings.HasPrefix(conf, "autoreset") {
-		bootName := "auto reset"
+		bootName := "autoreset"
 		confName := strings.TrimPrefix(fileName, "autoreset")
 
 		if confName != "" {
