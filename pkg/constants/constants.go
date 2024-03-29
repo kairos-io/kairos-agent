@@ -83,7 +83,7 @@ const (
 	ActiveImgName           = "active"
 	PassiveImgName          = "passive"
 	RecoveryImgName         = "recovery"
-	AutoResetEntryName      = "autoreset"
+	StateResetImgName       = "statereset"
 	GPT                     = "gpt"
 	UsrLocalPath            = "/usr/local"
 	OEMPath                 = "/oem"
@@ -117,9 +117,14 @@ const (
 	UkiMaxEntries     = 3
 
 	// Boot labeling
-	PassiveBootSuffix  = " (fallback)"
-	RecoveryBootSuffix = " recovery"
+	PassiveBootSuffix    = " (fallback)"
+	RecoveryBootSuffix   = " recovery"
+	StateResetBootSuffix = " state reset (auto)"
 )
+
+func UkiDefaultMenuEntries() []string {
+	return []string{"cos", "fallback", "recovery", "statereset"}
+}
 
 func UkiDefaultSkipEntries() []string {
 	return []string{"interactive-install", "install-mode-interactive"}
@@ -173,8 +178,8 @@ func BaseBootTitle(title string) string {
 		return strings.TrimSuffix(title, RecoveryBootSuffix)
 	} else if strings.HasSuffix(title, PassiveBootSuffix) {
 		return strings.TrimSuffix(title, PassiveBootSuffix)
-	} else if strings.HasSuffix(title, AutoResetEntryName) {
-		return strings.TrimSuffix(title, AutoResetEntryName)
+	} else if strings.HasSuffix(title, StateResetBootSuffix) {
+		return strings.TrimSuffix(title, StateResetBootSuffix)
 	}
 	return title
 }
@@ -187,8 +192,8 @@ func BootTitleForRole(role, title string) (string, error) {
 		return BaseBootTitle(title) + PassiveBootSuffix, nil
 	case RecoveryImgName:
 		return BaseBootTitle(title) + RecoveryBootSuffix, nil
-	case AutoResetEntryName:
-		return BaseBootTitle(title) + " " + AutoResetEntryName, nil
+	case StateResetImgName:
+		return BaseBootTitle(title) + StateResetBootSuffix, nil
 	default:
 		return "", errors.New("invalid role")
 	}
