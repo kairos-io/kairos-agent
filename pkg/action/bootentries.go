@@ -203,9 +203,9 @@ func systemdConfToBootName(conf string) (string, error) {
 		return bootName, nil
 	}
 
-	if strings.HasPrefix(conf, "autoreset") {
-		bootName := "autoreset"
-		confName := strings.TrimPrefix(fileName, "autoreset")
+	if strings.HasPrefix(conf, "statereset") {
+		bootName := "statereset"
+		confName := strings.TrimPrefix(fileName, "statereset")
 
 		if confName != "" {
 			bootName = bootName + " " + strings.Trim(confName, "_")
@@ -248,11 +248,11 @@ func bootNameToSystemdConf(name string) (string, error) {
 		return "recovery" + differenciator + ".conf", nil
 	}
 
-	if strings.HasPrefix(name, "autoreset") {
-		if name != "autoreset" {
-			differenciator = "_" + strings.TrimPrefix(name, "autoreset ")
+	if strings.HasPrefix(name, "statereset") {
+		if name != "statereset" {
+			differenciator = "_" + strings.TrimPrefix(name, "statereset ")
 		}
-		return "autoreset" + differenciator + ".conf", nil
+		return "statereset" + differenciator + ".conf", nil
 
 	}
 
