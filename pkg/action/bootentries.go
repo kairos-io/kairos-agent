@@ -83,7 +83,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 
 	}
 	originalEntries := entries
-	// when there are only 4 entries, we can assume they are either cos (which will be replaced eventually), fallback, recovery or autoreset
+	// when there are only 4 entries, we can assume they are either cos (which will be replaced eventually), fallback, recovery or statereset
 	if len(entries) == len(cnst.UkiDefaultMenuEntries()) {
 		entries = cnst.UkiDefaultMenuEntries()
 	}
