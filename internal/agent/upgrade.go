@@ -112,7 +112,7 @@ func allReleases() (versioneer.TagList, error) {
 		return tagList, err
 	}
 
-	return tagList.OtherAnyVersion().RSorted(), nil
+	return tagList.OtherAnyVersion().Images().RSorted(), nil
 }
 
 func newerReleases() (versioneer.TagList, error) {
@@ -130,7 +130,7 @@ func newerReleases() (versioneer.TagList, error) {
 	if err != nil {
 		return tagList, err
 	}
-	return tagList.NewerAnyVersion().RSorted(), nil
+	return tagList.NewerAnyVersion().Images().RSorted(), nil
 }
 
 // generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
