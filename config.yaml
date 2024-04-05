@@ -21,15 +21,13 @@ stages:
     commands:
       - |
         parted --script --machine -- "/dev/vdb" mklabel gpt
+        sgdisk --new=1:2048:+1M --change-name=1:'bios' --typecode=1:EF02 /dev/vdb # for grub
         #parted --script "/dev/vdb" mkpart primary fat32 0 1MB
         #mkfs.fat32 -L COS_GRUB /dev/vdb1
     layout:
       device:
         path: "/dev/vdb"
       add_partitions:
-        - fsLabel: COS_GRUB
-          size: 1
-          pLabel: grub
         - fsLabel: COS_OEM
           size: 64
           pLabel: oem

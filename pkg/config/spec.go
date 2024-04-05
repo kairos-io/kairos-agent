@@ -18,12 +18,13 @@ package config
 
 import (
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/jaypipes/ghw"
@@ -580,6 +581,7 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	fmt.Printf("installSpec after = %+v\n", installSpec)
 
 	fmt.Printf("!!!!!()()()()()!!!! installSPec.Target = %+v\n", installSpec.Target)
+	fmt.Printf("!!!!!()()()()()!!!! c.Install.Device = %+v\n", c.Install.Device)
 
 	// Workaround!
 	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
@@ -588,11 +590,22 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	// What device was choosen, and re-choosing again could lead to different results
 	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
 	// as its the soonest we have access to both
-	// if installSpec.Target == "auto" {
-	// 	fmt.Printf("!!!!!!! installSpec.Target = %+v\n", installSpec.Target)
-	// 	fmt.Printf("!!!!!!! c.Install.Device = %+v\n", c.Install.Device)
-	// 	installSpec.Target = c.Install.Device
+	if installSpec.Target == "auto" {
+		// fmt.Printf("!!!!!!! installSpec.Target = %+v\n", installSpec.Target)
+		// fmt.Printf("!!!!!!! c.Install.Device = %+v\n", c.Install.Device)
+		installSpec.Target = c.Install.Device
+	}
+
+	// if installSpec.Target == "" {
+	// 	device, err := DetectPreConfiguredDevice(c.Logger)
+	// 	if err != nil {
+	// 		return installSpec, err
+	// 	}
+	// 	installSpec.Target = device
 	// }
+
+	// fmt.Printf("!!!!!(after)()()()()!!!! installSPec.Target = %+v\n", installSpec.Target)
+	// fmt.Printf("!!!!!(after)()()()()!!!! c.Install.Device = %+v\n", c.Install.Device)
 	return installSpec, nil
 }
 
@@ -1017,27 +1030,22 @@ func detectLargestDevice() string {
 	return preferedDevice
 }
 
-// detectPreConfiguredDevice returns a disk that has partitions labeled with
+// DetectPreConfiguredDevice returns a disk that has partitions labeled with
 // Kairos labels. It can be used to detect a pre-configured device.
-func detectPreConfiguredDevice(logger v1.Logger) string {
+func DetectPreConfiguredDevice(logger sdkTypes.KairosLogger) (string, error) {
 	block, err := ghw.Block()
 	if err != nil {
 		logger.Errorf("failed getting block devices: %w", err)
-		return ""
+		return "", err
 	}
 
-	fmt.Println("!!!!!***!!!! detecting preconfigured")
 	for _, disk := range block.Disks {
-		fmt.Printf("!!!!!!!!!!!!!!! disk = %+v\n", disk)
 		for _, p := range disk.Partitions {
-			fmt.Printf("!!!!!!!!!!!!!!!! p = %+v\n", p)
-			fmt.Printf("p.FilesystemLabel = %+v\n", p.FilesystemLabel)
-			fmt.Printf("p.Label = %+v\n", p.Label)
 			if p.FilesystemLabel == "COS_STATE" {
-				return disk.Name
+				return filepath.Join("/", "dev", disk.Name), nil
 			}
 		}
 	}
 
-	return ""
+	return "", nil
 }

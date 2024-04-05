@@ -149,8 +149,18 @@ func (i InstallAction) Run() (err error) {
 		fmt.Println("!!!!!!!!!!!! won't format")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
+		fmt.Printf("!!!! check active deployment = %+v\n", e.CheckActiveDeployment(labels))
 		if e.CheckActiveDeployment(labels) && !i.spec.Force {
 			return fmt.Errorf("use `force` flag to run an installation over the current running deployment")
+		}
+
+		if i.spec.Target == "" {
+			device, err := config.DetectPreConfiguredDevice(i.cfg.Logger)
+			if err != nil {
+				return fmt.Errorf("no target device specified and no device found: %s", err)
+			}
+			fmt.Printf("!!! device = %+v\n", device)
+			i.spec.Target = device
 		}
 	} else {
 		// Deactivate any active volume on target
