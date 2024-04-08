@@ -281,6 +281,8 @@ github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwA
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/kairos-io/kairos-sdk v0.0.28 h1:vjIUo3uSb6xNbr027XlyOaS0NzIIMXdCB2AzluBFV2o=
+github.com/kairos-io/kairos-sdk v0.0.28/go.mod h1:btSB2QAds/WSyIyPxnQ3jueMbkkZ75pHUUCj+yHpthQ=
 github.com/kairos-io/kcrypt v0.9.1 h1:bMDXZ8MiPY/fgLe5CXQPfUIRchzxErlJ8nfZM/JPfEU=
 github.com/kairos-io/kcrypt v0.9.1/go.mod h1:odsVL3ab2GJUgDnvDGJi54jrWUe6tjfW9875knT/ltU=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=

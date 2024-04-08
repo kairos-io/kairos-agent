@@ -4,7 +4,6 @@ go 1.19
 
 // This versions require go1.20
 replace (
-	github.com/kairos-io/kairos-sdk => /home/dimitris/workspace/kairos/kairos-sdk
 	github.com/onsi/ginkgo/v2 v2.15.0 => github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.31.1 => github.com/onsi/gomega v1.28.0
 )
