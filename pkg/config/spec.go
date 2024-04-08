@@ -1035,7 +1035,7 @@ func detectLargestDevice() string {
 func DetectPreConfiguredDevice(logger sdkTypes.KairosLogger) (string, error) {
 	block, err := ghw.Block()
 	if err != nil {
-		logger.Errorf("failed getting block devices: %w", err)
+		logger.Errorf("failed getting block devices: %s", err.Error())
 		return "", err
 	}
 
