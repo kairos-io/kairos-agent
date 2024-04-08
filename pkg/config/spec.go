@@ -567,24 +567,8 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	}
 	installSpec := sp.(*v1.InstallSpec)
 
-	// TODO: Do the same for UKI
-	if installSpec.Target == "" || installSpec.Target == "auto" {
+	if (installSpec.Target == "" || installSpec.Target == "auto") && !installSpec.NoFormat {
 		installSpec.Target = detectLargestDevice()
-	}
-
-	if installSpec.NoFormat {
-		installSpec.Target = ""
-	}
-
-	// Workaround!
-	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
-	// But on the cloud-config it will still appear as "auto" as we dont modify that
-	// Unfortunately as we load the full cloud-config and unmarshall it into our spec, we cannot infer from there
-	// What device was choosen, and re-choosing again could lead to different results
-	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
-	// as its the soonest we have access to both
-	if installSpec.Target == "auto" {
-		installSpec.Target = c.Install.Device
 	}
 
 	return installSpec, nil
@@ -678,15 +662,8 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	}
 	installSpec := sp.(*v1.InstallUkiSpec)
 
-	// Workaround!
-	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
-	// But on the cloud-config it will still appear as "auto" as we dont modify that
-	// Unfortunately as we load the full cloud-config and unmarshall it into our spec, we cannot infer from there
-	// What device was choosen, and re-choosing again could lead to different results
-	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
-	// as its the soonest we have access to both
-	if installSpec.Target == "auto" {
-		installSpec.Target = c.Install.Device
+	if (installSpec.Target == "" || installSpec.Target == "auto") && !installSpec.NoFormat {
+		installSpec.Target = detectLargestDevice()
 	}
 
 	return installSpec, nil

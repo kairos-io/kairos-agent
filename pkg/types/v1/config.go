@@ -510,6 +510,7 @@ type InstallUkiSpec struct {
 	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
 	ExtraPartitions PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	NoFormat        bool                `yaml:"no-format,omitempty" mapstructure:"no-format"`
 	CloudInit       []string            `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
 	SkipEntries     []string            `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
 }
