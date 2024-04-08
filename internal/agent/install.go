@@ -65,7 +65,6 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
 	cliConfManualArgs := generateInstallConfForManualCLIArgs(device, reboot, poweroff)
 
-	fmt.Printf("configSource = %+v\n", configSource)
 	cc, err := config.Scan(collector.Directories(configSource),
 		collector.Readers(strings.NewReader(cliConf), strings.NewReader(cliConfManualArgs)),
 		collector.MergeBootLine,
@@ -73,7 +72,6 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	if err != nil {
 		return err
 	}
-	fmt.Printf("cc.Install = %+v\n", cc.Install)
 
 	return RunInstall(cc)
 }
@@ -263,11 +261,6 @@ func runInstall(c *config.Config) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO: This should not be neccessary
-	fmt.Printf("!!!!!!!!!! installSpec.NoFormat = %+v\n", installSpec.NoFormat)
-	fmt.Printf("!!!!!!!!!! c.Install.NoFormat = %+v\n", c.Install.NoFormat)
-	//installSpec.NoFormat = c.Install.NoFormat
 
 	// Set our cloud-init to the file we just created
 	f, err := dumpCCStringToFile(c)

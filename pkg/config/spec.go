@@ -107,7 +107,6 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 		FS:     constants.LinuxImgFs,
 		Size:   constants.ImgSize,
 	}
-	fmt.Printf("!!!!!!!!!!!!!!! cfg.Install.Device = %+v\n", cfg.Install.Device)
 
 	spec := &v1.InstallSpec{
 		Target:    cfg.Install.Device,
@@ -573,15 +572,9 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 		installSpec.Target = detectLargestDevice()
 	}
 
-	fmt.Printf("installSpec before = %+v\n", installSpec)
-	fmt.Printf("c = %+v\n", c)
 	if installSpec.NoFormat {
 		installSpec.Target = ""
 	}
-	fmt.Printf("installSpec after = %+v\n", installSpec)
-
-	fmt.Printf("!!!!!()()()()()!!!! installSPec.Target = %+v\n", installSpec.Target)
-	fmt.Printf("!!!!!()()()()()!!!! c.Install.Device = %+v\n", c.Install.Device)
 
 	// Workaround!
 	// If we set the "auto" for the device in the cloudconfig the value will be proper in the Config.Install.Device
@@ -591,21 +584,9 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	// So instead we do the check here and override the installSpec.Target with the Config.Install.Device
 	// as its the soonest we have access to both
 	if installSpec.Target == "auto" {
-		// fmt.Printf("!!!!!!! installSpec.Target = %+v\n", installSpec.Target)
-		// fmt.Printf("!!!!!!! c.Install.Device = %+v\n", c.Install.Device)
 		installSpec.Target = c.Install.Device
 	}
 
-	// if installSpec.Target == "" {
-	// 	device, err := DetectPreConfiguredDevice(c.Logger)
-	// 	if err != nil {
-	// 		return installSpec, err
-	// 	}
-	// 	installSpec.Target = device
-	// }
-
-	// fmt.Printf("!!!!!(after)()()()()!!!! installSPec.Target = %+v\n", installSpec.Target)
-	// fmt.Printf("!!!!!(after)()()()()!!!! c.Install.Device = %+v\n", c.Install.Device)
 	return installSpec, nil
 }
 

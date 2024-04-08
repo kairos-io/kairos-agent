@@ -146,10 +146,9 @@ func (i InstallAction) Run() (err error) {
 
 	// Check no-format flag
 	if i.spec.NoFormat {
-		fmt.Println("!!!!!!!!!!!! won't format")
+		i.cfg.Logger.Infof("NoFormat is true, skipping format and partitioning")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
-		fmt.Printf("!!!! check active deployment = %+v\n", e.CheckActiveDeployment(labels))
 		if e.CheckActiveDeployment(labels) && !i.spec.Force {
 			return fmt.Errorf("use `force` flag to run an installation over the current running deployment")
 		}
@@ -159,7 +158,7 @@ func (i InstallAction) Run() (err error) {
 			if err != nil {
 				return fmt.Errorf("no target device specified and no device found: %s", err)
 			}
-			fmt.Printf("!!! device = %+v\n", device)
+			i.cfg.Logger.Infof("No target device specified, using pre-configured device: %s", device)
 			i.spec.Target = device
 		}
 	} else {
@@ -174,8 +173,6 @@ func (i InstallAction) Run() (err error) {
 			return err
 		}
 	}
-
-	fmt.Printf("!!!!!!!!!!!! i.spec.Target = %+v\n", i.spec.Target)
 
 	err = e.MountPartitions(i.spec.Partitions.PartitionsByMountPoint(false))
 	if err != nil {
