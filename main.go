@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/mudler/go-pluggable"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/mudler/go-pluggable"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -303,38 +304,23 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 	},
 	{
 		Name:        "config",
-		Usage:       "get machine configuration",
-		Description: "Print machine state information, e.g. `state get uuid` returns the machine uuid",
+		Usage:       "Shows the machine configuration",
+		Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
 		Aliases:     []string{"c"},
 		Action: func(c *cli.Context) error {
-			runtime, err := state.NewRuntime()
+			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
 			if err != nil {
 				return err
 			}
 
-			fmt.Print(runtime)
-			return err
+			configStr, err := config.String()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s", configStr)
+			return nil
 		},
 		Subcommands: []*cli.Command{
-			{
-				Name:        "show",
-				Usage:       "Shows the machine configuration",
-				Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
-				Aliases:     []string{},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-
-					configStr, err := config.String()
-					if err != nil {
-						return err
-					}
-					fmt.Printf("%s", configStr)
-					return nil
-				},
-			},
 			{
 				Name:  "get",
 				Usage: "Get specific data from the configuration",
