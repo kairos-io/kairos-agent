@@ -308,7 +308,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 		Description: "Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
 		Aliases:     []string{"c"},
 		Action: func(c *cli.Context) error {
-			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
+			config, err := agentConfig.ScanNoLogs(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
 			if err != nil {
 				return err
 			}
@@ -327,7 +327,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				Description: "WARNING this command will be deprecated in v3.2.0. Use `config` without a subcommand instead.\n\n Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
 				Aliases:     []string{},
 				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
+					config, err := agentConfig.ScanNoLogs(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
 					if err != nil {
 						return err
 					}
@@ -427,7 +427,7 @@ enabled: true`,
 		},
 		Action: func(c *cli.Context) error {
 
-			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+			config, err := agentConfig.ScanNoLogs(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 			if err != nil {
 				return err
 			}
