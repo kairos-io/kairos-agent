@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/mudler/go-pluggable"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/mudler/go-pluggable"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
@@ -422,7 +423,7 @@ enabled: true`,
 		},
 		Action: func(c *cli.Context) error {
 
-			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+			config, err := agentConfig.ScanNoLogs(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 			if err != nil {
 				return err
 			}
