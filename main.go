@@ -427,7 +427,7 @@ enabled: true`,
 		},
 		Action: func(c *cli.Context) error {
 
-			config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+			config, err := agentConfig.ScanNoLogs(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
 			if err != nil {
 				return err
 			}
