@@ -322,6 +322,25 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 		},
 		Subcommands: []*cli.Command{
 			{
+				Name:        "show",
+				Usage:       "Shows the machine configuration",
+				Description: "WARNING this command will be deprecated in v3.2.0. Use `config` without a subcommand instead.\n\n Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
+				Aliases:     []string{},
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(constants.GetConfigScanDirs()...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+
+					configStr, err := config.String()
+					if err != nil {
+						return err
+					}
+					fmt.Printf("%s", configStr)
+					return nil
+				},
+			},
+			{
 				Name:  "get",
 				Usage: "Get specific data from the configuration",
 				UsageText: `
