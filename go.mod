@@ -37,7 +37,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/twpayne/go-vfs/v4 v4.3.0 // v5 requires go1.20
 	github.com/urfave/cli/v2 v2.27.1
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sys v0.19.0
 	gopkg.in/yaml.v3 v3.0.1
