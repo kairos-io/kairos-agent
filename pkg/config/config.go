@@ -35,7 +35,7 @@ const (
 type Install struct {
 	Auto                   bool              `yaml:"auto,omitempty"`
 	Reboot                 bool              `yaml:"reboot,omitempty"`
-	NoFormat               bool              `yaml:"no_format,omitempty"`
+	NoFormat               bool              `yaml:"no-format,omitempty"`
 	Device                 string            `yaml:"device,omitempty"`
 	Poweroff               bool              `yaml:"poweroff,omitempty"`
 	GrubOptions            map[string]string `yaml:"grub_options,omitempty"`
@@ -353,8 +353,8 @@ func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
 	genericConfig, err := collector.Scan(o, FilterKeys)
 	if err != nil {
 		return result, err
-
 	}
+
 	result.Config = *genericConfig
 	configStr, err := genericConfig.String()
 	if err != nil {

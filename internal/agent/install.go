@@ -121,7 +121,7 @@ func Install(sourceImgURL string, dir ...string) error {
 			return err
 		}
 
-		if cc.Install.Reboot == false && cc.Install.Poweroff == false {
+		if !cc.Install.Reboot && !cc.Install.Poweroff {
 			pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
 			svc, err := machine.Getty(1)
 			if err == nil {
@@ -194,7 +194,7 @@ func Install(sourceImgURL string, dir ...string) error {
 
 	// If neither reboot and poweroff are enabled let the user insert enter to go back to a new shell
 	// This is helpful to see the installation messages instead of just cleaning the screen with a new tty
-	if cc.Install.Reboot == false && cc.Install.Poweroff == false {
+	if !cc.Install.Reboot && !cc.Install.Poweroff {
 		pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
 
 		utils.Prompt("") //nolint:errcheck
@@ -212,10 +212,6 @@ func Install(sourceImgURL string, dir ...string) error {
 func RunInstall(c *config.Config) error {
 	utils.SetEnv(c.Env)
 	utils.SetEnv(c.Install.Env)
-
-	if c.Install.Device == "" || c.Install.Device == "auto" {
-		c.Install.Device = detectDevice()
-	}
 
 	// UKI path. Check if we are on UKI AND if we are running off a cd, otherwise it makes no sense to run the install
 	// From the installed system
@@ -265,9 +261,6 @@ func runInstall(c *config.Config) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO: This should not be neccessary
-	installSpec.NoFormat = c.Install.NoFormat
 
 	// Set our cloud-init to the file we just created
 	f, err := dumpCCStringToFile(c)

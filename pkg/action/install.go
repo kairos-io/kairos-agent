@@ -144,12 +144,23 @@ func (i InstallAction) Run() (err error) {
 		}
 	}
 
-	// Check no-format flag
 	if i.spec.NoFormat {
+		i.cfg.Logger.Infof("NoFormat is true, skipping format and partitioning")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
 		if e.CheckActiveDeployment(labels) && !i.spec.Force {
 			return fmt.Errorf("use `force` flag to run an installation over the current running deployment")
+		}
+
+		if i.spec.Target == "" || i.spec.Target == "auto" {
+			// This needs to run after the pre-install stage to give the user the
+			// opportunity to prepare the target disk in the pre-install stage.
+			device, err := config.DetectPreConfiguredDevice(i.cfg.Logger)
+			if err != nil {
+				return fmt.Errorf("no target device specified and no device found: %s", err)
+			}
+			i.cfg.Logger.Infof("No target device specified, using pre-configured device: %s", device)
+			i.spec.Target = device
 		}
 	} else {
 		// Deactivate any active volume on target
