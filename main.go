@@ -796,9 +796,25 @@ The kairos agent is a component to abstract away node ops, providing a common fe
 		UsageText: ``,
 		Copyright: "kairos authors",
 		Before: func(c *cli.Context) error {
-			// Set debug from here already, so it's loaded by the ReadConfigRun
-			viper.Set("debug", c.Bool("debug"))
+			var debug bool
+			// Get debug from env or cmdline
+			cmdline, _ := os.ReadFile("/proc/cmdline")
+			if strings.Contains(string(cmdline), "rd.kairos.debug") {
+				debug = true
+			}
+
+			if os.Getenv("KAIROS_AGENT_DEBUG") == "true" {
+				debug = true
+			}
+
 			if c.Bool("debug") {
+				debug = true
+			}
+
+			// Set debug from here already, so it's loaded by the Config unmarshall
+			viper.Set("debug", debug)
+			if debug {
+				// Dont hide private fields, we want the full object biew
 				litter.Config.HidePrivateFields = false
 				// Hide logger and client fields from litter as otherwise the config dumps are huge and a bit useless
 				litter.Config.FieldExclusions = regexp.MustCompile(`Logger|logger|Client`)
