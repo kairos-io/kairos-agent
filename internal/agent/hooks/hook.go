@@ -18,6 +18,7 @@ var AfterInstall = []Interface{
 }
 
 var AfterReset = []Interface{
+	&CopyLogs{},
 	&Lifecycle{},
 }
 
