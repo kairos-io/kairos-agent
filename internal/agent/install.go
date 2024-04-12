@@ -1,10 +1,11 @@
 package agent
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -28,7 +29,6 @@ import (
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
-	"gopkg.in/yaml.v3"
 )
 
 func displayInfo(agentConfig *Config) {
@@ -54,10 +54,7 @@ func displayInfo(agentConfig *Config) {
 }
 
 func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations bool) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	configSource, err := prepareConfiguration(ctx, c)
+	configSource, err := prepareConfiguration(c)
 	if err != nil {
 		return err
 	}
@@ -65,8 +62,8 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
 	cliConfManualArgs := generateInstallConfForManualCLIArgs(device, reboot, poweroff)
 
-	cc, err := config.Scan(collector.Directories(configSource),
-		collector.Readers(strings.NewReader(cliConf), strings.NewReader(cliConfManualArgs)),
+	cc, err := config.Scan(
+		collector.Readers(configSource, strings.NewReader(cliConf), strings.NewReader(cliConfManualArgs)),
 		collector.MergeBootLine,
 		collector.StrictValidation(strictValidations), collector.NoLogs)
 	if err != nil {
@@ -324,32 +321,26 @@ func ensureDataSourceReady() {
 	}
 }
 
-func prepareConfiguration(ctx context.Context, source string) (string, error) {
+func prepareConfiguration(source string) (io.Reader, error) {
+	var cfg io.Reader
+	// source can be either a file in the system or an url
+	// We need to differentiate between the two
+	// If its a local file, we just read it and return it
+	// If its a url, we need to create a configuration with the url and let the config.Scan handle it
 	// if the source is not an url it is already a configuration path
 	if u, err := url.Parse(source); err != nil || u.Scheme == "" {
-		return source, nil
+		file, err := os.ReadFile(source)
+		if err != nil {
+			return cfg, err
+		}
+		cfg = bytes.NewReader(file)
+		return cfg, nil
 	}
 
-	// create a configuration file with the source referenced
-	f, err := os.CreateTemp(os.TempDir(), "kairos-install-*.yaml")
-	if err != nil {
-		return "", err
-	}
+	cfgUrl := fmt.Sprintf(`config_url: %s`, source)
+	cfg = strings.NewReader(cfgUrl)
 
-	// defer cleanup until after parent is done
-	go func() {
-		<-ctx.Done()
-		_ = os.RemoveAll(f.Name())
-	}()
-
-	cfg := config.Config{
-		ConfigURL: source,
-	}
-	if err = yaml.NewEncoder(f).Encode(cfg); err != nil {
-		return "", err
-	}
-
-	return f.Name(), nil
+	return cfg, nil
 }
 
 func generateInstallConfForCLIArgs(sourceImageURL string) string {
