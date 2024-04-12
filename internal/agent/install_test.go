@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"context"
 	"fmt"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
@@ -26,40 +25,42 @@ const partTmpl = `
 %d:%ss:%ss:2048s:ext4::type=83;`
 
 var _ = Describe("prepareConfiguration", func() {
-	path := "/foo/bar"
 	url := "https://example.com"
-	ctx, cancel := context.WithCancel(context.Background())
 
-	It("returns a file path with no modifications", func() {
-		source, err := prepareConfiguration(ctx, path)
-
+	It("loads the content from a file path", func() {
+		temp, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(source).To(Equal(path))
-	})
+		defer os.RemoveAll(temp)
 
-	It("creates a configuration file containing the given url", func() {
-		source, err := prepareConfiguration(ctx, url)
-
+		content, err := yaml.Marshal(config.Config{
+			Debug: true,
+			Install: &config.Install{
+				Device: "fake",
+			},
+		})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(source).ToNot(Equal(path))
+		err = os.WriteFile(filepath.Join(temp, "config.yaml"), content, 0644)
+		Expect(err).ToNot(HaveOccurred())
 
-		f, err := os.Open(source)
+		source, err := prepareConfiguration(filepath.Join(temp, "config.yaml"))
 		Expect(err).ToNot(HaveOccurred())
 
 		var cfg config.Config
-		err = yaml.NewDecoder(f).Decode(&cfg)
+		err = yaml.NewDecoder(source).Decode(&cfg)
+		Expect(cfg.ConfigURL).To(BeEmpty())
+		Expect(cfg.Debug).To(BeTrue())
+		Expect(cfg.Install.Device).To(Equal("fake"))
+	})
+
+	It("creates a configuration file containing the given url", func() {
+		source, err := prepareConfiguration(url)
+		Expect(err).ToNot(HaveOccurred())
+
+		var cfg config.Config
+		err = yaml.NewDecoder(source).Decode(&cfg)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(cfg.ConfigURL).To(Equal(url))
-	})
-
-	It("cleans up the configuration file after context is done", func() {
-		source, err := prepareConfiguration(ctx, url)
-		Expect(err).ToNot(HaveOccurred())
-		cancel()
-
-		_, err = os.Stat(source)
-		Expect(os.IsNotExist(err))
 	})
 })
 
