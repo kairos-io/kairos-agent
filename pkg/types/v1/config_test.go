@@ -425,7 +425,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("fails with empty source", func() {
 					err := spec.Sanitize()
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("undefined upgrade source"))
+					Expect(err.Error()).To(ContainSubstring(constants.UpgradeNoSourceError))
 				})
 				It("fails with missing state partition", func() {
 					spec.Active.Source = v1.NewFileSrc("/tmp")
@@ -449,7 +449,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("fails with empty source", func() {
 					err := spec.Sanitize()
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("undefined upgrade source"))
+					Expect(err.Error()).To(ContainSubstring(constants.UpgradeNoSourceError))
 				})
 				It("fails with missing recovery partition", func() {
 					spec.Recovery.Source = v1.NewFileSrc("/tmp")

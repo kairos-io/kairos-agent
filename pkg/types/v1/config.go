@@ -187,14 +187,14 @@ type UpgradeSpec struct {
 func (u *UpgradeSpec) Sanitize() error {
 	if u.RecoveryUpgrade {
 		if u.Recovery.Source.IsEmpty() {
-			return fmt.Errorf("undefined upgrade source")
+			return fmt.Errorf(constants.UpgradeNoSourceError)
 		}
 		if u.Partitions.Recovery == nil || u.Partitions.Recovery.MountPoint == "" {
 			return fmt.Errorf("undefined recovery partition")
 		}
 	} else {
 		if u.Active.Source.IsEmpty() {
-			return fmt.Errorf("undefined upgrade source")
+			return fmt.Errorf(constants.UpgradeNoSourceError)
 		}
 		if u.Partitions.State == nil || u.Partitions.State.MountPoint == "" {
 			return fmt.Errorf("undefined state partition")
