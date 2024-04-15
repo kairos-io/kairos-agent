@@ -120,6 +120,9 @@ const (
 	PassiveBootSuffix    = " (fallback)"
 	RecoveryBootSuffix   = " recovery"
 	StateResetBootSuffix = " state reset (auto)"
+
+	// Error
+	UpgradeNoSourceError = "Could not find a proper source for the upgrade.\nThis can be configured in the cloud config files under the 'upgrade.system.uri' key or via cmdline using the '--source' flag."
 )
 
 func UkiDefaultMenuEntries() []string {
