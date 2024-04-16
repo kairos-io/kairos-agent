@@ -21,7 +21,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.1.0
 	github.com/kairos-io/kcrypt v0.9.1
-	github.com/labstack/echo/v4 v4.11.4
+	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
@@ -37,7 +37,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/twpayne/go-vfs/v4 v4.3.0 // v5 requires go1.20
 	github.com/urfave/cli/v2 v2.27.1
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sys v0.19.0
 	gopkg.in/yaml.v3 v3.0.1
