@@ -15,7 +15,7 @@ require (
 	github.com/distribution/distribution v2.8.3+incompatible
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/google/go-containerregistry v0.19.1
-	github.com/google/go-github/v40 v40.0.0
+	github.com/google/go-github/v61 v61.0.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
@@ -43,6 +43,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/mount-utils v0.27.4
 )
+
+require github.com/google/go-github/v40 v40.0.0
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
