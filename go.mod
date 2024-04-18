@@ -35,7 +35,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
-	github.com/twpayne/go-vfs/v4 v4.3.0 // v5 requires go1.20
+	github.com/twpayne/go-vfs/v5 v5.0.4 // v5 requires go1.20
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.19.0
@@ -44,7 +44,10 @@ require (
 	k8s.io/mount-utils v0.27.4
 )
 
-require github.com/google/go-github/v40 v40.0.0
+require (
+	github.com/google/go-github/v40 v40.0.0
+	github.com/twpayne/go-vfs/v4 v4.3.0
+)
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
