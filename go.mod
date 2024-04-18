@@ -1,8 +1,6 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.21
-
-toolchain go1.22.2
+go 1.19
 
 // This versions require go1.20
 replace (
@@ -208,7 +206,6 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.17.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
