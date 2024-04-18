@@ -1,6 +1,8 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.19
+go 1.21
+
+toolchain go1.22.2
 
 // This versions require go1.20
 replace (
@@ -19,7 +21,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.1.0
+	github.com/kairos-io/kairos-sdk v0.1.1
 	github.com/kairos-io/kcrypt v0.9.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -87,6 +89,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/eliukblau/pixterm v1.3.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/foxboron/go-uefi v0.0.0-20240128152106-48be911532c2 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
@@ -118,7 +121,7 @@ require (
 	github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 // indirect
 	github.com/kendru/darwin/go/depgraph v0.0.0-20221105232959-877d6a81060c // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
@@ -197,7 +200,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/exp v0.0.0-20231219180239-dc181d75b848 // indirect
 	golang.org/x/image v0.10.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
