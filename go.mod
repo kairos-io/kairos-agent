@@ -29,7 +29,7 @@ require (
 	github.com/mudler/yip v1.6.0
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.17.1
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	github.com/pterm/pterm v0.12.65
 	github.com/rs/zerolog v1.32.0
 	github.com/sanity-io/litter v1.5.5
