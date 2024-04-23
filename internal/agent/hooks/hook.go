@@ -32,7 +32,11 @@ var FirstBoot = []Interface{
 }
 
 // AfterUkiInstall sets which Hooks to run after uki runs the install action
-var AfterUkiInstall = []Interface{}
+var AfterUkiInstall = []Interface{
+	&BundlePostInstall{},
+	&CustomMounts{},
+	&Lifecycle{},
+}
 
 var UKIEncryptionHooks = []Interface{
 	&KcryptUKI{},
