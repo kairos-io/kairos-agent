@@ -3,10 +3,8 @@ package hook
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -21,7 +19,7 @@ import (
 
 type KcryptUKI struct{}
 
-func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
+func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 	// pre-check for systemd version, we need something higher or equal to 252
 	run, err := utils.SH("systemctl --version | head -1 | awk '{ print $2}'")
 	systemdVersion := strings.TrimSpace(string(run))
@@ -163,33 +161,16 @@ func (k KcryptUKI) Run(c config.Config, _ v1.Spec) error {
 		return err
 	}
 
-	// Copy logs to persistent partition
-	c.Logger.Debug("Copying logs to persistent partition")
-	err = machine.Mount(constants.PersistentLabel, constants.PersistentDir)
-	if err != nil {
-		c.Logger.Errorf("could not mount persistent partition: %s", err)
-		return nil
-	}
-	varLog := filepath.Join(constants.PersistentDir, ".state", "var-log.bind")
-	// Create the directory on persistent
-	err = fsutils.MkdirAll(c.Fs, varLog, 0755)
-	if err != nil {
-		c.Logger.Errorf("could not create directory on persistent partition: %s", err)
-		return nil
-	}
-	// Copy all current logs to the persistent partition
-	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, "/var/log/", varLog, []string{}...)
-	if err != nil {
-		c.Logger.Errorf("could not copy logs to persistent partition: %s", err)
-		return nil
-	}
-	err = machine.Umount(constants.PersistentDir)
-	if err != nil {
-		c.Logger.Errorf("could not unmount persistent partition: %s", err)
-		return nil
-	}
-	syscall.Sync()
-	c.Logger.Debug("Logs copied to persistent partition")
 	c.Logger.Logger.Debug().Msg("Finish KcryptUKI hook")
+	// We now have the partitions unlocked and ready, lets call the other hooks here instead of closing and reopening them each time
+	err = BundlePostInstall{}.Run(c, spec)
+	if err != nil {
+		return err
+	}
+	_ = CustomMounts{}.Run(c, spec)
+	err = CopyLogs{}.Run(c, spec)
+	if err != nil {
+		return err
+	}
 	return nil
 }
