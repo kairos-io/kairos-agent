@@ -33,19 +33,23 @@ const (
 )
 
 type Install struct {
-	Auto                   bool              `yaml:"auto,omitempty"`
-	Reboot                 bool              `yaml:"reboot,omitempty"`
-	NoFormat               bool              `yaml:"no_format,omitempty"`
-	Device                 string            `yaml:"device,omitempty"`
-	Poweroff               bool              `yaml:"poweroff,omitempty"`
-	GrubOptions            map[string]string `yaml:"grub_options,omitempty"`
-	Bundles                Bundles           `yaml:"bundles,omitempty"`
-	Encrypt                []string          `yaml:"encrypted_partitions,omitempty"`
-	SkipEncryptCopyPlugins bool              `yaml:"skip_copy_kcrypt_plugin,omitempty"`
-	Env                    []string          `yaml:"env,omitempty"`
-	Source                 string            `yaml:"source,omitempty"`
-	EphemeralMounts        []string          `yaml:"ephemeral_mounts,omitempty"`
-	BindMounts             []string          `yaml:"bind_mounts,omitempty"`
+	Auto                   bool                   `yaml:"auto,omitempty"`
+	Reboot                 bool                   `yaml:"reboot,omitempty"`
+	NoFormat               bool                   `yaml:"no-format,omitempty"`
+	Device                 string                 `yaml:"device,omitempty"`
+	Poweroff               bool                   `yaml:"poweroff,omitempty"`
+	GrubOptions            map[string]string      `yaml:"grub_options,omitempty"`
+	Bundles                Bundles                `yaml:"bundles,omitempty"`
+	Encrypt                []string               `yaml:"encrypted_partitions,omitempty"`
+	SkipEncryptCopyPlugins bool                   `yaml:"skip_copy_kcrypt_plugin,omitempty"`
+	Env                    []string               `yaml:"env,omitempty"`
+	Source                 string                 `yaml:"source,omitempty"`
+	EphemeralMounts        []string               `yaml:"ephemeral_mounts,omitempty"`
+	BindMounts             []string               `yaml:"bind_mounts,omitempty"`
+	Partitions             v1.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	Active                 v1.Image               `yaml:"system,omitempty" mapstructure:"system"`
+	Recovery               v1.Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
+	Passive                v1.Image               `yaml:"passive,omitempty" mapstructure:"recovery-system"`
 }
 
 func NewConfig(opts ...GenericOptions) *Config {
