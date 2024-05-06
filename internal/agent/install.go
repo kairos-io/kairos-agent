@@ -99,8 +99,8 @@ func Install(sourceImgURL string, dir ...string) error {
 		}
 		cloudConfig, exists := r["cc"]
 		if exists {
-			// Re-read the full config and add the config coming from the event
-			cc, _ = config.Scan(collector.Directories(dir...), collector.Overwrites(cloudConfig), collector.MergeBootLine, collector.NoLogs)
+			// Overwrite the config with the config coming from the event, it's the main source of truth
+			cc, _ = config.Scan(collector.Readers(strings.NewReader(cloudConfig)), collector.MergeBootLine, collector.NoLogs)
 		}
 	})
 
