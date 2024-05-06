@@ -2,12 +2,13 @@ package config
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-sdk/state"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"unicode"
+
+	"github.com/kairos-io/kairos-sdk/state"
 
 	"github.com/joho/godotenv"
 	version "github.com/kairos-io/kairos-agent/v2/internal/common"
@@ -47,6 +48,10 @@ type Install struct {
 	EphemeralMounts        []string               `yaml:"ephemeral_mounts,omitempty"`
 	BindMounts             []string               `yaml:"bind_mounts,omitempty"`
 	Partitions             v1.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	GrubDefEntry           string                 `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	ExtraPartitions        v1.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	ExtraDirsRootfs        []string               `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
+	Force                  bool                   `yaml:"force,omitempty" mapstructure:"force"`
 	Active                 v1.Image               `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery               v1.Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	Passive                v1.Image               `yaml:"passive,omitempty" mapstructure:"recovery-system"`
