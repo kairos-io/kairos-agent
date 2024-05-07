@@ -17,7 +17,6 @@ package config_test
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-sdk/collector"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -28,8 +27,10 @@ import (
 	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs/v4"
 	"github.com/twpayne/go-vfs/v4/vfst"
+	"gopkg.in/yaml.v3"
 
 	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/collector"
 	. "github.com/kairos-io/kairos-sdk/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,6 +115,57 @@ var _ = Describe("Schema", func() {
 			structFieldsContainedInOtherStruct(Bundle{}, BundleSchema{})
 		})
 	})
+
+	Describe("Install unmarshall for payloads", func() {
+		It("produces a yaml without empty fields", func() {
+			wants := `install:
+    poweroff: true
+    bind_mounts:
+        - /var/lib/ceph
+        - /var/lib/osd
+    partitions:
+        oem:
+            size: 5120
+            fs: ext4
+    system:
+        size: 8192
+    recovery-system:
+        size: 10000
+    passive:
+        size: 8192
+`
+			config := Config{
+				Install: &Install{
+					Poweroff: true,
+					BindMounts: []string{
+						"/var/lib/ceph",
+						"/var/lib/osd",
+					},
+					Active: v1.Image{
+						Size: 8192,
+					},
+					Passive: v1.Image{
+						Size: 8192,
+					},
+					Recovery: v1.Image{
+						Size: 10000,
+					},
+					Partitions: v1.ElementalPartitions{
+						OEM: &v1.Partition{
+							Size: 5120,
+							FS:   "ext4",
+						},
+					},
+				},
+			}
+
+			got, err := yaml.Marshal(config)
+			Expect(Expect(err).NotTo(HaveOccurred()))
+
+			Expect(string(got)).To(Equal(wants))
+		})
+	})
+
 	Describe("Write and load installation state", func() {
 		var config *Config
 		var runner *v1mocks.FakeRunner

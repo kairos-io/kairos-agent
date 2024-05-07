@@ -218,14 +218,14 @@ func (r *EmptySpec) ShouldShutdown() bool { return false }
 
 // Partition struct represents a partition with its commonly configurable values, size in MiB
 type Partition struct {
-	Name            string
+	Name            string   `yaml:"-"`
 	FilesystemLabel string   `yaml:"label,omitempty" mapstructure:"label"`
 	Size            uint     `yaml:"size,omitempty" mapstructure:"size"`
 	FS              string   `yaml:"fs,omitempty" mapstrcuture:"fs"`
 	Flags           []string `yaml:"flags,omitempty" mapstrcuture:"flags"`
-	MountPoint      string
-	Path            string
-	Disk            string
+	MountPoint      string   `yaml:"-"`
+	Path            string   `yaml:"-"`
+	Disk            string   `yaml:"-"`
 }
 
 type PartitionList []*Partition
@@ -261,8 +261,8 @@ func (pl PartitionList) GetByLabel(label string) *Partition {
 }
 
 type ElementalPartitions struct {
-	BIOS       *Partition
-	EFI        *Partition
+	BIOS       *Partition `yaml:"-"`
+	EFI        *Partition `yaml:"-"`
 	OEM        *Partition `yaml:"oem,omitempty" mapstructure:"oem"`
 	Recovery   *Partition `yaml:"recovery,omitempty" mapstructure:"recovery"`
 	State      *Partition `yaml:"state,omitempty" mapstructure:"state"`
@@ -434,13 +434,13 @@ func (ep ElementalPartitions) PartitionsByMountPoint(descending bool, excludes .
 
 // Image struct represents a file system image with its commonly configurable values, size in MiB
 type Image struct {
-	File       string
+	File       string       `yaml:"-"`
 	Label      string       `yaml:"label,omitempty" mapstructure:"label"`
 	Size       uint         `yaml:"size,omitempty" mapstructure:"size"`
 	FS         string       `yaml:"fs,omitempty" mapstructure:"fs"`
 	Source     *ImageSource `yaml:"uri,omitempty" mapstructure:"uri"`
-	MountPoint string
-	LoopDevice string
+	MountPoint string       `yaml:"-"`
+	LoopDevice string       `yaml:"-"`
 }
 
 // InstallState tracks the installation data of the whole system
