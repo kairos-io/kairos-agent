@@ -12,15 +12,14 @@ go-deps:
     FROM golang:$GO_VERSION
     RUN apt-get update && apt-get install -y rsync gcc bash git
     WORKDIR /build
-    COPY go.mod go.sum ./
+    COPY . .
+    RUN go mod tidy --compat=1.19
     RUN go mod download
-    SAVE ARTIFACT go.mod AS LOCAL go.mod
-    SAVE ARTIFACT go.sum AS LOCAL go.sum
+    RUN go mod verify
 
 test:
     FROM +go-deps
     WORKDIR /build
-    COPY . .
     ARG TEST_PATHS=./...
     ARG LABEL_FILTER=
     ENV CGO_ENABLED=1
@@ -29,7 +28,6 @@ test:
 
 version:
     FROM +go-deps
-    COPY . ./
     RUN --no-cache echo $(git describe --always --tags --dirty) > VERSION
     RUN --no-cache echo $(git describe --always --dirty) > COMMIT
     ARG VERSION=$(cat VERSION)
@@ -39,7 +37,6 @@ version:
 
 build-kairos-agent:
     FROM +go-deps
-    COPY . .
     COPY +webui-deps/node_modules ./internal/webui/public/node_modules
     COPY github.com/kairos-io/kairos-docs:main+docs/public ./internal/webui/public/local
     COPY +version/VERSION ./
@@ -60,8 +57,7 @@ golint:
     ARG GOLINT_VERSION
     RUN wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v$GOLINT_VERSION
     WORKDIR /build
-    COPY . .
-    RUN golangci-lint run
+    RUN bin/golangci-lint run
 
 webui-deps:
     FROM node:19-alpine
