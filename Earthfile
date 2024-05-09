@@ -13,7 +13,9 @@ go-deps:
     RUN apt-get update && apt-get install -y rsync gcc bash git
     WORKDIR /build
     COPY go.mod go.sum ./
+    RUN go mod tidy
     RUN go mod download
+    RUN go mod verify
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
