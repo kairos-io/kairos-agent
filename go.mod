@@ -1,6 +1,6 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.21
+go 1.19
 
 // This versions require go1.20
 replace (
