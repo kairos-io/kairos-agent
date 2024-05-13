@@ -182,11 +182,11 @@ func Install(sourceImgURL string, dir ...string) error {
 	}
 
 	if cc.Install.Reboot {
-		pterm.Info.Println("Installation completed, rebooting in 5 seconds.")
+		pterm.Info.Println("Installation completed, starting reboot in 5 seconds.")
 
 	}
 	if cc.Install.Poweroff {
-		pterm.Info.Println("Installation completed, powering in 5 seconds.")
+		pterm.Info.Println("Installation completed, starting power off in 5 seconds.")
 	}
 
 	// If neither reboot and poweroff are enabled let the user insert enter to go back to a new shell
