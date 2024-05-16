@@ -64,6 +64,9 @@ func (i *UpgradeAction) Run() (err error) {
 		return err
 	}
 
+	// Check if the upgrade artifact contains the proper signature before copying
+	err = checkArtifactsignatureIsValid(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole, i.cfg.Logger)
+
 	// Rotate first
 	err = overwriteArtifactSetRole(i.cfg.Fs, constants.UkiEfiDir, "active", "passive", i.cfg.Logger)
 	if err != nil {

@@ -1,10 +1,16 @@
 package uki
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"github.com/foxboron/go-uefi/efi"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/util"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
@@ -152,4 +158,80 @@ func copyFile(src, dst string) error {
 	}
 
 	return destinationFile.Close()
+}
+
+// checkArtifactsignatureIsValid checks that a give efi artifact is signed properly with a signature that would allow it to
+// boot correctly in the current node if secureboot is enabled
+func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger sdkTypes.KairosLogger) error {
+	var err error
+	fullArtifact := filepath.Join(dir, artifact)
+	logger.Logger.Info().Str("what", fullArtifact).Msg("Checking artifact")
+	o, err := fs.Open(fullArtifact)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.Warn("%s does not exist", fullArtifact)
+		return fmt.Errorf("%s does not exist", fullArtifact)
+	} else if errors.Is(err, os.ErrPermission) {
+		logger.Warn("%s permission denied. Can't read file", fullArtifact)
+		return fmt.Errorf("%s permission denied. Can't read file", fullArtifact)
+	}
+
+	ok, err := checkValidEfiHeader(o)
+	_ = o.Close()
+	if err != nil {
+		logger.Error(fmt.Errorf("failed to read file %s: %s", fullArtifact, err))
+		return fmt.Errorf("failed to read file %s: %s", fullArtifact, err)
+	}
+	if !ok {
+		logger.Error("invalid pe header")
+		return fmt.Errorf("invalid pe header")
+	}
+
+	// We need to read the current db database to have the proper certs to check against
+	db, err := efi.Getdb()
+	if err != nil {
+		logger.Logger.Error().Err(err).Msg("getting DB certs")
+		return err
+	}
+
+	x509Cert, err := util.ReadCert(db.Bytes())
+	if err != nil {
+		return err
+	}
+	f, err := fs.ReadFile(fullArtifact)
+	if err != nil {
+		return fmt.Errorf("%s: %w", fullArtifact, err)
+	}
+	sigs, err := pecoff.GetSignatures(f)
+	if err != nil {
+		return fmt.Errorf("%s: %w", fullArtifact, err)
+	}
+	if len(sigs) == 0 {
+		return fmt.Errorf("no signatures in the file %s", fullArtifact)
+	}
+	for _, signature := range sigs {
+		ok, err := pkcs7.VerifySignature(x509Cert, signature.Certificate)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+	}
+	return errors.New("not ok")
+}
+
+func checkValidEfiHeader(r io.Reader) (bool, error) {
+	var header [2]byte
+	if _, err := io.ReadFull(r, header[:]); err != nil {
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		} else if errors.Is(err, io.ErrUnexpectedEOF) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !bytes.Equal(header[:], []byte{0x4d, 0x5a}) {
+		return false, nil
+	}
+	return true, nil
 }
