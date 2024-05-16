@@ -378,6 +378,8 @@ github.com/mattn/go-runewidth v0.0.13/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh
 github.com/mattn/go-runewidth v0.0.15 h1:UNAjwbU9l54TA3KzvqLGxwWjHmMgBUVhBiTjelZgg3U=
 github.com/mattn/go-runewidth v0.0.15/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
+github.com/mauromorales/xpasswd v0.3.0 h1:yVfSoAgKp3uEzkbqzp0mWAdbVFdBzSsBknTqn1Wy/Jo=
+github.com/mauromorales/xpasswd v0.3.0/go.mod h1:Z3+aY19mhNfcGi3st0+RAVSz2vC+pyoju2S/FPN8kEg=
 github.com/mitchellh/copystructure v1.0.0/go.mod h1:SNtv71yrdKgLRyLFxmLdkAbkKEFWgYaq1OVrnRcwhnw=
 github.com/mitchellh/copystructure v1.2.0 h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa15WveJJGw=
 github.com/mitchellh/copystructure v1.2.0/go.mod h1:qLl+cE2AmVv+CoeAwDPye/v+N2HKCj9FbZEVFJRxO9s=
@@ -415,6 +417,8 @@ github.com/mudler/yip v1.6.1 h1:g0Awk8wncdaSfgtu3rHDEMnc+e6ZfGzLr9RvV7ISkNY=
 github.com/mudler/yip v1.6.1/go.mod h1:bj95Z12z4AyUYO3kBxZNwx2wW7q8LGwlfUkk3celTYY=
 github.com/mudler/yip v1.6.2 h1:h1JRUihraESf2hwiq1iEitJiu+LxFUCEV5RGajk8+F8=
 github.com/mudler/yip v1.6.2/go.mod h1:bj95Z12z4AyUYO3kBxZNwx2wW7q8LGwlfUkk3celTYY=
+github.com/mudler/yip v1.7.0 h1:IAb7cFcfuaJnrpLL5KJWLQfjRUdAQQROIZKlUtUqI30=
+github.com/mudler/yip v1.7.0/go.mod h1:YMsvH82hU7OHhuw4J28RkCoh48JpLfZdkgLprdRs8fc=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6/go.mod h1:CJlz5H+gyd6CUWT45Oy4q24RdLyn7Md9Vj2/ldJBSIo=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
