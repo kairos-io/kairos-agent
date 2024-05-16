@@ -9,6 +9,9 @@
     "every weekend"
   ],
   "timezone": "Europe/Brussels",
+  "constraints": {
+    "go": "1.19"
+  },
   "packageRules": [
     {
       "matchUpdateTypes": ["patch"],
