@@ -186,6 +186,18 @@ func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger
 		return fmt.Errorf("invalid pe header")
 	}
 
+	// First check if its on dbx, if it matches, then it means that its not valid and we can return early
+	dbx, err := efi.Getdbx()
+	if err != nil {
+		logger.Logger.Error().Err(err).Msg("getting DBx certs")
+		return err
+	}
+
+	x509CertDbx, err := util.ReadCert(dbx.Bytes())
+	if err != nil {
+		return err
+	}
+
 	// We need to read the current db database to have the proper certs to check against
 	db, err := efi.Getdb()
 	if err != nil {
@@ -193,10 +205,11 @@ func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger
 		return err
 	}
 
-	x509Cert, err := util.ReadCert(db.Bytes())
+	x509CertDb, err := util.ReadCert(db.Bytes())
 	if err != nil {
 		return err
 	}
+
 	f, err := fs.ReadFile(fullArtifact)
 	if err != nil {
 		return fmt.Errorf("%s: %w", fullArtifact, err)
@@ -208,13 +221,25 @@ func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger
 	if len(sigs) == 0 {
 		return fmt.Errorf("no signatures in the file %s", fullArtifact)
 	}
+
 	for _, signature := range sigs {
-		ok, err := pkcs7.VerifySignature(x509Cert, signature.Certificate)
+		ok, err := pkcs7.VerifySignature(x509CertDbx, signature.Certificate)
 		if err != nil {
 			return err
 		}
+		// if its on dbx, return failure quick
 		if ok {
-			return nil
+			return fmt.Errorf("Signature is on the dbx list")
+		} else {
+			// Check to see if its on the db instead
+			ok, err := pkcs7.VerifySignature(x509CertDb, signature.Certificate)
+			if err != nil {
+				return err
+			}
+			if ok {
+				// Signature is not on DBX but its on DB, verified
+				return nil
+			}
 		}
 	}
 	return errors.New("not ok")
