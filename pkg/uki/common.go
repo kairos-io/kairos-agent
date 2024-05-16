@@ -168,10 +168,10 @@ func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger
 	logger.Logger.Info().Str("what", fullArtifact).Msg("Checking artifact")
 	o, err := fs.Open(fullArtifact)
 	if errors.Is(err, os.ErrNotExist) {
-		logger.Warn("%s does not exist", fullArtifact)
+		logger.Warnf("%s does not exist", fullArtifact)
 		return fmt.Errorf("%s does not exist", fullArtifact)
 	} else if errors.Is(err, os.ErrPermission) {
-		logger.Warn("%s permission denied. Can't read file", fullArtifact)
+		logger.Warnf("%s permission denied. Can't read file", fullArtifact)
 		return fmt.Errorf("%s permission denied. Can't read file", fullArtifact)
 	}
 
