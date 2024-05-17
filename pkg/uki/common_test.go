@@ -25,6 +25,7 @@ import (
 // TODO: have just 1 efi file and generate all of this on the fly:
 // sign it when needed
 // create the db/dbx efivars on the fly with the proper signatures
+// Use efi.EfivarFs for this
 var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 	var fs v1.FS
 	var logger sdkTypes.KairosLogger
@@ -67,7 +68,7 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = checkArtifactSignatureIsValid(fs, "/nonefi.file", logger)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("invalid pe header"))
+		Expect(err.Error()).To(ContainSubstring("not a PE file"))
 	})
 
 	It("Fails if the file to check has no signatures", func() {
@@ -100,6 +101,37 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = checkArtifactSignatureIsValid(fs, "/efitest.signed.efi", logger)
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("Signatures does match in DB and not in DBX", func() {
+		dbFile := fmt.Sprintf("db-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
+		dbxFile := fmt.Sprintf("dbx-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
+		file, err := os.ReadFile("tests/db")
+		Expect(err).ToNot(HaveOccurred())
+		err = fs.WriteFile(filepath.Join("/sys/firmware/efi/efivars", dbFile), file, os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
+		file, err = os.ReadFile("tests/dbx-wrong")
+		Expect(err).ToNot(HaveOccurred())
+		err = fs.WriteFile(filepath.Join("/sys/firmware/efi/efivars", dbxFile), file, os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
+		err = checkArtifactSignatureIsValid(fs, "/efitest.signed.efi", logger)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("Fails if signature is in DBX, even if its also on DB", func() {
+		dbFile := fmt.Sprintf("db-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
+		dbxFile := fmt.Sprintf("dbx-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
+		file, err := os.ReadFile("tests/db")
+		Expect(err).ToNot(HaveOccurred())
+		err = fs.WriteFile(filepath.Join("/sys/firmware/efi/efivars", dbFile), file, os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
+		file, err = os.ReadFile("tests/dbx")
+		Expect(err).ToNot(HaveOccurred())
+		err = fs.WriteFile(filepath.Join("/sys/firmware/efi/efivars", dbxFile), file, os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
+		err = checkArtifactSignatureIsValid(fs, "/efitest.signed.efi", logger)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("hash appears on DBX"))
 	})
 
 })
