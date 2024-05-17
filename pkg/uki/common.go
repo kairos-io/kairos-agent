@@ -2,15 +2,16 @@ package uki
 
 import (
 	"bytes"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/foxboron/go-uefi/efi"
 	"github.com/foxboron/go-uefi/efi/pecoff"
 	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
@@ -160,42 +161,29 @@ func copyFile(src, dst string) error {
 	return destinationFile.Close()
 }
 
-// checkArtifactsignatureIsValid checks that a give efi artifact is signed properly with a signature that would allow it to
+// checkArtifactSignatureIsValid checks that a give efi artifact is signed properly with a signature that would allow it to
 // boot correctly in the current node if secureboot is enabled
-func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger sdkTypes.KairosLogger) error {
+func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.KairosLogger) error {
 	var err error
-	fullArtifact := filepath.Join(dir, artifact)
-	logger.Logger.Info().Str("what", fullArtifact).Msg("Checking artifact")
-	o, err := fs.Open(fullArtifact)
+	logger.Logger.Info().Str("what", artifact).Msg("Checking artifact for valid signature")
+	o, err := fs.Open(artifact)
 	if errors.Is(err, os.ErrNotExist) {
-		logger.Warnf("%s does not exist", fullArtifact)
-		return fmt.Errorf("%s does not exist", fullArtifact)
+		logger.Warnf("%s does not exist", artifact)
+		return fmt.Errorf("%s does not exist", artifact)
 	} else if errors.Is(err, os.ErrPermission) {
-		logger.Warnf("%s permission denied. Can't read file", fullArtifact)
-		return fmt.Errorf("%s permission denied. Can't read file", fullArtifact)
+		logger.Warnf("%s permission denied. Can't read file", artifact)
+		return fmt.Errorf("%s permission denied. Can't read file", artifact)
 	}
 
 	ok, err := checkValidEfiHeader(o)
 	_ = o.Close()
 	if err != nil {
-		logger.Error(fmt.Errorf("failed to read file %s: %s", fullArtifact, err))
-		return fmt.Errorf("failed to read file %s: %s", fullArtifact, err)
+		logger.Error(fmt.Errorf("failed to read file %s: %s", artifact, err))
+		return fmt.Errorf("failed to read file %s: %s", artifact, err)
 	}
 	if !ok {
 		logger.Error("invalid pe header")
 		return fmt.Errorf("invalid pe header")
-	}
-
-	// First check if its on dbx, if it matches, then it means that its not valid and we can return early
-	dbx, err := efi.Getdbx()
-	if err != nil {
-		logger.Logger.Error().Err(err).Msg("getting DBx certs")
-		return err
-	}
-
-	x509CertDbx, err := util.ReadCert(dbx.Bytes())
-	if err != nil {
-		return err
 	}
 
 	// We need to read the current db database to have the proper certs to check against
@@ -205,39 +193,40 @@ func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger
 		return err
 	}
 
-	x509CertDb, err := util.ReadCert(db.Bytes())
-	if err != nil {
-		return err
+	var dbCerts []*x509.Certificate
+
+	for _, k := range *db {
+		if isValidDBSignature(k.SignatureType) {
+			for _, k1 := range k.Signatures {
+				// Note the S at the end of the function, we are parsing multiple certs, not just one
+				certs, err := x509.ParseCertificates(k1.Data)
+				if err == nil && len(certs) != 0 {
+					dbCerts = append(dbCerts, certs...)
+				}
+			}
+		}
 	}
 
-	f, err := fs.ReadFile(fullArtifact)
+	f, err := fs.ReadFile(artifact)
 	if err != nil {
-		return fmt.Errorf("%s: %w", fullArtifact, err)
+		return fmt.Errorf("%s: %w", artifact, err)
 	}
 	sigs, err := pecoff.GetSignatures(f)
 	if err != nil {
-		return fmt.Errorf("%s: %w", fullArtifact, err)
+		return fmt.Errorf("%s: %w", artifact, err)
 	}
 	if len(sigs) == 0 {
-		return fmt.Errorf("no signatures in the file %s", fullArtifact)
+		return fmt.Errorf("no signatures in the file %s", artifact)
 	}
 
-	for _, signature := range sigs {
-		ok, err := pkcs7.VerifySignature(x509CertDbx, signature.Certificate)
-		if err != nil {
-			return err
-		}
-		// if its on dbx, return failure quick
-		if ok {
-			return fmt.Errorf("Signature is on the dbx list")
-		} else {
-			// Check to see if its on the db instead
-			ok, err := pkcs7.VerifySignature(x509CertDb, signature.Certificate)
-			if err != nil {
-				return err
-			}
+	// TODO: dbx check first, it has a different format
+	for _, sig := range sigs {
+		// Check to see if it's on the db
+		for _, cert := range dbCerts {
+			logger.Logger.Debug().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("checking signature")
+			ok, _ := pkcs7.VerifySignature(cert, sig.Certificate)
 			if ok {
-				// Signature is not on DBX but its on DB, verified
+				logger.Logger.Info().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("verified")
 				return nil
 			}
 		}
@@ -245,6 +234,14 @@ func checkArtifactsignatureIsValid(fs v1.FS, dir string, artifact string, logger
 	return errors.New("not ok")
 }
 
+// isValidSignature identifies a signature based as a DER-encoded X.509 certificate which is the DB format
+func isValidDBSignature(sign util.EFIGUID) bool {
+	return sign == signature.CERT_X509_GUID
+}
+
+// Verify that the 2 first bytes of a file mark it as a DOS/PE file
+// This is lifted from sbctl directly, but I did not want to bring the whole dependency for this
+// few lines. If we ever bring sbctl as dep we can drop this and use the one in there directly
 func checkValidEfiHeader(r io.Reader) (bool, error) {
 	var header [2]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
