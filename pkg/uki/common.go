@@ -2,7 +2,6 @@ package uki
 
 import (
 	"bytes"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/foxboron/go-uefi/efi"
@@ -10,6 +9,7 @@ import (
 	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/kairos-io/kairos-sdk/signatures"
 	"io"
 	"os"
 	"strings"
@@ -193,19 +193,7 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 		return err
 	}
 
-	var dbCerts []*x509.Certificate
-
-	for _, k := range *db {
-		if isValidDBSignature(k.SignatureType) {
-			for _, k1 := range k.Signatures {
-				// Note the S at the end of the function, we are parsing multiple certs, not just one
-				certs, err := x509.ParseCertificates(k1.Data)
-				if err == nil && len(certs) != 0 {
-					dbCerts = append(dbCerts, certs...)
-				}
-			}
-		}
-	}
+	dbCerts := signatures.ExtractCertsFromSignatureDatabase(db)
 
 	f, err := fs.ReadFile(artifact)
 	if err != nil {
