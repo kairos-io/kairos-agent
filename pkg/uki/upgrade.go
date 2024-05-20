@@ -65,7 +65,13 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// Check if the upgrade artifact contains the proper signature before copying
-	err = checkArtifactSignatureIsValid(i.cfg.Fs, filepath.Join(constants.UkiEfiDir, UnassignedArtifactRole), i.cfg.Logger)
+	err = checkArtifactSignatureIsValid(i.cfg.Fs, filepath.Join(constants.UkiEfiDir, fmt.Sprintf("%s.efi", UnassignedArtifactRole)), i.cfg.Logger)
+	if err != nil {
+		// Remove efi file to not occupy space and leave stuff around
+		_ = removeArtifactSetWithRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole)
+		i.cfg.Logger.Logger.Error().Err(err).Msg("Checking signature")
+		return err
+	}
 
 	// Rotate first
 	err = overwriteArtifactSetRole(i.cfg.Fs, constants.UkiEfiDir, "active", "passive", i.cfg.Logger)
