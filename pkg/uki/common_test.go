@@ -62,9 +62,19 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("does not exist"))
 	})
+
+	It("Fails if the file is empty", func() {
+		// File needs to not be empty for the parser to try to parse it
+		err := fs.WriteFile("/nonefi.file", []byte(""), os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
+		err = checkArtifactSignatureIsValid(fs, "/nonefi.file", logger)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("has zero size"))
+	})
+
 	It("Fails if the file is not a valid efi file", func() {
-		// Create an empty file
-		err := fs.WriteFile("/nonefi.file", []byte{}, os.ModePerm)
+		// File needs to not be empty for the parser to try to parse it
+		err := fs.WriteFile("/nonefi.file", []byte("asdkljhfjklahsdfjk,hbasdfjkhas"), os.ModePerm)
 		Expect(err).ToNot(HaveOccurred())
 		err = checkArtifactSignatureIsValid(fs, "/nonefi.file", logger)
 		Expect(err).To(HaveOccurred())

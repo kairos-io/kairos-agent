@@ -5,22 +5,22 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/foxboron/go-uefi/efi"
-	"github.com/foxboron/go-uefi/efi/pecoff"
-	"github.com/foxboron/go-uefi/efi/pkcs7"
-	"github.com/foxboron/go-uefi/efi/signature"
-	"github.com/kairos-io/kairos-sdk/signatures"
-	peparser "github.com/saferwall/pe"
 	"io"
 	"os"
 	"strings"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
+	"github.com/edsrzf/mmap-go"
+	"github.com/foxboron/go-uefi/efi"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/signatures"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	sdkutils "github.com/kairos-io/kairos-sdk/utils"
+	peparser "github.com/saferwall/pe"
 	"github.com/sanity-io/litter"
 )
 
@@ -167,30 +167,49 @@ func copyFile(src, dst string) error {
 func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.KairosLogger) error {
 	var err error
 	logger.Logger.Info().Str("what", artifact).Msg("Checking artifact for valid signature")
-	_, err = fs.Stat(artifact)
+	info, err := fs.Stat(artifact)
 	if errors.Is(err, os.ErrNotExist) {
 		logger.Warnf("%s does not exist", artifact)
 		return fmt.Errorf("%s does not exist", artifact)
 	} else if errors.Is(err, os.ErrPermission) {
 		logger.Warnf("%s permission denied. Can't read file", artifact)
 		return fmt.Errorf("%s permission denied. Can't read file", artifact)
+	} else if err != nil {
+		return err
 	}
+	if info.Size() == 0 {
+		logger.Warnf("%s file is empty denied", artifact)
+		return fmt.Errorf("%s file has zero size", artifact)
+	}
+	logger.Logger.Debug().Str("what", artifact).Msg("Reading artifact")
 
-	f, err := fs.ReadFile(artifact)
+	// MMAP the file, seems to save memory rather than reading the full file
+	// Unfortunately we have to do some type conversion to keep using the v1.Fs
+	f, err := fs.Open(artifact)
+	defer f.Close()
 	if err != nil {
-		return fmt.Errorf("%s: %w", artifact, err)
+		return err
+	}
+	// type conversion, ugh
+	fOS := f.(*os.File)
+	data, err := mmap.Map(fOS, mmap.RDONLY, 0)
+	defer data.Unmap()
+	if err != nil {
+		return err
 	}
 
 	// Get sha256 of the artifact
 	// Note that this is a PEFile, so it's a bit different from a normal file as there are some sections that need to be
 	// excluded when calculating the sha
-	file, _ := peparser.NewBytes(f, &peparser.Options{Fast: true})
+	logger.Logger.Debug().Str("what", artifact).Msg("Parsing PE artifact")
+	file, _ := peparser.NewBytes(data, &peparser.Options{Fast: true})
 	err = file.Parse()
 	if err != nil {
 		logger.Logger.Error().Err(err).Msg("parsing PE file for hash")
 		return err
 	}
 
+	logger.Logger.Debug().Str("what", artifact).Msg("Checking if its an EFI file")
 	// Check for proper header in the efi file
 	if file.DOSHeader.Magic != peparser.ImageDOSZMSignature && file.DOSHeader.Magic != peparser.ImageDOSSignature {
 		logger.Error(fmt.Errorf("no pe file header: %d", file.DOSHeader.Magic))
@@ -200,17 +219,19 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 	// Get hash to compare in dbx if we have hashes
 	hashArtifact := hex.EncodeToString(file.Authentihash())
 
+	logger.Logger.Debug().Str("what", artifact).Msg("Getting DB certs")
 	// We need to read the current db database to have the proper certs to check against
 	db, err := efi.Getdb()
 	if err != nil {
-		logger.Logger.Error().Err(err).Msg("getting DB certs")
+		logger.Logger.Error().Err(err).Msg("Getting DB certs")
 		return err
 	}
 
 	dbCerts := signatures.ExtractCertsFromSignatureDatabase(db)
 
+	logger.Logger.Debug().Str("what", artifact).Msg("Getting signatures from artifact")
 	// Get signatures from the artifact
-	sigs, err := pecoff.GetSignatures(f)
+	sigs, err := pecoff.GetSignatures(data)
 	if err != nil {
 		return fmt.Errorf("%s: %w", artifact, err)
 	}
@@ -218,6 +239,7 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 		return fmt.Errorf("no signatures in the file %s", artifact)
 	}
 
+	logger.Logger.Debug().Str("what", artifact).Msg("Getting DBX certs")
 	dbx, err := efi.Getdbx()
 	if err != nil {
 		logger.Logger.Error().Err(err).Msg("getting DBX certs")
