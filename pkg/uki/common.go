@@ -296,5 +296,5 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 		}
 	}
 	// If we reach this point, we need to fail as we haven't matched anything, so default is to fail
-	return errors.New("not ok")
+	return fmt.Errorf("could not find a signature in EFIVars DB that matches the upgrade artifact")
 }
