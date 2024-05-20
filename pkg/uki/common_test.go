@@ -82,7 +82,7 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err.Error()).To(ContainSubstring("no signatures in the file"))
 	})
 
-	It("Signatures does not match", func() {
+	It("fails when signature doesn't match the db", func() {
 		dbFile := fmt.Sprintf("db-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
 		file, err := os.ReadFile("tests/db-wrong")
 		Expect(err).ToNot(HaveOccurred())
@@ -93,7 +93,7 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err.Error()).To(ContainSubstring("not ok"))
 	})
 
-	It("Signatures does match in DB", func() {
+	It("matches the DB", func() {
 		dbFile := fmt.Sprintf("db-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
 		file, err := os.ReadFile("tests/db")
 		Expect(err).ToNot(HaveOccurred())
@@ -103,7 +103,7 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("Signatures does match in DB and not in DBX", func() {
+	It("doesn't fail when it matches the DB and not DBX", func() {
 		dbFile := fmt.Sprintf("db-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
 		dbxFile := fmt.Sprintf("dbx-%s", attributes.EFI_IMAGE_SECURITY_DATABASE_GUID.Format())
 		file, err := os.ReadFile("tests/db")
