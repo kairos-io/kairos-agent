@@ -100,7 +100,7 @@ var _ = Describe("Uki utils", Label("uki", "utils"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = checkArtifactSignatureIsValid(fs, "/efitest.signed.efi", logger)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("not ok"))
+		Expect(err.Error()).To(ContainSubstring("could not find a signature in EFIVars DB that matches the artifact"))
 	})
 
 	It("matches the DB", func() {

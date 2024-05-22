@@ -65,11 +65,13 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// Check if the upgrade artifact contains the proper signature before copying
-	err = checkArtifactSignatureIsValid(i.cfg.Fs, filepath.Join(constants.UkiEfiDir, "EFI/Kairos", fmt.Sprintf("%s.efi", UnassignedArtifactRole)), i.cfg.Logger)
+	err = checkArtifactSignatureIsValid(i.cfg.Fs, filepath.Join(constants.UkiEfiDir, "EFI", "Kairos", fmt.Sprintf("%s.efi", UnassignedArtifactRole)), i.cfg.Logger)
 	if err != nil {
-		// Remove efi file to not occupy space and leave stuff around
-		_ = removeArtifactSetWithRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole)
 		i.cfg.Logger.Logger.Error().Err(err).Msg("Checking signature before upgrading")
+		// Remove efi file to not occupy space and leave stuff around
+		cleanup.Push(func() error {
+			return removeArtifactSetWithRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole)
+		})
 		i.cfg.Logger.Logger.Warn().Msg("Upgrade artifact signature does not match, upgrading to this source would result in an unbootable active system.\n" +
 			"Check the upgrade source and confirm that its signed with a valid key, that key is in the machine DB and it has not been blacklisted.")
 		return err
