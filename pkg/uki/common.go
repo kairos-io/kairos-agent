@@ -1,18 +1,26 @@
 package uki
 
 import (
+	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
+	"github.com/edsrzf/mmap-go"
+	"github.com/foxboron/go-uefi/efi"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/signatures"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	sdkutils "github.com/kairos-io/kairos-sdk/utils"
+	peparser "github.com/saferwall/pe"
 	"github.com/sanity-io/litter"
 )
 
@@ -152,4 +160,141 @@ func copyFile(src, dst string) error {
 	}
 
 	return destinationFile.Close()
+}
+
+// checkArtifactSignatureIsValid checks that a given efi artifact is signed properly with a signature that would allow it to
+// boot correctly in the current node if secureboot is enabled
+func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.KairosLogger) error {
+	var err error
+	logger.Logger.Info().Str("what", artifact).Msg("Checking artifact for valid signature")
+	info, err := fs.Stat(artifact)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.Warnf("%s does not exist", artifact)
+		return fmt.Errorf("%s does not exist", artifact)
+	} else if errors.Is(err, os.ErrPermission) {
+		logger.Warnf("%s permission denied. Can't read file", artifact)
+		return fmt.Errorf("%s permission denied. Can't read file", artifact)
+	} else if err != nil {
+		return err
+	}
+	if info.Size() == 0 {
+		logger.Warnf("%s file is empty denied", artifact)
+		return fmt.Errorf("%s file has zero size", artifact)
+	}
+	logger.Logger.Debug().Str("what", artifact).Msg("Reading artifact")
+
+	// MMAP the file, seems to save memory rather than reading the full file
+	// Unfortunately we have to do some type conversion to keep using the v1.Fs
+	f, err := fs.Open(artifact)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	// type conversion, ugh
+	fOS := f.(*os.File)
+	data, err := mmap.Map(fOS, mmap.RDONLY, 0)
+	defer data.Unmap()
+	if err != nil {
+		return err
+	}
+
+	// Get sha256 of the artifact
+	// Note that this is a PEFile, so it's a bit different from a normal file as there are some sections that need to be
+	// excluded when calculating the sha
+	logger.Logger.Debug().Str("what", artifact).Msg("Parsing PE artifact")
+	file, _ := peparser.NewBytes(data, &peparser.Options{Fast: true})
+	err = file.Parse()
+	if err != nil {
+		logger.Logger.Error().Err(err).Msg("parsing PE file for hash")
+		return err
+	}
+
+	logger.Logger.Debug().Str("what", artifact).Msg("Checking if its an EFI file")
+	// Check for proper header in the efi file
+	if file.DOSHeader.Magic != peparser.ImageDOSZMSignature && file.DOSHeader.Magic != peparser.ImageDOSSignature {
+		logger.Error(fmt.Errorf("no pe file header: %d", file.DOSHeader.Magic))
+		return fmt.Errorf("no pe file header: %d", file.DOSHeader.Magic)
+	}
+
+	// Get hash to compare in dbx if we have hashes
+	hashArtifact := hex.EncodeToString(file.Authentihash())
+
+	logger.Logger.Debug().Str("what", artifact).Msg("Getting DB certs")
+	// We need to read the current db database to have the proper certs to check against
+	db, err := efi.Getdb()
+	if err != nil {
+		logger.Logger.Error().Err(err).Msg("Getting DB certs")
+		return err
+	}
+
+	dbCerts := signatures.ExtractCertsFromSignatureDatabase(db)
+
+	logger.Logger.Debug().Str("what", artifact).Msg("Getting signatures from artifact")
+	// Get signatures from the artifact
+	sigs, err := pecoff.GetSignatures(data)
+	if err != nil {
+		return fmt.Errorf("%s: %w", artifact, err)
+	}
+	if len(sigs) == 0 {
+		return fmt.Errorf("no signatures in the file %s", artifact)
+	}
+
+	logger.Logger.Debug().Str("what", artifact).Msg("Getting DBX certs")
+	dbx, err := efi.Getdbx()
+	if err != nil {
+		logger.Logger.Error().Err(err).Msg("getting DBX certs")
+		return err
+	}
+
+	// First check the dbx database as it has precedence, on match, return immediately
+	for _, k := range *dbx {
+		switch k.SignatureType {
+		case signature.CERT_SHA256_GUID: // SHA256 hash
+			// Compare it against the dbx
+			for _, k1 := range k.Signatures {
+				shaSign := hex.EncodeToString(k1.Data)
+				logger.Logger.Debug().Str("artifact", string(hashArtifact)).Str("signature", shaSign).Msg("Comparing hashes")
+				if hashArtifact == shaSign {
+					return fmt.Errorf("hash appears on DBX: %s", hashArtifact)
+				}
+
+			}
+		case signature.CERT_X509_GUID: // Certificate
+			var result []*x509.Certificate
+			for _, k1 := range k.Signatures {
+				certificates, err := x509.ParseCertificates(k1.Data)
+				if err != nil {
+					continue
+				}
+				result = append(result, certificates...)
+			}
+			for _, sig := range sigs {
+				for _, cert := range result {
+					logger.Logger.Debug().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("checking signature")
+					ok, _ := pkcs7.VerifySignature(cert, sig.Certificate)
+					// If cert matches then it means its blacklisted so return error
+					if ok {
+						return fmt.Errorf("artifact is signed with a blacklisted cert")
+					}
+
+				}
+			}
+		default:
+			logger.Logger.Debug().Str("what", artifact).Str("cert type", string(signature.ValidEFISignatureSchemes[k.SignatureType])).Msg("not supported type of cert")
+		}
+	}
+
+	// Now check against the DB to see if its allowed
+	for _, sig := range sigs {
+		for _, cert := range dbCerts {
+			logger.Logger.Debug().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("checking signature")
+			ok, _ := pkcs7.VerifySignature(cert, sig.Certificate)
+			if ok {
+				logger.Logger.Info().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("verified")
+				return nil
+			}
+		}
+	}
+	// If we reach this point, we need to fail as we haven't matched anything, so default is to fail
+	return fmt.Errorf("could not find a signature in EFIVars DB that matches the artifact")
 }
