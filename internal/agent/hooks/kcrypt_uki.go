@@ -84,8 +84,6 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 
 	for _, p := range append([]string{constants.OEMLabel, constants.PersistentLabel}, c.Install.Encrypt...) {
 		c.Logger.Infof("Encrypting %s", p)
-		utils.SH("udevadm settle") //nolint:errcheck
-		utils.SH("sync")           //nolint:errcheck
 		_, err := kcrypt.Luksify(p, "luks2", true)
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
