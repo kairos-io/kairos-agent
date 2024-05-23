@@ -19,7 +19,7 @@ require (
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.1.6
-	github.com/kairos-io/kcrypt v0.10.1
+	github.com/kairos-io/kcrypt v0.11.0
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -43,10 +43,11 @@ require (
 )
 
 require (
+	github.com/edsrzf/mmap-go v1.1.0
 	github.com/foxboron/go-uefi v0.0.0-20240128152106-48be911532c2
 	github.com/google/go-github/v40 v40.0.0
-	github.com/saferwall/pe v1.5.3
 	github.com/google/go-github/v62 v62.0.0
+	github.com/saferwall/pe v1.5.3
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -92,7 +93,6 @@ require (
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/eliukblau/pixterm v1.3.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
