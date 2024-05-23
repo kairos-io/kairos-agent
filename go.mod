@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.1.7
+	github.com/kairos-io/kairos-sdk v0.1.8
 	github.com/kairos-io/kcrypt v0.11.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -44,7 +44,7 @@ require (
 
 require (
 	github.com/edsrzf/mmap-go v1.1.0
-	github.com/foxboron/go-uefi v0.0.0-20240128152106-48be911532c2
+	github.com/foxboron/go-uefi v0.0.0-20240522180132-205d5597883a
 	github.com/google/go-github/v40 v40.0.0
 	github.com/saferwall/pe v1.5.3
 	github.com/twpayne/go-vfs/v4 v4.3.0

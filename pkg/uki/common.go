@@ -1,6 +1,7 @@
 package uki
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
@@ -10,10 +11,10 @@ import (
 	"strings"
 
 	"github.com/edsrzf/mmap-go"
+	"github.com/foxboron/go-uefi/authenticode"
 	"github.com/foxboron/go-uefi/efi"
-	"github.com/foxboron/go-uefi/efi/pecoff"
-	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/pkcs7"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -231,12 +232,17 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 
 	logger.Logger.Debug().Str("what", artifact).Msg("Getting signatures from artifact")
 	// Get signatures from the artifact
-	sigs, err := pecoff.GetSignatures(data)
+	binary, err := authenticode.Parse(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("%s: %w", artifact, err)
 	}
-	if len(sigs) == 0 {
+	if binary.Datadir.Size == 0 {
 		return fmt.Errorf("no signatures in the file %s", artifact)
+	}
+
+	sigs, err := binary.Signatures()
+	if err != nil {
+		return fmt.Errorf("%s: %w", artifact, err)
 	}
 
 	logger.Logger.Debug().Str("what", artifact).Msg("Getting DBX certs")
@@ -271,7 +277,12 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 			for _, sig := range sigs {
 				for _, cert := range result {
 					logger.Logger.Debug().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("checking signature")
-					ok, _ := pkcs7.VerifySignature(cert, sig.Certificate)
+					p, err := pkcs7.ParsePKCS7(sig.Certificate)
+					if err != nil {
+						logger.Logger.Info().Str("error", err.Error()).Msg("parsing signature")
+						return err
+					}
+					ok, _ := p.Verify(cert)
 					// If cert matches then it means its blacklisted so return error
 					if ok {
 						return fmt.Errorf("artifact is signed with a blacklisted cert")
@@ -288,7 +299,12 @@ func checkArtifactSignatureIsValid(fs v1.FS, artifact string, logger sdkTypes.Ka
 	for _, sig := range sigs {
 		for _, cert := range dbCerts {
 			logger.Logger.Debug().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("checking signature")
-			ok, _ := pkcs7.VerifySignature(cert, sig.Certificate)
+			p, err := pkcs7.ParsePKCS7(sig.Certificate)
+			if err != nil {
+				logger.Logger.Info().Str("error", err.Error()).Msg("parsing signature")
+				return err
+			}
+			ok, _ := p.Verify(cert)
 			if ok {
 				logger.Logger.Info().Str("what", artifact).Str("subject", cert.Subject.CommonName).Msg("verified")
 				return nil
