@@ -44,7 +44,7 @@ require (
 
 require (
 	github.com/edsrzf/mmap-go v1.1.0
-	github.com/foxboron/go-uefi v0.0.0-20240128152106-48be911532c2
+	github.com/foxboron/go-uefi 205d5597883a
 	github.com/google/go-github/v40 v40.0.0
 	github.com/saferwall/pe v1.5.3
 	github.com/twpayne/go-vfs/v4 v4.3.0
