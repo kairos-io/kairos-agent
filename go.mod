@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.1.7
+	github.com/kairos-io/kairos-sdk v0.1.8
 	github.com/kairos-io/kcrypt v0.11.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -87,7 +87,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/eliukblau/pixterm v1.3.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/foxboron/go-uefi v0.0.0-20240128152106-48be911532c2 // indirect
+	github.com/foxboron/go-uefi v0.0.0-20240522180132-205d5597883a // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
