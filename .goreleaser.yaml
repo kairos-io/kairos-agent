@@ -29,3 +29,8 @@ changelog:
       - '^docs:'
       - '^test:'
       - '^Merge pull request'
+env:
+  - GOSUMDB=off 
+before:
+  hooks:
+    - go mod tidy -compat=1.19
