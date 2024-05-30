@@ -30,7 +30,7 @@ changelog:
       - '^test:'
       - '^Merge pull request'
 env:
-  - GOSUMDB=off 
+  - GOSUMDB=sum.golang.org
 before:
   hooks:
     - go mod tidy -compat=1.19
