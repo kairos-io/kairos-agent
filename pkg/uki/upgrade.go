@@ -12,6 +12,7 @@ import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/signatures"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -65,7 +66,7 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// Check if the upgrade artifact contains the proper signature before copying
-	err = checkArtifactSignatureIsValid(i.cfg.Fs, filepath.Join(constants.UkiEfiDir, "EFI", "Kairos", fmt.Sprintf("%s.efi", UnassignedArtifactRole)), i.cfg.Logger)
+	err = signatures.CheckArtifactSignatureIsValid(i.cfg.Fs, filepath.Join(constants.UkiEfiDir, "EFI", "Kairos", fmt.Sprintf("%s.efi", UnassignedArtifactRole)), i.cfg.Logger)
 	if err != nil {
 		i.cfg.Logger.Logger.Error().Err(err).Msg("Checking signature before upgrading")
 		// Remove efi file to not occupy space and leave stuff around
