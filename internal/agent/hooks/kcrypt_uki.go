@@ -3,6 +3,7 @@ package hook
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,12 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 	if systemdVersion == "" {
 		c.Logger.Errorf("could not get systemd version: %s", err)
 		return err
+	}
+	// Extract the numeric portion of the version string using a regular expression
+	re := regexp.MustCompile(`\d+`)
+	matches := re.FindString(systemdVersion)
+	if matches == "" {
+		return fmt.Errorf("could not extract numeric part from systemd version: %s", systemdVersion)
 	}
 	// Change systemdVersion to int value
 	systemdVersionInt, err := strconv.Atoi(systemdVersion)
