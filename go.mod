@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.1.8
+	github.com/kairos-io/kairos-sdk v0.2.1
 	github.com/kairos-io/kcrypt v0.11.2
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -43,11 +43,7 @@ require (
 )
 
 require (
-	github.com/edsrzf/mmap-go v1.1.0
-	github.com/foxboron/go-uefi v0.0.0-20240522180132-205d5597883a
-	github.com/google/go-github/v62 v62.0.0
-	github.com/google/go-github/v62 v62.0.0
-	github.com/saferwall/pe v1.5.3
+	github.com/google/go-github/v40 v40.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -93,8 +89,10 @@ require (
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/eliukblau/pixterm v1.3.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/foxboron/go-uefi v0.0.0-20240522180132-205d5597883a // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
@@ -118,8 +116,8 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
-	github.com/itchyny/gojq v0.12.15 // indirect
-	github.com/itchyny/timefmt-go v0.1.5 // indirect
+	github.com/itchyny/gojq v0.12.16 // indirect
+	github.com/itchyny/timefmt-go v0.1.6 // indirect
 	github.com/jaypipes/pcidb v1.0.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
@@ -167,6 +165,7 @@ require (
 	github.com/rancher-sandbox/linuxkit v1.0.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/saferwall/pe v1.5.3 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/samber/lo v1.37.0 // indirect
@@ -184,7 +183,6 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggest/jsonschema-go v0.3.62 // indirect
 	github.com/swaggest/refl v1.3.0 // indirect
@@ -211,7 +209,7 @@ require (
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20231219180239-dc181d75b848 // indirect
 	golang.org/x/image v0.10.0 // indirect
-	golang.org/x/mod v0.15.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
