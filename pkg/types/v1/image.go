@@ -29,8 +29,9 @@ type OCIImageExtractor struct{}
 
 var _ ImageExtractor = OCIImageExtractor{}
 
+// TODO: Add support for extracting images from authenticated registries
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
-	img, err := utils.GetImage(imageRef, utils.GetCurrentPlatform())
+	img, err := utils.GetImage(imageRef, utils.GetCurrentPlatform(), nil)
 	if err != nil {
 		return err
 	}
@@ -39,5 +40,5 @@ func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef strin
 }
 
 func (e OCIImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
-	return utils.GetOCIImageSize(imageRef, platformRef)
+	return utils.GetOCIImageSize(imageRef, platformRef, nil)
 }
