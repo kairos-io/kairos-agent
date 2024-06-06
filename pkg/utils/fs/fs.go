@@ -21,6 +21,7 @@ package fsutils
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -242,4 +243,33 @@ func readDir(fs v1.FS, dirname string) ([]fs.DirEntry, error) {
 	}
 	sort.Slice(dirs, func(i, j int) bool { return dirs[i].Name() < dirs[j].Name() })
 	return dirs, nil
+}
+
+// Copy copies src to dst like the cp command.
+func Copy(fs v1.FS, src, dst string) error {
+	if dst == src {
+		return os.ErrInvalid
+	}
+
+	srcF, err := fs.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcF.Close()
+
+	info, err := srcF.Stat()
+	if err != nil {
+		return err
+	}
+
+	dstF, err := fs.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+	defer dstF.Close()
+
+	if _, err := io.Copy(dstF, srcF); err != nil {
+		return err
+	}
+	return nil
 }
