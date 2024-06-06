@@ -24,10 +24,15 @@ func (b SysExtPostInstall) Run(c config.Config, s v1.Spec) error {
 		defer func() {
 			machine.Umount(constants.EfiDir) //nolint:errcheck
 		}()
+	} else {
+		machine.Remount("rw", constants.EfiDir) //nolint:errcheck
+		defer func() {
+			machine.Remount("ro", constants.EfiDir) //nolint:errcheck
+		}()
 	}
 
-	activeDir := filepath.Join(constants.EfiDir, "EFI/kairos/active.efi.extra.d")
-	passiveDir := filepath.Join(constants.EfiDir, "EFI/kairos/passive.efi.extra.d")
+	activeDir := filepath.Join(constants.EfiDir, "EFI/kairos/active.efi.extra.d/")
+	passiveDir := filepath.Join(constants.EfiDir, "EFI/kairos/passive.efi.extra.d/")
 	err := fsutils.MkdirAll(c.Fs, activeDir, 0755)
 	if err != nil {
 		c.Logger.Errorf("failed to create directory %s: %s", activeDir, err)
