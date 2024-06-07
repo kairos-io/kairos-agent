@@ -48,21 +48,15 @@ func (b SysExtPostInstall) Run(c config.Config, _ v1.Spec) error {
 
 	activeDir := filepath.Join(constants.EfiDir, "EFI/kairos/active.efi.extra.d/")
 	passiveDir := filepath.Join(constants.EfiDir, "EFI/kairos/passive.efi.extra.d/")
-	err = fsutils.MkdirAll(c.Fs, activeDir, 0755)
-	if err != nil {
-		c.Logger.Errorf("failed to create directory %s: %s", activeDir, err)
-		if c.FailOnBundleErrors {
-			return err
+	for _, dir := range []string{activeDir, passiveDir} {
+		err = fsutils.MkdirAll(c.Fs, dir, 0755)
+		if err != nil {
+			c.Logger.Errorf("failed to create directory %s: %s", dir, err)
+			if c.FailOnBundleErrors {
+				return err
+			}
+			return nil
 		}
-		return nil
-	}
-	err = fsutils.MkdirAll(c.Fs, passiveDir, 0755)
-	if err != nil {
-		c.Logger.Errorf("failed to create directory %s: %s", activeDir, err)
-		if c.FailOnBundleErrors {
-			return err
-		}
-		return nil
 	}
 
 	err = fsutils.WalkDirFs(c.Fs, constants.LiveDir, func(path string, info fs.DirEntry, err error) error {
