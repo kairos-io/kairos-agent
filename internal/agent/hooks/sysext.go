@@ -4,9 +4,8 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -14,26 +13,42 @@ import (
 
 type SysExtPostInstall struct{}
 
-func (b SysExtPostInstall) Run(c config.Config, s v1.Spec) error {
+func (b SysExtPostInstall) Run(c config.Config, _ v1.Spec) error {
 	c.Logger.Logger.Debug().Msg("Running SysExtPostInstall hook")
-
 	// mount efi partition
-	mounted, _ := utils.IsMounted(&c, &v1.Partition{MountPoint: constants.EfiDir})
+	efiPart, err := partitions.GetEfiPartition()
+	if err != nil {
+		c.Logger.Errorf("failed to get EFI partition: %s", err)
+		if c.FailOnBundleErrors {
+			return err
+		}
+		return nil
+	}
+	mounted, _ := c.Mounter.IsMountPoint(constants.EfiDir)
+
 	if !mounted {
-		machine.Mount(constants.EfiLabel, constants.EfiDir) //nolint:errcheck
+		err = c.Mounter.Mount(efiPart.Path, constants.EfiDir, efiPart.FS, []string{"rw"})
+		if err != nil {
+			c.Logger.Errorf("failed to mount EFI partition: %s", err)
+			if c.FailOnBundleErrors {
+				return err
+			}
+			return nil
+		}
 		defer func() {
-			machine.Umount(constants.EfiDir) //nolint:errcheck
+			_ = c.Mounter.Unmount(constants.EfiDir)
 		}()
 	} else {
-		machine.Remount("rw", constants.EfiDir) //nolint:errcheck
+		// If its mounted, try to remount it RW
+		err = c.Mounter.Mount(efiPart.Path, constants.EfiDir, efiPart.FS, []string{"remount,rw"})
 		defer func() {
-			machine.Remount("ro", constants.EfiDir) //nolint:errcheck
+			_ = c.Mounter.Unmount(constants.EfiDir)
 		}()
 	}
 
 	activeDir := filepath.Join(constants.EfiDir, "EFI/kairos/active.efi.extra.d/")
 	passiveDir := filepath.Join(constants.EfiDir, "EFI/kairos/passive.efi.extra.d/")
-	err := fsutils.MkdirAll(c.Fs, activeDir, 0755)
+	err = fsutils.MkdirAll(c.Fs, activeDir, 0755)
 	if err != nil {
 		c.Logger.Errorf("failed to create directory %s: %s", activeDir, err)
 		if c.FailOnBundleErrors {
@@ -67,11 +82,13 @@ func (b SysExtPostInstall) Run(c config.Config, s v1.Spec) error {
 				}
 				return nil
 			}
+			c.Logger.Debugf("copied %s to %s", path, activeDir)
 		}
 		return nil
 	})
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
+	c.Logger.Logger.Debug().Msg("Done SysExtPostInstall hook")
 	return nil
 }
