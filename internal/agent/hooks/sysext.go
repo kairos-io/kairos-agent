@@ -77,6 +77,16 @@ func (b SysExtPostInstall) Run(c config.Config, _ v1.Spec) error {
 				return nil
 			}
 			c.Logger.Debugf("copied %s to %s", path, activeDir)
+
+			err = fsutils.Copy(c.Fs, path, filepath.Join(passiveDir, info.Name()))
+			if err != nil {
+				c.Logger.Errorf("failed to copy %s to %s: %s", path, passiveDir, err)
+				if c.FailOnBundleErrors {
+					return err
+				}
+				return nil
+			}
+			c.Logger.Debugf("copied %s to %s", path, passiveDir)
 		}
 		return nil
 	})
