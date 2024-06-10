@@ -405,6 +405,8 @@ github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/morikuni/aec v1.0.0/go.mod h1:BbKIizmSmc5MMPqRYbxO4ZU0S0+P200+tUnFx7PXmsc=
 github.com/mudler/entities v0.0.0-20220905203055-68348bae0f49 h1:P1QgHLh0hX935j6m9K6rlSxc0mkD1UuIAOQEu+1VCW4=
 github.com/mudler/entities v0.0.0-20220905203055-68348bae0f49/go.mod h1:qquFT9tYp+/NO7tTotto4BT9zSRYSMDxo2PGZwujpFA=
+github.com/mudler/entities v0.0.0-20240606103849-caa372976495 h1:ie7GUcc1evySZZX8UuD1rxmafY4CBN4r1l34NE3PS1E=
+github.com/mudler/entities v0.0.0-20240606103849-caa372976495/go.mod h1:ZFMx50vlPaL9hkCPu+Mw4xidJfwRyQEoLLG1Kt3+MNM=
 github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb h1:F6TP0DW7C0U9sgm9g4uAs0Vp2JSkhn2umlyrNlxUKXw=
 github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb/go.mod h1:6QsBHK5vY/wDnSpueKek3/qfoCZmdJ9pz7FnzQbP/gE=
 github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5 h1:FaZD86+A9mVt7lh9glAryzQblMsbJYU2VnrdZ8yHlTs=
@@ -413,6 +415,8 @@ github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c h1:CI5uGw
 github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c/go.mod h1:gY3wyrhkRySJtmtI/JPt4a2mKv48h/M9pEZIW+SjeC0=
 github.com/mudler/yip v1.7.0 h1:IAb7cFcfuaJnrpLL5KJWLQfjRUdAQQROIZKlUtUqI30=
 github.com/mudler/yip v1.7.0/go.mod h1:YMsvH82hU7OHhuw4J28RkCoh48JpLfZdkgLprdRs8fc=
+github.com/mudler/yip v1.8.0 h1:5tPrUGgjFh78ip4t4oGbCnDohYNQIsjYWyd+9K7gqiU=
+github.com/mudler/yip v1.8.0/go.mod h1:OZfTqLJ6O/GHPQZ9kdaVt/LY+P862yD322yn6Oq1z5o=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6/go.mod h1:CJlz5H+gyd6CUWT45Oy4q24RdLyn7Md9Vj2/ldJBSIo=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
