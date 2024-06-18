@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -35,9 +36,17 @@ func overwriteArtifactSetRole(fs v1.FS, dir, oldRole, newRole string, logger sdk
 }
 
 // copy the source file but rename the base name to as
-func copyArtifact(source, oldRole, newRole string) (string, error) {
-	newName := strings.ReplaceAll(source, oldRole, newRole)
-	return newName, copyFile(source, newName)
+func copyArtifact(fs v1.FS, source, oldRole, newRole string) (string, error) {
+	dir := filepath.Dir(source)
+	base := filepath.Base(source)
+
+	// Replace the substring in the base name
+	newBase := strings.ReplaceAll(base, oldRole, newRole)
+
+	// Join the directory and the new base name
+	newName := filepath.Join(dir, newBase)
+
+	return newName, fsutils.Copy(fs, source, newName)
 }
 
 func removeArtifactSetWithRole(fs v1.FS, artifactDir, role string) error {
@@ -55,11 +64,16 @@ func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger 
 		if err != nil {
 			return err
 		}
+
+		if info.IsDir() {
+			return nil
+		}
+
 		if !strings.HasPrefix(info.Name(), oldRole) {
 			return nil
 		}
 
-		newPath, err := copyArtifact(path, oldRole, newRole)
+		newPath, err := copyArtifact(fs, path, oldRole, newRole)
 		if err != nil {
 			return fmt.Errorf("copying artifact from %s to %s: %w", path, newPath, err)
 		}
