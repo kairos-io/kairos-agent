@@ -19,7 +19,7 @@ require (
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.2.3
-	github.com/kairos-io/kcrypt v0.11.2
+	github.com/kairos-io/kcrypt v0.11.3
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -43,7 +43,6 @@ require (
 )
 
 require (
-	github.com/google/go-github/v62 v62.0.0
 	github.com/google/go-github/v62 v62.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )

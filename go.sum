@@ -321,6 +321,10 @@ github.com/kairos-io/kairos-sdk v0.2.3 h1:QXqjVtOm5Ki4N1diI+H6ydrStFhDHDbDkK25HJ
 github.com/kairos-io/kairos-sdk v0.2.3/go.mod h1:wbQNMckCGT/kKd+tqhAZo4thDBPWxpcKaymWJmRqSUg=
 github.com/kairos-io/kcrypt v0.11.2 h1:qu00WGDKvOn6tm9xaWho3RRpo0iRQBzZa9M/hnXhLbs=
 github.com/kairos-io/kcrypt v0.11.2/go.mod h1:znIdTYzsTtePMDA2v5bDJeikqxIb0W6YJMH77TU2Phs=
+github.com/kairos-io/kcrypt v0.11.3-0.20240619144533-2bc901ed2c56 h1:gSNrbmZwc2bC1weuZCeds4ogbwwCbLfMd6tfq9JitG8=
+github.com/kairos-io/kcrypt v0.11.3-0.20240619144533-2bc901ed2c56/go.mod h1:6i6IsIsjxKt5mC/xvHniTfEw6j7ewKm5t6oZ+a+BNpE=
+github.com/kairos-io/kcrypt v0.11.3 h1:SDjd1eCTZ4EMI3pKCN4G3HO5rZnc4HXBSl5Eqloiv4w=
+github.com/kairos-io/kcrypt v0.11.3/go.mod h1:6i6IsIsjxKt5mC/xvHniTfEw6j7ewKm5t6oZ+a+BNpE=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 h1:qq2nCpSrXrmvDGRxW0ruW9BVEV1CN2a9YDOExdt+U0o=
 github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329/go.mod h1:2VPVQDR4wO7KXHwP+DAypEy67rXf+okUx2zjgpCxZw4=
