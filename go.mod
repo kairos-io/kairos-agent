@@ -19,7 +19,7 @@ require (
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.2.3
-	github.com/kairos-io/kcrypt v0.11.2
+	github.com/kairos-io/kcrypt v0.11.3
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -43,8 +43,7 @@ require (
 )
 
 require (
-	github.com/google/go-github/v62 v62.0.0
-	github.com/google/go-github/v62 v62.0.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -203,7 +202,6 @@ require (
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/vmware/vmw-guestinfo v0.0.0-20220317130741-510905f0efa3 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
-	github.com/willdonnelly/passwd v0.0.0-20141013001024-7935dab3074c // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 // indirect

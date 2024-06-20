@@ -91,7 +91,9 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 
 	for _, p := range append([]string{constants.OEMLabel, constants.PersistentLabel}, c.Install.Encrypt...) {
 		c.Logger.Infof("Encrypting %s", p)
-		_, err := kcrypt.Luksify(p, "luks2", true)
+		_ = os.Setenv("SYSTEMD_LOG_LEVEL", "debug")
+		err := kcrypt.LuksifyMeasurements(p, []string{"11"}, []string{}, c.Logger.Logger)
+		_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
 			if c.FailOnBundleErrors {
@@ -106,7 +108,10 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 
 	_, _ = utils.SH("sync")
 
-	err = kcrypt.UnlockAll(true)
+	_ = os.Setenv("SYSTEMD_LOG_LEVEL", "debug")
+	err = kcrypt.UnlockAllWithLogger(true, c.Logger.Logger)
+
+	_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
 	if err != nil {
 		c.Logger.Errorf("could not unlock partitions: %s", err)
 		return err
@@ -138,7 +143,7 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 				time.Sleep(time.Duration(i) * time.Second)
 				// Retry the unlock as well, because maybe the partition was not refreshed on time for unlock to unlock it
 				// So no matter how many tries we do, it will still be locked and will never appear
-				err := kcrypt.UnlockAll(true)
+				err := kcrypt.UnlockAllWithLogger(true, c.Logger.Logger)
 				if err != nil {
 					c.Logger.Debugf("UnlockAll returned: %s", err)
 				}
