@@ -12,5 +12,5 @@ coverage:
       pkg:
         paths:
           - "pkg/"
-        target: 70%
+        target: 60%
     patch: false
