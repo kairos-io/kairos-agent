@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	github.com/google/go-github/v62 v62.0.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -202,7 +202,6 @@ require (
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/vmware/vmw-guestinfo v0.0.0-20220317130741-510905f0efa3 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
-	github.com/willdonnelly/passwd v0.0.0-20141013001024-7935dab3074c // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 // indirect
