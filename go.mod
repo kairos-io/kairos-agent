@@ -25,7 +25,7 @@ require (
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
-	github.com/mudler/yip v1.8.1
+	github.com/mudler/yip v1.9.0
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.33.0
@@ -43,8 +43,7 @@ require (
 )
 
 require (
-	github.com/google/go-github/v62 v62.0.0
-	github.com/google/go-github/v62 v62.0.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -142,7 +141,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mauromorales/xpasswd v0.3.1 // indirect
+	github.com/mauromorales/xpasswd v0.4.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -150,7 +149,7 @@ require (
 	github.com/moby/moby v24.0.9+incompatible // indirect
 	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
-	github.com/mudler/entities v0.0.0-20240611135956-f8f11ba52c2f // indirect
+	github.com/mudler/entities v0.0.0-20240625130751-3d7f84082f3a // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
