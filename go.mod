@@ -39,11 +39,11 @@ require (
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sys v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/mount-utils v0.27.4
+	k8s.io/mount-utils v0.30.2
 )
 
 require (
-	github.com/google/go-github/v62 v62.0.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/google/go-github/v62 v62.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
@@ -234,8 +234,8 @@ require (
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	howett.net/plist v1.0.0 // indirect
-	k8s.io/klog/v2 v2.90.1 // indirect
-	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
+	k8s.io/klog/v2 v2.120.1 // indirect
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	pault.ag/go/modprobe v0.1.2 // indirect
 	pault.ag/go/topsort v0.1.1 // indirect
 )
