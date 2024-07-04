@@ -23,7 +23,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 )
 
 const (
