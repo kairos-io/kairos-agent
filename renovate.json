@@ -8,6 +8,7 @@
     "before 7am every weekday",
     "every weekend"
   ],
+  "reviewers": [ "team:maintainers" ],
   "timezone": "Europe/Brussels",
   "rebaseWhen": "behind-base-branch",
   "constraints": {
