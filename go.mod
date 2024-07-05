@@ -43,8 +43,8 @@ require (
 )
 
 require (
-	github.com/google/go-github/v62 v62.0.0
-	github.com/google/go-github/v62 v62.0.0
+	github.com/distribution/reference v0.5.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -84,7 +84,6 @@ require (
 	github.com/dgryski/go-camellia v0.0.0-20191119043421-69a8a13fb23d // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/diskfs/go-diskfs v1.3.0 // indirect
-	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/cli v24.0.0+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v26.1.4+incompatible // indirect
