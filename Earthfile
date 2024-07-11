@@ -3,7 +3,7 @@ FROM alpine
 # renovate: datasource=docker depName=golang
 ARG --global GOLINT_VERSION=1.52.2
 # renovate: datasource=docker depName=golang
-ARG --global GO_VERSION=1.20-bookworm
+ARG --global GO_VERSION=1.22-bookworm
 # renovate: datasource=docker depName=cypress/base
 ARG --global CYPRESS_VERSION=18.16.0
 
@@ -13,7 +13,7 @@ go-deps:
     RUN apt-get update && apt-get install -y rsync gcc bash git
     WORKDIR /build
     COPY . .
-    RUN go mod tidy --compat=1.19
+    RUN go mod tidy
     RUN go mod download
     RUN go mod verify
 

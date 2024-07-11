@@ -33,4 +33,4 @@ env:
   - GOSUMDB=sum.golang.org
 before:
   hooks:
-    - go mod tidy -compat=1.19
+    - go mod tidy

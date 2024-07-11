@@ -17,7 +17,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '^1.19.10'
+          go-version-file: 'go.mod'
       - name: Build WebUI dependencies
         run: cd ./internal/webui/public && npm install
       - name: Run GoReleaser
