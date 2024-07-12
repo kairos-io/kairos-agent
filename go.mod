@@ -1,8 +1,6 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.22.0
-
-toolchain go1.22.5
+go 1.22.5
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -40,8 +38,7 @@ require (
 
 require (
 	github.com/distribution/reference v0.5.0
-	github.com/google/go-github/v63 v63.0.0
-	github.com/google/go-github/v63 v63.0.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
