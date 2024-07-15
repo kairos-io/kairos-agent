@@ -169,6 +169,11 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			return err
 		}
 
+		flavor, err := utils.OSRelease("FLAVOR", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+		if err != nil {
+			g.config.Logger.Warnf("Failed reading os-release from %s: %v", filepath.Join(cnst.ActiveDir, "etc/os-release"), err)
+		}
+		g.config.Logger.Debugf("Detected Flavor: %s", flavor)
 		// Copy needed files for efi boot
 		// This seems like a chore while we could provide a package for those bundled files as they are just a shim and a grub efi
 		// BUT this is needed for secureboot
@@ -178,44 +183,45 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		// the kernel signature would be from fedora while the shim signature would be from ubuntu
 		// This is why if we want to support secureboot we need to copy the shim+grub from the rootfs default paths instead of
 		// providing a generic package
-		err = g.copyShim()
-		if err != nil {
-			return err
-		}
-		err = g.copyGrub()
-		if err != nil {
-			return err
-		}
-		// Add grub.cfg in EFI that chainloads the grub.cfg in recovery
-		// Notice that we set the config to /grub2/grub.cfg which means the above we need to copy the file from
-		// the installation source into that dir
-		grubCfgContent := []byte(fmt.Sprintf("search --no-floppy --label --set=root %s\nset prefix=($root)/%s\nconfigfile ($root)/%s/grub.cfg", stateLabel, systemgrub, systemgrub))
-		err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), grubCfgContent, cnst.FilePerm)
-		if err != nil {
-			return fmt.Errorf("error writing %s: %s", filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), err)
-		}
-		// Ubuntu efi searches for the grub.cfg file under /EFI/ubuntu/grub.cfg while we store it under /boot/grub2/grub.cfg
-		// workaround this by copying it there as well
-		// read the os-release from the rootfs to know if we are creating a ubuntu based iso
-		flavor, err := utils.OSRelease("FLAVOR", filepath.Join(cnst.ActiveDir, "etc/os-release"))
-		if err != nil {
-			g.config.Logger.Warnf("Failed reading os-release from %s: %v", filepath.Join(cnst.ActiveDir, "etc/os-release"), err)
-		}
-		g.config.Logger.Infof("Detected Flavor: %s", flavor)
-		if err == nil && strings.Contains(strings.ToLower(flavor), "ubuntu") {
-			g.config.Logger.Infof("Ubuntu based ISO detected, copying grub.cfg to /EFI/ubuntu/grub.cfg")
-			err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/ubuntu/"), constants.DirPerm)
-			if err != nil {
-				g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
-				return err
-			}
-			err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/ubuntu/grub.cfg"), grubCfgContent, constants.FilePerm)
-			if err != nil {
-				g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
-				return err
-			}
-		}
 
+		// Shim is not available in Alpine + rpi
+		model, err := utils.OSRelease("KAIROS_MODEL", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+		if strings.Contains(strings.ToLower(flavor), "alpine") && strings.Contains(strings.ToLower(model), "rpi") {
+			g.config.Logger.Debug("Running on Alpine+RPI, not copying shim or grub.")
+		} else {
+			err = g.copyShim()
+			if err != nil {
+				return err
+			}
+			err = g.copyGrub()
+			if err != nil {
+				return err
+			}
+			// Add grub.cfg in EFI that chainloads the grub.cfg in state
+			// Notice that we set the config to /grub2/grub.cfg which means the above we need to copy the file from
+			// the installation source into that dir
+			grubCfgContent := []byte(fmt.Sprintf("search --no-floppy --label --set=root %s\nset prefix=($root)/%s\nconfigfile ($root)/%s/grub.cfg", stateLabel, systemgrub, systemgrub))
+			err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), grubCfgContent, cnst.FilePerm)
+			if err != nil {
+				return fmt.Errorf("error writing %s: %s", filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), err)
+			}
+			// Ubuntu efi searches for the grub.cfg file under /EFI/ubuntu/grub.cfg while we store it under /boot/grub2/grub.cfg
+			// workaround this by copying it there as well
+			// read the os-release from the rootfs to know if we are creating a ubuntu based iso
+			if strings.Contains(strings.ToLower(flavor), "ubuntu") {
+				g.config.Logger.Infof("Ubuntu based ISO detected, copying grub.cfg to /EFI/ubuntu/grub.cfg")
+				err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/ubuntu/"), constants.DirPerm)
+				if err != nil {
+					g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
+					return err
+				}
+				err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/ubuntu/grub.cfg"), grubCfgContent, constants.FilePerm)
+				if err != nil {
+					g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
+					return err
+				}
+			}
+		}
 	}
 
 	return nil
