@@ -1,15 +1,12 @@
 package action
 
 import (
-	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/state"
-	"gopkg.in/yaml.v3"
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("RenderTemplate action test", func() {
@@ -19,9 +16,9 @@ var _ = Describe("RenderTemplate action test", func() {
 		config.Config = collector.Config{
 			"testKey": "testValue",
 		}
-		runtime, err := state.NewRuntime()
-
-		fmt.Println(os.Getwd())
+		runtime := state.Runtime{
+			UUID: "123abcd1235467",
+		}
 
 		result, err := RenderTemplate("../../tests/fixtures/template/test.yaml", config, runtime)
 		Expect(err).ToNot(HaveOccurred())
