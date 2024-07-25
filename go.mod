@@ -28,7 +28,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
-	github.com/urfave/cli/v2 v2.27.2
+	github.com/urfave/cli/v2 v2.27.3
 	golang.org/x/net v0.27.0
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sys v0.22.0
@@ -38,7 +38,7 @@ require (
 
 require (
 	github.com/distribution/reference v0.5.0
-	github.com/google/go-github/v63 v63.0.0
+	github.com/google/go-github/v40 v40.0.0
 	github.com/google/go-github/v63 v63.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
@@ -199,7 +199,7 @@ require (
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 // indirect
+	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	github.com/zcalusic/sysinfo v1.0.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
