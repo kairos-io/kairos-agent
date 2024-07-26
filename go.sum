@@ -122,8 +122,6 @@ github.com/disintegration/imaging v1.6.2 h1:w1LecBlG2Lnp8B3jk5zSuNqd7b4DXhcjwek1
 github.com/disintegration/imaging v1.6.2/go.mod h1:44/5580QXChDfwIclfc/PCwrr44amcmDAg8hxG0Ewe4=
 github.com/diskfs/go-diskfs v1.3.0 h1:D3IVe1y7ybB5SjCO0pOmkWThL9lZEWeanp8rRa0q0sk=
 github.com/diskfs/go-diskfs v1.3.0/go.mod h1:3pUpCAz75Q11om5RsGpVKUgXp2Z+ATw1xV500glmCP0=
-github.com/distribution/distribution v2.8.3+incompatible h1:RlpEXBLq/WPXYvBYMDAmBX/SnhD67qwtvW/DzKc8pAo=
-github.com/distribution/distribution v2.8.3+incompatible/go.mod h1:EgLm2NgWtdKgzF9NpMzUKgzmR7AMmb0VQi2B+ZzDRjc=
 github.com/distribution/reference v0.5.0 h1:/FUIFXtfc/x2gpa5/VGfiGLuOIdYa1t65IKK2OFGvA0=
 github.com/distribution/reference v0.5.0/go.mod h1:BbU0aIcezP1/5jX/8MP0YiH4SdvB5Y4f/wlDRiLyi3E=
 github.com/dnaeon/go-vcr v1.0.1/go.mod h1:aBB1+wY4s93YsC3HHjMBMrwTj2R9FHDzUr9KyGc8n1E=
@@ -234,13 +232,10 @@ github.com/google/go-cmp v0.5.8/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeN
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/google/go-containerregistry v0.20.0 h1:wRqHpOeVh3DnenOrPy9xDOLdnLatiGuuNRVelR2gSbg=
-github.com/google/go-containerregistry v0.20.0/go.mod h1:YCMFNQeeXeLF+dnhhWkqDItx/JSkH01j1Kis4PsjzFI=
 github.com/google/go-containerregistry v0.20.1 h1:eTgx9QNYugV4DN5mz4U8hiAGTi1ybXn0TPi4Smd8du0=
 github.com/google/go-containerregistry v0.20.1/go.mod h1:YCMFNQeeXeLF+dnhhWkqDItx/JSkH01j1Kis4PsjzFI=
 github.com/google/go-github/v40 v40.0.0 h1:oBPVDaIhdUmwDWRRH8XJ/dZG+Rn755i08+Hp1uJHlR0=
 github.com/google/go-github/v40 v40.0.0/go.mod h1:G8wWKTEjUCL0zdbaQvpwDk0hqf6KZgPQH+ssJa+/NVc=
-github.com/google/go-github/v63 v63.0.0/go.mod h1:IqbcrgUmIcEaioWrGYei/09o+ge5vhffGOcxrO0AfmA=
 github.com/google/go-querystring v1.1.0 h1:AnCroh3fv4ZBgVIf1Iwtovgjaw/GiKJo8M8yD/fhyJ8=
 github.com/google/go-querystring v1.1.0/go.mod h1:Kcdr2DB4koayq7X8pmAG4sNG59So17icRSOU623lUBU=
 github.com/google/pprof v0.0.0-20230228050547-1710fef4ab10 h1:CqYfpuYIjnlNxM3msdyPRKabhXZWbKjf3Q8BWROFBso=
@@ -375,8 +370,6 @@ github.com/moby/term v0.0.0-20221205130635-1aeaba878587 h1:HfkjXDfhgVaN5rmueG8cL
 github.com/moby/term v0.0.0-20221205130635-1aeaba878587/go.mod h1:8FzsFHVUBGZdbDsJw/ot+X+d5HLUbvklYLJ9uGfcI3Y=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/morikuni/aec v1.0.0/go.mod h1:BbKIizmSmc5MMPqRYbxO4ZU0S0+P200+tUnFx7PXmsc=
-github.com/mudler/entities v0.8.0 h1:U+KD0hn1v7MEkiOv60zjLLUj3kEsgj8IMFMN+No3D0Q=
-github.com/mudler/entities v0.8.0/go.mod h1:exnXZF6qVnu4b9dEiH3sLEyxYBTknfkcJ3UCxyc/dwE=
 github.com/mudler/entities v0.8.1 h1:/iZ3VrhZy8bSVr39IqoSwL4jphna2rgSYnJCUZakZ3s=
 github.com/mudler/entities v0.8.1/go.mod h1:exnXZF6qVnu4b9dEiH3sLEyxYBTknfkcJ3UCxyc/dwE=
 github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb h1:F6TP0DW7C0U9sgm9g4uAs0Vp2JSkhn2umlyrNlxUKXw=
@@ -385,8 +378,6 @@ github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5 h1:FaZD86+A9mV
 github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5/go.mod h1:WmKcT8ONmhDQIqQ+HxU+tkGWjzBEyY/KFO8LTGCu4AI=
 github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c h1:CI5uGwqBpN8N7BrSKC+nmdfw+9nPQIDyjHHlaIiitZI=
 github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c/go.mod h1:gY3wyrhkRySJtmtI/JPt4a2mKv48h/M9pEZIW+SjeC0=
-github.com/mudler/yip v1.9.2 h1:yPR+cK3SZkEAt0uQYCeOayhcM3lyP2Py+r0ruy94Mrg=
-github.com/mudler/yip v1.9.2/go.mod h1:1X/i8voXaAkWRWPAvQrbnHf2z7m/8ucs5ljup3IzJkk=
 github.com/mudler/yip v1.9.3 h1:mJb5ETzdbgjcf0B5f0hRqbLCfK5f2y/vQAkToH9xK6g=
 github.com/mudler/yip v1.9.3/go.mod h1:OwkhcI7bCScVhII800aXeRU3x9/BMcid+c3ojTpkMuA=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
@@ -564,8 +555,6 @@ github.com/ulikunitz/xz v0.5.10/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0o
 github.com/ulikunitz/xz v0.5.11 h1:kpFauv27b6ynzBNT/Xy+1k+fK4WswhN/6PN5WhFAGw8=
 github.com/ulikunitz/xz v0.5.11/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/urfave/cli v1.22.12/go.mod h1:sSBEIC79qR6OvcmsD4U3KABeOTxDqQtdDnaFuUN30b8=
-github.com/urfave/cli/v2 v2.27.2 h1:6e0H+AkS+zDckwPCUrZkKX38mRaau4nL2uipkJpbkcI=
-github.com/urfave/cli/v2 v2.27.2/go.mod h1:g0+79LmHHATl7DAcHO99smiR/T7uGLw84w8Y42x+4eM=
 github.com/urfave/cli/v2 v2.27.3 h1:/POWahRmdh7uztQ3CYnaDddk0Rm90PyOgIxgW2rr41M=
 github.com/urfave/cli/v2 v2.27.3/go.mod h1:m4QzxcD2qpra4z7WhzEGn74WZLViBnMpb1ToCAKdGRQ=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
@@ -588,8 +577,6 @@ github.com/xanzy/ssh-agent v0.3.3/go.mod h1:6dzNDKs0J9rVPHPhaGCukekBHKqfl+L3KghI
 github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778/go.mod h1:2MuV+tbUrU1zIOPMxZ5EncGwgmMJsa+9ucAQZXxsObs=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
-github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 h1:+qGGcbkzsfDQNPPe9UDgpxAWQrhbbBXOYJFQDq/dtJw=
-github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913/go.mod h1:4aEEwZQutDLsQv2Deui4iYQ6DWTxR14g6m8Wv88+Xqk=
 github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 h1:gEOO8jv9F4OT7lGCjxCBTO/36wtF6j2nSip77qHd4x4=
 github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1/go.mod h1:Ohn+xnUBiLI6FVj/9LpzZWtj1/D6lUovWYBkxHVV3aM=
 github.com/yudai/gojsondiff v1.0.0 h1:27cbfqXLVEJ1o8I6v3y9lg8Ydm53EKqHXAOMxEGlCOA=
@@ -842,8 +829,6 @@ howett.net/plist v1.0.0 h1:7CrbWYbPPO/PyNy38b2EB/+gYbjCe2DXBxgtOOZbSQM=
 howett.net/plist v1.0.0/go.mod h1:lqaXoTrLY4hg8tnEzNru53gicrbv7rrk+2xJA/7hw9g=
 k8s.io/klog/v2 v2.120.1 h1:QXU6cPEOIslTGvZaXvFWiP9VKyeet3sawzTOvdXb4Vw=
 k8s.io/klog/v2 v2.120.1/go.mod h1:3Jpz1GvMt720eyJH1ckRHK1EDfpxISzJ7I9OYgaDtPE=
-k8s.io/mount-utils v0.30.2 h1:2KDVY9hXyDyRw9EO4lmox4+Nn5atVOq+4ffZ/br2aAU=
-k8s.io/mount-utils v0.30.2/go.mod h1:9sCVmwGLcV1MPvbZ+rToMDnl1QcGozy+jBPd0MsQLIo=
 k8s.io/mount-utils v0.30.3 h1:8Z3wSW5+GSvGNtlDhtoZrBCKLMIf5z/9tf8pie+G06s=
 k8s.io/mount-utils v0.30.3/go.mod h1:9sCVmwGLcV1MPvbZ+rToMDnl1QcGozy+jBPd0MsQLIo=
 k8s.io/utils v0.0.0-20230726121419-3b25d923346b h1:sgn3ZU783SCgtaSJjpcVVlRqd6GSnlTLKgpAAttJvpI=
