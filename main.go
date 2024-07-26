@@ -99,6 +99,13 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
 				Action: func(c *cli.Context) error {
+					if utils.IsUki() {
+						fmt.Println("You are running in \"trusted boot\" mode")
+						fmt.Println("Upgrading your OS requires a new image to be built an signed")
+						fmt.Println("Read the docs on how to do so: https://kairos.io/docs/upgrade/trustedboot/")
+						return nil
+					}
+
 					currentImage, err := agent.CurrentImage()
 					if err != nil {
 						return err
