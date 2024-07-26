@@ -2,11 +2,12 @@ package action
 
 import (
 	"fmt"
+	"os"
+
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/state"
 	"gopkg.in/yaml.v3"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,7 @@ var _ = Describe("RenderTemplate action test", func() {
 			"testKey": "testValue",
 		}
 		runtime, err := state.NewRuntime()
+		Expect(err).ToNot(HaveOccurred())
 
 		fmt.Println(os.Getwd())
 
@@ -30,9 +32,10 @@ var _ = Describe("RenderTemplate action test", func() {
 
 		var data map[string]string
 		err = yaml.Unmarshal(result, &data)
+
 		Expect(err).ToNot(HaveOccurred())
 		Expect(data).To(HaveKeyWithValue("configTest", "TESTVALUE"))
-		Expect(data["stateTest"]).To(MatchRegexp("^[0-9a-f]{8}$"))
+		Expect(data["stateTest"]).To(Equal("amd64"))
 	})
 
 })
