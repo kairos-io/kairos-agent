@@ -58,6 +58,10 @@ func (i *UpgradeAction) Run() (err error) {
 		return i.installRecovery()
 	}
 
+	if i.spec.UpgradeSingleEntry != "" {
+		return i.installEntry(i.spec.UpgradeSingleEntry)
+	}
+
 	// Dump artifact to efi dir
 	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {

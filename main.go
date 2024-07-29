@@ -185,8 +185,11 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				source = fmt.Sprintf("oci:%s", image)
 			}
 
+			// TODO: Too many flags? Merge --recovery and --single-entry somehow?
+			// Does the new flag make sense in non-uki? (No)
 			return agent.Upgrade(source, c.Bool("force"),
 				c.Bool("strict-validation"), constants.GetConfigScanDirs(),
+				c.String("single-entry"),
 				c.Bool("pre"), c.Bool("recovery"),
 			)
 		},
