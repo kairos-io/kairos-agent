@@ -16,9 +16,8 @@ var _ = Describe("RenderTemplate action test", func() {
 		config.Config = collector.Config{
 			"testKey": "testValue",
 		}
-		runtime := state.Runtime{
-			UUID: "123abcd1235467",
-		}
+		runtime, err := state.NewRuntime()
+		Expect(err).ToNot(HaveOccurred())
 
 		result, err := RenderTemplate("../../tests/fixtures/template/test.yaml", config, runtime)
 		Expect(err).ToNot(HaveOccurred())
