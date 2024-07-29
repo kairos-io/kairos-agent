@@ -31,8 +31,11 @@ func (k Kcrypt) Run(c config.Config, _ v1.Spec) error {
 		_ = machine.Umount("/oem") //nolint:errcheck
 	}()
 
+	// Always allow mouthing the unencrypted partition with discard option
+	extraCreateArgs := []string{"--allow-discards", "--persistent"}
+
 	for _, p := range c.Install.Encrypt {
-		_, err := kcrypt.Luksify(p, c.Logger.Logger)
+		_, err := kcrypt.Luksify(p, c.Logger.Logger, extraCreateArgs...)
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
 			if c.FailOnBundleErrors {

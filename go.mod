@@ -12,7 +12,7 @@ require (
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.3.2
-	github.com/kairos-io/kcrypt v0.11.3
+	github.com/kairos-io/kcrypt v0.12.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-nodepair v0.0.0-20221223092639-ba399a66fdfb
@@ -38,7 +38,6 @@ require (
 require (
 	github.com/distribution/reference v0.6.0
 	github.com/google/go-github/v63 v63.0.0
-	github.com/google/go-github/v63 v63.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -53,8 +52,8 @@ require (
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/alecthomas/assert/v2 v2.6.0 // indirect
-	github.com/anatol/devmapper.go v0.0.0-20220907161421-ba4de5fc0fd1 // indirect
-	github.com/anatol/luks.go v0.0.0-20230423170605-fb3724ed7db7 // indirect
+	github.com/anatol/devmapper.go v0.0.0-20230829043248-59ac2b9706ba // indirect
+	github.com/anatol/luks.go v0.0.0-20240507052915-92f8bb765f98 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
