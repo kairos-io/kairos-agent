@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io"
 	"io/fs"
 	random "math/rand"
@@ -33,13 +32,15 @@ import (
 	"strings"
 	"time"
 
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	"github.com/kairos-io/kairos-sdk/state"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/joho/godotenv"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"

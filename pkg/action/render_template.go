@@ -2,12 +2,13 @@ package action
 
 import (
 	"bytes"
+	"os"
+	"text/template"
+
 	"github.com/Masterminds/sprig/v3"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/state"
 	"gopkg.in/yaml.v3"
-	"os"
-	"text/template"
 )
 
 func RenderTemplate(path string, config *config.Config, runtime state.Runtime) ([]byte, error) {

@@ -27,9 +27,10 @@ var _ = Describe("RenderTemplate action test", func() {
 
 		var data map[string]string
 		err = yaml.Unmarshal(result, &data)
+
 		Expect(err).ToNot(HaveOccurred())
 		Expect(data).To(HaveKeyWithValue("configTest", "TESTVALUE"))
-		Expect(data["stateTest"]).To(MatchRegexp("^[0-9a-f]{8}$"))
+		Expect(data["stateTest"]).To(Equal("amd64"))
 	})
 
 })
