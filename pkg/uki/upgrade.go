@@ -122,9 +122,7 @@ func (i *UpgradeAction) Run() (err error) {
 	return nil
 }
 
-// installRecovery replaces the "recovery" role efi and conf files with
-// the UnassignedArtifactRole efi and loader files from dir
-func (i *UpgradeAction) installRecovery() error {
+func (i *UpgradeAction) installEntry(entry string) error {
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		i.cfg.Logger.Errorf("creating a tmp dir: %s", err.Error())
@@ -142,13 +140,13 @@ func (i *UpgradeAction) installRecovery() error {
 
 	err = copyFile(
 		filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"),
-		filepath.Join(constants.UkiEfiDir, "EFI", "kairos", "recovery.efi"))
+		filepath.Join(constants.UkiEfiDir, "EFI", "kairos", fmt.Sprintf("%s.efi", entry)))
 	if err != nil {
 		i.cfg.Logger.Errorf("copying efi files: %s", err.Error())
 		return err
 	}
 
-	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", "recovery.conf")
+	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", fmt.Sprintf("%s.conf", entry))
 	err = copyFile(
 		filepath.Join(tmpDir, "loader", "entries", UnassignedArtifactRole+".conf"),
 		targetConfPath)
@@ -156,13 +154,24 @@ func (i *UpgradeAction) installRecovery() error {
 		i.cfg.Logger.Errorf("copying conf files: %s", err.Error())
 		return err
 	}
-	err = replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", i.cfg.Logger)
+	err = replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, entry, i.cfg.Logger)
 	if err != nil {
 		i.cfg.Logger.Errorf("replacing role in in key %s: %s", "efi", err.Error())
 		return err
 	}
 
-	err = replaceConfTitle(targetConfPath, "recovery")
+	return nil
+}
+
+// installRecovery replaces the "recovery" role efi and conf files with
+// the UnassignedArtifactRole efi and loader files from dir
+func (i *UpgradeAction) installRecovery() error {
+	if err := i.installEntry("recovery"); err != nil {
+		return err
+	}
+
+	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", "recovery.conf")
+	err := replaceConfTitle(targetConfPath, "recovery")
 	if err != nil {
 		i.cfg.Logger.Errorf("replacing conf title: %s", err.Error())
 		return err
