@@ -65,18 +65,18 @@ func ListNewerReleases(includePrereleases bool) ([]string, error) {
 }
 
 func Upgrade(
-	source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
+	source string, force, strictValidations bool, dirs []string, singleEntry string, preReleases, upgradeRecovery bool) error {
 	bus.Manager.Initialize()
 
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
-		return upgradeUki(source, dirs, strictValidations, upgradeRecovery)
+		return upgradeUki(source, dirs, singleEntry, strictValidations, upgradeRecovery)
 	} else {
 		return upgrade(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
 	}
 }
 
 func upgrade(source string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) error {
-	upgradeSpec, c, err := generateUpgradeSpec(source, force, strictValidations, dirs, preReleases, upgradeRecovery)
+	upgradeSpec, c, err := generateUpgradeSpec(source, force, strictValidations, dirs, "", preReleases, upgradeRecovery)
 	if err != nil {
 		return err
 	}
@@ -135,12 +135,16 @@ func newerReleases() (versioneer.TagList, error) {
 
 // generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
 // command line arguments. It will be added to the rest of the configurations.
-func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string, error) {
+func generateUpgradeConfForCLIArgs(source, singleEntry string, upgradeRecovery bool) (string, error) {
 	upgradeConfig := ExtraConfigUpgrade{}
 
 	if upgradeRecovery {
 		upgradeConfig.Upgrade.Recovery = true
 	}
+
+	// if upgradeSingleEntry {
+	// 	upgradeConfig.Upgrade.Recovery = true
+	// }
 
 	// Set uri both for active and recovery because we don't know what we are
 	// actually upgrading. The "upgradeRecovery" is just the command line argument.
@@ -157,8 +161,8 @@ func generateUpgradeConfForCLIArgs(source string, upgradeRecovery bool) (string,
 	return string(d), err
 }
 
-func generateUpgradeSpec(sourceImageURL string, force, strictValidations bool, dirs []string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
-	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeRecovery)
+func generateUpgradeSpec(sourceImageURL string, force, strictValidations bool, dirs []string, singleEntry string, preReleases, upgradeRecovery bool) (*v1.UpgradeSpec, *config.Config, error) {
+	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, singleEntry, upgradeRecovery)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -201,8 +205,8 @@ func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
 	return result, nil
 }
 
-func upgradeUki(source string, dirs []string, strictValidations, upgradeRecovery bool) error {
-	cliConf, err := generateUpgradeConfForCLIArgs(source, upgradeRecovery)
+func upgradeUki(source string, dirs []string, singleEntry string, strictValidations, upgradeRecovery bool) error {
+	cliConf, err := generateUpgradeConfForCLIArgs(source, singleEntry, upgradeRecovery)
 	if err != nil {
 		return err
 	}
@@ -240,7 +244,8 @@ func upgradeUki(source string, dirs []string, strictValidations, upgradeRecovery
 // ExtraConfigUpgrade is the struct that holds the upgrade options that come from flags and events
 type ExtraConfigUpgrade struct {
 	Upgrade struct {
-		Recovery       bool `json:"recovery,omitempty"`
+		Recovery       bool   `json:"recovery,omitempty"`
+		SingleEntry    string `json:"single-entry,omitempty"`
 		RecoverySystem struct {
 			URI string `json:"uri,omitempty"`
 		} `json:"recovery-system,omitempty"`
