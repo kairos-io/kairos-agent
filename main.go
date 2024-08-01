@@ -69,6 +69,7 @@ var cmds = []*cli.Command{
 				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
 			},
 			&sourceFlag,
+			&cli.StringFlag{Name: "single-entry", Usage: "Specify a \"single\" systemd-boot entry to upgrade (other than active/passive/recovery)"},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
 		},
