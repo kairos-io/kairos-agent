@@ -47,7 +47,7 @@ func getSectorEndFromSize(start, size uint64) uint64 {
 
 func kairosPartsToDiskfsGPTParts(parts v1.PartitionList, diskSize int64) []*gpt.Partition {
 	var partitions []*gpt.Partition
-	for _, part := range parts {
+	for index, part := range parts {
 		var start uint64
 		var end uint64
 		var size uint64
@@ -67,10 +67,17 @@ func kairosPartsToDiskfsGPTParts(parts v1.PartitionList, diskSize int64) []*gpt.
 			for _, p := range partitions {
 				sizeUsed = sizeUsed + p.Size
 			}
-			size = uint64(diskSize) - sizeUsed
+			// leave 1Mb at the end for backup GPT header
+			size = uint64(diskSize) - sizeUsed - uint64(1024*1024)
 		} else {
 			// Change it to bytes
-			size = uint64(part.Size * 1024 * 1024)
+			// If its the last partition to do, leave 1 Mb at the end for backup GPT header
+			if index == len(parts)-1 {
+				size = uint64(part.Size*1024*1024) - uint64(1024*1024)
+			} else {
+				size = uint64(part.Size * 1024 * 1024)
+			}
+
 		}
 
 		end = getSectorEndFromSize(start, size)
