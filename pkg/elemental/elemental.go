@@ -19,14 +19,17 @@ package elemental
 import (
 	"errors"
 	"fmt"
+	"github.com/diskfs/go-diskfs/partition/gpt"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitionerv2"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 )
 
@@ -51,71 +54,59 @@ func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
 		name = part.Name
 	}
 	e.config.Logger.Infof("Formatting '%s' partition", name)
-	return partitioner.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
+	return partitionerv2.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
 }
 
-// PartitionAndFormatDevice creates a new empty partition table on target disk
+// PartitionAndFormatDevicev2 creates a new empty partition table on target disk
 // and applies the configured disk layout by creating and formatting all
 // required partitions
-func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
-	disk := partitioner.NewDisk(
-		i.GetTarget(),
-		partitioner.WithRunner(e.config.Runner),
-		partitioner.WithFS(e.config.Fs),
-		partitioner.WithLogger(e.config.Logger),
-	)
-
-	if !disk.Exists() {
+func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
+	if _, err := os.Stat(i.GetTarget()); os.IsNotExist(err) {
 		e.config.Logger.Errorf("Disk %s does not exist", i.GetTarget())
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())
 	}
 
+	disk := partitionerv2.NewDisk(i.GetTarget())
+
 	e.config.Logger.Infof("Partitioning device...")
-	out, err := disk.NewPartitionTable(i.GetPartTable())
+	err := disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
 	if err != nil {
-		e.config.Logger.Errorf("Failed creating new partition table: %s", out)
+		e.config.Logger.Errorf("Failed creating new partition table: %s", err)
 		return err
 	}
 
-	parts := i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions())
-	return e.createPartitions(disk, parts)
-}
-
-func (e *Elemental) createAndFormatPartition(disk *partitioner.Disk, part *v1.Partition) error {
-	e.config.Logger.Debugf("Adding partition %s", part.Name)
-	num, err := disk.AddPartition(part.Size, part.FS, part.Name, part.Flags...)
+	err = disk.ReReadPartitionTable()
 	if err != nil {
-		e.config.Logger.Errorf("Failed creating %s partition", part.Name)
+		e.config.Logger.Errorf("Reread table: %s", err)
 		return err
 	}
-	partDev, err := disk.FindPartitionDevice(num)
+	table, err := disk.GetPartitionTable()
 	if err != nil {
+		e.config.Logger.Errorf("table: %s", err)
 		return err
 	}
-	if part.FS != "" {
-		e.config.Logger.Debugf("Formatting partition with label %s", part.FilesystemLabel)
-		err = partitioner.FormatDevice(e.config.Runner, partDev, part.FS, part.FilesystemLabel)
-		if err != nil {
-			e.config.Logger.Errorf("Failed formatting partition %s", part.Name)
-			return err
-		}
-	} else {
-		e.config.Logger.Debugf("Wipe file system on %s", part.Name)
-		err = disk.WipeFsOnPartition(partDev)
-		if err != nil {
-			e.config.Logger.Errorf("Failed to wipe filesystem of partition %s", partDev)
-			return err
-		}
+	err = disk.Close()
+	if err != nil {
+		e.config.Logger.Errorf("Close disk: %s", err)
 	}
-	part.Path = partDev
-	return nil
-}
-
-func (e *Elemental) createPartitions(disk *partitioner.Disk, parts v1.PartitionList) error {
-	for _, part := range parts {
-		err := e.createAndFormatPartition(disk, part)
-		if err != nil {
-			return err
+	// Sync changes
+	syscall.Sync()
+	// Trigger udevadm to refresh devices
+	_, _ = e.config.Runner.Run("udevadm", "trigger")
+	_, _ = e.config.Runner.Run("udevadm", "settle")
+	// Partitions are in order so we can format them via that
+	for index, p := range table.GetPartitions() {
+		for _, configPart := range i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()) {
+			// we have to match the Fs it was asked with the partition in the system
+			if p.(*gpt.Partition).Name == configPart.FilesystemLabel {
+				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)
+				err = partitionerv2.FormatDevice(e.config.Runner, fmt.Sprintf("%s%d", i.GetTarget(), index+1), configPart.FS, configPart.FilesystemLabel)
+				if err != nil {
+					e.config.Logger.Errorf("Failed formatting partition: %s", err)
+					return err
+				}
+				syscall.Sync()
+			}
 		}
 	}
 	return nil
@@ -281,7 +272,7 @@ func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
 		return err
 	}
 
-	mkfs := partitioner.NewMkfsCall(img.File, img.FS, img.Label, e.config.Runner)
+	mkfs := partitionerv2.NewMkfsCall(img.File, img.FS, img.Label, e.config.Runner)
 	_, err = mkfs.Apply()
 	if err != nil {
 		_ = e.config.Fs.RemoveAll(img.File)

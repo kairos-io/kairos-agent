@@ -2,10 +2,12 @@ module github.com/kairos-io/kairos-agent/v2
 
 go 1.22.5
 
+
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/cavaliergopher/grab/v3 v3.0.1
+	github.com/diskfs/go-diskfs v1.4.1
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/google/go-containerregistry v0.20.1
 	github.com/hashicorp/go-multierror v1.1.1
@@ -25,7 +27,7 @@ require (
 	github.com/pterm/pterm v0.12.65
 	github.com/rs/zerolog v1.33.0
 	github.com/sanity-io/litter v1.5.5
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4-0.20230606125235-dd1b4c2e81af
 	github.com/spf13/viper v1.19.0
 	github.com/urfave/cli/v2 v2.27.3
 	golang.org/x/net v0.27.0
@@ -37,6 +39,7 @@ require (
 
 require (
 	github.com/distribution/reference v0.6.0
+	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v63 v63.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
@@ -76,7 +79,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/dgryski/go-camellia v0.0.0-20191119043421-69a8a13fb23d // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
-	github.com/diskfs/go-diskfs v1.3.0 // indirect
+	github.com/djherbis/times v1.6.0 // indirect
 	github.com/docker/cli v24.0.0+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v27.1.1+incompatible // indirect
@@ -85,6 +88,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/eliukblau/pixterm v1.3.1 // indirect
+	github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/foxboron/go-uefi v0.0.0-20240722190620-5d4f760099bd // indirect
@@ -99,7 +103,6 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
-	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -154,6 +157,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/phayes/permbits v0.0.0-20190612203442-39d7c581d2ee // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect

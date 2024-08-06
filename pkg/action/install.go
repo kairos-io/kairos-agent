@@ -169,7 +169,7 @@ func (i InstallAction) Run() (err error) {
 			return err
 		}
 		// Partition device
-		err = e.PartitionAndFormatDevice(i.spec)
+		err = e.PartitionAndFormatDevicev2(i.spec)
 		if err != nil {
 			return err
 		}
