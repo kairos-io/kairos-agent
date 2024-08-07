@@ -66,7 +66,7 @@ func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())
 	}
 
-	disk := partitionerv2.NewDisk(i.GetTarget())
+	disk := partitionerv2.NewDisk(i.GetTarget(), partitionerv2.WithLogger(e.config.Logger))
 
 	e.config.Logger.Infof("Partitioning device...")
 	err := disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
@@ -97,6 +97,10 @@ func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
 	// Partitions are in order so we can format them via that
 	for index, p := range table.GetPartitions() {
 		for _, configPart := range i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()) {
+			if configPart.Name == cnst.BiosPartName {
+				// Grub partition on non-EFI is not formatted. Grub is directly installed on it
+				continue
+			}
 			// we have to match the Fs it was asked with the partition in the system
 			if p.(*gpt.Partition).Name == configPart.FilesystemLabel {
 				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)

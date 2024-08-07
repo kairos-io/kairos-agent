@@ -24,11 +24,9 @@ func (d *Disk) NewPartitionTable(partType string, parts v1.PartitionList) error 
 	switch partType {
 	case v1.GPT:
 		table = &gpt.Table{
-			LogicalSectorSize:  int(diskfs.SectorSize512),
-			PhysicalSectorSize: int(diskfs.SectorSize512),
-			ProtectiveMBR:      true,
-			GUID:               cnst.DiskUUID, // Set know predictable UUID
-			Partitions:         kairosPartsToDiskfsGPTParts(parts, d.Size),
+			ProtectiveMBR: true,
+			GUID:          cnst.DiskUUID, // Set know predictable UUID
+			Partitions:    kairosPartsToDiskfsGPTParts(parts, d.Size),
 		}
 	default:
 		return fmt.Errorf("invalid partition type: %s", partType)
@@ -82,16 +80,30 @@ func kairosPartsToDiskfsGPTParts(parts v1.PartitionList, diskSize int64) []*gpt.
 
 		end = getSectorEndFromSize(start, size)
 
-		if part.FS == cnst.EfiFs {
+		if part.Name == cnst.EfiPartName && part.FS == cnst.EfiFs {
+			// EFI boot partition
 			partitions = append(partitions, &gpt.Partition{
-				Start: start,
-				End:   end,
-				Type:  gpt.EFISystemPartition,
-				Size:  size,                                                         // partition size in bytes
-				GUID:  uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
-				Name:  part.FilesystemLabel,
+				Start:      start,
+				End:        end,
+				Type:       gpt.EFISystemPartition,
+				Size:       size,                                                         // partition size in bytes
+				GUID:       uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
+				Name:       part.FilesystemLabel,
+				Attributes: 0x1, // system partition flag
+			})
+		} else if part.Name == cnst.BiosPartName {
+			// Non-EFI boot partition
+			partitions = append(partitions, &gpt.Partition{
+				Start:      start,
+				End:        end,
+				Type:       gpt.BIOSBoot,
+				Size:       size,                                                         // partition size in bytes
+				GUID:       uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
+				Name:       part.FilesystemLabel,
+				Attributes: 0x4, // legacy bios bootable flag
 			})
 		} else {
+			// Other partitions
 			partitions = append(partitions, &gpt.Partition{
 				Start: start,
 				End:   end,
