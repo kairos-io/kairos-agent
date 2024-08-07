@@ -60,7 +60,10 @@ var _ = Describe("Runtime Actions", func() {
 		logger.SetLevel("debug")
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
-		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
+		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{
+			"/dev/loop-control": "",
+			"/dev/loop0":        "",
+		})
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
