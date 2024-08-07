@@ -2,12 +2,12 @@ package loop
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"os"
 	"syscall"
 	"unsafe"
 
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,17 +22,18 @@ func errnoIsErr(err error) error {
 }
 
 // Loop will setup a /dev/loopX device linked to the image file by using syscalls directly to set it
-func Loop(img *v1.Image, log sdkTypes.KairosLogger) (loopDevice string, err error) {
+func Loop(img *v1.Image, cfg *config.Config) (loopDevice string, err error) {
+	log := cfg.Logger
 	log.Debugf("Opening loop control device")
-	fd, err := os.OpenFile("/dev/loop-control", os.O_RDONLY, 0o644)
-	if errnoIsErr(err) != nil {
+	fd, err := cfg.Fs.OpenFile("/dev/loop-control", os.O_RDONLY, 0o644)
+	if err != nil {
 		log.Error("failed to open /dev/loop-control")
 		return loopDevice, err
 	}
 
 	defer fd.Close()
 	log.Debugf("Getting free loop device")
-	loopInt, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd.Fd(), unix.LOOP_CTL_GET_FREE, 0)
+	loopInt, _, err := cfg.Syscall.Syscall(syscall.SYS_IOCTL, fd.Fd(), unix.LOOP_CTL_GET_FREE, 0)
 	if errnoIsErr(err) != nil {
 		log.Error("failed to get loop device")
 		return loopDevice, err
@@ -40,14 +41,14 @@ func Loop(img *v1.Image, log sdkTypes.KairosLogger) (loopDevice string, err erro
 
 	loopDevice = fmt.Sprintf("/dev/loop%d", loopInt)
 	log.Logger.Debug().Str("device", loopDevice).Msg("Opening loop device")
-	loopFile, err := os.OpenFile(loopDevice, os.O_RDWR, 0)
-	if errnoIsErr(err) != nil {
+	loopFile, err := cfg.Fs.OpenFile(loopDevice, os.O_RDWR, 0)
+	if err != nil {
 		log.Error("failed to open loop device")
 		return loopDevice, err
 	}
 	log.Logger.Debug().Str("image", img.File).Msg("Opening img file")
-	imageFile, err := os.OpenFile(img.File, os.O_RDWR, os.ModePerm)
-	if errnoIsErr(err) != nil {
+	imageFile, err := cfg.Fs.OpenFile(img.File, os.O_RDWR, os.ModePerm)
+	if err != nil {
 		log.Error("failed to open image file")
 		return loopDevice, err
 	}
@@ -55,7 +56,7 @@ func Loop(img *v1.Image, log sdkTypes.KairosLogger) (loopDevice string, err erro
 	defer imageFile.Close()
 
 	log.Debugf("Setting loop device")
-	_, _, err = syscall.Syscall(
+	_, _, err = cfg.Syscall.Syscall(
 		syscall.SYS_IOCTL,
 		loopFile.Fd(),
 		unix.LOOP_SET_FD,
@@ -74,7 +75,7 @@ func Loop(img *v1.Image, log sdkTypes.KairosLogger) (loopDevice string, err erro
 	status.Flags &= ^uint32(unix.LO_FLAGS_READ_ONLY)
 
 	log.Debugf("Setting loop flags")
-	_, _, err = syscall.Syscall(
+	_, _, err = cfg.Syscall.Syscall(
 		syscall.SYS_IOCTL,
 		loopFile.Fd(),
 		unix.LOOP_SET_STATUS64,
@@ -90,16 +91,17 @@ func Loop(img *v1.Image, log sdkTypes.KairosLogger) (loopDevice string, err erro
 }
 
 // Unloop will clear a loop device and free the underlying image linked to it
-func Unloop(loopDevice string, log sdkTypes.KairosLogger) error {
+func Unloop(loopDevice string, cfg *config.Config) error {
+	log := cfg.Logger
 	log.Logger.Debug().Str("device", loopDevice).Msg("Opening loop device")
-	fd, err := os.OpenFile(loopDevice, os.O_RDONLY, 0o644)
-	if errnoIsErr(err) != nil {
+	fd, err := cfg.Fs.OpenFile(loopDevice, os.O_RDONLY, 0o644)
+	if err != nil {
 		log.Error("failed to set open loop device")
 		return err
 	}
 	defer fd.Close()
 	log.Debugf("Clearing loop device")
-	_, _, err = syscall.Syscall(syscall.SYS_IOCTL, fd.Fd(), unix.LOOP_CLR_FD, 0)
+	_, _, err = cfg.Syscall.Syscall(syscall.SYS_IOCTL, fd.Fd(), unix.LOOP_CLR_FD, 0)
 
 	if errnoIsErr(err) != nil {
 		log.Error("failed to set loop device status")

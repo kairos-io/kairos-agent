@@ -18,6 +18,7 @@ package mocks
 
 import (
 	"errors"
+	"syscall"
 )
 
 // FakeSyscall is a test helper method to track calls to syscall
@@ -25,6 +26,7 @@ import (
 type FakeSyscall struct {
 	chrootHistory []string // Track calls to chroot
 	ErrorOnChroot bool
+	ReturnValue   int
 	mounts        []FakeMount
 }
 
@@ -78,4 +80,8 @@ func (f *FakeSyscall) WasMountCalledWith(source string, target string, fstype st
 		}
 	}
 	return false
+}
+
+func (f *FakeSyscall) Syscall(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+	return 0, 0, syscall.Errno(f.ReturnValue)
 }

@@ -65,7 +65,11 @@ var _ = Describe("Install action tests", func() {
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		logger.SetLevel("debug")
 		var err error
-		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
+		// create fake files needed for the loop device to "work"
+		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{
+			"/dev/loop-control": "",
+			"/dev/loop0":        "",
+		})
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
@@ -91,7 +95,6 @@ var _ = Describe("Install action tests", func() {
 	Describe("Install Action", Label("install"), func() {
 		var device, cmdFail string
 		var err error
-		var cmdline func() ([]byte, error)
 		var spec *v1.InstallSpec
 		var installer *action.InstallAction
 
@@ -126,11 +129,6 @@ var _ = Describe("Install action tests", func() {
         {"label": "COS_PERSISTENT", "type": "part", "path": "/some/device4"}
     ]
 }`), nil
-				case "cat":
-					if args[0] == "/proc/cmdline" {
-						return cmdline()
-					}
-					return []byte{}, nil
 				default:
 					return []byte{}, nil
 				}
@@ -150,10 +148,6 @@ var _ = Describe("Install action tests", func() {
 			_, err = fs.Create(grubCfg)
 			Expect(err).To(BeNil())
 
-			// Set default cmdline function so we dont panic :o
-			cmdline = func() ([]byte, error) {
-				return []byte{}, nil
-			}
 			mainDisk := block.Disk{
 				Name: "device",
 				Partitions: []*block.Partition{
@@ -218,9 +212,9 @@ var _ = Describe("Install action tests", func() {
 			_, err := fs.Stat("/usr/lib/systemd/system-shutdown/eject")
 			Expect(err).To(HaveOccurred())
 			// Override cmdline to return like we are booting from cd
-			cmdline = func() ([]byte, error) {
-				return []byte("cdroot"), nil
-			}
+			_ = fsutils.MkdirAll(fs, "/proc", constants.DirPerm)
+			Expect(fs.WriteFile("/proc/cmdline", []byte("cdroot"), constants.FilePerm)).ToNot(HaveOccurred())
+
 			spec.Target = device
 			config.EjectCD = true
 			Expect(installer.Run()).To(BeNil())
