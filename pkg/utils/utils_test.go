@@ -184,6 +184,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 		var cmds [][]string
 		BeforeEach(func() {
 			cmds = [][]string{
+				{"udevadm", "trigger"},
 				{"udevadm", "settle"},
 			}
 		})
