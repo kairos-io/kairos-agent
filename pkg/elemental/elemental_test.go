@@ -519,6 +519,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				case "losetup":
 					return []byte("/dev/loop"), nil
 				default:
+					GinkgoWriter.Println(fmt.Sprintf("Command %s called but we dont catch it", cmd))
 					return []byte{}, nil
 				}
 			}

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	diskfs "github.com/diskfs/go-diskfs/disk"
@@ -32,6 +31,7 @@ import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 )
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
@@ -224,17 +224,18 @@ func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
 	if err != nil {
 		return err
 	}
-	out, err := e.config.Runner.Run("losetup", "--show", "-f", img.File)
+	loopDevice, err := loop.Loop(img, e.config.Logger)
 	if err != nil {
 		return err
 	}
-	loop := strings.TrimSpace(string(out))
-	err = e.config.Mounter.Mount(loop, img.MountPoint, "auto", opts)
+
+	err = e.config.Mounter.Mount(loopDevice, img.MountPoint, "auto", opts)
 	if err != nil {
-		_, _ = e.config.Runner.Run("losetup", "-d", loop)
 		return err
 	}
-	img.LoopDevice = loop
+
+	// Store the loop device so we can later detach it
+	img.LoopDevice = loopDevice
 	return nil
 }
 
@@ -252,8 +253,7 @@ func (e Elemental) UnmountImage(img *v1.Image) error {
 	if err != nil {
 		return err
 	}
-	_, err = e.config.Runner.Run("losetup", "-d", img.LoopDevice)
-	img.LoopDevice = ""
+	err = loop.Unloop(img.LoopDevice, e.config.Logger)
 	return err
 }
 
