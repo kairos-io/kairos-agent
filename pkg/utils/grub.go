@@ -102,8 +102,8 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 
 	if tty == "" {
 		// Get current tty and remove /dev/ from its name
-		out, err := g.config.Runner.Run("tty")
-		tty = strings.TrimPrefix(strings.TrimSpace(string(out)), "/dev/")
+		out, err := g.config.Fs.Readlink("/dev/fd/0")
+		tty = strings.TrimPrefix(strings.TrimSpace(out), "/dev/")
 		if err != nil {
 			g.config.Logger.Warnf("failed to find current tty, leaving it unset")
 			tty = ""

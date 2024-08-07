@@ -19,6 +19,7 @@ package action
 import (
 	"fmt"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -262,7 +263,7 @@ func (u *UpgradeAction) Run() (err error) {
 			u.Debug("Error while labeling the passive image %s, command output: %s", u.spec.Passive.File, out)
 			return err
 		}
-		_, _ = u.config.Runner.Run("sync")
+		syscall.Sync()
 	}
 
 	u.Info("Moving %s to %s", upgradeImg.File, finalImageFile)
@@ -273,7 +274,7 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 	u.Info("Finished moving %s to %s", upgradeImg.File, finalImageFile)
 
-	_, _ = u.config.Runner.Run("sync")
+	syscall.Sync()
 
 	err = u.upgradeHook(constants.AfterUpgradeHook, false)
 	if err != nil {
