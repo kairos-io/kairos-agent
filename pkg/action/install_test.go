@@ -19,7 +19,9 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/diskfs/go-diskfs"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"os"
 	"path/filepath"
 	"regexp"
 
@@ -38,11 +40,6 @@ import (
 	"github.com/twpayne/go-vfs/v4"
 	"github.com/twpayne/go-vfs/v4/vfst"
 )
-
-const printOutput = `BYT;
-/dev/loop0:50593792s:loopback:512:512:gpt:Loopback device:;`
-const partTmpl = `
-%d:%ss:%ss:2048s:ext4::type=83;`
 
 var _ = Describe("Install action tests", func() {
 	var config *agentConfig.Config
@@ -99,15 +96,18 @@ var _ = Describe("Install action tests", func() {
 		var installer *action.InstallAction
 
 		BeforeEach(func() {
-			device = "/some/device"
+			os.RemoveAll("/tmp/test.img")
+			// at least 2Gb in size as state is set to 1G
+			_, err = diskfs.Create("/tmp/test.img", 2*1024*1024*1024, diskfs.Raw, 512)
+			Expect(err).ToNot(HaveOccurred())
+			device = "/tmp/test.img"
+
 			config.Install.Device = device
 			err = fsutils.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(device)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			partNum := 0
-			partedOut := printOutput
 			cmdFail = ""
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 				regexCmd := regexp.MustCompile(cmdFail)
@@ -115,20 +115,6 @@ var _ = Describe("Install action tests", func() {
 					return []byte{}, fmt.Errorf("failed on %s", cmd)
 				}
 				switch cmd {
-				case "parted":
-					idx := 0
-					for i, arg := range args {
-						if arg == "mkpart" {
-							idx = i
-							break
-						}
-					}
-					if idx > 0 {
-						partNum++
-						partedOut += fmt.Sprintf(partTmpl, partNum, args[idx+3], args[idx+4])
-						_, _ = fs.Create(fmt.Sprintf("/some/device%d", partNum))
-					}
-					return []byte(partedOut), nil
 				case "lsblk":
 					return []byte(`{
 "blockdevices":
@@ -155,6 +141,7 @@ var _ = Describe("Install action tests", func() {
 
 			spec, err = agentConfig.NewInstallSpec(config)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(spec.Sanitize()).To(Succeed())
 			spec.Active.Size = 16
 
 			grubCfg := filepath.Join(spec.Active.MountPoint, constants.GrubConf)
@@ -214,6 +201,10 @@ var _ = Describe("Install action tests", func() {
 			installer = action.NewInstallAction(config, spec)
 		})
 		AfterEach(func() {
+			if CurrentSpecReport().Failed() {
+				GinkgoWriter.Printf(memLog.String())
+			}
+			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
 			ghwTest.Clean()
 		})
 
@@ -328,13 +319,6 @@ var _ = Describe("Install action tests", func() {
 		It("Fails on blkdeactivate errors", Label("disk", "partitions"), func() {
 			spec.Target = device
 			cmdFail = "blkdeactivate"
-			Expect(installer.Run()).NotTo(BeNil())
-			Expect(runner.MatchMilestones([][]string{{"parted"}}))
-		})
-
-		It("Fails on parted errors", Label("disk", "partitions"), func() {
-			spec.Target = device
-			cmdFail = "parted"
 			Expect(installer.Run()).NotTo(BeNil())
 			Expect(runner.MatchMilestones([][]string{{"parted"}}))
 		})

@@ -19,18 +19,19 @@ package elemental
 import (
 	"errors"
 	"fmt"
-	"github.com/diskfs/go-diskfs/partition/gpt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 
+	diskfs "github.com/diskfs/go-diskfs/disk"
+	"github.com/diskfs/go-diskfs/partition/gpt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/partitionerv2"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 )
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
@@ -75,11 +76,15 @@ func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
 		return err
 	}
 
-	err = disk.ReReadPartitionTable()
-	if err != nil {
-		e.config.Logger.Errorf("Reread table: %s", err)
-		return err
+	// Only re-read table on devices. On files there is no need and this call will fail
+	if disk.Type == diskfs.Device {
+		err = disk.ReReadPartitionTable()
+		if err != nil {
+			e.config.Logger.Errorf("Reread table: %s", err)
+			return err
+		}
 	}
+
 	table, err := disk.GetPartitionTable()
 	if err != nil {
 		e.config.Logger.Errorf("table: %s", err)
