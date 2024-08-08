@@ -250,7 +250,7 @@ func (u *UpgradeAction) Run() (err error) {
 		u.Info("Backing up current active image")
 		source := filepath.Join(u.spec.Partitions.State.MountPoint, "cOS", constants.ActiveImgFile)
 		u.Info("Moving %s to %s", source, u.spec.Passive.File)
-		_, err := u.config.Runner.Run("mv", "-f", source, u.spec.Passive.File)
+		err = u.config.Fs.Rename(source, u.spec.Passive.File)
 		if err != nil {
 			u.Error("Failed to move %s to %s: %s", source, u.spec.Passive.File, err)
 			return err
@@ -267,7 +267,7 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 
 	u.Info("Moving %s to %s", upgradeImg.File, finalImageFile)
-	_, err = u.config.Runner.Run("mv", "-f", upgradeImg.File, finalImageFile)
+	err = u.config.Fs.Rename(upgradeImg.File, finalImageFile)
 	if err != nil {
 		u.Error("Failed to move %s to %s: %s", upgradeImg.File, finalImageFile, err)
 		return err
