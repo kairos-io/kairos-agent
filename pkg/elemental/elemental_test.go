@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"github.com/sanity-io/litter"
 	"golang.org/x/sys/unix"
@@ -36,7 +37,6 @@ import (
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -819,32 +819,39 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	Describe("SetDefaultGrubEntry", Label("SetDefaultGrubEntry", "grub"), func() {
 		It("Sets the default grub entry without issues", func() {
 			el := elemental.NewElemental(config)
-			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountpoint", "default_entry")).To(BeNil())
+			Expect(config.Fs.Mkdir("/tmp", cnst.DirPerm)).To(BeNil())
+			Expect(el.SetDefaultGrubEntry("/tmp", "/imgMountpoint", "dio")).To(BeNil())
+			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config.Fs)
+			Expect(err).To(BeNil())
+			Expect(varsParsed["default_menu_entry"]).To(Equal("dio"))
 		})
 		It("does nothing on empty default entry and no /etc/os-release", func() {
 			el := elemental.NewElemental(config)
+			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
 			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountPoint", "")).To(BeNil())
-			// No grub2-editenv command called
-			Expect(runner.CmdsMatch([][]string{{"grub2-editenv"}})).NotTo(BeNil())
+			_, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config.Fs)
+			// Because it didnt do anything due to the entry being empty, the file should not be there
+			Expect(err).ToNot(BeNil())
+			_, err = config.Fs.Stat(filepath.Join("/tmp", cnst.GrubOEMEnv))
+			Expect(err).ToNot(BeNil())
 		})
 		It("loads /etc/os-release on empty default entry", func() {
 			err := fsutils.MkdirAll(config.Fs, "/imgMountPoint/etc", cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			err = config.Fs.WriteFile("/imgMountPoint/etc/os-release", []byte("GRUB_ENTRY_NAME=test"), cnst.FilePerm)
 			Expect(err).ShouldNot(HaveOccurred())
+			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
 
 			el := elemental.NewElemental(config)
 			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountPoint", "")).To(BeNil())
-			// Calls grub2-editenv with the loaded content from /etc/os-release
-			editEnv := utils.FindCommand("grub2-editenv", []string{"grub2-editenv", "grub-editenv"})
-			Expect(runner.CmdsMatch([][]string{
-				{editEnv, "/mountpoint/grub_oem_env", "set", "default_menu_entry=test"},
-			})).To(BeNil())
+			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/mountpoint", cnst.GrubOEMEnv), config.Fs)
+			Expect(err).To(BeNil())
+			Expect(varsParsed["default_menu_entry"]).To(Equal("test"))
+
 		})
 		It("Fails setting grubenv", func() {
-			runner.ReturnError = errors.New("failure")
 			el := elemental.NewElemental(config)
-			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountPoint", "default_entry")).NotTo(BeNil())
+			Expect(el.SetDefaultGrubEntry("nonexisting", "nonexisting", "default_entry")).NotTo(BeNil())
 		})
 	})
 	Describe("FindKernelInitrd", Label("find"), func() {

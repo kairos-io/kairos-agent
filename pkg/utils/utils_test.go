@@ -883,27 +883,21 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		Describe("SetPersistentVariables", func() {
 			It("Sets the grub environment file", func() {
-				grub := utils.NewGrub(config)
-				Expect(grub.SetPersistentVariables(
-					"somefile", map[string]string{"key1": "value1", "key2": "value2"},
+				Expect(utils.SetPersistentVariables(
+					"/tmp/caca", map[string]string{"key1": "value1", "key2": "value2"},
+					config.Fs,
 				)).To(BeNil())
-				editEnv := utils.FindCommand("grub2-editenv", []string{"grub2-editenv", "grub-editenv"})
-				Expect(runner.IncludesCmds([][]string{
-					{editEnv, "somefile", "set", "key1=value1"},
-					{editEnv, "somefile", "set", "key2=value2"},
-				})).To(BeNil())
+				readVars, err := utils.ReadPersistentVariables("/tmp/caca", config.Fs)
+				Expect(err).To(BeNil())
+				Expect(readVars["key1"]).To(Equal("value1"))
+				Expect(readVars["key2"]).To(Equal("value2"))
 			})
-			It("Fails running grub2-editenv", func() {
-				runner.ReturnError = errors.New("grub error")
-				grub := utils.NewGrub(config)
-				e := grub.SetPersistentVariables(
-					"somefile", map[string]string{"key1": "value1"},
+			It("Fails setting variables", func() {
+				e := utils.SetPersistentVariables(
+					"badfilenopath", map[string]string{"key1": "value1"},
+					config.Fs,
 				)
 				Expect(e).NotTo(BeNil())
-				editEnv := utils.FindCommand("grub2-editenv", []string{"grub2-editenv", "grub-editenv"})
-				Expect(runner.CmdsMatch([][]string{
-					{editEnv, "somefile", "set", "key1=value1"},
-				})).To(BeNil())
 			})
 		})
 	})

@@ -17,12 +17,15 @@ limitations under the License.
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"io/fs"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -227,17 +230,30 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	return nil
 }
 
-// Sets the given key value pairs into as grub variables into the given file
-func (g Grub) SetPersistentVariables(grubEnvFile string, vars map[string]string) error {
-	for key, value := range vars {
-		g.config.Logger.Debugf("Running grub2-editenv with params: %s set %s=%s", grubEnvFile, key, value)
-		out, err := g.config.Runner.Run(FindCommand("grub2-editenv", []string{"grub2-editenv", "grub-editenv"}), grubEnvFile, "set", fmt.Sprintf("%s=%s", key, value))
-		if err != nil {
-			g.config.Logger.Errorf(fmt.Sprintf("Failed setting grub variables: %s", out))
-			return err
+// SetPersistentVariables sets the given vars into the given grubEnvFile for grub to read them
+func SetPersistentVariables(grubEnvFile string, vars map[string]string, fs v1.FS) error {
+	var b bytes.Buffer
+	b.WriteString("# GRUB Environment Block\n")
+
+	keys := make([]string, 0, len(vars))
+	for k := range vars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		if len(vars[k]) > 0 {
+			b.WriteString(fmt.Sprintf("%s=%s\n", k, vars[k]))
 		}
 	}
-	return nil
+
+	// https://www.gnu.org/software/grub/manual/grub/html_node/Environment-block.html
+	// It has to be exactly 1024bytes, if its not it has to be filled with #
+	toBeFilled := 1024 - b.Len()%1024
+	for i := 0; i < toBeFilled; i++ {
+		b.WriteByte('#')
+	}
+	return fs.WriteFile(grubEnvFile, b.Bytes(), cnst.FilePerm)
 }
 
 // copyGrubFonts will try to finds and copy the needed grub fonts into the system
@@ -351,4 +367,26 @@ func (g Grub) copyGrub() error {
 		return fmt.Errorf("could not find any grub efi file to copy")
 	}
 	return nil
+}
+
+// ReadPersistentVariables will read a grub env file and parse the values
+func ReadPersistentVariables(grubEnvFile string, fs v1.FS) (map[string]string, error) {
+	vars := make(map[string]string)
+	f, err := fs.ReadFile(grubEnvFile)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range strings.Split(string(f), "\n") {
+		// comment or fillup, so skip
+		if strings.HasPrefix(a, "#") {
+			continue
+		}
+		splitted := strings.Split(a, "=")
+		if len(splitted) == 2 {
+			vars[splitted[0]] = splitted[1]
+		} else {
+			return nil, fmt.Errorf("invalid format for %s", a)
+		}
+	}
+	return vars, nil
 }

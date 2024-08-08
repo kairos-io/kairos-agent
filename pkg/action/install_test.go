@@ -358,13 +358,5 @@ var _ = Describe("Install action tests", func() {
 			Expect(installer.Run()).NotTo(BeNil())
 			Expect(runner.MatchMilestones([][]string{{"tune2fs", "-L", constants.PassiveLabel}}))
 		})
-
-		It("Fails setting the grub default entry", Label("grub"), func() {
-			spec.Target = device
-			spec.GrubDefEntry = "cOS"
-			cmdFail = utils.FindCommand("grub2-editenv", []string{"grub2-editenv", "grub-editenv"})
-			Expect(installer.Run()).NotTo(BeNil())
-			Expect(runner.MatchMilestones([][]string{{cmdFail, filepath.Join(constants.StateDir, constants.GrubOEMEnv)}}))
-		})
 	})
 })
