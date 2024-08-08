@@ -254,6 +254,10 @@ func (e Elemental) UnmountImage(img *v1.Image) error {
 		return err
 	}
 	err = loop.Unloop(img.LoopDevice, e.config)
+	if err != nil {
+		return err
+	}
+	img.LoopDevice = ""
 	return err
 }
 

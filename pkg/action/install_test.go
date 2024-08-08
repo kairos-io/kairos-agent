@@ -314,7 +314,6 @@ var _ = Describe("Install action tests", func() {
 			spec.Target = device
 			cmdFail = "blkdeactivate"
 			Expect(installer.Run()).NotTo(BeNil())
-			Expect(runner.MatchMilestones([][]string{{"parted"}}))
 		})
 
 		It("Fails to unmount partitions", Label("disk", "partitions"), func() {

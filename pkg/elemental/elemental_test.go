@@ -17,11 +17,15 @@
 package elemental_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"github.com/sanity-io/litter"
+	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
+	sc "syscall"
 	"testing"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -40,11 +44,6 @@ import (
 	"k8s.io/mount-utils"
 )
 
-const printOutput = `BYT;
-/dev/loop0:50593792s:loopback:512:512:gpt:Loopback device:;`
-const partTmpl = `
-%d:%ss:%ss:2048s:ext4::type=83;`
-
 func TestElementalSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Elemental test suite")
@@ -54,19 +53,38 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger sdkTypes.KairosLogger
-	var syscall v1.SyscallInterface
+	var syscall *v1mock.FakeSyscall
 	var cl *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
 	var fs *vfst.TestFS
 	var cleanup func()
 	var extractor *v1mock.FakeImageExtractor
+	var memLog *bytes.Buffer
+	var devLoopInt int
 
 	BeforeEach(func() {
+		memLog = &bytes.Buffer{}
+		logger = sdkTypes.NewBufferLogger(memLog)
+		logger.SetLevel("debug")
 		runner = v1mock.NewFakeRunner()
 		syscall = &v1mock.FakeSyscall{}
+		devLoopInt = 44
+		syscall.SideEffectSyscall = func(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err sc.Errno) {
+			// Trap the call for getting a free loop device number
+			if trap == sc.SYS_IOCTL && a2 == unix.LOOP_CTL_GET_FREE {
+				// This is a "get free loop device" syscall
+				// We return 44 so it gets the /dev/loop44 because we are cool like that
+				// Also we can check below that indeed it set that device as expected
+				return uintptr(devLoopInt), 0, sc.Errno(syscall.ReturnValue)
+			}
+			return 0, 0, sc.Errno(syscall.ReturnValue)
+		}
 		mounter = v1mock.NewErrorMounter()
 		cl = &v1mock.FakeHTTPClient{}
-		fs, cleanup, _ = vfst.NewTestFS(nil)
+		fs, cleanup, _ = vfst.NewTestFS(map[string]interface{}{
+			"/dev/loop-control":                    "",
+			fmt.Sprintf("/dev/loop%d", devLoopInt): "",
+		})
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		config = agentConfig.NewConfig(
 			agentConfig.WithFs(fs),
@@ -192,7 +210,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
-
 	Describe("UnmountPartitions", Label("UnmountPartitions", "disk", "partition", "unmount"), func() {
 		var el *elemental.Elemental
 		var parts v1.ElementalPartitions
@@ -228,44 +245,43 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
-
 	Describe("MountImage", Label("MountImage", "mount", "image"), func() {
 		var el *elemental.Elemental
 		var img *v1.Image
 		BeforeEach(func() {
 			el = elemental.NewElemental(config)
-			img = &v1.Image{MountPoint: "/some/mountpoint"}
+			img = &v1.Image{MountPoint: "/some/mountpoint", File: "/image.file"}
+			Expect(fs.WriteFile("/image.file", []byte{}, cnst.FilePerm)).To(Succeed())
 		})
 
 		It("Mounts file system image", func() {
-			runner.ReturnValue = []byte("/dev/loop")
-			Expect(el.MountImage(img)).To(BeNil())
-			Expect(img.LoopDevice).To(Equal("/dev/loop"))
+			err := el.MountImage(img)
+			Expect(err).To(BeNil())
+			Expect(img.LoopDevice).To(Equal(fmt.Sprintf("/dev/loop%d", devLoopInt)), litter.Sdump(img))
 		})
 
 		It("Fails to set a loop device", Label("loop"), func() {
-			runner.ReturnError = errors.New("failed to set a loop device")
+			// Return error on syscall call
+			syscall.ReturnValue = 10
 			Expect(el.MountImage(img)).NotTo(BeNil())
 			Expect(img.LoopDevice).To(Equal(""))
 		})
 
 		It("Fails to mount a loop device", Label("loop"), func() {
-			runner.ReturnValue = []byte("/dev/loop")
 			mounter.ErrorOnMount = true
 			Expect(el.MountImage(img)).NotTo(BeNil())
 			Expect(img.LoopDevice).To(Equal(""))
 		})
 	})
-
 	Describe("UnmountImage", Label("UnmountImage", "mount", "image"), func() {
 		var el *elemental.Elemental
 		var img *v1.Image
 		BeforeEach(func() {
-			runner.ReturnValue = []byte("/dev/loop")
 			el = elemental.NewElemental(config)
-			img = &v1.Image{MountPoint: "/some/mountpoint"}
+			img = &v1.Image{MountPoint: "/some/mountpoint", File: "/image.file"}
+			Expect(fs.WriteFile("/image.file", []byte{}, cnst.FilePerm)).To(Succeed())
 			Expect(el.MountImage(img)).To(BeNil())
-			Expect(img.LoopDevice).To(Equal("/dev/loop"))
+			Expect(img.LoopDevice).To(Equal(fmt.Sprintf("/dev/loop%d", devLoopInt)))
 		})
 
 		It("Unmounts file system image", func() {
@@ -279,7 +295,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 
 		It("Fails to unset a loop device", Label("loop"), func() {
-			runner.ReturnError = errors.New("failed to unset a loop device")
+			syscall.ReturnValue = 10
 			Expect(el.UnmountImage(img)).NotTo(BeNil())
 		})
 	})
@@ -336,9 +352,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	Describe("PartitionAndFormatDevice", Label("PartitionAndFormatDevice", "partition", "format"), func() {
 		//var el *elemental.Elemental
 		var cInit *v1mock.FakeCloudInitRunner
-		var partNum int
-		var printOut string
-		var failPart bool
 		var install *v1.InstallSpec
 		var err error
 
@@ -359,66 +372,12 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 
 		Describe("Successful run", func() {
 			var runFunc func(cmd string, args ...string) ([]byte, error)
-			//var efiPartCmds, partCmds, biosPartCmds [][]string
 			BeforeEach(func() {
-				partNum, printOut = 0, printOutput
 				err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 				Expect(err).To(BeNil())
-				/*efiPartCmds = [][]string{
-					{
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mklabel", "gpt",
-					}, {
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "efi", "fat32", "2048", "133119", "set", "1", "esp", "on",
-					}, {"mkfs.vfat", "-n", "COS_GRUB", "/some/device1"},
-				}
-
-
-
-				biosPartCmds = [][]string{
-					{
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mklabel", "gpt",
-					}, {
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "bios", "", "2048", "4095", "set", "1", "bios_grub", "on",
-					}, {"wipefs", "--all", "/some/device1"},
-				}
-				// These commands are only valid for EFI case
-				partCmds = [][]string{
-					{
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "oem", "ext4", "133120", "264191",
-					}, {"mkfs.ext4", "-L", "COS_OEM", "/some/device2"}, {
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "recovery", "ext4", "264192", "673791",
-					}, {"mkfs.ext4", "-L", "COS_RECOVERY", "/some/device3"}, {
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "state", "ext4", "673792", "2721791",
-					}, {"mkfs.ext4", "-L", "COS_STATE", "/some/device4"}, {
-						"parted", "--script", "--machine", "--", "/some/device", "unit", "s",
-						"mkpart", "persistent", "ext4", "2721792", "100%",
-					}, {"mkfs.ext4", "-L", "COS_PERSISTENT", "/some/device5"},
-				}
-				*/
 
 				runFunc = func(cmd string, args ...string) ([]byte, error) {
 					switch cmd {
-					case "parted":
-						idx := 0
-						for i, arg := range args {
-							if arg == "mkpart" {
-								idx = i
-								break
-							}
-						}
-						if idx > 0 {
-							partNum++
-							printOut += fmt.Sprintf(partTmpl, partNum, args[idx+3], args[idx+4])
-							_, _ = fs.Create(fmt.Sprintf("/some/device%d", partNum))
-						}
-						return []byte(printOut), nil
 					default:
 						return []byte{}, nil
 					}
@@ -430,6 +389,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				install.PartTable = v1.GPT
 				install.Firmware = v1.EFI
 				install.Partitions.SetFirmwarePartitions(v1.EFI, v1.GPT)
+				Skip("Not ready")
 				//Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
 				//Expect(runner.MatchMilestones(append(efiPartCmds, partCmds...))).To(BeNil())
 			})
@@ -438,6 +398,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				install.PartTable = v1.GPT
 				install.Firmware = v1.BIOS
 				install.Partitions.SetFirmwarePartitions(v1.BIOS, v1.GPT)
+				Skip("Not ready")
 				//Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
 				//Expect(runner.MatchMilestones(biosPartCmds)).To(BeNil())
 			})
@@ -448,26 +409,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			BeforeEach(func() {
 				err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
 				Expect(err).To(BeNil())
-				partNum, printOut = 0, printOutput
 				runFunc = func(cmd string, args ...string) ([]byte, error) {
 					switch cmd {
-					case "parted":
-						idx := 0
-						for i, arg := range args {
-							if arg == "mkpart" {
-								idx = i
-								break
-							}
-						}
-						if idx > 0 {
-							partNum++
-							printOut += fmt.Sprintf(partTmpl, partNum, args[idx+3], args[idx+4])
-							if failPart {
-								return []byte{}, errors.New("Failure")
-							}
-							_, _ = fs.Create(fmt.Sprintf("/some/device%d", partNum))
-						}
-						return []byte(printOut), nil
 					case "mkfs.ext4", "wipefs", "mkfs.vfat":
 						return []byte{}, errors.New("Failure")
 					default:
@@ -475,20 +418,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 					}
 				}
 				runner.SideEffect = runFunc
-			})
-
-			It("Fails creating efi partition", func() {
-				failPart = true
-				//Expect(el.PartitionAndFormatDevice(install)).NotTo(BeNil())
-				// Failed to create first partition
-				//Expect(partNum).To(Equal(1))
-			})
-
-			It("Fails formatting efi partition", func() {
-				failPart = false
-				//Expect(el.PartitionAndFormatDevice(install)).NotTo(BeNil())
-				// Failed to format first partition
-				//Expect(partNum).To(Equal(1))
 			})
 		})
 	})
@@ -516,8 +445,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 					return []byte{}, errors.New("Command failed")
 				}
 				switch cmd {
-				case "losetup":
-					return []byte("/dev/loop"), nil
 				default:
 					GinkgoWriter.Println(fmt.Sprintf("Command %s called but we dont catch it", cmd))
 					return []byte{}, nil

@@ -24,10 +24,11 @@ import (
 // FakeSyscall is a test helper method to track calls to syscall
 // It can also fail on Chroot command
 type FakeSyscall struct {
-	chrootHistory []string // Track calls to chroot
-	ErrorOnChroot bool
-	ReturnValue   int
-	mounts        []FakeMount
+	chrootHistory     []string // Track calls to chroot
+	ErrorOnChroot     bool
+	ReturnValue       int // What to return when FakeSyscall.Syscall is called
+	mounts            []FakeMount
+	SideEffectSyscall func(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno) // Function to stub the result of calling FakeSyscall.Syscall
 }
 
 type FakeMount struct {
@@ -83,5 +84,8 @@ func (f *FakeSyscall) WasMountCalledWith(source string, target string, fstype st
 }
 
 func (f *FakeSyscall) Syscall(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno) {
+	if f.SideEffectSyscall != nil {
+		return f.SideEffectSyscall(trap, a1, a2, a3)
+	}
 	return 0, 0, syscall.Errno(f.ReturnValue)
 }
