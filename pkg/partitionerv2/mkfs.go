@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package partitioner
+package partitionerv2
 
 import (
 	"fmt"
@@ -74,4 +74,14 @@ func (mkfs MkfsCall) Apply() (string, error) {
 	tool := fmt.Sprintf("mkfs.%s", mkfs.fileSystem)
 	out, err := mkfs.runner.Run(tool, opts...)
 	return string(out), err
+}
+
+// FormatDevice formats a block device with the given parameters
+func FormatDevice(runner v1.Runner, device string, fileSystem string, label string, opts ...string) error {
+	mkfs := MkfsCall{fileSystem: fileSystem, label: label, customOpts: opts, dev: device, runner: runner}
+	out, err := mkfs.Apply()
+	if err != nil {
+		fmt.Printf(out)
+	}
+	return err
 }

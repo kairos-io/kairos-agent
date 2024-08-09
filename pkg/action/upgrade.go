@@ -19,6 +19,7 @@ package action
 import (
 	"fmt"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -249,31 +250,30 @@ func (u *UpgradeAction) Run() (err error) {
 		u.Info("Backing up current active image")
 		source := filepath.Join(u.spec.Partitions.State.MountPoint, "cOS", constants.ActiveImgFile)
 		u.Info("Moving %s to %s", source, u.spec.Passive.File)
-		_, err := u.config.Runner.Run("mv", "-f", source, u.spec.Passive.File)
+		err = u.config.Fs.Rename(source, u.spec.Passive.File)
 		if err != nil {
 			u.Error("Failed to move %s to %s: %s", source, u.spec.Passive.File, err)
 			return err
 		}
 		u.Info("Finished moving %s to %s", source, u.spec.Passive.File)
 		// Label the image to passive!
-		out, err := u.config.Runner.Run("tune2fs", "-L", u.spec.Passive.Label, u.spec.Passive.File)
+		err = fsutils.SetNewImageLabel(u.spec.Passive.File, u.spec.Passive.Label)
 		if err != nil {
 			u.Error("Error while labeling the passive image %s: %s", u.spec.Passive.File, err)
-			u.Debug("Error while labeling the passive image %s, command output: %s", u.spec.Passive.File, out)
 			return err
 		}
-		_, _ = u.config.Runner.Run("sync")
+		syscall.Sync()
 	}
 
 	u.Info("Moving %s to %s", upgradeImg.File, finalImageFile)
-	_, err = u.config.Runner.Run("mv", "-f", upgradeImg.File, finalImageFile)
+	err = u.config.Fs.Rename(upgradeImg.File, finalImageFile)
 	if err != nil {
 		u.Error("Failed to move %s to %s: %s", upgradeImg.File, finalImageFile, err)
 		return err
 	}
 	u.Info("Finished moving %s to %s", upgradeImg.File, finalImageFile)
 
-	_, _ = u.config.Runner.Run("sync")
+	syscall.Sync()
 
 	err = u.upgradeHook(constants.AfterUpgradeHook, false)
 	if err != nil {

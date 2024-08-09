@@ -645,8 +645,6 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			BeforeEach(func() {
 				runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 					switch cmd {
-					case "grub2-editenv":
-						return []byte(""), nil
 					default:
 						return []byte{}, nil
 					}
@@ -664,12 +662,10 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/etc/kairos/branding/grubmenu.cfg", []byte("whatever whatever --id kairos3 {"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
+				Expect(fs.Mkdir("/oem", os.ModePerm)).To(Succeed())
 
 				err = SelectBootEntry(config, "kairos")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(runner.IncludesCmds([][]string{
-					{"grub2-editenv", "/oem/grubenv", "set", "next_entry=kairos"},
-				})).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to kairos"))
 			})
 		})

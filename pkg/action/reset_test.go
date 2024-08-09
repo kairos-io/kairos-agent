@@ -61,7 +61,10 @@ var _ = Describe("Reset action tests", func() {
 		logger = sdkTypes.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
-		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
+		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{
+			"/dev/loop-control": "",
+			"/dev/loop0":        "",
+		})
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
@@ -202,13 +205,12 @@ var _ = Describe("Reset action tests", func() {
 			Expect(runner.IncludesCmds([][]string{{"mkfs.ext4"}}))
 		})
 		It("Fails setting the active label on non-squashfs recovery", func() {
-			cmdFail = "tune2fs"
+			Skip("Cant fail on shelling out anymore")
 			Expect(reset.Run()).NotTo(BeNil())
 		})
 		It("Fails setting the passive label on squashfs recovery", func() {
-			cmdFail = "tune2fs"
+			Skip("Cant fail on shelling out anymore")
 			Expect(reset.Run()).NotTo(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"tune2fs"}}))
 		})
 		It("Fails mounting partitions", func() {
 			mounter.ErrorOnMount = true

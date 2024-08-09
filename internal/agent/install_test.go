@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"fmt"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"os"
 	"path/filepath"
@@ -18,11 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-const printOutput = `BYT;
-/dev/loop0:50593792s:loopback:512:512:gpt:Loopback device:;`
-const partTmpl = `
-%d:%ss:%ss:2048s:ext4::type=83;`
 
 var _ = Describe("prepareConfiguration", func() {
 	url := "https://example.com"
@@ -95,24 +89,8 @@ var _ = Describe("RunInstall", func() {
 		Expect(err).To(BeNil())
 
 		// Side effect of runners, hijack calls to commands and return our stuff
-		partNum := 0
-		partedOut := printOutput
 		runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 			switch cmd {
-			case "parted":
-				idx := 0
-				for i, arg := range args {
-					if arg == "mkpart" {
-						idx = i
-						break
-					}
-				}
-				if idx > 0 {
-					partNum++
-					partedOut += fmt.Sprintf(partTmpl, partNum, args[idx+3], args[idx+4])
-					_, _ = fs.Create(fmt.Sprintf("/some/device%d", partNum))
-				}
-				return []byte(partedOut), nil
 			case "lsblk":
 				return []byte(`{
 "blockdevices":
