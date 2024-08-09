@@ -32,7 +32,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/itxaka/go-e2label/superblock"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+
 	"github.com/twpayne/go-vfs/v4"
 	"github.com/twpayne/go-vfs/v4/vfst"
 )
@@ -272,4 +274,23 @@ func Copy(fs v1.FS, src, dst string) error {
 		return err
 	}
 	return nil
+}
+
+// SetNewImageLabel will set a new label into the given device in ext4 format
+// TODO: Make it work with a v1.FS ?
+func SetNewImageLabel(device, label string) error {
+	sb, err := superblock.GetSuperBlock(device)
+	if err != nil {
+		return err
+	}
+	oldName := sb.VolumeName[:]
+	cleanedUp := strings.Trim(string(oldName), "\x00")
+	if cleanedUp == label {
+		return nil
+	}
+	newName := [16]byte{}
+	copy(newName[:], label)
+	sb.VolumeName = newName
+	err = sb.CalculateNewChecksumAndWriteIt(device)
+	return err
 }

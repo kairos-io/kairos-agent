@@ -40,6 +40,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v63 v63.0.0
+	github.com/itxaka/go-e2label v0.0.1
 	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
@@ -129,6 +130,7 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/makiuchi-d/gozxing v0.1.1 // indirect

@@ -490,6 +490,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).NotTo(BeNil())
 		})
 		It("Deploys a file image and fails to label it", func() {
+			Skip("Cant fail on shelling out anymore")
 			sourceImg := "/source.img"
 			_, err := fs.Create(sourceImg)
 			Expect(err).To(BeNil())
@@ -497,7 +498,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).To(BeNil())
 			img.Source = v1.NewFileSrc(sourceImg)
 			img.MountPoint = destDir
-			cmdFail = "tune2fs"
 			_, err = el.DeployImage(img, true)
 			Expect(err).NotTo(BeNil())
 		})

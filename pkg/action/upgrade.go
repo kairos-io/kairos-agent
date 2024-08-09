@@ -257,10 +257,9 @@ func (u *UpgradeAction) Run() (err error) {
 		}
 		u.Info("Finished moving %s to %s", source, u.spec.Passive.File)
 		// Label the image to passive!
-		out, err := u.config.Runner.Run("tune2fs", "-L", u.spec.Passive.Label, u.spec.Passive.File)
+		err = fsutils.SetNewImageLabel(u.spec.Passive.File, u.spec.Passive.Label)
 		if err != nil {
 			u.Error("Error while labeling the passive image %s: %s", u.spec.Passive.File, err)
-			u.Debug("Error while labeling the passive image %s, command output: %s", u.spec.Passive.File, out)
 			return err
 		}
 		syscall.Sync()

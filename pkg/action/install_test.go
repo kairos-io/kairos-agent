@@ -353,10 +353,9 @@ var _ = Describe("Install action tests", func() {
 		})
 
 		It("Fails copying Passive image", Label("copy", "active"), func() {
+			Skip("Cant fail on shelling out anymore")
 			spec.Target = device
-			cmdFail = "tune2fs"
 			Expect(installer.Run()).NotTo(BeNil())
-			Expect(runner.MatchMilestones([][]string{{"tune2fs", "-L", constants.PassiveLabel}}))
 		})
 	})
 })
