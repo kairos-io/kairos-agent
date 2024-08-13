@@ -51,17 +51,20 @@ func (i *UpgradeAction) Run() (err error) {
 	// If we decide to first copy and then rotate, we need ~4 times the size of
 	// the artifact set [TBD]
 
-	// When upgrading recovery, we don't want to replace loader.conf or any other
+	// When upgrading recovery or single entries, we don't want to replace loader.conf or any other
 	// files, thus we take a simpler approach and only install the new efi file
 	// and the relevant conf
-	if i.spec.RecoveryUpgrade {
+	if i.spec.RecoveryUpgrade() {
+		i.cfg.Logger.Infof("installing entry: recovery")
 		return i.installRecovery()
 	}
 
-	if i.spec.UpgradeSingleEntry != "" {
-		return i.installEntry(i.spec.UpgradeSingleEntry)
+	if i.spec.Entry != "" { // single entry upgrade
+		i.cfg.Logger.Infof("installing entry: %s", i.spec.Entry)
+		return i.installEntry(i.spec.Entry)
 	}
 
+	i.cfg.Logger.Infof("installing entry: active")
 	// Dump artifact to efi dir
 	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {
@@ -127,6 +130,11 @@ func (i *UpgradeAction) Run() (err error) {
 }
 
 func (i *UpgradeAction) installEntry(entry string) error {
+	targetEntryFile := filepath.Join(constants.UkiEfiDir, "EFI", "kairos", fmt.Sprintf("%s.efi", entry))
+	if _, err := os.Stat(targetEntryFile); err != nil {
+		return fmt.Errorf("could not stat target efi file for entry %s: %s", entry, err)
+	}
+
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		i.cfg.Logger.Errorf("creating a tmp dir: %s", err.Error())
@@ -142,9 +150,7 @@ func (i *UpgradeAction) installEntry(entry string) error {
 		return err
 	}
 
-	err = copyFile(
-		filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"),
-		filepath.Join(constants.UkiEfiDir, "EFI", "kairos", fmt.Sprintf("%s.efi", entry)))
+	err = copyFile(filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"), targetEntryFile)
 	if err != nil {
 		i.cfg.Logger.Errorf("copying efi files: %s", err.Error())
 		return err

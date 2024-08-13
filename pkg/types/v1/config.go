@@ -170,7 +170,7 @@ func (r *ResetSpec) ShouldReboot() bool   { return r.Reboot }
 func (r *ResetSpec) ShouldShutdown() bool { return r.PowerOff }
 
 type UpgradeSpec struct {
-	RecoveryUpgrade bool     `yaml:"recovery,omitempty" mapstructure:"recovery"`
+	Entry           string   `yaml:"entry,omitempty" mapstructure:"entry"`
 	Active          Image    `yaml:"system,omitempty" mapstructure:"system"`
 	Recovery        Image    `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	GrubDefEntry    string   `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
@@ -182,10 +182,14 @@ type UpgradeSpec struct {
 	State           *InstallState
 }
 
+func (u *UpgradeSpec) RecoveryUpgrade() bool {
+	return u.Entry == constants.BootEntryRecovery
+}
+
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (u *UpgradeSpec) Sanitize() error {
-	if u.RecoveryUpgrade {
+	if u.RecoveryUpgrade() {
 		if u.Recovery.Source.IsEmpty() {
 			return fmt.Errorf(constants.UpgradeNoSourceError)
 		}
@@ -528,12 +532,15 @@ func (i *InstallUkiSpec) GetPartitions() ElementalPartitions { return i.Partitio
 func (i *InstallUkiSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
 
 type UpgradeUkiSpec struct {
-	RecoveryUpgrade    bool       `yaml:"recovery,omitempty" mapstructure:"recovery"`
-	UpgradeSingleEntry string     `yaml:"upgrade-single-entry,omitempty" mapstructure:"upgrade-single-entry"`
-	Active             Image      `yaml:"system,omitempty" mapstructure:"system"`
-	Reboot             bool       `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff           bool       `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	EfiPartition       *Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	Entry        string     `yaml:"entry,omitempty" mapstructure:"entry"`
+	Active       Image      `yaml:"system,omitempty" mapstructure:"system"`
+	Reboot       bool       `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff     bool       `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	EfiPartition *Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+}
+
+func (i *UpgradeUkiSpec) RecoveryUpgrade() bool {
+	return i.Entry == constants.BootEntryRecovery
 }
 
 func (i *UpgradeUkiSpec) Sanitize() error {

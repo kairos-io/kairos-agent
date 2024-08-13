@@ -346,7 +346,7 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 	var err error
 
 	var targetSpec *v1.Image
-	if spec.RecoveryUpgrade {
+	if spec.RecoveryUpgrade() {
 		targetSpec = &(spec.Recovery)
 	} else {
 		targetSpec = &(spec.Active)
