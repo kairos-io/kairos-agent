@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -323,7 +324,21 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		}
 	}
 
+	// Deep look to see if upgrade.recovery == true in the config
+	// if yes, we set the upgrade spec "Entry" to "recovery"
+	entry := ""
+	_, ok := cfg.Config["upgrade"]
+	if ok {
+		_, ok = cfg.Config["upgrade"].(collector.Config)["recovery"]
+		if ok {
+			if cfg.Config["upgrade"].(collector.Config)["recovery"].(bool) {
+				entry = constants.BootEntryRecovery
+			}
+		}
+	}
+
 	spec := &v1.UpgradeSpec{
+		Entry:      entry,
 		Active:     active,
 		Recovery:   recovery,
 		Passive:    passive,
