@@ -350,7 +350,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 
 	})
 	Describe("PartitionAndFormatDevice", Label("PartitionAndFormatDevice", "partition", "format"), func() {
-		//var el *elemental.Elemental
 		var cInit *v1mock.FakeCloudInitRunner
 		var install *v1.InstallSpec
 		var err error
@@ -359,7 +358,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
 			config.Install.Device = "/some/device"
-			//el = elemental.NewElemental(config)
 			install, err = agentConfig.NewInstallSpec(config)
 			Expect(err).ToNot(HaveOccurred())
 			install.Target = "/some/device"
