@@ -58,10 +58,10 @@ func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
 	return partitioner.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
 }
 
-// PartitionAndFormatDevicev2 creates a new empty partition table on target disk
+// PartitionAndFormatDevice creates a new empty partition table on target disk
 // and applies the configured disk layout by creating and formatting all
 // required partitions
-func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
+func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 	if _, err := os.Stat(i.GetTarget()); os.IsNotExist(err) {
 		e.config.Logger.Errorf("Disk %s does not exist", i.GetTarget())
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())

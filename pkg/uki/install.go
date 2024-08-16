@@ -61,7 +61,7 @@ func (i *InstallAction) Run() (err error) {
 		}
 
 		// Partition device
-		err = e.PartitionAndFormatDevicev2(i.spec)
+		err = e.PartitionAndFormatDevice(i.spec)
 		if err != nil {
 			i.cfg.Logger.Errorf("partitioning and formating devices: %s", err.Error())
 			return err
