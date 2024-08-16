@@ -27,7 +27,7 @@ import (
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/partitionerv2"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -55,7 +55,7 @@ func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
 		name = part.Name
 	}
 	e.config.Logger.Infof("Formatting '%s' partition", name)
-	return partitionerv2.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
+	return partitioner.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
 }
 
 // PartitionAndFormatDevicev2 creates a new empty partition table on target disk
@@ -67,7 +67,7 @@ func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())
 	}
 
-	disk := partitionerv2.NewDisk(i.GetTarget(), partitionerv2.WithLogger(e.config.Logger))
+	disk := partitioner.NewDisk(i.GetTarget(), partitioner.WithLogger(e.config.Logger))
 
 	e.config.Logger.Infof("Partitioning device...")
 	err := disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
@@ -109,7 +109,7 @@ func (e *Elemental) PartitionAndFormatDevicev2(i v1.SharedInstallSpec) error {
 			// we have to match the Fs it was asked with the partition in the system
 			if p.(*gpt.Partition).Name == configPart.FilesystemLabel {
 				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)
-				err = partitionerv2.FormatDevice(e.config.Runner, fmt.Sprintf("%s%d", i.GetTarget(), index+1), configPart.FS, configPart.FilesystemLabel)
+				err = partitioner.FormatDevice(e.config.Runner, fmt.Sprintf("%s%d", i.GetTarget(), index+1), configPart.FS, configPart.FilesystemLabel)
 				if err != nil {
 					e.config.Logger.Errorf("Failed formatting partition: %s", err)
 					return err
@@ -285,7 +285,7 @@ func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
 		return err
 	}
 
-	mkfs := partitionerv2.NewMkfsCall(img.File, img.FS, img.Label, e.config.Runner)
+	mkfs := partitioner.NewMkfsCall(img.File, img.FS, img.Label, e.config.Runner)
 	_, err = mkfs.Apply()
 	if err != nil {
 		_ = e.config.Fs.RemoveAll(img.File)

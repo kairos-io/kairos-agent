@@ -1,4 +1,4 @@
-package partitionerv2
+package partitioner
 
 import (
 	"fmt"
