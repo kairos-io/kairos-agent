@@ -100,6 +100,7 @@ var _ = Describe("Install action tests", func() {
 
 		BeforeEach(func() {
 			os.RemoveAll("/tmp/test.img")
+			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
 			// at least 2Gb in size as state is set to 1G
 			_, err = diskfs.Create("/tmp/test.img", 2*1024*1024*1024, diskfs.Raw, 512)
 			Expect(err).ToNot(HaveOccurred())
