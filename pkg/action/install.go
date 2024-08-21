@@ -189,6 +189,11 @@ func (i InstallAction) Run() (err error) {
 		return err
 	}
 
+	// Check if we should fail the installation by checking the sentinel file FailInstallationFileSentinel
+	if toFail, err := utils.CheckFailedInstallation(cnst.FailInstallationFileSentinel); toFail {
+		return err
+	}
+
 	// Deploy active image
 	systemMeta, err := e.DeployImage(&i.spec.Active, true)
 	if err != nil {
