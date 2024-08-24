@@ -276,19 +276,40 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			recMnt = constants.TransitionDir
 		}
 
+		upgradeRecoverySystemUri, err := cfg.Query("upgrade.\"recovery-system\".uri")
+		upgradeRecoverySystemUri = strings.TrimRight(upgradeRecoverySystemUri, "\n")
+		if err != nil {
+			return nil, fmt.Errorf("failed to found recovery upgrade source: %w", err)
+		}
+
+		recoverySrc, err := v1.NewSrcFromURI(upgradeRecoverySystemUri)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse recovery upgrade source uri: %w", err)
+		}
 		recovery = v1.Image{
 			File:       filepath.Join(ep.Recovery.MountPoint, "cOS", constants.TransitionImgFile),
 			Size:       constants.ImgSize,
 			Label:      recLabel,
 			FS:         recFs,
 			MountPoint: recMnt,
-			Source:     v1.NewEmptySrc(),
+			Source:     recoverySrc,
 		}
 	}
 
 	if ep.State != nil {
 		if ep.State.MountPoint == "" {
 			ep.State.MountPoint = constants.StateDir
+		}
+		upgradeSystemUri, err := cfg.Query("upgrade.system.uri")
+		upgradeSystemUri = strings.TrimRight(upgradeSystemUri, "\n")
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to found upgrade source: %w", err)
+		}
+
+		src, err := v1.NewSrcFromURI(upgradeSystemUri)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse upgrade source uri: %w", err)
 		}
 
 		active = v1.Image{
@@ -297,7 +318,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			Label:      constants.ActiveLabel,
 			FS:         constants.LinuxImgFs,
 			MountPoint: constants.TransitionDir,
-			Source:     v1.NewEmptySrc(),
+			Source:     src,
 		}
 
 		passive = v1.Image{
@@ -330,8 +351,10 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		Partitions: ep,
 		State:      installState,
 	}
-
-	setUpgradeSourceSize(cfg, spec)
+	err = setUpgradeSourceSize(cfg, spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed calculate transition image size: %w", err)
+	}
 
 	err = unmarshallFullSpec(cfg, "upgrade", spec)
 	if err != nil {
@@ -355,7 +378,6 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 	if targetSpec.Source.IsEmpty() {
 		return nil
 	}
-
 	size, err = GetSourceSize(cfg, targetSpec.Source)
 	if err != nil {
 		return err
