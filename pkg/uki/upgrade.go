@@ -51,13 +51,20 @@ func (i *UpgradeAction) Run() (err error) {
 	// If we decide to first copy and then rotate, we need ~4 times the size of
 	// the artifact set [TBD]
 
-	// When upgrading recovery, we don't want to replace loader.conf or any other
+	// When upgrading recovery or single entries, we don't want to replace loader.conf or any other
 	// files, thus we take a simpler approach and only install the new efi file
 	// and the relevant conf
-	if i.spec.RecoveryUpgrade {
+	if i.spec.RecoveryUpgrade() {
+		i.cfg.Logger.Infof("installing entry: recovery")
 		return i.installRecovery()
 	}
 
+	if i.spec.Entry != "" { // single entry upgrade
+		i.cfg.Logger.Infof("installing entry: %s", i.spec.Entry)
+		return i.installEntry(i.spec.Entry)
+	}
+
+	i.cfg.Logger.Infof("installing entry: active")
 	// Dump artifact to efi dir
 	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {
@@ -122,9 +129,12 @@ func (i *UpgradeAction) Run() (err error) {
 	return nil
 }
 
-// installRecovery replaces the "recovery" role efi and conf files with
-// the UnassignedArtifactRole efi and loader files from dir
-func (i *UpgradeAction) installRecovery() error {
+func (i *UpgradeAction) installEntry(entry string) error {
+	targetEntryFile := filepath.Join(constants.UkiEfiDir, "EFI", "kairos", fmt.Sprintf("%s.efi", entry))
+	if _, err := os.Stat(targetEntryFile); err != nil {
+		return fmt.Errorf("could not stat target efi file for entry %s: %s", entry, err)
+	}
+
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		i.cfg.Logger.Errorf("creating a tmp dir: %s", err.Error())
@@ -140,15 +150,13 @@ func (i *UpgradeAction) installRecovery() error {
 		return err
 	}
 
-	err = copyFile(
-		filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"),
-		filepath.Join(constants.UkiEfiDir, "EFI", "kairos", "recovery.efi"))
+	err = copyFile(filepath.Join(tmpDir, "EFI", "kairos", UnassignedArtifactRole+".efi"), targetEntryFile)
 	if err != nil {
 		i.cfg.Logger.Errorf("copying efi files: %s", err.Error())
 		return err
 	}
 
-	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", "recovery.conf")
+	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", fmt.Sprintf("%s.conf", entry))
 	err = copyFile(
 		filepath.Join(tmpDir, "loader", "entries", UnassignedArtifactRole+".conf"),
 		targetConfPath)
@@ -156,13 +164,24 @@ func (i *UpgradeAction) installRecovery() error {
 		i.cfg.Logger.Errorf("copying conf files: %s", err.Error())
 		return err
 	}
-	err = replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, "recovery", i.cfg.Logger)
+	err = replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, entry, i.cfg.Logger)
 	if err != nil {
 		i.cfg.Logger.Errorf("replacing role in in key %s: %s", "efi", err.Error())
 		return err
 	}
 
-	err = replaceConfTitle(targetConfPath, "recovery")
+	return nil
+}
+
+// installRecovery replaces the "recovery" role efi and conf files with
+// the UnassignedArtifactRole efi and loader files from dir
+func (i *UpgradeAction) installRecovery() error {
+	if err := i.installEntry("recovery"); err != nil {
+		return err
+	}
+
+	targetConfPath := filepath.Join(constants.UkiEfiDir, "loader", "entries", "recovery.conf")
+	err := replaceConfTitle(targetConfPath, "recovery")
 	if err != nil {
 		i.cfg.Logger.Errorf("replacing conf title: %s", err.Error())
 		return err

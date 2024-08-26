@@ -26,7 +26,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
 )
 
@@ -90,7 +90,7 @@ func (u *UpgradeAction) upgradeInstallStateYaml(meta interface{}, img v1.Image) 
 		Label:          img.Label,
 		FS:             img.FS,
 	}
-	if u.spec.RecoveryUpgrade {
+	if u.spec.RecoveryUpgrade() {
 		recoveryPart := u.spec.State.Partitions[constants.RecoveryPartName]
 		if recoveryPart == nil {
 			recoveryPart = &v1.PartitionState{
@@ -137,7 +137,7 @@ func (u *UpgradeAction) Run() (err error) {
 
 	e := elemental.NewElemental(u.config)
 
-	if u.spec.RecoveryUpgrade {
+	if u.spec.RecoveryUpgrade() {
 		upgradeImg = u.spec.Recovery
 		if upgradeImg.FS == constants.SquashFs {
 			finalImageFile = filepath.Join(u.spec.Partitions.Recovery.MountPoint, "cOS", constants.RecoverySquashFile)
@@ -227,7 +227,7 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 
 	// Only apply rebrand stage for system upgrades
-	if !u.spec.RecoveryUpgrade {
+	if !u.spec.RecoveryUpgrade() {
 		u.Info("rebranding")
 		if rebrandingErr := e.SetDefaultGrubEntry(u.spec.Partitions.State.MountPoint, upgradeImg.MountPoint, u.spec.GrubDefEntry); rebrandingErr != nil {
 			u.config.Logger.Warn("failure while rebranding GRUB default entry (ignoring), run with --debug to see more details")
@@ -244,7 +244,7 @@ func (u *UpgradeAction) Run() (err error) {
 	// If not upgrading recovery and booting from non passive, backup active into passive
 	// We dont want to overwrite passive if we are booting from passive as it could mean that active is broken and we would
 	// be overriding a working passive with a broken/unknown  active
-	if u.spec.RecoveryUpgrade == false && bootedFrom != state.Passive {
+	if !u.spec.RecoveryUpgrade() && bootedFrom != state.Passive {
 		// backup current active.img to passive.img before overwriting the active.img
 		u.Info("Backing up current active image")
 		source := filepath.Join(u.spec.Partitions.State.MountPoint, "cOS", constants.ActiveImgFile)
@@ -289,7 +289,7 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 
 	u.Info("Upgrade completed")
-	if !u.spec.RecoveryUpgrade {
+	if !u.spec.RecoveryUpgrade() {
 		u.config.Logger.Warn("Remember that recovery is upgraded separately by passing the --recovery flag to the upgrade command!\n" +
 			"See more info about this on https://kairos.io/docs/upgrade/")
 	}

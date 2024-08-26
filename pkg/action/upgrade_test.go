@@ -19,8 +19,9 @@ package action_test
 import (
 	"bytes"
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -449,8 +450,7 @@ var _ = Describe("Runtime Actions", func() {
 					spec.Active.Size = 10
 					spec.Passive.Size = 10
 					spec.Recovery.Size = 10
-
-					spec.RecoveryUpgrade = true
+					spec.Entry = constants.BootEntryRecovery
 
 					err = fsutils.MkdirAll(config.Fs, "/proc", constants.DirPerm)
 					Expect(err).ShouldNot(HaveOccurred())
@@ -542,8 +542,7 @@ var _ = Describe("Runtime Actions", func() {
 					spec.Active.Size = 10
 					spec.Passive.Size = 10
 					spec.Recovery.Size = 10
-
-					spec.RecoveryUpgrade = true
+					spec.Entry = constants.BootEntryRecovery
 
 					err = fsutils.MkdirAll(config.Fs, "/proc", constants.DirPerm)
 					Expect(err).ShouldNot(HaveOccurred())

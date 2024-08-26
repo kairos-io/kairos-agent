@@ -17,11 +17,12 @@ limitations under the License.
 package v1_test
 
 import (
+	"path/filepath"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"path/filepath"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
@@ -444,7 +445,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			Describe("Recovery upgrade", func() {
 				BeforeEach(func() {
-					spec.RecoveryUpgrade = true
+					spec.Entry = constants.BootEntryRecovery
 				})
 				It("fails with empty source", func() {
 					err := spec.Sanitize()

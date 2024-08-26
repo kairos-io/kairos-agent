@@ -69,6 +69,7 @@ var cmds = []*cli.Command{
 				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
 			},
 			&sourceFlag,
+			&cli.StringFlag{Name: "boot-entry", Usage: "Specify a systemd-boot entry to upgrade (other than active/passive/recovery). The value should match the name of the '.efi' file."},
 			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
 		},
@@ -185,9 +186,20 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				source = fmt.Sprintf("oci:%s", image)
 			}
 
+			if c.Bool("recovery") && c.String("boot-entry") != "" {
+				return fmt.Errorf("only one of '--recovery' and '--boot-entry' can be set")
+			}
+
+			upgradeEntry := ""
+			if c.Bool("recovery") {
+				upgradeEntry = constants.BootEntryRecovery
+			} else if c.String("boot-entry") != "" {
+				upgradeEntry = c.String("boot-entry")
+			}
+
 			return agent.Upgrade(source, c.Bool("force"),
 				c.Bool("strict-validation"), constants.GetConfigScanDirs(),
-				c.Bool("pre"), c.Bool("recovery"),
+				upgradeEntry, c.Bool("pre"),
 			)
 		},
 	},

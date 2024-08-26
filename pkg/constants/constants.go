@@ -88,6 +88,7 @@ const (
 	GPT                          = "gpt"
 	UsrLocalPath                 = "/usr/local"
 	OEMPath                      = "/oem"
+	BootEntryRecovery            = "recovery"
 
 	// SELinux targeted policy paths
 	SELinuxTargetedPath        = "/etc/selinux/targeted"

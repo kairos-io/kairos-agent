@@ -18,10 +18,11 @@ package config_test
 
 import (
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"github.com/rs/zerolog"
 
 	"github.com/jaypipes/ghw/pkg/block"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -587,7 +588,7 @@ cloud-init-paths:
 				spec, err := config.ReadSpecFromCloudConfig(cfg, "upgrade")
 				Expect(err).ToNot(HaveOccurred())
 				upgradeSpec := spec.(*v1.UpgradeSpec)
-				Expect(upgradeSpec.RecoveryUpgrade).To(BeTrue())
+				Expect(upgradeSpec.RecoveryUpgrade()).To(BeTrue())
 			})
 			It("Fails when a wrong action is read", func() {
 				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
