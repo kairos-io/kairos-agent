@@ -84,6 +84,11 @@ func (i *InstallAction) Run() (err error) {
 		return err
 	}
 
+	// Check if we should fail the installation by checking the sentinel file FailInstallationFileSentinel
+	if toFail, err := utils.CheckFailedInstallation(constants.FailInstallationFileSentinel); toFail {
+		return err
+	}
+
 	// Store cloud-config in TPM or copy it to COS_OEM?
 	// Copy cloud-init if any
 	err = e.CopyCloudConfig(i.spec.CloudInit)

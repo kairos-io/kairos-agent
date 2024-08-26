@@ -217,7 +217,7 @@ func systemdConfToBootName(conf string) (string, error) {
 		return bootName, nil
 	}
 
-	return "", fmt.Errorf("unknown systemd-boot conf: %s", conf)
+	return strings.ReplaceAll(fileName, "_", " "), nil
 }
 
 func bootNameToSystemdConf(name string) (string, error) {
@@ -256,10 +256,9 @@ func bootNameToSystemdConf(name string) (string, error) {
 			differenciator = "_" + strings.TrimPrefix(name, "statereset ")
 		}
 		return "statereset" + differenciator + ".conf", nil
-
 	}
 
-	return "", fmt.Errorf("unknown boot name: %s", name)
+	return strings.ReplaceAll(name, " ", "_") + ".conf", nil
 }
 
 // listBootEntriesSystemd lists the boot entries available in the systemd-boot config files
@@ -323,6 +322,10 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 func listSystemdEntries(cfg *config.Config, efiPartition *v1.Partition) ([]string, error) {
 	var entries []string
 	err := fsutils.WalkDirFs(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			cfg.Logger.Errorf("Walking the dir %s", err.Error())
+		}
+
 		cfg.Logger.Debugf("Checking file %s", path)
 		if info == nil {
 			return nil

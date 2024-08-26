@@ -610,3 +610,15 @@ func SystemdBootConfWriter(fs v1.FS, filePath string, conf map[string]string) er
 
 	return writer.Flush()
 }
+
+// CheckFailedInstallation checks if the state file if present, and if it is, it will return true and the error with the file content indicating why we should abort the installation
+func CheckFailedInstallation(stateFile string) (bool, error) {
+	if _, err := os.Stat(stateFile); err == nil {
+		content, err := os.ReadFile(stateFile)
+		if err != nil {
+			return true, err
+		}
+		return true, fmt.Errorf("Installation failed: %s", string(content))
+	}
+	return false, nil
+}
