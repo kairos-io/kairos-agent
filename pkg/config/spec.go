@@ -302,10 +302,6 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			systemSrc = v1.NewEmptySrc()
 		}
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to found upgrade source: %w", err)
-		}
-
 		active = v1.Image{
 			File:       filepath.Join(ep.State.MountPoint, "cOS", constants.TransitionImgFile),
 			Size:       constants.ImgSize,
@@ -830,9 +826,10 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 
 	case source.IsFile():
 		file, err := config.Fs.Stat(source.Value())
-		if err == nil {
-			size = file.Size()
+		if err != nil {
+			return size, err
 		}
+		size = file.Size()
 	}
 	// Normalize size to Mb before returning and add 100Mb to round the size from bytes to mb+extra files like grub stuff
 	if size != 0 {
