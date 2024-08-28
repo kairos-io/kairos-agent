@@ -51,6 +51,7 @@ var _ = Describe("Runtime Actions", func() {
 	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
+	var dummySourceFile string
 
 	BeforeEach(func() {
 		runner = v1mock.NewFakeRunner()
@@ -78,7 +79,8 @@ var _ = Describe("Runtime Actions", func() {
 			agentConfig.WithPlatform("linux/amd64"),
 		)
 
-		source := v1.NewFileSrc(createDummyFile(10))
+		dummySourceFile = createDummyFile(10)
+		source := v1.NewFileSrc(dummySourceFile)
 		config.Install.Recovery = v1.Image{
 			File:       "",
 			Size:       constants.ImgSize,
@@ -91,6 +93,7 @@ var _ = Describe("Runtime Actions", func() {
 
 	AfterEach(func() {
 		cleanup()
+		os.RemoveAll(dummySourceFile)
 	})
 
 	Describe("Upgrade Action", Label("upgrade"), func() {
