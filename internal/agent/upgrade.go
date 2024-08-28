@@ -146,8 +146,8 @@ func generateUpgradeConfForCLIArgs(source, upgradeEntry string) (string, error) 
 	// have access to that yet, we just set both uri values which shouldn't matter
 	// anyway, the right one will be used later in the process.
 	if source != "" {
-		upgradeConfig.Upgrade.RecoverySystem.URI = source
-		upgradeConfig.Upgrade.System.URI = source
+		upgradeConfig.Install.RecoverySystem.URI = source
+		upgradeConfig.Install.System.URI = source
 	}
 
 	d, err := json.Marshal(upgradeConfig)
@@ -238,12 +238,14 @@ func upgradeUki(source string, dirs []string, upgradeEntry string, strictValidat
 // ExtraConfigUpgrade is the struct that holds the upgrade options that come from flags and events
 type ExtraConfigUpgrade struct {
 	Upgrade struct {
-		Entry          string `json:"entry,omitempty"`
+		Entry string `json:"entry,omitempty"`
+	} `json:"upgrade,omitempty"`
+	Install struct {
 		RecoverySystem struct {
 			URI string `json:"uri,omitempty"`
 		} `json:"recovery-system,omitempty"`
 		System struct {
 			URI string `json:"uri,omitempty"`
 		} `json:"system,omitempty"`
-	} `json:"upgrade,omitempty"`
+	} `json:"install,omitempty"`
 }

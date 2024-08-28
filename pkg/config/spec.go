@@ -334,11 +334,18 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		}
 	}
 
-	// Deep look to see if upgrade.recovery == true in the config
-	// if yes, we set the upgrade spec "Entry" to "recovery"
+	// One way to set the entry is to use the cli arg "--recovery"
+	// which makes config.upgrade.entry be "recovery"
+	// Another way is by setting the cli arg "boot-entry" which set it to the
+	// specified value.
+	// Lastly, user can set "upgrade.recovery: true" in the kairos config, which
+	// should result in entry being "recovery".
 	entry := ""
 	_, ok := cfg.Config["upgrade"]
 	if ok {
+		// check value from --recovery and --boot-entry
+		entry, _ = cfg.Config["upgrade"].(collector.Config)["entry"].(string)
+		// check for "upgrade.recovery: true" in the kairos config
 		_, ok = cfg.Config["upgrade"].(collector.Config)["recovery"]
 		if ok {
 			if cfg.Config["upgrade"].(collector.Config)["recovery"].(bool) {

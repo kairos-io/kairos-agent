@@ -19,10 +19,11 @@ package elemental
 import (
 	"errors"
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"path/filepath"
 	"strings"
+
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
