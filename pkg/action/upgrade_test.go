@@ -19,6 +19,7 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
@@ -76,6 +77,16 @@ var _ = Describe("Runtime Actions", func() {
 			agentConfig.WithImageExtractor(extractor),
 			agentConfig.WithPlatform("linux/amd64"),
 		)
+
+		source := v1.NewFileSrc(createDummyFile(10))
+		config.Install.Recovery = v1.Image{
+			File:       "",
+			Size:       constants.ImgSize,
+			Label:      constants.ActiveLabel,
+			FS:         constants.LinuxImgFs,
+			MountPoint: constants.TransitionDir,
+			Source:     source,
+		}
 	})
 
 	AfterEach(func() {
@@ -623,3 +634,28 @@ var _ = Describe("Runtime Actions", func() {
 		})
 	})
 })
+
+func createDummyFile(sizeMb int64) string {
+	fileSize := int64(sizeMb * 1024 * 1024)
+
+	tmpFile, err := os.CreateTemp("", "dummyfile_*.tmp")
+	Expect(err).ToNot(HaveOccurred())
+	defer tmpFile.Close()
+
+	dummyData := []byte("1234567890ABCDEF")
+	dummyLength := int64(len(dummyData))
+
+	var written int64
+	for written < fileSize {
+		bytesToWrite := dummyLength
+		if written+bytesToWrite > fileSize {
+			bytesToWrite = fileSize - written
+		}
+		n, err := tmpFile.Write(dummyData[:bytesToWrite])
+		Expect(err).ToNot(HaveOccurred())
+
+		written += int64(n)
+	}
+
+	return tmpFile.Name()
+}

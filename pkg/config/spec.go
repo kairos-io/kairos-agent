@@ -277,16 +277,11 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			recMnt = constants.TransitionDir
 		}
 
-		upgradeRecoverySystemUri, err := cfg.Query("upgrade.\"recovery-system\".uri")
-		upgradeRecoverySystemUri = strings.TrimRight(upgradeRecoverySystemUri, "\n")
-		if err != nil {
-			return nil, fmt.Errorf("failed to found recovery upgrade source: %w", err)
+		recoverySrc := cfg.Install.Recovery.Source
+		if recoverySrc == nil {
+			recoverySrc = v1.NewEmptySrc()
 		}
 
-		recoverySrc, err := v1.NewSrcFromURI(upgradeRecoverySystemUri)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse recovery upgrade source uri: %w", err)
-		}
 		recovery = v1.Image{
 			File:       filepath.Join(ep.Recovery.MountPoint, "cOS", constants.TransitionImgFile),
 			Size:       constants.ImgSize,
@@ -301,16 +296,14 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		if ep.State.MountPoint == "" {
 			ep.State.MountPoint = constants.StateDir
 		}
-		upgradeSystemUri, err := cfg.Query("upgrade.system.uri")
-		upgradeSystemUri = strings.TrimRight(upgradeSystemUri, "\n")
+
+		systemSrc := cfg.Install.Active.Source
+		if systemSrc == nil {
+			systemSrc = v1.NewEmptySrc()
+		}
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to found upgrade source: %w", err)
-		}
-
-		src, err := v1.NewSrcFromURI(upgradeSystemUri)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse upgrade source uri: %w", err)
 		}
 
 		active = v1.Image{
@@ -319,7 +312,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			Label:      constants.ActiveLabel,
 			FS:         constants.LinuxImgFs,
 			MountPoint: constants.TransitionDir,
-			Source:     src,
+			Source:     systemSrc,
 		}
 
 		passive = v1.Image{
