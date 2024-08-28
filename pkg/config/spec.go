@@ -277,9 +277,9 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			recMnt = constants.TransitionDir
 		}
 
-		recoverySrc := cfg.Install.Recovery.Source
-		if recoverySrc == nil {
-			recoverySrc = v1.NewEmptySrc()
+		recoverySrc := v1.NewEmptySrc()
+		if cfg.Install != nil && cfg.Install.Recovery.Source != nil {
+			recoverySrc = cfg.Install.Recovery.Source
 		}
 
 		recovery = v1.Image{
@@ -297,9 +297,9 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			ep.State.MountPoint = constants.StateDir
 		}
 
-		systemSrc := cfg.Install.Active.Source
-		if systemSrc == nil {
-			systemSrc = v1.NewEmptySrc()
+		systemSrc := v1.NewEmptySrc()
+		if cfg.Install != nil && cfg.Install.Active.Source != nil {
+			systemSrc = cfg.Install.Active.Source
 		}
 
 		active = v1.Image{
