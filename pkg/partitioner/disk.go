@@ -126,19 +126,19 @@ func WithLogger(logger sdkTypes.KairosLogger) func(d *Disk) error {
 	}
 }
 
-func NewDisk(device string, opts ...DiskOptions) *Disk {
+func NewDisk(device string, opts ...DiskOptions) (*Disk, error) {
 	d, err := diskfs.Open(device, diskfs.WithSectorSize(512))
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	dev := &Disk{d, sdkTypes.NewKairosLogger("partitioner", "info", false)}
 
 	for _, opt := range opts {
 		if err := opt(dev); err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
 	dev.logger.Debugf("Initialized new disk from device %s", litter.Sdump(dev))
-	return dev
+	return dev, nil
 }

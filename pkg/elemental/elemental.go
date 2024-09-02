@@ -67,10 +67,13 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())
 	}
 
-	disk := partitioner.NewDisk(i.GetTarget(), partitioner.WithLogger(e.config.Logger))
+	disk, err := partitioner.NewDisk(i.GetTarget(), partitioner.WithLogger(e.config.Logger))
+	if err != nil {
+		return err
+	}
 
 	e.config.Logger.Infof("Partitioning device...")
-	err := disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
+	err = disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
 	if err != nil {
 		e.config.Logger.Errorf("Failed creating new partition table: %s", err)
 		return err

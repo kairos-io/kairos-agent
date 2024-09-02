@@ -20,12 +20,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/diskfs/go-diskfs"
+	"github.com/diskfs/go-diskfs/partition/gpt"
+	"github.com/gofrs/uuid"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"github.com/sanity-io/litter"
 	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	sc "syscall"
 	"testing"
 
@@ -299,7 +304,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(el.UnmountImage(img)).NotTo(BeNil())
 		})
 	})
-
 	Describe("CreateFileSystemImage", Label("CreateFileSystemImage", "image"), func() {
 		var el *elemental.Elemental
 		var img *v1.Image
@@ -336,7 +340,6 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
-
 	Describe("FormatPartition", Label("FormatPartition", "partition", "format"), func() {
 		It("Reformats an already existing partition", func() {
 			el := elemental.NewElemental(config)
@@ -353,70 +356,90 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var cInit *v1mock.FakeCloudInitRunner
 		var install *v1.InstallSpec
 		var err error
+		var el *elemental.Elemental
 
 		BeforeEach(func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
-			config.Install.Device = "/some/device"
+			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
+			// at least 2Gb in size as state is set to 1G
+			_, err = diskfs.Create("/tmp/test.img", 2*1024*1024*1024, diskfs.Raw, 512)
+			Expect(err).ToNot(HaveOccurred())
+			config.Install.Device = "/tmp/test.img"
 			install, err = agentConfig.NewInstallSpec(config)
 			Expect(err).ToNot(HaveOccurred())
-			install.Target = "/some/device"
-
-			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = fs.Create("/some/device")
-			Expect(err).ToNot(HaveOccurred())
+			install.Target = "/tmp/test.img"
+			el = elemental.NewElemental(config)
 		})
 
-		Describe("Successful run", func() {
-			var runFunc func(cmd string, args ...string) ([]byte, error)
-			BeforeEach(func() {
-				err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
-				Expect(err).To(BeNil())
-
-				runFunc = func(cmd string, args ...string) ([]byte, error) {
-					switch cmd {
-					default:
-						return []byte{}, nil
-					}
-				}
-				runner.SideEffect = runFunc
-			})
-
-			It("Successfully creates partitions and formats them, EFI boot", func() {
-				install.PartTable = v1.GPT
-				install.Firmware = v1.EFI
-				install.Partitions.SetFirmwarePartitions(v1.EFI, v1.GPT)
-				Skip("Not ready")
-				//Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
-				//Expect(runner.MatchMilestones(append(efiPartCmds, partCmds...))).To(BeNil())
-			})
-
-			It("Successfully creates partitions and formats them, BIOS boot", func() {
-				install.PartTable = v1.GPT
-				install.Firmware = v1.BIOS
-				install.Partitions.SetFirmwarePartitions(v1.BIOS, v1.GPT)
-				Skip("Not ready")
-				//Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
-				//Expect(runner.MatchMilestones(biosPartCmds)).To(BeNil())
-			})
+		AfterEach(func() {
+			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
 		})
 
-		Describe("Run with failures", func() {
-			var runFunc func(cmd string, args ...string) ([]byte, error)
-			BeforeEach(func() {
-				err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
-				Expect(err).To(BeNil())
-				runFunc = func(cmd string, args ...string) ([]byte, error) {
-					switch cmd {
-					case "mkfs.ext4", "wipefs", "mkfs.vfat":
-						return []byte{}, errors.New("Failure")
-					default:
-						return []byte{}, nil
-					}
-				}
-				runner.SideEffect = runFunc
-			})
+		It("Successfully creates partitions and formats them, EFI boot", func() {
+			install.PartTable = v1.GPT
+			install.Firmware = v1.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(v1.EFI, v1.GPT)).To(BeNil())
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+			disk, err := diskfs.Open("/tmp/test.img", diskfs.WithOpenMode(diskfs.ReadOnly))
+			defer disk.Close()
+			Expect(err).ToNot(HaveOccurred())
+			// check that its type GPT
+			Expect(reflect.TypeOf(disk.Table)).To(Equal(reflect.TypeOf(&gpt.Table{})))
+			// Expect the disk UUID to be constant
+			Expect(strings.ToLower(disk.Table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
+			// 5 partitions (boot, oem, recovery, state and persistent)
+			Expect(len(disk.Table.GetPartitions())).To(Equal(5))
+			// Cast the boot partition into specific type to check the type and such
+			part := disk.Table.GetPartitions()[0]
+			partition, ok := part.(*gpt.Partition)
+			Expect(ok).To(BeTrue())
+			// Should be efi type
+			Expect(partition.Type).To(Equal(gpt.EFISystemPartition))
+			// should have boot label
+			Expect(partition.Name).To(Equal(cnst.EfiLabel))
+			// Should have predictable UUID
+			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
+			// Check the rest have the proper types
+			for i := 1; i < len(disk.Table.GetPartitions()); i++ {
+				part := disk.Table.GetPartitions()[i]
+				partition, ok := part.(*gpt.Partition)
+				Expect(ok).To(BeTrue())
+				// all of them should have the Linux fs type
+				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
+			}
+		})
+		It("Successfully creates partitions and formats them, BIOS boot", func() {
+			install.PartTable = v1.GPT
+			install.Firmware = v1.BIOS
+			Expect(install.Partitions.SetFirmwarePartitions(v1.BIOS, v1.GPT)).To(BeNil())
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+			disk, err := diskfs.Open("/tmp/test.img", diskfs.WithOpenMode(diskfs.ReadOnly))
+			defer disk.Close()
+			Expect(err).ToNot(HaveOccurred())
+			// check that its type GPT
+			Expect(reflect.TypeOf(disk.Table)).To(Equal(reflect.TypeOf(&gpt.Table{})))
+			// Expect the disk UUID to be constant
+			Expect(strings.ToLower(disk.Table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
+			// 5 partitions (boot, oem, recovery, state and persistent)
+			Expect(len(disk.Table.GetPartitions())).To(Equal(5))
+			// Cast the boot partition into specific type to check the type and such
+			part := disk.Table.GetPartitions()[0]
+			partition, ok := part.(*gpt.Partition)
+			Expect(ok).To(BeTrue())
+			// Should be BIOS boot type
+			Expect(partition.Type).To(Equal(gpt.BIOSBoot))
+			// should have boot label
+			Expect(partition.Name).To(Equal(cnst.EfiLabel))
+			// Should have predictable UUID
+			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
+			for i := 1; i < len(disk.Table.GetPartitions()); i++ {
+				part := disk.Table.GetPartitions()[i]
+				partition, ok := part.(*gpt.Partition)
+				Expect(ok).To(BeTrue())
+				// all of them should have the Linux fs type
+				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
+			}
 		})
 	})
 	Describe("DeployImage", Label("DeployImage"), func() {
