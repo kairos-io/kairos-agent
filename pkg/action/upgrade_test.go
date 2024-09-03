@@ -18,6 +18,7 @@ package action_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
+	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 
@@ -151,16 +153,14 @@ var _ = Describe("Runtime Actions", func() {
 		})
 		It("calculates the recovery source size correctly", func() {
 			dummySourceFile = createDummyFile(fs, dummySourceSizeMb)
-			userConfig := fmt.Sprintf(`
-#cloud-config
+			upgradeConfig := agent.ExtraConfigUpgrade{}
+			upgradeConfig.Upgrade.Entry = constants.BootEntryRecovery
+			upgradeConfig.Upgrade.RecoverySystem.URI = fmt.Sprintf("file:%s", dummySourceFile)
+			d, err := json.Marshal(upgradeConfig)
+			Expect(err).ToNot(HaveOccurred())
+			cliConfig := string(d)
 
-upgrade:
-  recovery: true
-  recovery-system:
-    uri: file:%s
-`, dummySourceFile)
-
-			config, err := agentConfig.Scan(collector.Directories(), collector.Readers(strings.NewReader(userConfig)))
+			config, err := agentConfig.Scan(collector.Directories(), collector.Readers(strings.NewReader(cliConfig)))
 			Expect(err).ToNot(HaveOccurred())
 
 			agentConfig.WithFs(fs)(config)
