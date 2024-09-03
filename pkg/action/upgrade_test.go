@@ -19,8 +19,10 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 
+	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -50,8 +52,11 @@ var _ = Describe("Runtime Actions", func() {
 	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
+	var dummySourceFile string
+	var dummySourceSizeMb int64
 
 	BeforeEach(func() {
+		dummySourceSizeMb = 20
 		runner = v1mock.NewFakeRunner()
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
@@ -76,10 +81,22 @@ var _ = Describe("Runtime Actions", func() {
 			agentConfig.WithImageExtractor(extractor),
 			agentConfig.WithPlatform("linux/amd64"),
 		)
+
+		dummySourceFile = createDummyFile(fs, dummySourceSizeMb)
+		source := v1.NewFileSrc(dummySourceFile)
+		config.Install.Recovery = v1.Image{
+			File:       "",
+			Size:       constants.ImgSize,
+			Label:      constants.ActiveLabel,
+			FS:         constants.LinuxImgFs,
+			MountPoint: constants.TransitionDir,
+			Source:     source,
+		}
 	})
 
 	AfterEach(func() {
 		cleanup()
+		os.RemoveAll(dummySourceFile)
 	})
 
 	Describe("Upgrade Action", Label("upgrade"), func() {
@@ -141,6 +158,13 @@ var _ = Describe("Runtime Actions", func() {
 		})
 		AfterEach(func() {
 			ghwTest.Clean()
+		})
+		It("calculates the recovery source size correctly", func() {
+			var err error
+			config.Config = collector.Config{"upgrade": collector.Config{"recovery": true}}
+			spec, err = agentConfig.NewUpgradeSpec(config)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(spec.Recovery.Size).To(Equal(uint(100 + dummySourceSizeMb))) // We adding 100Mb on top
 		})
 		Describe(fmt.Sprintf("Booting from %s", constants.ActiveLabel), Label("active_label"), func() {
 			var err error
@@ -623,3 +647,37 @@ var _ = Describe("Runtime Actions", func() {
 		})
 	})
 })
+
+func createDummyFile(fs vfs.FS, sizeMb int64) string {
+	fileSize := int64(sizeMb * 1024 * 1024)
+
+	tmpFile, err := os.CreateTemp("", "dummyfile_*.tmp")
+	Expect(err).ToNot(HaveOccurred())
+	tmpName := tmpFile.Name()
+	tmpFile.Close()
+	os.RemoveAll(tmpName)
+
+	dummyData := []byte("1234567890ABCDEF")
+	dummyLength := int64(len(dummyData))
+
+	var written int64
+	data := []byte{}
+	for written < fileSize {
+		bytesToWrite := dummyLength
+		if written+bytesToWrite > fileSize {
+			bytesToWrite = fileSize - written
+		}
+		data = append(data, dummyData[:bytesToWrite]...)
+		Expect(err).ToNot(HaveOccurred())
+
+		written += bytesToWrite
+	}
+
+	dir := filepath.Dir(tmpName)
+	err = fs.Mkdir(dir, os.ModePerm)
+	Expect(err).ToNot(HaveOccurred())
+	err = fs.WriteFile(tmpName, data, os.ModePerm)
+	Expect(err).ToNot(HaveOccurred())
+
+	return tmpName
+}

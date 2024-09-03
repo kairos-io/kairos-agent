@@ -324,11 +324,18 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		}
 	}
 
-	// Deep look to see if upgrade.recovery == true in the config
-	// if yes, we set the upgrade spec "Entry" to "recovery"
+	// One way to set the entry is to use the cli arg "--recovery"
+	// which makes config.upgrade.entry be "recovery"
+	// Another way is by setting the cli arg "boot-entry" which set it to the
+	// specified value.
+	// Lastly, user can set "upgrade.recovery: true" in the kairos config, which
+	// should result in entry being "recovery".
 	entry := ""
 	_, ok := cfg.Config["upgrade"]
 	if ok {
+		// check value from --recovery and --boot-entry
+		entry, _ = cfg.Config["upgrade"].(collector.Config)["entry"].(string)
+		// check for "upgrade.recovery: true" in the kairos config
 		_, ok = cfg.Config["upgrade"].(collector.Config)["recovery"]
 		if ok {
 			if cfg.Config["upgrade"].(collector.Config)["recovery"].(bool) {
@@ -372,7 +379,6 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 	if targetSpec.Source != nil && targetSpec.Source.IsEmpty() {
 		return nil
 	}
-
 	size, err = GetSourceSize(cfg, targetSpec.Source)
 	if err != nil {
 		return err
@@ -817,9 +823,10 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 
 	case source.IsFile():
 		file, err := config.Fs.Stat(source.Value())
-		if err == nil {
-			size = file.Size()
+		if err != nil {
+			return size, err
 		}
+		size = file.Size()
 	}
 	// Normalize size to Mb before returning and add 100Mb to round the size from bytes to mb+extra files like grub stuff
 	if size != 0 {
