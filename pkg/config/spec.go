@@ -355,7 +355,6 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed calculating size: %w", err)
 	}
-
 	return spec, nil
 }
 
@@ -373,6 +372,7 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 	if targetSpec.Source != nil && targetSpec.Source.IsEmpty() {
 		return nil
 	}
+
 	size, err = GetSourceSize(cfg, targetSpec.Source)
 	if err != nil {
 		return err
