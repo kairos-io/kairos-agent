@@ -324,7 +324,18 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		}
 	}
 
-	entry := findUpgradeEntryFromConfig(cfg)
+	// Deep look to see if upgrade.recovery == true in the config
+	// if yes, we set the upgrade spec "Entry" to "recovery"
+	entry := ""
+	_, ok := cfg.Config["upgrade"]
+	if ok {
+		_, ok = cfg.Config["upgrade"].(collector.Config)["recovery"]
+		if ok {
+			if cfg.Config["upgrade"].(collector.Config)["recovery"].(bool) {
+				entry = constants.BootEntryRecovery
+			}
+		}
+	}
 
 	spec := &v1.UpgradeSpec{
 		Entry:      entry,
@@ -1014,29 +1025,4 @@ func DetectPreConfiguredDevice(logger sdkTypes.KairosLogger) (string, error) {
 	}
 
 	return "", nil
-}
-
-// findUpgradeEntryFromConfig checks the passed config for one of the following ways
-// to set the upgrade entry.
-// - One way is to use the cli arg "--recovery" which makes config.upgrade.entry be "recovery"
-// - Another way is by setting the cli arg "boot-entry" which set it to the specified value.
-// - Lastly, user can set "upgrade.recovery: true" in the kairos config, which should result in entry being "recovery".
-func findUpgradeEntryFromConfig(cfg *Config) string {
-	if _, ok := cfg.Config["upgrade"]; !ok {
-		return ""
-	}
-
-	// check value from --recovery and --boot-entry
-	if entryIface, ok := cfg.Config["upgrade"].(collector.Config)["entry"]; ok {
-		return entryIface.(string)
-	}
-
-	// check for "upgrade.recovery: true" in the kairos config
-	if _, ok := cfg.Config["upgrade"].(collector.Config)["recovery"]; ok {
-		if cfg.Config["upgrade"].(collector.Config)["recovery"].(bool) {
-			return constants.BootEntryRecovery
-		}
-	}
-
-	return ""
 }
