@@ -164,6 +164,7 @@ var _ = Describe("Runtime Actions", func() {
 			config.Config = collector.Config{"upgrade": collector.Config{"recovery": true}}
 			spec, err = agentConfig.NewUpgradeSpec(config)
 			Expect(err).ShouldNot(HaveOccurred())
+			Expect(spec.Entry).To(Equal(constants.BootEntryRecovery))
 			Expect(spec.Recovery.Size).To(Equal(uint(100 + dummySourceSizeMb))) // We adding 100Mb on top
 		})
 		Describe(fmt.Sprintf("Booting from %s", constants.ActiveLabel), Label("active_label"), func() {
