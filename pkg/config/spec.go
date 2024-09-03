@@ -344,6 +344,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed calculating size: %w", err)
 	}
+
 	return spec, nil
 }
 

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
@@ -81,17 +82,6 @@ var _ = Describe("Runtime Actions", func() {
 			agentConfig.WithImageExtractor(extractor),
 			agentConfig.WithPlatform("linux/amd64"),
 		)
-
-		dummySourceFile = createDummyFile(fs, dummySourceSizeMb)
-		source := v1.NewFileSrc(dummySourceFile)
-		config.Install.Recovery = v1.Image{
-			File:       "",
-			Size:       constants.ImgSize,
-			Label:      constants.ActiveLabel,
-			FS:         constants.LinuxImgFs,
-			MountPoint: constants.TransitionDir,
-			Source:     source,
-		}
 	})
 
 	AfterEach(func() {
@@ -160,8 +150,30 @@ var _ = Describe("Runtime Actions", func() {
 			ghwTest.Clean()
 		})
 		It("calculates the recovery source size correctly", func() {
-			var err error
-			config.Config = collector.Config{"upgrade": collector.Config{"recovery": true}}
+			dummySourceFile = createDummyFile(fs, dummySourceSizeMb)
+			userConfig := fmt.Sprintf(`
+#cloud-config
+
+upgrade:
+  recovery: true
+  recovery-system:
+    uri: file:%s
+`, dummySourceFile)
+
+			config, err := agentConfig.Scan(collector.Directories(), collector.Readers(strings.NewReader(userConfig)))
+			Expect(err).ToNot(HaveOccurred())
+
+			agentConfig.WithFs(fs)(config)
+			agentConfig.WithRunner(runner)(config)
+			agentConfig.WithLogger(logger)(config)
+			agentConfig.WithMounter(mounter)(config)
+			agentConfig.WithSyscall(syscall)(config)
+			agentConfig.WithClient(client)(config)
+			agentConfig.WithCloudInitRunner(cloudInit)(config)
+			agentConfig.WithImageExtractor(extractor)(config)
+			agentConfig.WithPlatform("linux/amd64")(config)
+			config.ImageExtractor = extractor
+
 			spec, err = agentConfig.NewUpgradeSpec(config)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(spec.Entry).To(Equal(constants.BootEntryRecovery))
