@@ -18,11 +18,16 @@ package action_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
+	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 
@@ -50,8 +55,11 @@ var _ = Describe("Upgrade Actions test", func() {
 	var memLog *bytes.Buffer
 	var ghwTest v1mock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
+	var dummySourceFile string
+	var dummySourceSizeMb int64
 
 	BeforeEach(func() {
+		dummySourceSizeMb = 20
 		runner = v1mock.NewFakeRunner()
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
@@ -83,6 +91,7 @@ var _ = Describe("Upgrade Actions test", func() {
 
 	AfterEach(func() {
 		cleanup()
+		os.RemoveAll(dummySourceFile)
 	})
 
 	Describe("Upgrade Action", Label("upgrade"), func() {
@@ -144,6 +153,34 @@ var _ = Describe("Upgrade Actions test", func() {
 		})
 		AfterEach(func() {
 			ghwTest.Clean()
+		})
+		It("calculates the recovery source size correctly", func() {
+			dummySourceFile = createDummyFile(fs, dummySourceSizeMb)
+			upgradeConfig := agent.ExtraConfigUpgrade{}
+			upgradeConfig.Upgrade.Entry = constants.BootEntryRecovery
+			upgradeConfig.Upgrade.RecoverySystem.URI = fmt.Sprintf("file:%s", dummySourceFile)
+			d, err := json.Marshal(upgradeConfig)
+			Expect(err).ToNot(HaveOccurred())
+			cliConfig := string(d)
+
+			config, err := agentConfig.Scan(collector.Readers(strings.NewReader(cliConfig)))
+			Expect(err).ToNot(HaveOccurred())
+
+			agentConfig.WithFs(fs)(config)
+			agentConfig.WithRunner(runner)(config)
+			agentConfig.WithLogger(logger)(config)
+			agentConfig.WithMounter(mounter)(config)
+			agentConfig.WithSyscall(syscall)(config)
+			agentConfig.WithClient(client)(config)
+			agentConfig.WithCloudInitRunner(cloudInit)(config)
+			agentConfig.WithImageExtractor(extractor)(config)
+			agentConfig.WithPlatform("linux/amd64")(config)
+			config.ImageExtractor = extractor
+
+			spec, err = agentConfig.NewUpgradeSpec(config)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(spec.Entry).To(Equal(constants.BootEntryRecovery))
+			Expect(spec.Recovery.Size).To(Equal(uint(100 + dummySourceSizeMb))) // We adding 100Mb on top
 		})
 		Describe(fmt.Sprintf("Booting from %s", constants.ActiveLabel), Label("active_label"), func() {
 			var err error
@@ -623,3 +660,25 @@ var _ = Describe("Upgrade Actions test", func() {
 		})
 	})
 })
+
+func createDummyFile(fs vfs.FS, sizeMb int64) string {
+	fileSize := int64(sizeMb * 1024 * 1024)
+
+	tmpFile, err := os.CreateTemp("", "dummyfile_*.tmp")
+	Expect(err).ToNot(HaveOccurred())
+	tmpName := tmpFile.Name()
+	tmpFile.Close()
+	os.RemoveAll(tmpName)
+
+	dir := filepath.Dir(tmpName)
+	err = fs.Mkdir(dir, os.ModePerm)
+	Expect(err).ToNot(HaveOccurred())
+
+	f, err := fs.Create(tmpName)
+	Expect(err).ShouldNot(HaveOccurred())
+	err = f.Truncate(fileSize)
+	Expect(err).ShouldNot(HaveOccurred())
+	f.Close()
+
+	return tmpName
+}
