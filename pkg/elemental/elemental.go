@@ -100,8 +100,14 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 	// Sync changes
 	syscall.Sync()
 	// Trigger udevadm to refresh devices
-	_, _ = e.config.Runner.Run("udevadm", "trigger")
-	_, _ = e.config.Runner.Run("udevadm", "settle")
+	_, err = e.config.Runner.Run("udevadm", "trigger")
+	if err != nil {
+		e.config.Logger.Errorf("Udevadm trigger failed: %s", err)
+	}
+	_, err = e.config.Runner.Run("udevadm", "settle")
+	if err != nil {
+		e.config.Logger.Errorf("Udevadm settle failed: %s", err)
+	}
 	// Partitions are in order so we can format them via that
 	for index, p := range table.GetPartitions() {
 		for _, configPart := range i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()) {
