@@ -99,12 +99,11 @@ var _ = Describe("Install action tests", func() {
 		var installer *action.InstallAction
 
 		BeforeEach(func() {
-			os.RemoveAll("/tmp/test.img")
-			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
-			// at least 2Gb in size as state is set to 1G
-			_, err = diskfs.Create("/tmp/test.img", 2*1024*1024*1024, diskfs.Raw, 512)
-			Expect(err).ToNot(HaveOccurred())
 			device = "/tmp/test.img"
+			Expect(os.RemoveAll(device)).Should(Succeed())
+			// at least 2Gb in size as state is set to 1G
+			_, err = diskfs.Create(device, 2*1024*1024*1024, diskfs.Raw, 512)
+			Expect(err).ToNot(HaveOccurred())
 
 			config.Install.Device = device
 			err = fsutils.MkdirAll(fs, filepath.Dir(device), constants.DirPerm)
@@ -199,7 +198,7 @@ var _ = Describe("Install action tests", func() {
 			if CurrentSpecReport().Failed() {
 				GinkgoWriter.Printf(memLog.String())
 			}
-			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
+			Expect(os.RemoveAll(device)).ToNot(HaveOccurred())
 			ghwTest.Clean()
 		})
 
