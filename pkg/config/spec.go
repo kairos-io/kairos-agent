@@ -346,13 +346,15 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		State:      installState,
 	}
 
-	setUpgradeSourceSize(cfg, spec)
-
+	// Unmarshall the config into the spec first so the active/recovery gets filled properly from all sources
 	err = unmarshallFullSpec(cfg, "upgrade", spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
-
+	err = setUpgradeSourceSize(cfg, spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed calculating size: %w", err)
+	}
 	return spec, nil
 }
 
@@ -367,7 +369,7 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 		targetSpec = &(spec.Active)
 	}
 
-	if targetSpec.Source.IsEmpty() {
+	if targetSpec.Source != nil && targetSpec.Source.IsEmpty() {
 		return nil
 	}
 

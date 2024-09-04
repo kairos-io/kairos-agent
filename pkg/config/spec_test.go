@@ -484,9 +484,9 @@ reset:
 upgrade:
   recovery: true
   system:
-    uri: docker:test/image:latest
+    uri: oci:busybox
   recovery-system:
-    uri: docker:test/image:latest
+    uri: oci:busybox
 cloud-init-paths:
 - /what
 `)
