@@ -81,7 +81,7 @@ func FormatDevice(runner v1.Runner, device string, fileSystem string, label stri
 	mkfs := MkfsCall{fileSystem: fileSystem, label: label, customOpts: opts, dev: device, runner: runner}
 	out, err := mkfs.Apply()
 	if err != nil {
-		fmt.Printf(out)
+		fmt.Println(out)
 	}
 	return err
 }

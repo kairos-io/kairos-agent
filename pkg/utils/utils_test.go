@@ -883,11 +883,14 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		Describe("SetPersistentVariables", func() {
 			It("Sets the grub environment file", func() {
+				temp, err := os.CreateTemp("", "grub-*")
+				Expect(err).ShouldNot(HaveOccurred())
+				defer os.Remove(temp.Name())
 				Expect(utils.SetPersistentVariables(
-					"/tmp/kairos", map[string]string{"key1": "value1", "key2": "value2"},
+					temp.Name(), map[string]string{"key1": "value1", "key2": "value2"},
 					config.Fs,
 				)).To(BeNil())
-				readVars, err := utils.ReadPersistentVariables("/tmp/kairos", config.Fs)
+				readVars, err := utils.ReadPersistentVariables(temp.Name(), config.Fs)
 				Expect(err).To(BeNil())
 				Expect(readVars["key1"]).To(Equal("value1"))
 				Expect(readVars["key2"]).To(Equal("value2"))
