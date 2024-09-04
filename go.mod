@@ -37,10 +37,8 @@ require (
 
 require (
 	github.com/distribution/reference v0.6.0
-	github.com/google/go-github/v64 v64.0.0
-	github.com/google/go-github/v64 v64.0.0
-	github.com/twpayne/go-vfs/v5 v5.0.4
-	github.com/twpayne/go-vfs/v5 v5.0.4
+	github.com/google/go-github/v63 v63.0.0
+	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
 require (
