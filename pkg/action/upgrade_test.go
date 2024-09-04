@@ -160,7 +160,7 @@ var _ = Describe("Runtime Actions", func() {
 			Expect(err).ToNot(HaveOccurred())
 			cliConfig := string(d)
 
-			config, err := agentConfig.Scan(collector.Directories(), collector.Readers(strings.NewReader(cliConfig)))
+			config, err := agentConfig.Scan(collector.Readers(strings.NewReader(cliConfig)))
 			Expect(err).ToNot(HaveOccurred())
 
 			agentConfig.WithFs(fs)(config)
@@ -670,27 +670,15 @@ func createDummyFile(fs vfs.FS, sizeMb int64) string {
 	tmpFile.Close()
 	os.RemoveAll(tmpName)
 
-	dummyData := []byte("1234567890ABCDEF")
-	dummyLength := int64(len(dummyData))
-
-	var written int64
-	data := []byte{}
-	for written < fileSize {
-		bytesToWrite := dummyLength
-		if written+bytesToWrite > fileSize {
-			bytesToWrite = fileSize - written
-		}
-		data = append(data, dummyData[:bytesToWrite]...)
-		Expect(err).ToNot(HaveOccurred())
-
-		written += bytesToWrite
-	}
-
 	dir := filepath.Dir(tmpName)
 	err = fs.Mkdir(dir, os.ModePerm)
 	Expect(err).ToNot(HaveOccurred())
-	err = fs.WriteFile(tmpName, data, os.ModePerm)
-	Expect(err).ToNot(HaveOccurred())
+
+	f, err := fs.Create(tmpName)
+	Expect(err).ShouldNot(HaveOccurred())
+	err = f.Truncate(fileSize)
+	Expect(err).ShouldNot(HaveOccurred())
+	f.Close()
 
 	return tmpName
 }
