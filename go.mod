@@ -10,7 +10,7 @@ require (
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/google/go-containerregistry v0.20.2
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/jaypipes/ghw v0.12.0
+	github.com/jaypipes/ghw v0.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/kairos-sdk v0.4.2
 	github.com/kairos-io/kcrypt v0.12.2
@@ -29,7 +29,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4-0.20230606125235-dd1b4c2e81af
 	github.com/spf13/viper v1.19.0
 	github.com/urfave/cli/v2 v2.27.4
-	golang.org/x/net v0.28.0
+	golang.org/x/net v0.29.0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sys v0.25.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -39,8 +39,10 @@ require (
 require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/google/go-github/v63 v63.0.0
-	github.com/twpayne/go-vfs/v4 v4.3.0
+	github.com/google/go-github/v64 v64.0.0
+	github.com/google/go-github/v64 v64.0.0
+	github.com/twpayne/go-vfs/v5 v5.0.4
+	github.com/twpayne/go-vfs/v5 v5.0.4
 )
 
 require (
@@ -120,7 +122,7 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/itchyny/gojq v0.12.16 // indirect
 	github.com/itchyny/timefmt-go v0.1.6 // indirect
-	github.com/jaypipes/pcidb v1.0.0 // indirect
+	github.com/jaypipes/pcidb v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 // indirect
@@ -214,13 +216,13 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
+	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/term v0.23.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/term v0.24.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240314234333-6e1732d8331c // indirect
