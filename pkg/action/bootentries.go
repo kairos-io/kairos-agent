@@ -42,7 +42,7 @@ func ListBootEntries(cfg *config.Config) error {
 	}
 }
 
-// selectBootEntryGrub sets the default boot entry to the selected entry via `grub2-editenv /oem/grubenv set next_entry=entry`
+// selectBootEntryGrub sets the default boot entry to the selected entry by modifying /oem/grubenv
 // also validates that the entry exists in our list of entries
 func selectBootEntryGrub(cfg *config.Config, entry string) error {
 	// Validate if entry exists
@@ -56,10 +56,13 @@ func selectBootEntryGrub(cfg *config.Config, entry string) error {
 		return err
 	}
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
-	// Set the default entry to the selected entry via `grub2-editenv /oem/grubenv set next_entry=statereset`
-	out, err := cfg.Runner.Run("grub2-editenv", "/oem/grubenv", "set", fmt.Sprintf("next_entry=%s", entry))
+	// Set the default entry to the selected entry on /oem/grubenv
+	vars := map[string]string{
+		"next_entry": entry,
+	}
+	err = utils.SetPersistentVariables("/oem/grubenv", vars, cfg.Fs)
 	if err != nil {
-		cfg.Logger.Errorf("could not set default boot entry: %s\noutput: %s", err, out)
+		cfg.Logger.Errorf("could not set default boot entry: %s\n", err)
 		return err
 	}
 	cfg.Logger.Infof("Default boot entry set to %s", entry)

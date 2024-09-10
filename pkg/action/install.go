@@ -293,7 +293,7 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// If we want to eject the cd, create the required executable so the cd is ejected at shutdown
-	out, _ := i.cfg.Runner.Run("cat", "/proc/cmdline")
+	out, _ := i.cfg.Fs.ReadFile("/proc/cmdline")
 	bootedFromCD := strings.Contains(string(out), "cdroot")
 
 	if i.cfg.EjectCD && bootedFromCD {

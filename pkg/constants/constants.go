@@ -18,6 +18,7 @@ package constants
 
 import (
 	"errors"
+	"github.com/gofrs/uuid"
 	"os"
 	"strings"
 )
@@ -203,3 +204,6 @@ func BootTitleForRole(role, title string) (string, error) {
 		return "", errors.New("invalid role")
 	}
 }
+
+// DiskUUID is the static UUID for main disk identification
+var DiskUUID = uuid.NewV5(uuid.NamespaceURL, "KAIROS_DISK").String()

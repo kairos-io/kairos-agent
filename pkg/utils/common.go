@@ -67,6 +67,7 @@ func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, err
 // partition and return a v1.Partition object
 func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
+		_, _ = runner.Run("udevadm", "trigger")
 		_, _ = runner.Run("udevadm", "settle")
 		parts, err := partitions.GetAllPartitions()
 		if err != nil {
