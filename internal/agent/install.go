@@ -32,24 +32,26 @@ import (
 )
 
 func displayInfo(agentConfig *Config) {
-	fmt.Println("--------------------------")
-	fmt.Println("No providers found, dropping to a shell. \n -- For instructions on how to install manually, see: https://kairos.io/docs/installation/manual/")
 	if !agentConfig.WebUI.Disable {
+		ifaces := machine.Interfaces()
+		message := fmt.Sprintf("Interfaces: %s", strings.Join(ifaces, " "))
 		if !agentConfig.WebUI.HasAddress() {
 			ips := machine.LocalIPs()
 			if len(ips) > 0 {
-				fmt.Print("WebUI installer running at : ")
+				messageIps := " - WebUI installer: "
 				for _, ip := range ips {
-					fmt.Printf("%s%s ", ip, config.DefaultWebUIListenAddress)
+					// Skip printing local ips, makes no sense
+					if strings.Contains("127.0.0.1", ip) || strings.Contains("::1", ip) {
+						continue
+					}
+					messageIps = messageIps + fmt.Sprintf("%s%s ", ip, config.DefaultWebUIListenAddress)
 				}
-				fmt.Print("\n")
+				message = message + messageIps
 			}
 		} else {
-			fmt.Printf("WebUI installer running at : %s\n", agentConfig.WebUI.ListenAddress)
+			message = message + fmt.Sprintf(" - WebUI installer: %s", agentConfig.WebUI.ListenAddress)
 		}
-
-		ifaces := machine.Interfaces()
-		fmt.Printf("Network Interfaces: %s\n", strings.Join(ifaces, " "))
+		fmt.Println(message)
 	}
 }
 
@@ -144,6 +146,7 @@ func Install(sourceImgURL string, dir ...string) error {
 	// and print information about the webUI
 	if !bus.Manager.HasRegisteredPlugins() {
 		displayInfo(agentConfig)
+		fmt.Println("No providers found, dropping to a shell. \n -- For instructions on how to install manually, see: https://kairos.io/docs/installation/manual/")
 		return utils.Shell().Run()
 	}
 
@@ -164,6 +167,7 @@ func Install(sourceImgURL string, dir ...string) error {
 
 	if tk != "" {
 		qr.Print(tk)
+		displayInfo(agentConfig)
 	}
 
 	if _, err := bus.Manager.Publish(events.EventInstall, events.InstallPayload{Token: tk, Config: configStr}); err != nil {
