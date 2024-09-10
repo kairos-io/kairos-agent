@@ -42,7 +42,7 @@ import (
 	"github.com/twpayne/go-vfs/v4/vfst"
 )
 
-var _ = Describe("Runtime Actions", func() {
+var _ = Describe("Upgrade Actions test", func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
@@ -69,7 +69,10 @@ var _ = Describe("Runtime Actions", func() {
 		logger.SetLevel("debug")
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
-		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
+		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{
+			"/dev/loop-control": "",
+			"/dev/loop0":        "",
+		})
 		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
@@ -235,9 +238,6 @@ var _ = Describe("Runtime Actions", func() {
 			})
 			It("Fails if some hook fails and strict is set", func() {
 				runner.SideEffect = func(command string, args ...string) ([]byte, error) {
-					if command == "cat" && args[0] == "/proc/cmdline" {
-						return []byte(constants.ActiveLabel), nil
-					}
 					return []byte{}, nil
 				}
 				config.Strict = true
@@ -255,7 +255,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check that the rebrand worked with our os-release value
-				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
+				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"), memLog.String())
 
 				// This should be the new image
 				info, err := fs.Stat(activeImg)
@@ -287,7 +287,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking the log")
 				// Check that the rebrand worked with our os-release value
-				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
+				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				By("checking active image")
 				// This should be the new image
@@ -321,7 +321,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check that the rebrand worked with our os-release value
-				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
+				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				// This should be the new image
 				info, err := fs.Stat(activeImg)
@@ -359,7 +359,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check that the rebrand worked with our os-release value
-				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
+				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				// Not much that we can create here as the dir copy was done on the real os, but we do the rest of the ops on a mem one
 				// This should be the new image
@@ -447,7 +447,7 @@ var _ = Describe("Runtime Actions", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check that the rebrand worked with our os-release value
-				Expect(memLog).To(ContainSubstring("default_menu_entry=TESTOS"))
+				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				// This should be the new image
 				info, err := fs.Stat(activeImg)

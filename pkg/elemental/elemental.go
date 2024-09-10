@@ -19,15 +19,19 @@ package elemental
 import (
 	"errors"
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"os"
 	"path/filepath"
-	"strings"
+	"syscall"
 
+	diskfs "github.com/diskfs/go-diskfs/disk"
+	"github.com/diskfs/go-diskfs/partition/gpt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 )
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
@@ -58,64 +62,69 @@ func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
 // and applies the configured disk layout by creating and formatting all
 // required partitions
 func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
-	disk := partitioner.NewDisk(
-		i.GetTarget(),
-		partitioner.WithRunner(e.config.Runner),
-		partitioner.WithFS(e.config.Fs),
-		partitioner.WithLogger(e.config.Logger),
-	)
-
-	if !disk.Exists() {
+	if _, err := os.Stat(i.GetTarget()); os.IsNotExist(err) {
 		e.config.Logger.Errorf("Disk %s does not exist", i.GetTarget())
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())
 	}
 
+	disk, err := partitioner.NewDisk(i.GetTarget(), partitioner.WithLogger(e.config.Logger))
+	if err != nil {
+		return err
+	}
+
 	e.config.Logger.Infof("Partitioning device...")
-	out, err := disk.NewPartitionTable(i.GetPartTable())
+	err = disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
 	if err != nil {
-		e.config.Logger.Errorf("Failed creating new partition table: %s", out)
+		e.config.Logger.Errorf("Failed creating new partition table: %s", err)
 		return err
 	}
 
-	parts := i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions())
-	return e.createPartitions(disk, parts)
-}
-
-func (e *Elemental) createAndFormatPartition(disk *partitioner.Disk, part *v1.Partition) error {
-	e.config.Logger.Debugf("Adding partition %s", part.Name)
-	num, err := disk.AddPartition(part.Size, part.FS, part.Name, part.Flags...)
-	if err != nil {
-		e.config.Logger.Errorf("Failed creating %s partition", part.Name)
-		return err
-	}
-	partDev, err := disk.FindPartitionDevice(num)
-	if err != nil {
-		return err
-	}
-	if part.FS != "" {
-		e.config.Logger.Debugf("Formatting partition with label %s", part.FilesystemLabel)
-		err = partitioner.FormatDevice(e.config.Runner, partDev, part.FS, part.FilesystemLabel)
+	// Only re-read table on devices. On files there is no need and this call will fail
+	if disk.Type == diskfs.Device {
+		err = disk.ReReadPartitionTable()
 		if err != nil {
-			e.config.Logger.Errorf("Failed formatting partition %s", part.Name)
-			return err
-		}
-	} else {
-		e.config.Logger.Debugf("Wipe file system on %s", part.Name)
-		err = disk.WipeFsOnPartition(partDev)
-		if err != nil {
-			e.config.Logger.Errorf("Failed to wipe filesystem of partition %s", partDev)
+			e.config.Logger.Errorf("Reread table: %s", err)
 			return err
 		}
 	}
-	part.Path = partDev
-	return nil
-}
 
-func (e *Elemental) createPartitions(disk *partitioner.Disk, parts v1.PartitionList) error {
-	for _, part := range parts {
-		err := e.createAndFormatPartition(disk, part)
-		if err != nil {
-			return err
+	table, err := disk.GetPartitionTable()
+	if err != nil {
+		e.config.Logger.Errorf("table: %s", err)
+		return err
+	}
+	err = disk.Close()
+	if err != nil {
+		e.config.Logger.Errorf("Close disk: %s", err)
+	}
+	// Sync changes
+	syscall.Sync()
+	// Trigger udevadm to refresh devices
+	_, err = e.config.Runner.Run("udevadm", "trigger")
+	if err != nil {
+		e.config.Logger.Errorf("Udevadm trigger failed: %s", err)
+	}
+	_, err = e.config.Runner.Run("udevadm", "settle")
+	if err != nil {
+		e.config.Logger.Errorf("Udevadm settle failed: %s", err)
+	}
+	// Partitions are in order so we can format them via that
+	for index, p := range table.GetPartitions() {
+		for _, configPart := range i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()) {
+			if configPart.Name == cnst.BiosPartName {
+				// Grub partition on non-EFI is not formatted. Grub is directly installed on it
+				continue
+			}
+			// we have to match the Fs it was asked with the partition in the system
+			if p.(*gpt.Partition).Name == configPart.FilesystemLabel {
+				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)
+				err = partitioner.FormatDevice(e.config.Runner, fmt.Sprintf("%s%d", i.GetTarget(), index+1), configPart.FS, configPart.FilesystemLabel)
+				if err != nil {
+					e.config.Logger.Errorf("Failed formatting partition: %s", err)
+					return err
+				}
+				syscall.Sync()
+			}
 		}
 	}
 	return nil
@@ -224,17 +233,18 @@ func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
 	if err != nil {
 		return err
 	}
-	out, err := e.config.Runner.Run("losetup", "--show", "-f", img.File)
+	loopDevice, err := loop.Loop(img, e.config)
 	if err != nil {
 		return err
 	}
-	loop := strings.TrimSpace(string(out))
-	err = e.config.Mounter.Mount(loop, img.MountPoint, "auto", opts)
+
+	err = e.config.Mounter.Mount(loopDevice, img.MountPoint, "auto", opts)
 	if err != nil {
-		_, _ = e.config.Runner.Run("losetup", "-d", loop)
 		return err
 	}
-	img.LoopDevice = loop
+
+	// Store the loop device so we can later detach it
+	img.LoopDevice = loopDevice
 	return nil
 }
 
@@ -252,7 +262,10 @@ func (e Elemental) UnmountImage(img *v1.Image) error {
 	if err != nil {
 		return err
 	}
-	_, err = e.config.Runner.Run("losetup", "-d", img.LoopDevice)
+	err = loop.Unloop(img.LoopDevice, e.config)
+	if err != nil {
+		return err
+	}
 	img.LoopDevice = ""
 	return err
 }
@@ -548,10 +561,10 @@ func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint stri
 		}
 	}
 	e.config.Logger.Infof("Setting default grub entry to %s", defaultEntry)
-	grub := utils.NewGrub(e.config)
-	return grub.SetPersistentVariables(
+	return utils.SetPersistentVariables(
 		filepath.Join(partMountPoint, cnst.GrubOEMEnv),
 		map[string]string{"default_menu_entry": defaultEntry},
+		e.config.Fs,
 	)
 }
 

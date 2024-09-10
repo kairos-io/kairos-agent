@@ -75,3 +75,13 @@ func (mkfs MkfsCall) Apply() (string, error) {
 	out, err := mkfs.runner.Run(tool, opts...)
 	return string(out), err
 }
+
+// FormatDevice formats a block device with the given parameters
+func FormatDevice(runner v1.Runner, device string, fileSystem string, label string, opts ...string) error {
+	mkfs := MkfsCall{fileSystem: fileSystem, label: label, customOpts: opts, dev: device, runner: runner}
+	out, err := mkfs.Apply()
+	if err != nil {
+		fmt.Println(out)
+	}
+	return err
+}

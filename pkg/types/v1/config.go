@@ -287,7 +287,7 @@ func (ep *ElementalPartitions) SetFirmwarePartitions(firmware string, partTable 
 		ep.BIOS = nil
 	} else if firmware == BIOS && partTable == GPT {
 		ep.BIOS = &Partition{
-			FilesystemLabel: "",
+			FilesystemLabel: constants.EfiLabel,
 			Size:            constants.BiosSize,
 			Name:            constants.BiosPartName,
 			FS:              "",
