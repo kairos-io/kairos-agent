@@ -3,7 +3,7 @@ FROM alpine
 # renovate: datasource=docker depName=golang
 ARG --global GOLINT_VERSION=1.52.2
 # renovate: datasource=docker depName=golang
-ARG --global GO_VERSION=1.22-bookworm
+ARG --global GO_VERSION=1.23-bookworm
 # renovate: datasource=docker depName=cypress/base
 ARG --global CYPRESS_VERSION=18.16.0
 

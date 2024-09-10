@@ -13,7 +13,7 @@ jobs:
   unit-tests:
     strategy:
       matrix:
-        go-version: [ "1.22-bookworm" ]
+        go-version: [ "1.23-bookworm" ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
