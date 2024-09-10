@@ -39,8 +39,8 @@ require (
 require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/google/go-github/v64 v64.0.0
-	github.com/twpayne/go-vfs/v5 v5.0.4
+	github.com/google/go-github/v63 v63.0.0
+	github.com/twpayne/go-vfs/v4 v4.3.0
 )
 
 require (
@@ -94,7 +94,6 @@ require (
 	github.com/foxboron/go-uefi v0.0.0-20240805124652-e2076f0e58ca // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
 	github.com/go-git/go-git/v5 v5.12.0 // indirect
