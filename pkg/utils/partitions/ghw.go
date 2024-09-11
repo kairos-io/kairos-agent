@@ -252,10 +252,11 @@ func udevInfoPartition(paths *Paths, disk string, partition string) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	return udevInfo(paths, string(devNo))
+	return UdevInfo(paths, string(devNo))
 }
 
-func udevInfo(paths *Paths, devNo string) (map[string]string, error) {
+// UdevInfo will return information on udev database about a device number
+func UdevInfo(paths *Paths, devNo string) (map[string]string, error) {
 	// Look up block device in udev runtime database
 	udevID := "b" + strings.TrimSpace(devNo)
 	udevBytes, err := os.ReadFile(filepath.Join(paths.RunUdevData, udevID))

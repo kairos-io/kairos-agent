@@ -22,28 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jaypipes/ghw"
-	"github.com/jaypipes/ghw/pkg/block"
-	"github.com/jaypipes/ghw/pkg/context"
-	"github.com/jaypipes/ghw/pkg/linuxpath"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	log "github.com/sirupsen/logrus"
 )
-
-// ghwPartitionToInternalPartition transforms a block.Partition from ghw lib to our v1.Partition type
-func ghwPartitionToInternalPartition(partition *block.Partition) *v1.Partition {
-	return &v1.Partition{
-		FilesystemLabel: partition.FilesystemLabel,
-		Size:            uint(partition.SizeBytes / (1024 * 1024)), // Converts B to MB
-		Name:            partition.Name,
-		FS:              partition.Type,
-		Flags:           nil,
-		MountPoint:      partition.MountPoint,
-		Path:            filepath.Join("/dev", partition.Name),
-		Disk:            filepath.Join("/dev", partition.Disk.Name),
-	}
-}
 
 // GetAllPartitions returns all partitions in the system for all disks
 func GetAllPartitions() (v1.PartitionList, error) {
@@ -59,12 +41,11 @@ func GetAllPartitions() (v1.PartitionList, error) {
 // GetPartitionViaDM tries to get the partition via devicemapper for reset
 // We only need to get all this info due to the fS that we need to use to format the partition
 // Otherwise we could just format with the label ¯\_(ツ)_/¯
-// TODO: store info about persistent and oem in the state.yaml so we can directly load it
 func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 	var part *v1.Partition
+	// This makes it work for both real fs and test fs
 	rootPath, _ := fs.RawPath("/")
-	ctx := context.New(ghw.WithDisableTools(), ghw.WithDisableWarnings(), ghw.WithChroot(rootPath))
-	lp := linuxpath.New(ctx)
+	lp := NewPaths(rootPath)
 	devices, _ := fs.ReadDir(lp.SysBlock)
 	for _, dev := range devices {
 		if !strings.HasPrefix(dev.Name(), "dm-") {
@@ -79,14 +60,9 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 		udevID := "b" + strings.TrimSpace(string(devNo))
 		// Read udev info about this device
 		udevBytes, _ := fs.ReadFile(filepath.Join(lp.RunUdevData, udevID))
-		udevInfo := make(map[string]string)
-		for _, udevLine := range strings.Split(string(udevBytes), "\n") {
-			if strings.HasPrefix(udevLine, "E:") {
-				if s := strings.SplitN(udevLine[2:], "=", 2); len(s) == 2 {
-					udevInfo[s[0]] = s[1]
-					continue
-				}
-			}
+		udevInfo, err := UdevInfo(lp, string(devNo))
+		if err != nil {
+			continue
 		}
 		if udevInfo["ID_FS_LABEL"] == label {
 			// Found it!
@@ -121,7 +97,6 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 			if len(slaves) == 1 {
 				// We got the partition this dm is associated to, now lets read that partition udev identifier
 				partNumber, err := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "slaves", slaves[0].Name(), "dev"))
-				fmt.Println(string(partNumber))
 				// If no errors and partNumber not empty read the device from udev
 				if err == nil || string(partNumber) != "" {
 					// Now for some magic!
