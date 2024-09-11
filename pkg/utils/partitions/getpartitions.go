@@ -17,7 +17,10 @@ limitations under the License.
 package partitions
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -59,6 +62,59 @@ func GetAllPartitions() (v1.PartitionList, error) {
 		}
 	}
 	return parts, nil
+}
+
+// GetMountPointByLabel will try to get the mountpoint by using the label only
+// so we can identify mounts the have been mounted with /dev/disk/by-label stanzas
+func GetMountPointByLabel(label string) string {
+	// mount entries for mounted partitions look like this:
+	// /dev/sda6 / ext4 rw,relatime,errors=remount-ro,data=ordered 0 0
+	var r io.ReadCloser
+	r, err := os.Open("/proc/mounts")
+	if err != nil {
+		return ""
+	}
+	defer r.Close()
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		partition, mountpoint := parseMountEntry(line)
+		if partition == fmt.Sprintf("/dev/disk/by-label/%s", label) {
+			return mountpoint
+		}
+	}
+	return ""
+}
+
+func parseMountEntry(line string) (string, string) {
+	// mount entries for mounted partitions look like this:
+	// /dev/sda6 / ext4 rw,relatime,errors=remount-ro,data=ordered 0 0
+	if line[0] != '/' {
+		return "", ""
+	}
+	fields := strings.Fields(line)
+
+	if len(fields) < 4 {
+		return "", ""
+	}
+
+	// We do some special parsing of the mountpoint, which may contain space,
+	// tab and newline characters, encoded into the mount entry line using their
+	// octal-to-string representations. From the GNU mtab man pages:
+	//
+	//   "Therefore these characters are encoded in the files and the getmntent
+	//   function takes care of the decoding while reading the entries back in.
+	//   '\040' is used to encode a space character, '\011' to encode a tab
+	//   character, '\012' to encode a newline character, and '\\' to encode a
+	//   backslash."
+	mp := fields[1]
+	r := strings.NewReplacer(
+		"\\011", "\t", "\\012", "\n", "\\040", " ", "\\\\", "\\",
+	)
+	mp = r.Replace(mp)
+
+	return fields[0], mp
 }
 
 // GetPartitionFS gets the FS of a partition given

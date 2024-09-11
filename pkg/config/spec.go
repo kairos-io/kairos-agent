@@ -438,33 +438,17 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 
 	target := ep.State.Disk
 
-	// OEM partition is not a hard requirement
-	if ep.OEM != nil {
-		if ep.OEM.MountPoint == "" {
-			ep.OEM.MountPoint = constants.OEMDir
-		}
-		ep.OEM.Name = constants.OEMPartName
-	} else {
+	// OEM partition is not a hard requirement for reset unless we have the reset oem flag
+	cfg.Logger.Info(litter.Sdump(ep.OEM))
+	if ep.OEM == nil {
 		// We could have oem in lvm which won't appear in ghw list
 		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
 	}
 
-	if ep.OEM == nil {
-		cfg.Logger.Warnf("no OEM partition found")
-	}
-
 	// Persistent partition is not a hard requirement
-	if ep.Persistent != nil {
-		if ep.Persistent.MountPoint == "" {
-			ep.Persistent.MountPoint = constants.PersistentDir
-		}
-		ep.Persistent.Name = constants.PersistentPartName
-	} else {
+	if ep.Persistent == nil {
 		// We could have persistent encrypted or in lvm which won't appear in ghw list
 		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
-	}
-	if ep.Persistent == nil {
-		cfg.Logger.Warnf("no Persistent partition found")
 	}
 
 	recoveryImg := filepath.Join(constants.RunningStateDir, "cOS", constants.RecoveryImgFile)
@@ -520,6 +504,25 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	err = unmarshallFullSpec(cfg, "reset", spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
+	}
+
+	if ep.OEM == nil && spec.FormatOEM {
+		cfg.Logger.Warnf("no OEM partition found, wont format it")
+	}
+
+	if ep.Persistent == nil && spec.FormatPersistent {
+		cfg.Logger.Warnf("no Persistent partition found, wont formate it")
+	}
+
+	// If we mount partitions by the /dev/disk/by-label stanza, their mountpoints wont show up due to ghw not
+	// accounting for them. Normally this is not an issue but in this case, if we are formatting a given partition we
+	// want to unmount it first. Thus we need to make sure that if its mounted we have the mountpoint info
+	if ep.Persistent.MountPoint == "" {
+		ep.Persistent.MountPoint = partitions.GetMountPointByLabel(ep.Persistent.FilesystemLabel)
+	}
+
+	if ep.OEM.MountPoint == "" {
+		ep.OEM.MountPoint = partitions.GetMountPointByLabel(ep.OEM.FilesystemLabel)
 	}
 
 	return spec, nil
