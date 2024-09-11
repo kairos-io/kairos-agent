@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -339,6 +340,21 @@ func prepareConfiguration(source string) (io.Reader, error) {
 		}
 		cfg = bytes.NewReader(file)
 		return cfg, nil
+	}
+	// Its a remote url
+	// Check if it actually exists and fail if it doesn't
+	resp, err := http.Head(source)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, errors.New("configuration file not found in remote address")
+		} else {
+			return nil, errors.New(resp.Status)
+		}
 	}
 
 	cfgUrl := fmt.Sprintf(`config_url: %s`, source)
