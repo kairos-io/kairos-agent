@@ -26,7 +26,6 @@ import (
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/jaypipes/ghw/pkg/context"
 	"github.com/jaypipes/ghw/pkg/linuxpath"
-	ghwUtil "github.com/jaypipes/ghw/pkg/util"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	log "github.com/sirupsen/logrus"
@@ -49,40 +48,12 @@ func ghwPartitionToInternalPartition(partition *block.Partition) *v1.Partition {
 // GetAllPartitions returns all partitions in the system for all disks
 func GetAllPartitions() (v1.PartitionList, error) {
 	var parts []*v1.Partition
-	blockDevices, err := block.New(ghw.WithDisableTools(), ghw.WithDisableWarnings())
-	if err != nil {
-		return nil, err
-	}
-	for _, d := range blockDevices.Disks {
+	for _, d := range GetDisks(NewPaths("")) {
 		for _, part := range d.Partitions {
-			parts = append(parts, ghwPartitionToInternalPartition(part))
+			parts = append(parts, part)
 		}
 	}
 	return parts, nil
-}
-
-// GetPartitionFS gets the FS of a partition given
-func GetPartitionFS(partition string) (string, error) {
-	// We want to have the device always prefixed with a /dev
-	if !strings.HasPrefix(partition, "/dev") {
-		partition = filepath.Join("/dev", partition)
-	}
-	blockDevices, err := block.New(ghw.WithDisableTools(), ghw.WithDisableWarnings())
-	if err != nil {
-		return "", err
-	}
-
-	for _, disk := range blockDevices.Disks {
-		for _, part := range disk.Partitions {
-			if filepath.Join("/dev", part.Name) == partition {
-				if part.Type == ghwUtil.UNKNOWN {
-					return "", fmt.Errorf("could not find filesystem for partition %s", partition)
-				}
-				return part.Type, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("could not find filesystem for partition %s", partition)
 }
 
 // GetPartitionViaDM tries to get the partition via devicemapper for reset

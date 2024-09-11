@@ -28,6 +28,21 @@ type Paths struct {
 	ProcMounts  string
 }
 
+func NewPaths(withOptionalPrefix string) *Paths {
+	p := &Paths{
+		SysBlock:    "/sys/block/",
+		RunUdevData: "/run/udev/data",
+		ProcMounts:  "/proc/mounts",
+	}
+	if withOptionalPrefix != "" {
+		withOptionalPrefix = strings.TrimSuffix(withOptionalPrefix, "/")
+		p.SysBlock = fmt.Sprintf("%s/%s", withOptionalPrefix, p.SysBlock)
+		p.RunUdevData = fmt.Sprintf("%s/%s", withOptionalPrefix, p.RunUdevData)
+		p.ProcMounts = fmt.Sprintf("%s/%s", withOptionalPrefix, p.ProcMounts)
+	}
+	return p
+}
+
 func GetDisks(paths *Paths) []*Disk {
 	disks := make([]*Disk, 0)
 	files, err := os.ReadDir(paths.SysBlock)
