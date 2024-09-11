@@ -18,7 +18,6 @@ package v1
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"path/filepath"
 	"sort"
 
@@ -75,17 +74,6 @@ type InstallSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
-	// Check if the target device has mounted partitions
-
-	for _, dsk := range partitions.GetDisks(partitions.NewPaths("")) {
-		if fmt.Sprintf("/dev/%s", dsk.Name) == i.Target {
-			for _, p := range dsk.Partitions {
-				if p.MountPoint != "" {
-					return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
-				}
-			}
-		}
-	}
 	if i.Active.Source.IsEmpty() && i.Iso == "" {
 		return fmt.Errorf("undefined system source to install")
 	}

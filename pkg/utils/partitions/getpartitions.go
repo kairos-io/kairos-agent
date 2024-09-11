@@ -18,6 +18,7 @@ package partitions
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/ghw"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ const (
 // GetAllPartitions returns all partitions in the system for all disks
 func GetAllPartitions() (v1.PartitionList, error) {
 	var parts []*v1.Partition
-	for _, d := range GetDisks(NewPaths("")) {
+	for _, d := range ghw.GetDisks(ghw.NewPaths("")) {
 		for _, part := range d.Partitions {
 			parts = append(parts, part)
 		}
@@ -49,7 +50,7 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 	var part *v1.Partition
 	// This makes it work for both real fs and test fs
 	rootPath, _ := fs.RawPath("/")
-	lp := NewPaths(rootPath)
+	lp := ghw.NewPaths(rootPath)
 	devices, _ := fs.ReadDir(lp.SysBlock)
 	for _, dev := range devices {
 		if !strings.HasPrefix(dev.Name(), "dm-") {
@@ -64,7 +65,7 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 		udevID := "b" + strings.TrimSpace(string(devNo))
 		// Read udev info about this device
 		udevBytes, _ := fs.ReadFile(filepath.Join(lp.RunUdevData, udevID))
-		udevInfo, err := UdevInfo(lp, string(devNo))
+		udevInfo, err := ghw.UdevInfo(lp, string(devNo))
 		if err != nil {
 			continue
 		}
@@ -187,7 +188,7 @@ func GetPreferedDisk() ([]string, string) {
 	preferedDevice := "/dev/sda"
 	var disks []string
 
-	Disks := GetDisks(NewPaths(""))
+	Disks := ghw.GetDisks(ghw.NewPaths(""))
 	for _, disk := range Disks {
 		// skip useless devices (/dev/ram, /dev/loop, /dev/sr, /dev/zram)
 		if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {

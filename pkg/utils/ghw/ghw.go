@@ -1,4 +1,4 @@
-package partitions
+package ghw
 
 import (
 	"bufio"

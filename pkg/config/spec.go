@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/ghw"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -993,7 +994,7 @@ func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
 // DetectPreConfiguredDevice returns a disk that has partitions labeled with
 // Kairos labels. It can be used to detect a pre-configured device.
 func DetectPreConfiguredDevice(logger sdkTypes.KairosLogger) (string, error) {
-	for _, d := range partitions.GetDisks(partitions.NewPaths("")) {
+	for _, d := range ghw.GetDisks(ghw.NewPaths("")) {
 		for _, p := range d.Partitions {
 			if p.FilesystemLabel == "COS_STATE" {
 				return filepath.Join("/", "dev", d.Name), nil

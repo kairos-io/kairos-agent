@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/ghw"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/unstructured"
@@ -104,6 +104,29 @@ func promptToUnstructured(p events.YAMLPrompt, unstructuredYAML map[string]inter
 	return unstructuredYAML, nil
 }
 
+// GetPreferedDisk will get all the disks and the preferred disk for the interactive installer
+// Checks validity of the disks (is not a loop device or a cdrom for example) and selects the bigger disk as default
+func GetPreferedDisk() ([]string, string) {
+	maxSize := float64(0)
+	preferedDevice := "/dev/sda"
+	var disks []string
+
+	Disks := ghw.GetDisks(ghw.NewPaths(""))
+	for _, disk := range Disks {
+		// skip useless devices (/dev/ram, /dev/loop, /dev/sr, /dev/zram)
+		if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {
+			continue
+		}
+		size := float64(disk.SizeBytes) / float64(1024*1024*1024)
+		if size > maxSize {
+			maxSize = size
+			preferedDevice = "/dev/" + disk.Name
+		}
+		disks = append(disks, fmt.Sprintf("/dev/%s: (%.2f GiB) ", disk.Name, float64(disk.SizeBytes)/float64(1024*1024*1024)))
+	}
+	return disks, preferedDevice
+}
+
 func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 	var sshUsers []string
 	bus.Manager.Initialize()
@@ -117,7 +140,7 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 
 	cmd.PrintText(agentConfig.Branding.InteractiveInstall, "Installation")
 
-	disks, preferedDevice := partitions.GetPreferedDisk()
+	disks, preferedDevice := GetPreferedDisk()
 
 	pterm.Info.Println("Available Disks:")
 	for _, d := range disks {
