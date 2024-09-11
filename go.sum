@@ -278,6 +278,8 @@ github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 h1:G+9t9cEtnC
 github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004/go.mod h1:KmHnJWQrgEvbuy0vcvj00gtMqbvNn1L+3YUZLK/B92c=
 github.com/kairos-io/kairos-sdk v0.4.3 h1:gIC/PsWjv9/Z+6RIHRG9IS5MB9gACw1ZjPAi7VydSSo=
 github.com/kairos-io/kairos-sdk v0.4.3/go.mod h1:bxUPzirl8vNtqB48FJ2835QKio3d3PrHbkAejkibV8I=
+github.com/kairos-io/kairos-sdk v0.4.2 h1:tq0a6R9qSotatFt20q/+oIHJSN+XTQWji4XgHk5Vvlw=
+github.com/kairos-io/kairos-sdk v0.4.2/go.mod h1:1x8VaVt1ppXxQUlNyDRksoDglR423hxfEtjx6qWDO7w=
 github.com/kairos-io/kcrypt v0.12.2 h1:+lr8FGS0AW6D5dWSmaR3+AobL1TBTnOFgCSYctKY+5I=
 github.com/kairos-io/kcrypt v0.12.2/go.mod h1:7SPiHzNMYl4MlxeB30s1YlHDYByTusu7u1mU5Nvicm0=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
