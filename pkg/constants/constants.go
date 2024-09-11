@@ -126,6 +126,8 @@ const (
 
 	// Error
 	UpgradeNoSourceError = "Could not find a proper source for the upgrade.\nThis can be configured in the cloud config files under the 'upgrade.system.uri' key or via cmdline using the '--source' flag."
+
+	UNKNOWN = "unknown"
 )
 
 func UkiDefaultMenuEntries() []string {

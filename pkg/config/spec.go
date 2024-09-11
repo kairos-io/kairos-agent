@@ -28,7 +28,6 @@ import (
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/jaypipes/ghw"
 	"golang.org/x/sys/unix"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -586,7 +585,8 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 	installSpec := sp.(*v1.InstallSpec)
 
 	if (installSpec.Target == "" || installSpec.Target == "auto") && !installSpec.NoFormat {
-		installSpec.Target = detectLargestDevice()
+		_, preferredDevice := partitions.GetPreferedDisk()
+		installSpec.Target = preferredDevice
 	}
 
 	return installSpec, nil
@@ -681,7 +681,8 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	installSpec := sp.(*v1.InstallUkiSpec)
 
 	if (installSpec.Target == "" || installSpec.Target == "auto") && !installSpec.NoFormat {
-		installSpec.Target = detectLargestDevice()
+		_, preferredDevice := partitions.GetPreferedDisk()
+		installSpec.Target = preferredDevice
 	}
 
 	return installSpec, nil
@@ -989,40 +990,15 @@ func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
 	return nil
 }
 
-// detectLargestDevice returns the largest disk found
-func detectLargestDevice() string {
-	preferedDevice := "/dev/sda"
-	maxSize := float64(0)
-
-	block, err := ghw.Block()
-	if err == nil {
-		for _, disk := range block.Disks {
-			size := float64(disk.SizeBytes) / float64(GiB)
-			if size > maxSize {
-				maxSize = size
-				preferedDevice = "/dev/" + disk.Name
-			}
-		}
-	}
-	return preferedDevice
-}
-
 // DetectPreConfiguredDevice returns a disk that has partitions labeled with
 // Kairos labels. It can be used to detect a pre-configured device.
 func DetectPreConfiguredDevice(logger sdkTypes.KairosLogger) (string, error) {
-	block, err := ghw.Block()
-	if err != nil {
-		logger.Errorf("failed getting block devices: %s", err.Error())
-		return "", err
-	}
-
-	for _, disk := range block.Disks {
-		for _, p := range disk.Partitions {
+	for _, d := range partitions.GetDisks(partitions.NewPaths("")) {
+		for _, p := range d.Partitions {
 			if p.FilesystemLabel == "COS_STATE" {
-				return filepath.Join("/", "dev", disk.Name), nil
+				return filepath.Join("/", "dev", d.Name), nil
 			}
 		}
 	}
-
 	return "", nil
 }

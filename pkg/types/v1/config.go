@@ -18,10 +18,10 @@ package v1
 
 import (
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"path/filepath"
 	"sort"
 
-	"github.com/jaypipes/ghw"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"gopkg.in/yaml.v3"
 )
@@ -76,16 +76,13 @@ type InstallSpec struct {
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
 	// Check if the target device has mounted partitions
-	block, err := ghw.Block()
-	if err == nil {
-		for _, disk := range block.Disks {
-			if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
-				for _, p := range disk.Partitions {
-					if p.MountPoint != "" {
-						return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
-					}
-				}
 
+	for _, dsk := range partitions.GetDisks(partitions.NewPaths("")) {
+		if fmt.Sprintf("/dev/%s", dsk.Name) == i.Target {
+			for _, p := range dsk.Partitions {
+				if p.MountPoint != "" {
+					return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
+				}
 			}
 		}
 	}

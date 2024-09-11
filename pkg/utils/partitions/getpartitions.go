@@ -27,6 +27,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	GiB = 1024 * 1024 * 1024
+)
+
 // GetAllPartitions returns all partitions in the system for all disks
 func GetAllPartitions() (v1.PartitionList, error) {
 	var parts []*v1.Partition
@@ -174,4 +178,27 @@ func GetEfiPartition() (*v1.Partition, error) {
 		return efiPartition, fmt.Errorf("could not find EFI partition")
 	}
 	return efiPartition, nil
+}
+
+// GetPreferedDisk will get all the disks and the preferred disk for the interactive installer
+// Checks validity of the disks (is not a loop device or a cdrom for example) and selects the bigger disk as default
+func GetPreferedDisk() ([]string, string) {
+	maxSize := float64(0)
+	preferedDevice := "/dev/sda"
+	var disks []string
+
+	Disks := GetDisks(NewPaths(""))
+	for _, disk := range Disks {
+		// skip useless devices (/dev/ram, /dev/loop, /dev/sr, /dev/zram)
+		if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {
+			continue
+		}
+		size := float64(disk.SizeBytes) / float64(GiB)
+		if size > maxSize {
+			maxSize = size
+			preferedDevice = "/dev/" + disk.Name
+		}
+		disks = append(disks, fmt.Sprintf("/dev/%s: (%.2f GiB) ", disk.Name, float64(disk.SizeBytes)/float64(GiB)))
+	}
+	return disks, preferedDevice
 }

@@ -3,7 +3,7 @@ package partitions
 import (
 	"bufio"
 	"fmt"
-	"github.com/jaypipes/ghw/pkg/util"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"io"
 	"os"
@@ -152,7 +152,7 @@ func partitionInfo(paths *Paths, part string) (string, string) {
 	if err != nil {
 		return "", ""
 	}
-	defer util.SafeClose(r)
+	defer r.Close()
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -211,13 +211,13 @@ func parseMountEntry(line string) *mountEntry {
 func diskPartUUID(paths *Paths, disk string, partition string) string {
 	info, err := udevInfoPartition(paths, disk, partition)
 	if err != nil {
-		return util.UNKNOWN
+		return constants.UNKNOWN
 	}
 
 	if pType, ok := info["ID_PART_ENTRY_UUID"]; ok {
 		return pType
 	}
-	return util.UNKNOWN
+	return constants.UNKNOWN
 }
 
 // diskPartTypeUdev gets the partition type from the udev database directly and its only used as fallback when
@@ -225,25 +225,25 @@ func diskPartUUID(paths *Paths, disk string, partition string) string {
 func diskPartTypeUdev(paths *Paths, disk string, partition string) string {
 	info, err := udevInfoPartition(paths, disk, partition)
 	if err != nil {
-		return util.UNKNOWN
+		return constants.UNKNOWN
 	}
 
 	if pType, ok := info["ID_FS_TYPE"]; ok {
 		return pType
 	}
-	return util.UNKNOWN
+	return constants.UNKNOWN
 }
 
 func diskFSLabel(paths *Paths, disk string, partition string) string {
 	info, err := udevInfoPartition(paths, disk, partition)
 	if err != nil {
-		return util.UNKNOWN
+		return constants.UNKNOWN
 	}
 
 	if label, ok := info["ID_FS_LABEL"]; ok {
 		return label
 	}
-	return util.UNKNOWN
+	return constants.UNKNOWN
 }
 
 func udevInfoPartition(paths *Paths, disk string, partition string) (map[string]string, error) {
