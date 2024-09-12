@@ -19,6 +19,7 @@ package elemental
 import (
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -46,7 +47,7 @@ func NewElemental(config *agentConfig.Config) *Elemental {
 }
 
 // FormatPartition will format an already existing partition
-func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
+func (e *Elemental) FormatPartition(part *types.Partition, opts ...string) error {
 	var name string
 	// Nice display name for logs
 	if part.Name == "" {
@@ -132,7 +133,7 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 
 // MountPartitions mounts configured partitions. Partitions with an unset mountpoint are not mounted.
 // Note umounts must be handled by caller logic.
-func (e Elemental) MountPartitions(parts v1.PartitionList) error {
+func (e Elemental) MountPartitions(parts types.PartitionList) error {
 	e.config.Logger.Infof("Mounting disk partitions")
 	var err error
 
@@ -150,7 +151,7 @@ func (e Elemental) MountPartitions(parts v1.PartitionList) error {
 }
 
 // UnmountPartitions unmounts configured partitiosn. Partitions with an unset mountpoint are not unmounted.
-func (e Elemental) UnmountPartitions(parts v1.PartitionList) error {
+func (e Elemental) UnmountPartitions(parts types.PartitionList) error {
 	e.config.Logger.Infof("Unmounting disk partitions")
 	var err error
 	errMsg := ""
@@ -173,7 +174,7 @@ func (e Elemental) UnmountPartitions(parts v1.PartitionList) error {
 }
 
 // MountRWPartition mounts, or remounts if needed, a partition with RW permissions
-func (e Elemental) MountRWPartition(part *v1.Partition) (umount func() error, err error) {
+func (e Elemental) MountRWPartition(part *types.Partition) (umount func() error, err error) {
 	if mnt, _ := utils.IsMounted(e.config, part); mnt {
 		err = e.MountPartition(part, "remount", "rw")
 		if err != nil {
@@ -193,7 +194,7 @@ func (e Elemental) MountRWPartition(part *v1.Partition) (umount func() error, er
 }
 
 // MountPartition mounts a partition with the given mount options
-func (e Elemental) MountPartition(part *v1.Partition, opts ...string) error {
+func (e Elemental) MountPartition(part *types.Partition, opts ...string) error {
 	e.config.Logger.Debugf("Mounting partition %s", part.FilesystemLabel)
 	err := fsutils.MkdirAll(e.config.Fs, part.MountPoint, cnst.DirPerm)
 	if err != nil {
@@ -217,7 +218,7 @@ func (e Elemental) MountPartition(part *v1.Partition, opts ...string) error {
 }
 
 // UnmountPartition unmounts the given partition or does nothing if not mounted
-func (e Elemental) UnmountPartition(part *v1.Partition) error {
+func (e Elemental) UnmountPartition(part *types.Partition) error {
 	if mnt, _ := utils.IsMounted(e.config, part); !mnt {
 		e.config.Logger.Debugf("Not unmounting partition, %s doesn't look like mountpoint", part.MountPoint)
 		return nil

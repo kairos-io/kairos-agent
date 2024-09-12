@@ -24,18 +24,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kairos-io/kairos-sdk/collector"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-
-	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v4"
@@ -115,35 +114,35 @@ var _ = Describe("Upgrade Actions test", func() {
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.LiveDir), constants.DirPerm)
 
-			mainDisk := block.Disk{
+			mainDisk := ghw.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device2",
 						FilesystemLabel: "COS_STATE",
-						Type:            "ext4",
+						FS:              "ext4",
 						MountPoint:      constants.RunningStateDir,
 					},
 					{
 						Name:            "loop0",
 						FilesystemLabel: "COS_ACTIVE",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device5",
 						FilesystemLabel: "COS_RECOVERY",
-						Type:            "ext4",
+						FS:              "ext4",
 						MountPoint:      constants.LiveDir,
 					},
 					{
 						Name:            "device6",
 						FilesystemLabel: "COS_OEM",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 				},
 			}

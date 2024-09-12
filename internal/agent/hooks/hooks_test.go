@@ -2,7 +2,10 @@ package hook_test
 
 import (
 	"bytes"
-	"github.com/jaypipes/ghw/pkg/block"
+	"os"
+	"path/filepath"
+	"testing"
+
 	_ "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -10,14 +13,13 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/ghw"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v4"
 	"github.com/twpayne/go-vfs/v4/vfst"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 func TestConfig(t *testing.T) {
@@ -79,13 +81,13 @@ var _ = Describe("Hooks", func() {
 			)
 			cfg.Config = collector.Config{}
 
-			mainDisk := block.Disk{
+			mainDisk := ghw.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 						MountPoint:      "/efi",
 					},
 				},

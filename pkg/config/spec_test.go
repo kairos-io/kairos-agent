@@ -21,18 +21,18 @@ import (
 	"os"
 	"path/filepath"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-	"github.com/rs/zerolog"
-
-	"github.com/jaypipes/ghw/pkg/block"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog"
 	"github.com/sanity-io/litter"
 	"github.com/twpayne/go-vfs/v4/vfst"
 	"k8s.io/mount-utils"
@@ -227,33 +227,33 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Describe("Successful executions", func() {
 				var ghwTest v1mock.GhwMock
 				BeforeEach(func() {
-					mainDisk := block.Disk{
+					mainDisk := ghw.Disk{
 						Name: "device",
-						Partitions: []*block.Partition{
+						Partitions: []*sdkTypes.Partition{
 							{
 								Name:            "device1",
 								FilesystemLabel: constants.EfiLabel,
-								Type:            "vfat",
+								FS:              "vfat",
 							},
 							{
 								Name:            "device2",
 								FilesystemLabel: constants.OEMLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 							{
 								Name:            "device3",
 								FilesystemLabel: constants.RecoveryLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 							{
 								Name:            "device4",
 								FilesystemLabel: constants.StateLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 							{
 								Name:            "device5",
 								FilesystemLabel: constants.PersistentLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 						},
 					}
@@ -324,13 +324,13 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					}
 
 					// Set an empty disk for tests, otherwise reads the hosts hardware
-					mainDisk := block.Disk{
+					mainDisk := ghw.Disk{
 						Name: "device",
-						Partitions: []*block.Partition{
+						Partitions: []*sdkTypes.Partition{
 							{
 								Name:            "device4",
 								FilesystemLabel: constants.StateLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 						},
 					}
@@ -353,9 +353,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err.Error()).To(ContainSubstring("recovery partition not found"))
 				})
 				It("fails to set defaults if no state partition detected", func() {
-					mainDisk := block.Disk{
+					mainDisk := ghw.Disk{
 						Name:       "device",
-						Partitions: []*block.Partition{},
+						Partitions: []*sdkTypes.Partition{},
 					}
 					ghwTest = v1mock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
@@ -385,34 +385,34 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Describe("Successful executions", func() {
 				var ghwTest v1mock.GhwMock
 				BeforeEach(func() {
-					mainDisk := block.Disk{
+					mainDisk := ghw.Disk{
 						Name: "device",
-						Partitions: []*block.Partition{
+						Partitions: []*sdkTypes.Partition{
 							{
 								Name:            "device1",
 								FilesystemLabel: constants.EfiLabel,
-								Type:            "vfat",
+								FS:              "vfat",
 							},
 							{
 								Name:            "device2",
 								FilesystemLabel: constants.OEMLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 							{
 								Name:            "device3",
 								FilesystemLabel: constants.RecoveryLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 								MountPoint:      constants.LiveDir,
 							},
 							{
 								Name:            "device4",
 								FilesystemLabel: constants.StateLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 							{
 								Name:            "device5",
 								FilesystemLabel: constants.PersistentLabel,
-								Type:            "ext4",
+								FS:              "ext4",
 							},
 						},
 					}
@@ -493,33 +493,33 @@ cloud-init-paths:
 				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
-				mainDisk := block.Disk{
+				mainDisk := ghw.Disk{
 					Name: "device",
-					Partitions: []*block.Partition{
+					Partitions: []*sdkTypes.Partition{
 						{
 							Name:            "device1",
 							FilesystemLabel: constants.EfiLabel,
-							Type:            "vfat",
+							FS:              "vfat",
 						},
 						{
 							Name:            "device2",
 							FilesystemLabel: constants.OEMLabel,
-							Type:            "ext4",
+							FS:              "ext4",
 						},
 						{
 							Name:            "device3",
 							FilesystemLabel: constants.RecoveryLabel,
-							Type:            "ext4",
+							FS:              "ext4",
 						},
 						{
 							Name:            "device4",
 							FilesystemLabel: constants.StateLabel,
-							Type:            "ext4",
+							FS:              "ext4",
 						},
 						{
 							Name:            "device5",
 							FilesystemLabel: constants.PersistentLabel,
-							Type:            "ext4",
+							FS:              "ext4",
 						},
 					},
 				}

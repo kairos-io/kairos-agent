@@ -20,22 +20,22 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/jaypipes/ghw/pkg/block"
-
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v4"
@@ -190,7 +190,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		It("returns found device", func() {
 			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "FAKE",
@@ -214,9 +214,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 		var ghwTest v1mock.GhwMock
 		BeforeEach(func() {
 			ghwTest = v1mock.GhwMock{}
-			disk1 := block.Disk{
+			disk1 := ghw.Disk{
 				Name: "sda",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name: "sda1Test",
 					},
@@ -225,9 +225,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 					},
 				},
 			}
-			disk2 := block.Disk{
+			disk2 := ghw.Disk{
 				Name: "sdb",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name: "sdb1Test",
 					},
@@ -256,10 +256,10 @@ var _ = Describe("Utils", Label("utils"), func() {
 		var ghwTest v1mock.GhwMock
 		BeforeEach(func() {
 			ghwTest = v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name: "device1",
-					Type: "xfs",
+					FS:   "xfs",
 				},
 				{
 					Name: "device2",
@@ -328,16 +328,16 @@ var _ = Describe("Utils", Label("utils"), func() {
 				{"udevadm", "settle"},
 			}
 		})
-		It("returns found v1.Partition", func() {
+		It("returns found Partition", func() {
 			var flags []string
 			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "FAKE",
-					Type:            "fakefs",
+					FS:              "fakefs",
 					MountPoint:      "/mnt/fake",
-					SizeBytes:       0,
+					Size:            0,
 				},
 			}}
 			ghwTest.AddDisk(disk)
@@ -967,7 +967,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("IsMounted", Label("ismounted"), func() {
 		It("checks a mounted partition", func() {
-			part := &v1.Partition{
+			part := &sdkTypes.Partition{
 				MountPoint: "/some/mountpoint",
 			}
 			err := mounter.Mount("/some/device", "/some/mountpoint", "auto", []string{})
@@ -977,7 +977,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(mnt).To(BeTrue())
 		})
 		It("checks a not mounted partition", func() {
-			part := &v1.Partition{
+			part := &sdkTypes.Partition{
 				MountPoint: "/some/mountpoint",
 			}
 			mnt, err := utils.IsMounted(config, part)
@@ -985,7 +985,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(mnt).To(BeFalse())
 		})
 		It("checks a partition without mountpoint", func() {
-			part := &v1.Partition{}
+			part := &sdkTypes.Partition{}
 			mnt, err := utils.IsMounted(config, part)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(mnt).To(BeFalse())
@@ -1074,13 +1074,13 @@ var _ = Describe("Utils", Label("utils"), func() {
 		var ghwTest v1mock.GhwMock
 
 		BeforeEach(func() {
-			mainDisk := block.Disk{
+			mainDisk := ghw.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 						MountPoint:      "/efi",
 					},
 				},

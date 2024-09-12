@@ -35,6 +35,7 @@ import (
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/types"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -64,8 +65,8 @@ func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, err
 }
 
 // GetFullDeviceByLabel works like GetDeviceByLabel, but it will try to get as much info as possible from the existing
-// partition and return a v1.Partition object
-func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Partition, error) {
+// partition and return a Partition struct
+func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*sdkTypes.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = runner.Run("udevadm", "trigger")
 		_, _ = runner.Run("udevadm", "settle")
@@ -73,7 +74,7 @@ func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Par
 		if err != nil {
 			return nil, err
 		}
-		part := parts.GetByLabel(label)
+		part := v1.GetByLabel(label, parts)
 		if part != nil {
 			return part, nil
 		}
@@ -310,7 +311,7 @@ func LoadEnvFile(fs v1.FS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-func IsMounted(config *agentConfig.Config, part *v1.Partition) (bool, error) {
+func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}

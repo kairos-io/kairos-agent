@@ -52,7 +52,7 @@ type Install struct {
 	Recovery               v1.Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
 	Passive                v1.Image               `yaml:"passive,omitempty" mapstructure:"recovery-system"`
 	GrubDefEntry           string                 `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	ExtraPartitions        v1.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	ExtraPartitions        sdkTypes.PartitionList `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
 	ExtraDirsRootfs        []string               `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
 	Force                  bool                   `yaml:"force,omitempty" mapstructure:"force"`
 }

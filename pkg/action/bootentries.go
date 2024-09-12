@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,7 +16,6 @@ import (
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
@@ -319,7 +319,7 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 }
 
 // ListSystemdEntries reads the systemd-boot entries and returns a list of entries found
-func listSystemdEntries(cfg *config.Config, efiPartition *v1.Partition) ([]string, error) {
+func listSystemdEntries(cfg *config.Config, efiPartition *sdkTypes.Partition) ([]string, error) {
 	var entries []string
 	err := fsutils.WalkDirFs(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
 		if err != nil {

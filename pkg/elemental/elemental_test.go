@@ -20,12 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/diskfs/go-diskfs"
-	"github.com/diskfs/go-diskfs/partition/gpt"
-	"github.com/gofrs/uuid"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-	"github.com/sanity-io/litter"
 	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
@@ -35,16 +29,21 @@ import (
 	"testing"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-
-	"github.com/jaypipes/ghw/pkg/block"
-
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
+	"github.com/diskfs/go-diskfs"
+	"github.com/diskfs/go-diskfs/partition/gpt"
+	"github.com/gofrs/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sanity-io/litter"
 	"github.com/twpayne/go-vfs/v4/vfst"
 	"k8s.io/mount-utils"
 )
@@ -343,7 +342,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	Describe("FormatPartition", Label("FormatPartition", "partition", "format"), func() {
 		It("Reformats an already existing partition", func() {
 			el := elemental.NewElemental(config)
-			part := &v1.Partition{
+			part := &sdkTypes.Partition{
 				Path:            "/dev/device1",
 				FS:              "ext4",
 				FilesystemLabel: "MY_LABEL",
@@ -612,7 +611,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	Describe("CheckActiveDeployment", Label("check"), func() {
 		It("deployment found", func() {
 			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: cnst.ActiveLabel,

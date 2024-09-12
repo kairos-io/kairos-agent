@@ -21,8 +21,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/jaypipes/ghw"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	"github.com/kairos-io/kairos-sdk/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -47,7 +48,7 @@ type SharedInstallSpec interface {
 	GetPartTable() string
 	GetTarget() string
 	GetPartitions() ElementalPartitions
-	GetExtraPartitions() PartitionList
+	GetExtraPartitions() types.PartitionList
 }
 
 // InstallSpec struct represents all the installation action details
@@ -56,7 +57,7 @@ type InstallSpec struct {
 	Firmware        string              `yaml:"firmware,omitempty" mapstructure:"firmware"`
 	PartTable       string              `yaml:"part-table,omitempty" mapstructure:"part-table"`
 	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	ExtraPartitions PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	ExtraPartitions types.PartitionList `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
 	NoFormat        bool                `yaml:"no-format,omitempty" mapstructure:"no-format"`
 	Force           bool                `yaml:"force,omitempty" mapstructure:"force"`
 	CloudInit       []string            `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
@@ -76,19 +77,18 @@ type InstallSpec struct {
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
 	// Check if the target device has mounted partitions
-	block, err := ghw.Block()
-	if err == nil {
-		for _, disk := range block.Disks {
-			if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
-				for _, p := range disk.Partitions {
-					if p.MountPoint != "" {
-						return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
-					}
-				}
 
+	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
+			for _, p := range disk.Partitions {
+				if p.MountPoint != "" {
+					return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
+				}
 			}
+
 		}
 	}
+
 	if i.Active.Source.IsEmpty() && i.Iso == "" {
 		return fmt.Errorf("undefined system source to install")
 	}
@@ -129,12 +129,12 @@ func (i *InstallSpec) Sanitize() error {
 	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
 }
 
-func (i *InstallSpec) ShouldReboot() bool                 { return i.Reboot }
-func (i *InstallSpec) ShouldShutdown() bool               { return i.PowerOff }
-func (i *InstallSpec) GetTarget() string                  { return i.Target }
-func (i *InstallSpec) GetPartTable() string               { return i.PartTable }
-func (i *InstallSpec) GetPartitions() ElementalPartitions { return i.Partitions }
-func (i *InstallSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
+func (i *InstallSpec) ShouldReboot() bool                      { return i.Reboot }
+func (i *InstallSpec) ShouldShutdown() bool                    { return i.PowerOff }
+func (i *InstallSpec) GetTarget() string                       { return i.Target }
+func (i *InstallSpec) GetPartTable() string                    { return i.PartTable }
+func (i *InstallSpec) GetPartitions() ElementalPartitions      { return i.Partitions }
+func (i *InstallSpec) GetExtraPartitions() types.PartitionList { return i.ExtraPartitions }
 
 // ResetSpec struct represents all the reset action details
 type ResetSpec struct {
@@ -220,25 +220,11 @@ func (r *EmptySpec) Sanitize() error {
 func (r *EmptySpec) ShouldReboot() bool   { return false }
 func (r *EmptySpec) ShouldShutdown() bool { return false }
 
-// Partition struct represents a partition with its commonly configurable values, size in MiB
-type Partition struct {
-	Name            string   `yaml:"-"`
-	FilesystemLabel string   `yaml:"label,omitempty" mapstructure:"label"`
-	Size            uint     `yaml:"size,omitempty" mapstructure:"size"`
-	FS              string   `yaml:"fs,omitempty" mapstrcuture:"fs"`
-	Flags           []string `yaml:"flags,omitempty" mapstrcuture:"flags"`
-	MountPoint      string   `yaml:"-"`
-	Path            string   `yaml:"-"`
-	Disk            string   `yaml:"-"`
-}
-
-type PartitionList []*Partition
-
 // GetByName gets a partitions by its name from the PartitionList
-func (pl PartitionList) GetByName(name string) *Partition {
-	var part *Partition
+func GetByName(name string, partitionList types.PartitionList) *types.Partition {
+	var part *types.Partition
 
-	for _, p := range pl {
+	for _, p := range partitionList {
 		if p.Name == name {
 			part = p
 			if part.MountPoint != "" {
@@ -250,8 +236,8 @@ func (pl PartitionList) GetByName(name string) *Partition {
 }
 
 // GetByLabel gets a partition by its label from the PartitionList
-func (pl PartitionList) GetByLabel(label string) *Partition {
-	var part *Partition
+func GetByLabel(label string, pl types.PartitionList) *types.Partition {
+	var part *types.Partition
 
 	for _, p := range pl {
 		if p.FilesystemLabel == label {
@@ -265,18 +251,18 @@ func (pl PartitionList) GetByLabel(label string) *Partition {
 }
 
 type ElementalPartitions struct {
-	BIOS       *Partition `yaml:"-"`
-	EFI        *Partition `yaml:"-"`
-	OEM        *Partition `yaml:"oem,omitempty" mapstructure:"oem"`
-	Recovery   *Partition `yaml:"recovery,omitempty" mapstructure:"recovery"`
-	State      *Partition `yaml:"state,omitempty" mapstructure:"state"`
-	Persistent *Partition `yaml:"persistent,omitempty" mapstructure:"persistent"`
+	BIOS       *types.Partition `yaml:"-"`
+	EFI        *types.Partition `yaml:"-"`
+	OEM        *types.Partition `yaml:"oem,omitempty" mapstructure:"oem"`
+	Recovery   *types.Partition `yaml:"recovery,omitempty" mapstructure:"recovery"`
+	State      *types.Partition `yaml:"state,omitempty" mapstructure:"state"`
+	Persistent *types.Partition `yaml:"persistent,omitempty" mapstructure:"persistent"`
 }
 
 // SetFirmwarePartitions sets firmware partitions for a given firmware and partition table type
 func (ep *ElementalPartitions) SetFirmwarePartitions(firmware string, partTable string) error {
 	if firmware == EFI && partTable == GPT {
-		ep.EFI = &Partition{
+		ep.EFI = &types.Partition{
 			FilesystemLabel: constants.EfiLabel,
 			Size:            constants.EfiSize,
 			Name:            constants.EfiPartName,
@@ -286,7 +272,7 @@ func (ep *ElementalPartitions) SetFirmwarePartitions(firmware string, partTable 
 		}
 		ep.BIOS = nil
 	} else if firmware == BIOS && partTable == GPT {
-		ep.BIOS = &Partition{
+		ep.BIOS = &types.Partition{
 			FilesystemLabel: constants.EfiLabel,
 			Size:            constants.BiosSize,
 			Name:            constants.BiosPartName,
@@ -322,28 +308,28 @@ func (ep *ElementalPartitions) SetDefaultLabels() {
 // partitions list. First tries to match partitions by partition label, if not,
 // it tries to match partitions by default filesystem label
 // TODO find a way to map custom labels when partition labels are not available
-func NewElementalPartitionsFromList(pl PartitionList) ElementalPartitions {
+func NewElementalPartitionsFromList(pl types.PartitionList) ElementalPartitions {
 	ep := ElementalPartitions{}
-	ep.BIOS = pl.GetByName(constants.BiosPartName)
-	ep.EFI = pl.GetByName(constants.EfiPartName)
+	ep.BIOS = GetByName(constants.BiosPartName, pl)
+	ep.EFI = GetByName(constants.EfiPartName, pl)
 	if ep.EFI == nil {
-		ep.EFI = pl.GetByLabel(constants.EfiLabel)
+		ep.EFI = GetByLabel(constants.EfiLabel, pl)
 	}
-	ep.OEM = pl.GetByName(constants.OEMPartName)
+	ep.OEM = GetByName(constants.OEMPartName, pl)
 	if ep.OEM == nil {
-		ep.OEM = pl.GetByLabel(constants.OEMLabel)
+		ep.OEM = GetByLabel(constants.OEMLabel, pl)
 	}
-	ep.Recovery = pl.GetByName(constants.RecoveryPartName)
+	ep.Recovery = GetByName(constants.RecoveryPartName, pl)
 	if ep.Recovery == nil {
-		ep.Recovery = pl.GetByLabel(constants.RecoveryLabel)
+		ep.Recovery = GetByLabel(constants.RecoveryLabel, pl)
 	}
-	ep.State = pl.GetByName(constants.StatePartName)
+	ep.State = GetByName(constants.StatePartName, pl)
 	if ep.State == nil {
-		ep.State = pl.GetByLabel(constants.StateLabel)
+		ep.State = GetByLabel(constants.StateLabel, pl)
 	}
-	ep.Persistent = pl.GetByName(constants.PersistentPartName)
+	ep.Persistent = GetByName(constants.PersistentPartName, pl)
 	if ep.Persistent == nil {
-		ep.Persistent = pl.GetByLabel(constants.PersistentLabel)
+		ep.Persistent = GetByLabel(constants.PersistentLabel, pl)
 	}
 	return ep
 }
@@ -351,11 +337,11 @@ func NewElementalPartitionsFromList(pl PartitionList) ElementalPartitions {
 // PartitionsByInstallOrder sorts partitions according to the default layout
 // nil partitions are ignored
 // partition with 0 size is set last
-func (ep ElementalPartitions) PartitionsByInstallOrder(extraPartitions PartitionList, excludes ...*Partition) PartitionList {
-	partitions := PartitionList{}
-	var lastPartition *Partition
+func (ep ElementalPartitions) PartitionsByInstallOrder(extraPartitions types.PartitionList, excludes ...*types.Partition) types.PartitionList {
+	partitions := types.PartitionList{}
+	var lastPartition *types.Partition
 
-	inExcludes := func(part *Partition, list ...*Partition) bool {
+	inExcludes := func(part *types.Partition, list ...*types.Partition) bool {
 		for _, p := range list {
 			if part == p {
 				return true
@@ -412,12 +398,12 @@ func (ep ElementalPartitions) PartitionsByInstallOrder(extraPartitions Partition
 
 // PartitionsByMountPoint sorts partitions according to its mountpoint, ignores nil
 // partitions or partitions with an empty mountpoint
-func (ep ElementalPartitions) PartitionsByMountPoint(descending bool, excludes ...*Partition) PartitionList {
-	mountPointKeys := map[string]*Partition{}
+func (ep ElementalPartitions) PartitionsByMountPoint(descending bool, excludes ...*types.Partition) types.PartitionList {
+	mountPointKeys := map[string]*types.Partition{}
 	mountPoints := []string{}
-	partitions := PartitionList{}
+	partitions := types.PartitionList{}
 
-	for _, p := range ep.PartitionsByInstallOrder([]*Partition{}, excludes...) {
+	for _, p := range ep.PartitionsByInstallOrder([]*types.Partition{}, excludes...) {
 		if p.MountPoint != "" {
 			mountPointKeys[p.MountPoint] = p
 			mountPoints = append(mountPoints, p.MountPoint)
@@ -513,7 +499,7 @@ type InstallUkiSpec struct {
 	Reboot          bool                `yaml:"reboot,omitempty" mapstructure:"reboot"`
 	PowerOff        bool                `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
 	Partitions      ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	ExtraPartitions PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	ExtraPartitions types.PartitionList `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
 	NoFormat        bool                `yaml:"no-format,omitempty" mapstructure:"no-format"`
 	CloudInit       []string            `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
 	SkipEntries     []string            `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
@@ -524,19 +510,19 @@ func (i *InstallUkiSpec) Sanitize() error {
 	return err
 }
 
-func (i *InstallUkiSpec) ShouldReboot() bool                 { return i.Reboot }
-func (i *InstallUkiSpec) ShouldShutdown() bool               { return i.PowerOff }
-func (i *InstallUkiSpec) GetTarget() string                  { return i.Target }
-func (i *InstallUkiSpec) GetPartTable() string               { return "gpt" }
-func (i *InstallUkiSpec) GetPartitions() ElementalPartitions { return i.Partitions }
-func (i *InstallUkiSpec) GetExtraPartitions() PartitionList  { return i.ExtraPartitions }
+func (i *InstallUkiSpec) ShouldReboot() bool                      { return i.Reboot }
+func (i *InstallUkiSpec) ShouldShutdown() bool                    { return i.PowerOff }
+func (i *InstallUkiSpec) GetTarget() string                       { return i.Target }
+func (i *InstallUkiSpec) GetPartTable() string                    { return "gpt" }
+func (i *InstallUkiSpec) GetPartitions() ElementalPartitions      { return i.Partitions }
+func (i *InstallUkiSpec) GetExtraPartitions() types.PartitionList { return i.ExtraPartitions }
 
 type UpgradeUkiSpec struct {
-	Entry        string     `yaml:"entry,omitempty" mapstructure:"entry"`
-	Active       Image      `yaml:"system,omitempty" mapstructure:"system"`
-	Reboot       bool       `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff     bool       `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	EfiPartition *Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	Entry        string           `yaml:"entry,omitempty" mapstructure:"entry"`
+	Active       Image            `yaml:"system,omitempty" mapstructure:"system"`
+	Reboot       bool             `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff     bool             `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	EfiPartition *types.Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
 }
 
 func (i *UpgradeUkiSpec) RecoveryUpgrade() bool {

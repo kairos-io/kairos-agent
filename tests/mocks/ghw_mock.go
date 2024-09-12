@@ -22,9 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jaypipes/ghw/pkg/block"
-	"github.com/jaypipes/ghw/pkg/context"
-	"github.com/jaypipes/ghw/pkg/linuxpath"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	"github.com/kairos-io/kairos-sdk/types"
 )
 
 // GhwMock is used to construct a fake disk to present to ghw when scanning block devices
@@ -37,19 +36,19 @@ import (
 // You can even just pass no disks to simulate a system in which there is no disk/no cos partitions
 type GhwMock struct {
 	chroot string
-	paths  *linuxpath.Paths
-	disks  []block.Disk
+	paths  *ghw.Paths
+	disks  []ghw.Disk
 	mounts []string
 }
 
 // AddDisk adds a disk to GhwMock
-func (g *GhwMock) AddDisk(disk block.Disk) {
+func (g *GhwMock) AddDisk(disk ghw.Disk) {
 	g.disks = append(g.disks, disk)
 }
 
 // AddPartitionToDisk will add a partition to the given disk and call Clean+CreateDevices, so we recreate all files
 // It makes no effort checking if the disk exists
-func (g *GhwMock) AddPartitionToDisk(diskName string, partition *block.Partition) {
+func (g *GhwMock) AddPartitionToDisk(diskName string, partition *types.Partition) {
 	for _, disk := range g.disks {
 		if disk.Name == diskName {
 			disk.Partitions = append(disk.Partitions, partition)
@@ -64,9 +63,7 @@ func (g *GhwMock) AddPartitionToDisk(diskName string, partition *block.Partition
 func (g *GhwMock) CreateDevices() {
 	d, _ := os.MkdirTemp("", "ghwmock")
 	g.chroot = d
-	ctx := context.New()
-	ctx.Chroot = d
-	g.paths = linuxpath.New(ctx)
+	g.paths = ghw.NewPaths(d)
 	_ = os.Setenv("GHW_CHROOT", g.chroot)
 	// Create the /sys/block dir
 	_ = os.MkdirAll(g.paths.SysBlock, 0755)
@@ -87,20 +84,20 @@ func (g *GhwMock) CreateDevices() {
 			_ = os.WriteFile(filepath.Join(diskPath, partition.Name, "dev"), []byte(fmt.Sprintf("%d:6%d\n", indexDisk, indexPart)), 0644)
 			// Create the /run/udev/data/bMAJOR:MINOR file with the data inside to mimic the udev database
 			data := []string{fmt.Sprintf("E:ID_FS_LABEL=%s\n", partition.FilesystemLabel)}
-			if partition.Type != "" {
-				data = append(data, fmt.Sprintf("E:ID_FS_TYPE=%s\n", partition.Type))
+			if partition.FS != "" {
+				data = append(data, fmt.Sprintf("E:ID_FS_TYPE=%s\n", partition.FS))
 			}
 			_ = os.WriteFile(filepath.Join(g.paths.RunUdevData, fmt.Sprintf("b%d:6%d", indexDisk, indexPart)), []byte(strings.Join(data, "")), 0644)
 			// If we got a mountpoint, add it to our fake /proc/self/mounts
 			if partition.MountPoint != "" {
 				// Check if the partition has a fs, otherwise default to ext4
-				if partition.Type == "" {
-					partition.Type = "ext4"
+				if partition.FS == "" {
+					partition.FS = "ext4"
 				}
 				// Prepare the g.mounts with all the mount lines
 				g.mounts = append(
 					g.mounts,
-					fmt.Sprintf("%s %s %s ro,relatime 0 0\n", filepath.Join("/dev", partition.Name), partition.MountPoint, partition.Type))
+					fmt.Sprintf("%s %s %s ro,relatime 0 0\n", filepath.Join("/dev", partition.Name), partition.MountPoint, partition.FS))
 			}
 		}
 	}
@@ -155,7 +152,7 @@ func (g *GhwMock) RemovePartitionFromDisk(diskName string, partitionName string)
 	// Remove it from the partitions list
 	for index, disk := range g.disks {
 		if disk.Name == diskName {
-			var newPartitions []*block.Partition
+			var newPartitions []*types.Partition
 			for _, partition := range disk.Partitions {
 				if partition.Name != partitionName {
 					newPartitions = append(newPartitions, partition)

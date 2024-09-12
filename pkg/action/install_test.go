@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/diskfs/go-diskfs"
+	"github.com/kairos-io/kairos-sdk/ghw"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
@@ -29,7 +30,6 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/collector"
 
-	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -148,43 +148,43 @@ var _ = Describe("Install action tests", func() {
 			_, err = fs.Create(grubCfg)
 			Expect(err).To(BeNil())
 
-			mainDisk := block.Disk{
+			mainDisk := ghw.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device2",
 						FilesystemLabel: "COS_STATE",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device3",
 						FilesystemLabel: "COS_PERSISTENT",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device4",
 						FilesystemLabel: "COS_ACTIVE",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device5",
 						FilesystemLabel: "COS_PASSIVE",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device5",
 						FilesystemLabel: "COS_RECOVERY",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device6",
 						FilesystemLabel: "COS_OEM",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 				},
 			}
