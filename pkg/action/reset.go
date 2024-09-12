@@ -114,6 +114,7 @@ func (r ResetAction) Run() (err error) {
 	defer func() { err = cleanup.Cleanup(err) }()
 
 	// Unmount partitions if any is already mounted before formatting
+	// TODO: Is this needed???
 	err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, r.spec.Partitions.Recovery))
 	if err != nil {
 		return err
@@ -129,6 +130,10 @@ func (r ResetAction) Run() (err error) {
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
+			err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, persistent))
+			if err != nil {
+				return err
+			}
 			err = e.FormatPartition(persistent)
 			if err != nil {
 				return err
@@ -140,6 +145,11 @@ func (r ResetAction) Run() (err error) {
 	if r.spec.FormatOEM {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
+			// Try to umount
+			err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, oem))
+			if err != nil {
+				return err
+			}
 			err = e.FormatPartition(oem)
 			if err != nil {
 				return err
