@@ -507,11 +507,11 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	}
 
 	if ep.OEM == nil && spec.FormatOEM {
-		cfg.Logger.Warnf("no OEM partition found, wont format it")
+		cfg.Logger.Warnf("no OEM partition found, won't format it")
 	}
 
 	if ep.Persistent == nil && spec.FormatPersistent {
-		cfg.Logger.Warnf("no Persistent partition found, wont formate it")
+		cfg.Logger.Warnf("no Persistent partition found, won't format it")
 	}
 
 	// If we mount partitions by the /dev/disk/by-label stanza, their mountpoints wont show up due to ghw not
