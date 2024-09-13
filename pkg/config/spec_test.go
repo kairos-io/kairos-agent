@@ -724,5 +724,10 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		sizeAfter, err := config.GetSourceSize(conf, imageSource)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sizeAfter).ToNot(Equal(sizeBefore))
+		Expect(sizeAfter).ToNot(BeZero())
+		// Size is 2 files of 200 + 100Mb on top, normalized from bytes to MB
+		// So take those 200Mb, converts to bytes by multiplying them (400*1024*1024), then back to MB by dividing
+		// what we get (/1000/1000) then we finish by adding and extra 100MB on top, like the GetSourceSize does internally
+		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
 	})
 })
