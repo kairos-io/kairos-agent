@@ -811,7 +811,8 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		size = int64(float64(size) * 2.5)
 	case source.IsDir():
 		filesVisited = make(map[string]bool, 30000) // An Ubuntu system has around 27k files. This improves performance by not having to resize the map for every file visited
-		// In kubernetes we use the suc script to upgrade, which mounts the host root into $HOST_DIR
+		// In kubernetes we use the suc script to upgrade (https://github.com/kairos-io/packages/blob/main/packages/system/suc-upgrade/suc-upgrade.sh)
+		// , which mounts the host root into $HOST_DIR
 		// we should skip that dir when calculating the size as we would be doubling the calculated size
 		// Plus we will hit the usual things when checking a running system. Processes that go away, tmpfiles, etc...
 
