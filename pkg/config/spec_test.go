@@ -17,6 +17,7 @@ limitations under the License.
 package config_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -653,19 +654,23 @@ func createFileOfSizeInMB(filename string, sizeInMB int) error {
 	return nil
 }
 
-var _ = Describe("GetSourceSize", func() {
+var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 	var tempDir string
 	var tempFilePath string
 	var err error
 	var logger sdkTypes.KairosLogger
 	var conf *config.Config
 	var imageSource *v1.ImageSource
+	var memLog bytes.Buffer
 
 	BeforeEach(func() {
 		tempDir, err = os.MkdirTemp("/tmp", "kairos-test")
 		Expect(err).To(BeNil())
 
-		logger = sdkTypes.NewNullLogger()
+		//logger = sdkTypes.NewNullLogger()
+		memLog = bytes.Buffer{}
+		logger = sdkTypes.NewBufferLogger(&memLog)
+		logger.SetLevel("debug")
 		conf = config.NewConfig(
 			config.WithLogger(logger),
 		)
@@ -678,6 +683,7 @@ var _ = Describe("GetSourceSize", func() {
 	})
 
 	AfterEach(func() {
+		fmt.Println(memLog.String())
 		defer os.RemoveAll(tempDir)
 	})
 
@@ -692,5 +698,36 @@ var _ = Describe("GetSourceSize", func() {
 		sizeAfter, err := config.GetSourceSize(conf, imageSource)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sizeAfter).To(Equal(sizeBefore))
+	})
+	It("Skips the kubernetes host dir when calculating the sizes if set", func() {
+		sizeBefore, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).To(BeNil())
+		Expect(sizeBefore).ToNot(BeZero())
+
+		Expect(os.Mkdir(filepath.Join(tempDir, "host"), os.ModePerm)).ToNot(HaveOccurred())
+		Expect(createFileOfSizeInMB(filepath.Join(tempDir, "host", "what.txt"), 200)).ToNot(HaveOccurred())
+		// Set env var like the suc upgrade does
+		Expect(os.Setenv("HOST_DIR", filepath.Join(tempDir, "host"))).ToNot(HaveOccurred())
+
+		sizeAfter, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sizeAfter).To(Equal(sizeBefore))
+	})
+	It("Counts the kubernetes host dir when calculating the sizes if not set", func() {
+		sizeBefore, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).To(BeNil())
+		Expect(sizeBefore).ToNot(BeZero())
+
+		Expect(os.Mkdir(filepath.Join(tempDir, "host"), os.ModePerm)).ToNot(HaveOccurred())
+		Expect(createFileOfSizeInMB(filepath.Join(tempDir, "host", "what.txt"), 200)).ToNot(HaveOccurred())
+
+		sizeAfter, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sizeAfter).ToNot(Equal(sizeBefore))
+		Expect(sizeAfter).ToNot(BeZero())
+		// Size is 2 files of 200 + 100Mb on top, normalized from bytes to MB
+		// So take those 200Mb, converts to bytes by multiplying them (400*1024*1024), then back to MB by dividing
+		// what we get (/1000/1000) then we finish by adding and extra 100MB on top, like the GetSourceSize does internally
+		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
 	})
 })
