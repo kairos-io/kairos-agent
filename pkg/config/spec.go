@@ -811,11 +811,20 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		size = int64(float64(size) * 2.5)
 	case source.IsDir():
 		filesVisited = make(map[string]bool, 30000) // An Ubuntu system has around 27k files. This improves performance by not having to resize the map for every file visited
-
+		hostDir := os.Getenv("HOST_DIR")
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
-			v := getSize(&size, filesVisited, path, d, err)
+			// In kubernetes we use the suc script to upgrade, which mounts the host root into $HOST_DIR
+			// we should skip that dir when calculating the size as we would be doubling the calculated size
+			// Plus we will hit the usual things when checking a running system. Processes that go away, tmpfiles, etc...
+			// If its empty we are just not setting it, so probably out of the k8s upgrade path
+			if hostDir != "" && strings.HasPrefix(path, hostDir) {
+				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping file as it is a host directory")
+			} else {
+				v := getSize(&size, filesVisited, path, d, err)
+				return v
+			}
 
-			return v
+			return nil
 		})
 
 	case source.IsFile():
