@@ -829,6 +829,8 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 			// If its empty we are just not setting it, so probably out of the k8s upgrade path
 			if hostDir != "" && strings.HasPrefix(path, hostDir) {
 				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping file as it is a host directory")
+			} else if strings.HasPrefix(path, "/proc") || strings.HasPrefix(path, "/dev") || strings.HasPrefix(path, "/run") {
+				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping dir as it is a system directory (/proc, /dev or /run)")
 			} else {
 				v := getSize(&size, filesVisited, path, d, err)
 				return v
