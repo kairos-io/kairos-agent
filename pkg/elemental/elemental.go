@@ -47,15 +47,8 @@ func NewElemental(config *agentConfig.Config) *Elemental {
 }
 
 // FormatPartition will format an already existing partition
-func (e *Elemental) FormatPartition(part *types.Partition, opts ...string) error {
-	var name string
-	// Nice display name for logs
-	if part.Name == "" {
-		name = part.FilesystemLabel
-	} else {
-		name = part.Name
-	}
-	e.config.Logger.Infof("Formatting '%s' partition", name)
+func (e *Elemental) FormatPartition(part *v1.Partition, opts ...string) error {
+	e.config.Logger.Infof("Formatting '%s' partition", part.FilesystemLabel)
 	return partitioner.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
 }
 
