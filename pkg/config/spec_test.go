@@ -730,4 +730,19 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		// what we get (/1000/1000) then we finish by adding and extra 100MB on top, like the GetSourceSize does internally
 		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
 	})
+	It("Does not skip the dirs if outside of kubernetes", func() {
+		sizeBefore, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).To(BeNil())
+		Expect(sizeBefore).ToNot(BeZero())
+
+		// Not inside kubernetes so it should count this dir
+		Expect(os.Mkdir(filepath.Join(tempDir, "run"), os.ModePerm)).ToNot(HaveOccurred())
+		Expect(createFileOfSizeInMB(filepath.Join(tempDir, "run", "what.txt"), 200)).ToNot(HaveOccurred())
+
+		sizeAfter, err := config.GetSourceSize(conf, imageSource)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sizeAfter).ToNot(Equal(sizeBefore))
+		Expect(sizeAfter).ToNot(BeZero())
+		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
+	})
 })
