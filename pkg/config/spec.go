@@ -811,11 +811,36 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		size = int64(float64(size) * 2.5)
 	case source.IsDir():
 		filesVisited = make(map[string]bool, 30000) // An Ubuntu system has around 27k files. This improves performance by not having to resize the map for every file visited
+		// In kubernetes we use the suc script to upgrade (https://github.com/kairos-io/packages/blob/main/packages/system/suc-upgrade/suc-upgrade.sh)
+		// , which mounts the host root into $HOST_DIR
+		// we should skip that dir when calculating the size as we would be doubling the calculated size
+		// Plus we will hit the usual things when checking a running system. Processes that go away, tmpfiles, etc...
 
+		// This is always set for pods running under kubernetes
+		_, underKubernetes := os.LookupEnv("KUBERNETES_SERVICE_HOST")
+		config.Logger.Logger.Info().Bool("status", underKubernetes).Msg("Running under kubernetes")
+		// Try to get the HOST_DIR in case we are not using the default one
+		hostDir := os.Getenv("HOST_DIR")
+		// If we are under kubernetes but the HOST_DIR var is empty, default to /host as system-upgrade-controller mounts
+		// the host in that dir by default
+		if underKubernetes && hostDir == "" {
+			hostDir = "/host"
+		}
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
-			v := getSize(&size, filesVisited, path, d, err)
+			// If its empty we are just not setting it, so probably out of the k8s upgrade path
+			if hostDir != "" && strings.HasPrefix(path, hostDir) {
+				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping file as it is a host directory")
+			} else if underKubernetes && (strings.HasPrefix(path, "/proc") || strings.HasPrefix(path, "/dev") || strings.HasPrefix(path, "/run")) {
+				// If under kubernetes, the upgrade will check the size of / which includes the host dir mounted under /host
+				// But it also can bind the host mounts into / so we want to skip those runtime dirs
+				// During install or upgrade outside kubernetes, we dont care about those dirs as they are not expected to be in the source dir
+				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping dir as it is a runtime directory under kubernetes (/proc, /dev or /run)")
+			} else {
+				v := getSize(&size, filesVisited, path, d, err)
+				return v
+			}
 
-			return v
+			return nil
 		})
 
 	case source.IsFile():
