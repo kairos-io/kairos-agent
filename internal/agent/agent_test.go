@@ -20,7 +20,7 @@ echo "Received $event with $payload" >> exec.log
 echo "{}"
 `
 
-var _ = Describe("Bootstrap provider", func() {
+var _ = Describe("Bootstrap provider", Focus, func() {
 	Context("Config", func() {
 		It("gets entire content", func() {
 			f, err := ioutil.TempDir("", "tests")
@@ -28,7 +28,7 @@ var _ = Describe("Bootstrap provider", func() {
 			defer os.RemoveAll(f)
 
 			wd, _ := os.Getwd()
-			os.WriteFile(filepath.Join(wd, "agent-provider-test"), []byte(testProvider), 0655)
+			os.WriteFile(filepath.Join(wd, "agent-provider-test"), []byte(testProvider), 0777)
 
 			defer os.RemoveAll(filepath.Join(wd, "agent-provider-test"))
 
