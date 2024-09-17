@@ -220,36 +220,6 @@ func (r *EmptySpec) Sanitize() error {
 func (r *EmptySpec) ShouldReboot() bool   { return false }
 func (r *EmptySpec) ShouldShutdown() bool { return false }
 
-// GetByName gets a partitions by its name from the PartitionList
-func GetByName(name string, partitionList types.PartitionList) *types.Partition {
-	var part *types.Partition
-
-	for _, p := range partitionList {
-		if p.Name == name {
-			part = p
-			if part.MountPoint != "" {
-				return part
-			}
-		}
-	}
-	return part
-}
-
-// GetByLabel gets a partition by its label from the PartitionList
-func GetByLabel(label string, pl types.PartitionList) *types.Partition {
-	var part *types.Partition
-
-	for _, p := range pl {
-		if p.FilesystemLabel == label {
-			part = p
-			if part.MountPoint != "" {
-				return part
-			}
-		}
-	}
-	return part
-}
-
 type ElementalPartitions struct {
 	BIOS       *types.Partition `yaml:"-"`
 	EFI        *types.Partition `yaml:"-"`
@@ -310,28 +280,29 @@ func (ep *ElementalPartitions) SetDefaultLabels() {
 // TODO find a way to map custom labels when partition labels are not available
 func NewElementalPartitionsFromList(pl types.PartitionList) ElementalPartitions {
 	ep := ElementalPartitions{}
-	ep.BIOS = GetByName(constants.BiosPartName, pl)
-	ep.EFI = GetByName(constants.EfiPartName, pl)
-	if ep.EFI == nil {
-		ep.EFI = GetByLabel(constants.EfiLabel, pl)
-	}
-	ep.OEM = GetByName(constants.OEMPartName, pl)
-	if ep.OEM == nil {
-		ep.OEM = GetByLabel(constants.OEMLabel, pl)
-	}
-	ep.Recovery = GetByName(constants.RecoveryPartName, pl)
-	if ep.Recovery == nil {
-		ep.Recovery = GetByLabel(constants.RecoveryLabel, pl)
-	}
-	ep.State = GetByName(constants.StatePartName, pl)
-	if ep.State == nil {
-		ep.State = GetByLabel(constants.StateLabel, pl)
-	}
-	ep.Persistent = GetByName(constants.PersistentPartName, pl)
-	if ep.Persistent == nil {
-		ep.Persistent = GetByLabel(constants.PersistentLabel, pl)
-	}
+	ep.BIOS = getPartitionByNameOrLabel(constants.BiosPartName, "", pl)
+	ep.EFI = getPartitionByNameOrLabel(constants.EfiPartName, constants.EfiLabel, pl)
+	ep.OEM = getPartitionByNameOrLabel(constants.OEMPartName, constants.OEMLabel, pl)
+	ep.Recovery = getPartitionByNameOrLabel(constants.RecoveryPartName, constants.RecoveryLabel, pl)
+	ep.State = getPartitionByNameOrLabel(constants.StatePartName, constants.StateLabel, pl)
+	ep.Persistent = getPartitionByNameOrLabel(constants.PersistentPartName, constants.PersistentLabel, pl)
 	return ep
+}
+
+// getPartitionByNameOrLabel will get a Partition type fropm a
+func getPartitionByNameOrLabel(name string, label string, partitionList types.PartitionList) *types.Partition {
+	var part *types.Partition
+
+	for _, p := range partitionList {
+		if p.Name == name || p.FilesystemLabel == label {
+			part = p
+			if part.MountPoint != "" {
+				return part
+			}
+			break
+		}
+	}
+	return part
 }
 
 // PartitionsByInstallOrder sorts partitions according to the default layout
