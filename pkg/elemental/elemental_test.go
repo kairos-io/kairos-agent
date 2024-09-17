@@ -35,7 +35,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/kairos-io/kairos-sdk/ghw"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/diskfs/go-diskfs"
@@ -610,8 +610,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 	})
 	Describe("CheckActiveDeployment", Label("check"), func() {
 		It("deployment found", func() {
-			ghwTest := v1mock.GhwMock{}
-			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: cnst.ActiveLabel,

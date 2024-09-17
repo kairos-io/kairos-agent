@@ -33,7 +33,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/kairos-io/kairos-sdk/ghw"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -189,8 +189,8 @@ var _ = Describe("Utils", Label("utils"), func() {
 			}
 		})
 		It("returns found device", func() {
-			ghwTest := v1mock.GhwMock{}
-			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "FAKE",
@@ -211,10 +211,10 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 	})
 	Describe("GetAllPartitions", Label("lsblk", "partitions"), func() {
-		var ghwTest v1mock.GhwMock
+		var ghwTest ghwMock.GhwMock
 		BeforeEach(func() {
-			ghwTest = v1mock.GhwMock{}
-			disk1 := ghw.Disk{
+			ghwTest = ghwMock.GhwMock{}
+			disk1 := sdkTypes.Disk{
 				Name: "sda",
 				Partitions: []*sdkTypes.Partition{
 					{
@@ -225,7 +225,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 					},
 				},
 			}
-			disk2 := ghw.Disk{
+			disk2 := sdkTypes.Disk{
 				Name: "sdb",
 				Partitions: []*sdkTypes.Partition{
 					{
@@ -253,10 +253,10 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 	})
 	Describe("GetPartitionFS", Label("lsblk", "partitions"), func() {
-		var ghwTest v1mock.GhwMock
+		var ghwTest ghwMock.GhwMock
 		BeforeEach(func() {
-			ghwTest = v1mock.GhwMock{}
-			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			ghwTest = ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name: "device1",
 					FS:   "xfs",
@@ -330,8 +330,8 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		It("returns found Partition", func() {
 			var flags []string
-			ghwTest := v1mock.GhwMock{}
-			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "FAKE",
@@ -1071,10 +1071,10 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 	})
 	Describe("GetEfiPartition", func() {
-		var ghwTest v1mock.GhwMock
+		var ghwTest ghwMock.GhwMock
 
 		BeforeEach(func() {
-			mainDisk := ghw.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
 				Partitions: []*sdkTypes.Partition{
 					{
@@ -1085,7 +1085,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 		})

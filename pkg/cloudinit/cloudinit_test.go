@@ -29,7 +29,7 @@ import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/kairos-io/kairos-sdk/ghw"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -158,8 +158,8 @@ stages:
         pLabel: partLabel
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
-			ghwTest := v1mock.GhwMock{}
-			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "DEV_LABEL",
@@ -186,8 +186,8 @@ stages:
         size: 0
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
-			ghwTest := v1mock.GhwMock{}
-			disk := ghw.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name: fmt.Sprintf("device%d", partNum),
 					FS:   "ext4",

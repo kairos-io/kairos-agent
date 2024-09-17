@@ -30,7 +30,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/kairos-io/kairos-sdk/ghw"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,7 +50,7 @@ var _ = Describe("Reset action tests", func() {
 	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
 	var memLog *bytes.Buffer
-	var ghwTest v1mock.GhwMock
+	var ghwTest ghwMock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
@@ -98,7 +98,7 @@ var _ = Describe("Reset action tests", func() {
 			_, err = fs.Create(recoveryImg)
 			Expect(err).To(BeNil())
 
-			mainDisk := ghw.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
 				Partitions: []*sdkTypes.Partition{
 					{
@@ -128,7 +128,7 @@ var _ = Describe("Reset action tests", func() {
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 

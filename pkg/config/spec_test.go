@@ -28,7 +28,7 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/ghw"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -226,9 +226,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 		Describe("ResetSpec", Label("reset"), func() {
 			Describe("Successful executions", func() {
-				var ghwTest v1mock.GhwMock
+				var ghwTest ghwMock.GhwMock
 				BeforeEach(func() {
-					mainDisk := ghw.Disk{
+					mainDisk := sdkTypes.Disk{
 						Name: "device",
 						Partitions: []*sdkTypes.Partition{
 							{
@@ -258,7 +258,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 							},
 						},
 					}
-					ghwTest = v1mock.GhwMock{}
+					ghwTest = ghwMock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
 					ghwTest.CreateDevices()
 
@@ -312,7 +312,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			Describe("Failures", func() {
 				var bootedFrom string
-				var ghwTest v1mock.GhwMock
+				var ghwTest ghwMock.GhwMock
 				BeforeEach(func() {
 					bootedFrom = ""
 					runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
@@ -325,7 +325,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					}
 
 					// Set an empty disk for tests, otherwise reads the hosts hardware
-					mainDisk := ghw.Disk{
+					mainDisk := sdkTypes.Disk{
 						Name: "device",
 						Partitions: []*sdkTypes.Partition{
 							{
@@ -335,7 +335,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 							},
 						},
 					}
-					ghwTest = v1mock.GhwMock{}
+					ghwTest = ghwMock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
 					ghwTest.CreateDevices()
 				})
@@ -354,11 +354,11 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err.Error()).To(ContainSubstring("recovery partition not found"))
 				})
 				It("fails to set defaults if no state partition detected", func() {
-					mainDisk := ghw.Disk{
+					mainDisk := sdkTypes.Disk{
 						Name:       "device",
 						Partitions: []*sdkTypes.Partition{},
 					}
-					ghwTest = v1mock.GhwMock{}
+					ghwTest = ghwMock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
 					ghwTest.CreateDevices()
 					defer ghwTest.Clean()
@@ -384,9 +384,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 		Describe("UpgradeSpec", Label("upgrade"), func() {
 			Describe("Successful executions", func() {
-				var ghwTest v1mock.GhwMock
+				var ghwTest ghwMock.GhwMock
 				BeforeEach(func() {
-					mainDisk := ghw.Disk{
+					mainDisk := sdkTypes.Disk{
 						Name: "device",
 						Partitions: []*sdkTypes.Partition{
 							{
@@ -417,7 +417,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 							},
 						},
 					}
-					ghwTest = v1mock.GhwMock{}
+					ghwTest = ghwMock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
 					ghwTest.CreateDevices()
 				})
@@ -454,7 +454,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		Describe("Config from cloudconfig", Label("cloud-config"), func() {
 			var bootedFrom string
 			var dir string
-			var ghwTest v1mock.GhwMock
+			var ghwTest ghwMock.GhwMock
 
 			BeforeEach(func() {
 				bootedFrom = ""
@@ -494,7 +494,7 @@ cloud-init-paths:
 				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
-				mainDisk := ghw.Disk{
+				mainDisk := sdkTypes.Disk{
 					Name: "device",
 					Partitions: []*sdkTypes.Partition{
 						{
@@ -524,7 +524,7 @@ cloud-init-paths:
 						},
 					},
 				}
-				ghwTest = v1mock.GhwMock{}
+				ghwTest = ghwMock.GhwMock{}
 				ghwTest.AddDisk(mainDisk)
 				ghwTest.CreateDevices()
 

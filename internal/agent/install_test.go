@@ -2,6 +2,7 @@ package agent
 
 import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	"github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/kairos-io/kairos-sdk/ghw"
 	"github.com/twpayne/go-vfs/v4/vfst"
 	"gopkg.in/yaml.v3"
 
@@ -63,7 +63,7 @@ var _ = Describe("RunInstall", func() {
 	var err error
 	var fs v1.FS
 	var cleanup func()
-	var ghwTest v1mock.GhwMock
+	var ghwTest ghwMock.GhwMock
 	var cmdline func() ([]byte, error)
 
 	BeforeEach(func() {
@@ -125,7 +125,7 @@ var _ = Describe("RunInstall", func() {
 			},
 		}
 
-		mainDisk := ghw.Disk{
+		mainDisk := types.Disk{
 			Name: "device",
 			Partitions: []*types.Partition{
 				{
@@ -165,7 +165,7 @@ var _ = Describe("RunInstall", func() {
 				},
 			},
 		}
-		ghwTest = v1mock.GhwMock{}
+		ghwTest = ghwMock.GhwMock{}
 		ghwTest.AddDisk(mainDisk)
 		ghwTest.CreateDevices()
 	})

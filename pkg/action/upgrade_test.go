@@ -32,7 +32,7 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/ghw"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,7 +52,7 @@ var _ = Describe("Upgrade Actions test", func() {
 	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
 	var memLog *bytes.Buffer
-	var ghwTest v1mock.GhwMock
+	var ghwTest ghwMock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
 	var dummySourceFile string
 	var dummySourceSizeMb int64
@@ -114,7 +114,7 @@ var _ = Describe("Upgrade Actions test", func() {
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.LiveDir), constants.DirPerm)
 
-			mainDisk := ghw.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
 				Partitions: []*sdkTypes.Partition{
 					{
@@ -146,7 +146,7 @@ var _ = Describe("Upgrade Actions test", func() {
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 		})

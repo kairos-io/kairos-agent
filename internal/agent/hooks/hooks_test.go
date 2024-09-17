@@ -2,6 +2,7 @@ package hook_test
 
 import (
 	"bytes"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/ghw"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,7 +39,7 @@ var _ = Describe("Hooks", func() {
 	var cleanup func()
 	var memLog *bytes.Buffer
 	var extractor *v1mock.FakeImageExtractor
-	var ghwTest v1mock.GhwMock
+	var ghwTest ghwMock.GhwMock
 	var err error
 
 	Context("SysExtPostInstall", func() {
@@ -81,7 +81,7 @@ var _ = Describe("Hooks", func() {
 			)
 			cfg.Config = collector.Config{}
 
-			mainDisk := ghw.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
 				Partitions: []*sdkTypes.Partition{
 					{
@@ -92,7 +92,7 @@ var _ = Describe("Hooks", func() {
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 		})
