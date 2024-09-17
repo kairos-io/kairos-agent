@@ -12,10 +12,10 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/ghw"
 	"github.com/kairos-io/kairos-sdk/unstructured"
 
 	"github.com/erikgeiser/promptkit/textinput"
-	"github.com/jaypipes/ghw"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
 	"github.com/mudler/yip/pkg/schema"
@@ -129,20 +129,17 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 	maxSize := float64(0)
 	preferedDevice := "/dev/sda"
 
-	block, err := ghw.Block()
-	if err == nil {
-		for _, disk := range block.Disks {
-			// skip useless devices (/dev/ram, /dev/loop, /dev/sr, /dev/zram)
-			if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {
-				continue
-			}
-			size := float64(disk.SizeBytes) / float64(GiB)
-			if size > maxSize {
-				maxSize = size
-				preferedDevice = "/dev/" + disk.Name
-			}
-			disks = append(disks, fmt.Sprintf("/dev/%s: %s (%.2f GiB) ", disk.Name, disk.Model, float64(disk.SizeBytes)/float64(GiB)))
+	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		// skip useless devices (/dev/ram, /dev/loop, /dev/sr, /dev/zram)
+		if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {
+			continue
 		}
+		size := float64(disk.SizeBytes) / float64(GiB)
+		if size > maxSize {
+			maxSize = size
+			preferedDevice = "/dev/" + disk.Name
+		}
+		disks = append(disks, fmt.Sprintf("/dev/%s: (%.2f GiB) ", disk.Name, float64(disk.SizeBytes)/float64(GiB)))
 	}
 
 	pterm.Info.Println("Available Disks:")

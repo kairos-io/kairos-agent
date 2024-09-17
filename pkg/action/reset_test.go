@@ -20,18 +20,19 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
 	"regexp"
 
-	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v4"
@@ -49,7 +50,7 @@ var _ = Describe("Reset action tests", func() {
 	var cloudInit *v1mock.FakeCloudInitRunner
 	var cleanup func()
 	var memLog *bytes.Buffer
-	var ghwTest v1mock.GhwMock
+	var ghwTest ghwMock.GhwMock
 	var extractor *v1mock.FakeImageExtractor
 
 	BeforeEach(func() {
@@ -97,37 +98,37 @@ var _ = Describe("Reset action tests", func() {
 			_, err = fs.Create(recoveryImg)
 			Expect(err).To(BeNil())
 
-			mainDisk := block.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device2",
 						FilesystemLabel: "COS_STATE",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device3",
 						FilesystemLabel: "COS_PERSISTENT",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device4",
 						FilesystemLabel: "COS_OEM",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 					{
 						Name:            "device5",
 						FilesystemLabel: "COS_RECOVERY",
-						Type:            "ext4",
+						FS:              "ext4",
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 

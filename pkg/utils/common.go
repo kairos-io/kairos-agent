@@ -35,6 +35,7 @@ import (
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/types"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -55,31 +56,21 @@ func CommandExists(command string) bool {
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
-func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, error) {
-	part, err := GetFullDeviceByLabel(runner, label, attempts)
-	if err != nil {
-		return "", err
-	}
-	return part.Path, nil
-}
-
-// GetFullDeviceByLabel works like GetDeviceByLabel, but it will try to get as much info as possible from the existing
-// partition and return a v1.Partition object
-func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*v1.Partition, error) {
+func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (string, error) {
 	for tries := 0; tries < attempts; tries++ {
-		_, _ = runner.Run("udevadm", "trigger")
-		_, _ = runner.Run("udevadm", "settle")
-		parts, err := partitions.GetAllPartitions()
+		_, _ = config.Runner.Run("udevadm", "trigger")
+		_, _ = config.Runner.Run("udevadm", "settle")
+		parts, err := partitions.GetAllPartitions(&config.Logger)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		part := parts.GetByLabel(label)
+		part := v1.GetPartitionByNameOrLabel("", label, parts)
 		if part != nil {
-			return part, nil
+			return part.Path, nil
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return nil, errors.New("no device found")
+	return "", errors.New("no device found")
 }
 
 // CopyFile Copies source file to target file using Fs interface. If target
@@ -310,7 +301,7 @@ func LoadEnvFile(fs v1.FS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-func IsMounted(config *agentConfig.Config, part *v1.Partition) (bool, error) {
+func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -343,7 +334,7 @@ func GetTempDir(config *agentConfig.Config, suffix string) string {
 		config.Logger.Debugf("Got tmpdir from TMPDIR var: %s", dir)
 		return filepath.Join(dir, elementalTmpDir)
 	}
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&config.Logger)
 	if err != nil {
 		config.Logger.Debug("Could not get partitions, defaulting to /tmp")
 		return filepath.Join("/", "tmp", elementalTmpDir)

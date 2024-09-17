@@ -24,20 +24,19 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kairos-io/kairos-sdk/collector"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
-	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/jaypipes/ghw"
-	"golang.org/x/sys/unix"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	"github.com/kairos-io/kairos-sdk/types"
+
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -143,7 +142,7 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	return spec, nil
 }
 
-func NewInstallElementalPartitions(log sdkTypes.KairosLogger, spec *v1.InstallSpec) v1.ElementalPartitions {
+func NewInstallElementalPartitions(log types.KairosLogger, spec *v1.InstallSpec) v1.ElementalPartitions {
 	pt := v1.ElementalPartitions{}
 	var oemSize uint
 	if spec.Partitions.OEM != nil && spec.Partitions.OEM.Size != 0 {
@@ -151,7 +150,7 @@ func NewInstallElementalPartitions(log sdkTypes.KairosLogger, spec *v1.InstallSp
 	} else {
 		oemSize = constants.OEMSize
 	}
-	pt.OEM = &v1.Partition{
+	pt.OEM = &types.Partition{
 		FilesystemLabel: constants.OEMLabel,
 		Size:            oemSize,
 		Name:            constants.OEMPartName,
@@ -176,7 +175,7 @@ func NewInstallElementalPartitions(log sdkTypes.KairosLogger, spec *v1.InstallSp
 		}
 	}
 	log.Infof("Setting recovery partition size to %dMb", recoverySize)
-	pt.Recovery = &v1.Partition{
+	pt.Recovery = &types.Partition{
 		FilesystemLabel: constants.RecoveryLabel,
 		Size:            recoverySize,
 		Name:            constants.RecoveryPartName,
@@ -202,7 +201,7 @@ func NewInstallElementalPartitions(log sdkTypes.KairosLogger, spec *v1.InstallSp
 		}
 	}
 	log.Infof("Setting state partition size to %dMb", stateSize)
-	pt.State = &v1.Partition{
+	pt.State = &types.Partition{
 		FilesystemLabel: constants.StateLabel,
 		Size:            stateSize,
 		Name:            constants.StatePartName,
@@ -216,7 +215,7 @@ func NewInstallElementalPartitions(log sdkTypes.KairosLogger, spec *v1.InstallSp
 	} else {
 		persistentSize = spec.Partitions.Persistent.Size
 	}
-	pt.Persistent = &v1.Partition{
+	pt.Persistent = &types.Partition{
 		FilesystemLabel: constants.PersistentLabel,
 		Size:            persistentSize,
 		Name:            constants.PersistentPartName,
@@ -238,7 +237,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
@@ -401,7 +400,7 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
@@ -554,7 +553,7 @@ func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
 	spec.Partitions.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
 
 	// Get EFI partition
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
@@ -630,7 +629,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions.EFI = &v1.Partition{
+	spec.Partitions.EFI = &types.Partition{
 		FilesystemLabel: constants.EfiLabel,
 		Size:            constants.ImgSize * 5, // 15Gb for the EFI partition as default
 		Name:            constants.EfiPartName,
@@ -638,7 +637,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 		MountPoint:      constants.EfiDir,
 		Flags:           []string{"esp"},
 	}
-	spec.Partitions.OEM = &v1.Partition{
+	spec.Partitions.OEM = &types.Partition{
 		FilesystemLabel: constants.OEMLabel,
 		Size:            constants.OEMSize,
 		Name:            constants.OEMPartName,
@@ -646,7 +645,7 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
-	spec.Partitions.Persistent = &v1.Partition{
+	spec.Partitions.Persistent = &types.Partition{
 		FilesystemLabel: constants.PersistentLabel,
 		Size:            constants.PersistentSize,
 		Name:            constants.PersistentPartName,
@@ -718,16 +717,11 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	}
 
 	// Get EFI partition
-	parts, err := partitions.GetAllPartitions()
+	spec.EfiPartition, err = partitions.GetEfiPartition(&cfg.Logger)
 	if err != nil {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
-	for _, p := range parts {
-		if p.FilesystemLabel == constants.EfiLabel {
-			spec.EfiPartition = p
-			break
-		}
-	}
+
 	// Get free size of partition
 	var stat unix.Statfs_t
 	_ = unix.Statfs(spec.EfiPartition.MountPoint, &stat)
@@ -954,7 +948,7 @@ func BootedFrom(runner v1.Runner, label string) bool {
 }
 
 // HasSquashedRecovery returns true if a squashed recovery image is found in the system
-func hasSquashedRecovery(config *Config, recovery *v1.Partition) (squashed bool, err error) {
+func hasSquashedRecovery(config *Config, recovery *types.Partition) (squashed bool, err error) {
 	mountPoint := recovery.MountPoint
 	if mnt, _ := isMounted(config, recovery); !mnt {
 		tmpMountDir, err := fsutils.TempDir(config.Fs, "", "elemental")
@@ -979,7 +973,7 @@ func hasSquashedRecovery(config *Config, recovery *v1.Partition) (squashed bool,
 	return fsutils.Exists(config.Fs, filepath.Join(mountPoint, "cOS", constants.RecoverySquashFile))
 }
 
-func isMounted(config *Config, part *v1.Partition) (bool, error) {
+func isMounted(config *Config, part *types.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -1022,29 +1016,21 @@ func detectLargestDevice() string {
 	preferedDevice := "/dev/sda"
 	maxSize := float64(0)
 
-	block, err := ghw.Block()
-	if err == nil {
-		for _, disk := range block.Disks {
-			size := float64(disk.SizeBytes) / float64(GiB)
-			if size > maxSize {
-				maxSize = size
-				preferedDevice = "/dev/" + disk.Name
-			}
+	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		size := float64(disk.SizeBytes) / float64(GiB)
+		if size > maxSize {
+			maxSize = size
+			preferedDevice = "/dev/" + disk.Name
 		}
 	}
+
 	return preferedDevice
 }
 
 // DetectPreConfiguredDevice returns a disk that has partitions labeled with
 // Kairos labels. It can be used to detect a pre-configured device.
-func DetectPreConfiguredDevice(logger sdkTypes.KairosLogger) (string, error) {
-	block, err := ghw.Block()
-	if err != nil {
-		logger.Errorf("failed getting block devices: %s", err.Error())
-		return "", err
-	}
-
-	for _, disk := range block.Disks {
+func DetectPreConfiguredDevice(logger types.KairosLogger) (string, error) {
+	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), &logger) {
 		for _, p := range disk.Partitions {
 			if p.FilesystemLabel == "COS_STATE" {
 				return filepath.Join("/", "dev", disk.Name), nil

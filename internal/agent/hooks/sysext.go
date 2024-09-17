@@ -16,7 +16,7 @@ type SysExtPostInstall struct{}
 func (b SysExtPostInstall) Run(c config.Config, _ v1.Spec) error {
 	c.Logger.Logger.Debug().Msg("Running SysExtPostInstall hook")
 	// mount efi partition
-	efiPart, err := partitions.GetEfiPartition()
+	efiPart, err := partitions.GetEfiPartition(&c.Logger)
 	if err != nil {
 		c.Logger.Errorf("failed to get EFI partition: %s", err)
 		if c.FailOnBundleErrors {

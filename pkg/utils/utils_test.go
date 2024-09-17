@@ -20,22 +20,22 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/jaypipes/ghw/pkg/block"
-
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v4"
@@ -189,8 +189,8 @@ var _ = Describe("Utils", Label("utils"), func() {
 			}
 		})
 		It("returns found device", func() {
-			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "FAKE",
@@ -199,24 +199,24 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.AddDisk(disk)
 			ghwTest.CreateDevices()
 			defer ghwTest.Clean()
-			out, err := utils.GetDeviceByLabel(runner, "FAKE", 1)
+			out, err := utils.GetDeviceByLabel(config, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out).To(Equal("/dev/device1"))
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails if no device is found in two attempts", func() {
-			_, err := utils.GetDeviceByLabel(runner, "FAKE", 2)
+			_, err := utils.GetDeviceByLabel(config, "FAKE", 2)
 			Expect(err).NotTo(BeNil())
 			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})
 	})
 	Describe("GetAllPartitions", Label("lsblk", "partitions"), func() {
-		var ghwTest v1mock.GhwMock
+		var ghwTest ghwMock.GhwMock
 		BeforeEach(func() {
-			ghwTest = v1mock.GhwMock{}
-			disk1 := block.Disk{
+			ghwTest = ghwMock.GhwMock{}
+			disk1 := sdkTypes.Disk{
 				Name: "sda",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name: "sda1Test",
 					},
@@ -225,9 +225,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 					},
 				},
 			}
-			disk2 := block.Disk{
+			disk2 := sdkTypes.Disk{
 				Name: "sdb",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name: "sdb1Test",
 					},
@@ -241,7 +241,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.Clean()
 		})
 		It("returns all found partitions", func() {
-			parts, err := partitions.GetAllPartitions()
+			parts, err := partitions.GetAllPartitions(&logger)
 			Expect(err).To(BeNil())
 			var partNames []string
 			for _, p := range parts {
@@ -250,40 +250,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(partNames).To(ContainElement("sda1Test"))
 			Expect(partNames).To(ContainElement("sda1Test"))
 			Expect(partNames).To(ContainElement("sdb1Test"))
-		})
-	})
-	Describe("GetPartitionFS", Label("lsblk", "partitions"), func() {
-		var ghwTest v1mock.GhwMock
-		BeforeEach(func() {
-			ghwTest = v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
-				{
-					Name: "device1",
-					Type: "xfs",
-				},
-				{
-					Name: "device2",
-				},
-			}}
-			ghwTest.AddDisk(disk)
-			ghwTest.CreateDevices()
-		})
-		AfterEach(func() {
-			ghwTest.Clean()
-		})
-		It("returns found device with plain partition device", func() {
-			pFS, err := partitions.GetPartitionFS("device1")
-			Expect(err).To(BeNil())
-			Expect(pFS).To(Equal("xfs"))
-		})
-		It("returns found device with full partition device", func() {
-			pFS, err := partitions.GetPartitionFS("/dev/device1")
-			Expect(err).To(BeNil())
-			Expect(pFS).To(Equal("xfs"))
-		})
-		It("fails if no partition is found", func() {
-			_, err := partitions.GetPartitionFS("device2")
-			Expect(err).NotTo(BeNil())
 		})
 	})
 	Describe("CosignVerify", Label("cosign"), func() {
@@ -318,57 +284,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 			duration := time.Since(start)
 			Expect(runner.CmdsMatch([][]string{{"poweroff", "-f"}})).To(BeNil())
 			Expect(duration.Seconds() >= 3).To(BeTrue())
-		})
-	})
-	Describe("GetFullDeviceByLabel", Label("lsblk", "partitions"), func() {
-		var cmds [][]string
-		BeforeEach(func() {
-			cmds = [][]string{
-				{"udevadm", "trigger"},
-				{"udevadm", "settle"},
-			}
-		})
-		It("returns found v1.Partition", func() {
-			var flags []string
-			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
-				{
-					Name:            "device1",
-					FilesystemLabel: "FAKE",
-					Type:            "fakefs",
-					MountPoint:      "/mnt/fake",
-					SizeBytes:       0,
-				},
-			}}
-			ghwTest.AddDisk(disk)
-			ghwTest.CreateDevices()
-			defer ghwTest.Clean()
-			out, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
-			Expect(err).To(BeNil())
-			Expect(out.FilesystemLabel).To(Equal("FAKE"))
-			Expect(out.Size).To(Equal(uint(0)))
-			Expect(out.FS).To(Equal("fakefs"))
-			Expect(out.MountPoint).To(Equal("/mnt/fake"))
-			Expect(out.Flags).To(Equal(flags))
-			Expect(runner.CmdsMatch(cmds)).To(BeNil())
-		})
-		It("fails to run lsblk", func() {
-			runner.ReturnError = errors.New("failed running lsblk")
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
-			Expect(err).To(HaveOccurred())
-			Expect(runner.CmdsMatch(cmds)).To(BeNil())
-		})
-		It("fails to parse json output", func() {
-			runner.ReturnValue = []byte(`{"invalidobject": []}`)
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
-			Expect(err).To(HaveOccurred())
-			Expect(runner.CmdsMatch(cmds)).To(BeNil())
-		})
-		It("fails if no device is found in two attempts", func() {
-			runner.ReturnValue = []byte(`{"blockdevices":[{"label":"something","type": "part"}]}`)
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 2)
-			Expect(err).To(HaveOccurred())
-			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})
 	})
 	Describe("CopyFile", Label("CopyFile"), func() {
@@ -967,7 +882,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("IsMounted", Label("ismounted"), func() {
 		It("checks a mounted partition", func() {
-			part := &v1.Partition{
+			part := &sdkTypes.Partition{
 				MountPoint: "/some/mountpoint",
 			}
 			err := mounter.Mount("/some/device", "/some/mountpoint", "auto", []string{})
@@ -977,7 +892,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(mnt).To(BeTrue())
 		})
 		It("checks a not mounted partition", func() {
-			part := &v1.Partition{
+			part := &sdkTypes.Partition{
 				MountPoint: "/some/mountpoint",
 			}
 			mnt, err := utils.IsMounted(config, part)
@@ -985,7 +900,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(mnt).To(BeFalse())
 		})
 		It("checks a partition without mountpoint", func() {
-			part := &v1.Partition{}
+			part := &sdkTypes.Partition{}
 			mnt, err := utils.IsMounted(config, part)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(mnt).To(BeFalse())
@@ -1071,33 +986,36 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 	})
 	Describe("GetEfiPartition", func() {
-		var ghwTest v1mock.GhwMock
+		var ghwTest ghwMock.GhwMock
 
 		BeforeEach(func() {
-			mainDisk := block.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 						MountPoint:      "/efi",
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 		})
+		AfterEach(func() {
+			ghwTest.Clean()
+		})
 		It("returns the efi partition", func() {
-			efi, err := partitions.GetEfiPartition()
+			efi, err := partitions.GetEfiPartition(&logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(efi.FilesystemLabel).To(Equal("COS_GRUB"))
 			Expect(efi.Name).To(Equal("device1")) // Just to make sure its our mocked system
 		})
 		It("fails to find the efi partition", func() {
 			ghwTest.Clean() // Remove the disk
-			efi, err := partitions.GetEfiPartition()
+			efi, err := partitions.GetEfiPartition(&logger)
 			Expect(err).To(HaveOccurred())
 			Expect(efi).To(BeNil())
 		})

@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,7 +16,6 @@ import (
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
@@ -75,7 +75,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
 
 	// Get EFI partition
-	efiPartition, err := partitions.GetEfiPartition()
+	efiPartition, err := partitions.GetEfiPartition(&cfg.Logger)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
-	efiPartition, err := partitions.GetEfiPartition()
+	efiPartition, err := partitions.GetEfiPartition(&cfg.Logger)
 	if err != nil {
 		return err
 	}
@@ -319,7 +319,7 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 }
 
 // ListSystemdEntries reads the systemd-boot entries and returns a list of entries found
-func listSystemdEntries(cfg *config.Config, efiPartition *v1.Partition) ([]string, error) {
+func listSystemdEntries(cfg *config.Config, efiPartition *sdkTypes.Partition) ([]string, error) {
 	var entries []string
 	err := fsutils.WalkDirFs(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
 		if err != nil {

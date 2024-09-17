@@ -2,7 +2,11 @@ package hook_test
 
 import (
 	"bytes"
-	"github.com/jaypipes/ghw/pkg/block"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	"os"
+	"path/filepath"
+	"testing"
+
 	_ "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -11,13 +15,11 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v4"
 	"github.com/twpayne/go-vfs/v4/vfst"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 func TestConfig(t *testing.T) {
@@ -37,7 +39,7 @@ var _ = Describe("Hooks", func() {
 	var cleanup func()
 	var memLog *bytes.Buffer
 	var extractor *v1mock.FakeImageExtractor
-	var ghwTest v1mock.GhwMock
+	var ghwTest ghwMock.GhwMock
 	var err error
 
 	Context("SysExtPostInstall", func() {
@@ -79,22 +81,23 @@ var _ = Describe("Hooks", func() {
 			)
 			cfg.Config = collector.Config{}
 
-			mainDisk := block.Disk{
+			mainDisk := sdkTypes.Disk{
 				Name: "device",
-				Partitions: []*block.Partition{
+				Partitions: []*sdkTypes.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
-						Type:            "ext4",
+						FS:              "ext4",
 						MountPoint:      "/efi",
 					},
 				},
 			}
-			ghwTest = v1mock.GhwMock{}
+			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 		})
 		AfterEach(func() {
+			ghwTest.Clean()
 			cleanup()
 		})
 		It("should copy all files with .sysext.raw extension", func() {

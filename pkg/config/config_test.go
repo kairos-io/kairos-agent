@@ -17,6 +17,7 @@ package config_test
 
 import (
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -151,7 +152,7 @@ var _ = Describe("Schema", func() {
 						Size: 10000,
 					},
 					Partitions: v1.ElementalPartitions{
-						OEM: &v1.Partition{
+						OEM: &sdkTypes.Partition{
 							Size: 5120,
 							FS:   "ext4",
 						},

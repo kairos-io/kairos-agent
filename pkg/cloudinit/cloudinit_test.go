@@ -20,22 +20,21 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"io/ioutil"
 	"log"
 	"os"
 
-	"github.com/jaypipes/ghw/pkg/block"
-
 	. "github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs/v4/vfst"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/twpayne/go-vfs/v4/vfst"
 )
 
 // Parted print sample output
@@ -159,8 +158,8 @@ stages:
         pLabel: partLabel
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
-			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "DEV_LABEL",
@@ -187,11 +186,11 @@ stages:
         size: 0
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
-			ghwTest := v1mock.GhwMock{}
-			disk := block.Disk{Name: "device", Partitions: []*block.Partition{
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
 				{
 					Name: fmt.Sprintf("device%d", partNum),
-					Type: "ext4",
+					FS:   "ext4",
 				},
 			}}
 			ghwTest.AddDisk(disk)

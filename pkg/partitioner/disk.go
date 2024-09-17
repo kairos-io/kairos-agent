@@ -18,7 +18,7 @@ type Disk struct {
 	logger sdkTypes.KairosLogger
 }
 
-func (d *Disk) NewPartitionTable(partType string, parts v1.PartitionList) error {
+func (d *Disk) NewPartitionTable(partType string, parts sdkTypes.PartitionList) error {
 	d.logger.Infof("Creating partition table for partition type %s", partType)
 	var table partition.Table
 	switch partType {
@@ -43,7 +43,7 @@ func getSectorEndFromSize(start, size uint64) uint64 {
 	return (size / uint64(diskfs.SectorSize512)) + start - 1
 }
 
-func kairosPartsToDiskfsGPTParts(parts v1.PartitionList, diskSize int64) []*gpt.Partition {
+func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) []*gpt.Partition {
 	var partitions []*gpt.Partition
 	for index, part := range parts {
 		var start uint64

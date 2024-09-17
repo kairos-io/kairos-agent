@@ -17,6 +17,7 @@ limitations under the License.
 package v1_test
 
 import (
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -27,12 +28,12 @@ import (
 
 var _ = Describe("Types", Label("types", "config"), func() {
 	Describe("ElementalPartitions", func() {
-		var p v1.PartitionList
+		var p sdkTypes.PartitionList
 		var ep v1.ElementalPartitions
 		BeforeEach(func() {
 			ep = v1.ElementalPartitions{}
-			p = v1.PartitionList{
-				&v1.Partition{
+			p = sdkTypes.PartitionList{
+				&sdkTypes.Partition{
 					FilesystemLabel: "COS_OEM",
 					Size:            0,
 					Name:            "oem",
@@ -42,7 +43,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Path:            "",
 					Disk:            "",
 				},
-				&v1.Partition{
+				&sdkTypes.Partition{
 					FilesystemLabel: "COS_CUSTOM",
 					Size:            0,
 					Name:            "persistent",
@@ -52,7 +53,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Path:            "",
 					Disk:            "",
 				},
-				&v1.Partition{
+				&sdkTypes.Partition{
 					FilesystemLabel: "SOMETHING",
 					Size:            0,
 					Name:            "somethingelse",
@@ -77,7 +78,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Expect(ep.EFI == nil && ep.BIOS != nil).To(BeTrue())
 		})
 		It("sets firmware partitions on msdos", func() {
-			ep.State = &v1.Partition{}
+			ep.State = &sdkTypes.Partition{}
 			Expect(ep.EFI == nil && ep.BIOS == nil).To(BeTrue())
 			err := ep.SetFirmwarePartitions(v1.BIOS, v1.MSDOS)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -101,15 +102,15 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		Describe("returns a partition list by install order", func() {
 			It("with no extra parts", func() {
 				ep := v1.NewElementalPartitionsFromList(p)
-				lst := ep.PartitionsByInstallOrder([]*v1.Partition{})
+				lst := ep.PartitionsByInstallOrder([]*sdkTypes.Partition{})
 				Expect(len(lst)).To(Equal(2))
 				Expect(lst[0].Name == "oem").To(BeTrue())
 				Expect(lst[1].Name == "persistent").To(BeTrue())
 			})
 			It("with extra parts with size > 0", func() {
 				ep := v1.NewElementalPartitionsFromList(p)
-				var extraParts []*v1.Partition
-				extraParts = append(extraParts, &v1.Partition{Name: "extra", Size: 5})
+				var extraParts []*sdkTypes.Partition
+				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", Size: 5})
 
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				Expect(len(lst)).To(Equal(3))
@@ -119,8 +120,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("with extra part with size == 0 and persistent.Size == 0", func() {
 				ep := v1.NewElementalPartitionsFromList(p)
-				var extraParts []*v1.Partition
-				extraParts = append(extraParts, &v1.Partition{Name: "extra", Size: 0})
+				var extraParts []*sdkTypes.Partition
+				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				// Should ignore the wrong partition had have the persistent over it
 				Expect(len(lst)).To(Equal(2))
@@ -130,8 +131,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			It("with extra part with size == 0 and persistent.Size > 0", func() {
 				ep := v1.NewElementalPartitionsFromList(p)
 				ep.Persistent.Size = 10
-				var extraParts []*v1.Partition
-				extraParts = append(extraParts, &v1.Partition{Name: "extra", FilesystemLabel: "LABEL", Size: 0})
+				var extraParts []*sdkTypes.Partition
+				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", FilesystemLabel: "LABEL", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				// Will have our size == 0 partition the latest
 				Expect(len(lst)).To(Equal(3))
@@ -142,9 +143,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			It("with several extra parts with size == 0 and persistent.Size > 0", func() {
 				ep := v1.NewElementalPartitionsFromList(p)
 				ep.Persistent.Size = 10
-				var extraParts []*v1.Partition
-				extraParts = append(extraParts, &v1.Partition{Name: "extra1", Size: 0})
-				extraParts = append(extraParts, &v1.Partition{Name: "extra2", Size: 0})
+				var extraParts []*sdkTypes.Partition
+				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra1", Size: 0})
+				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra2", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				// Should ignore the wrong partition had have the first partition with size 0 added last
 				Expect(len(lst)).To(Equal(3))
@@ -170,10 +171,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 	})
 	Describe("PartitionList", func() {
-		var p v1.PartitionList
+		var p sdkTypes.PartitionList
 		BeforeEach(func() {
-			p = v1.PartitionList{
-				&v1.Partition{
+			p = sdkTypes.PartitionList{
+				&sdkTypes.Partition{
 					FilesystemLabel: "ONE",
 					Size:            0,
 					Name:            "one",
@@ -183,7 +184,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Path:            "",
 					Disk:            "",
 				},
-				&v1.Partition{
+				&sdkTypes.Partition{
 					FilesystemLabel: "TWO",
 					Size:            0,
 					Name:            "two",
@@ -196,7 +197,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}
 		})
 		It("returns partitions by name", func() {
-			Expect(p.GetByName("two")).To(Equal(&v1.Partition{
+			Expect(v1.GetPartitionByNameOrLabel("two", "", p)).To(Equal(&sdkTypes.Partition{
 				FilesystemLabel: "TWO",
 				Size:            0,
 				Name:            "two",
@@ -208,10 +209,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}))
 		})
 		It("returns nil if partiton name not found", func() {
-			Expect(p.GetByName("nonexistent")).To(BeNil())
+			Expect(v1.GetPartitionByNameOrLabel("dsd", "nonexistent", p)).To(BeNil())
 		})
 		It("returns partitions by filesystem label", func() {
-			Expect(p.GetByLabel("TWO")).To(Equal(&v1.Partition{
+			Expect(v1.GetPartitionByNameOrLabel("", "TWO", p)).To(Equal(&sdkTypes.Partition{
 				FilesystemLabel: "TWO",
 				Size:            0,
 				Name:            "two",
@@ -223,7 +224,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}))
 		})
 		It("returns nil if filesystem label not found", func() {
-			Expect(p.GetByName("nonexistent")).To(BeNil())
+			Expect(v1.GetPartitionByNameOrLabel("sd", "nonexistent", p)).To(BeNil())
 		})
 	})
 	Describe("Specs", func() {
@@ -241,11 +242,11 @@ var _ = Describe("Types", Label("types", "config"), func() {
 						Source: v1.NewEmptySrc(),
 					},
 					Partitions: v1.ElementalPartitions{
-						OEM:        &v1.Partition{},
-						Recovery:   &v1.Partition{},
-						Persistent: &v1.Partition{},
+						OEM:        &sdkTypes.Partition{},
+						Recovery:   &sdkTypes.Partition{},
+						Persistent: &sdkTypes.Partition{},
 					},
-					ExtraPartitions: v1.PartitionList{},
+					ExtraPartitions: sdkTypes.PartitionList{},
 				}
 			})
 			It("fails with empty source", func() {
@@ -261,7 +262,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("passes if state and source are ready", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
 				err := spec.Sanitize()
@@ -269,7 +270,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("fills the spec with defaults (BIOS)", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
 				spec.Firmware = constants.BiosPartName
@@ -292,7 +293,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("fills the spec with defaults (EFI)", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
 				spec.Firmware = constants.EfiPartName
@@ -319,16 +320,16 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("Cannot add extra partitions with 0 size + persistent with 0 size", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.Persistent = &v1.Partition{
+				spec.Partitions.Persistent = &sdkTypes.Partition{
 					Size: 0,
 				}
 				spec.Firmware = constants.BiosPartName
 				spec.PartTable = constants.GPT
-				spec.ExtraPartitions = v1.PartitionList{
-					&v1.Partition{
+				spec.ExtraPartitions = sdkTypes.PartitionList{
+					&sdkTypes.Partition{
 						Size: 0,
 					},
 				}
@@ -338,19 +339,19 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("Cannot add more than 1 extra partition with 0 size", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.Persistent = &v1.Partition{
+				spec.Partitions.Persistent = &sdkTypes.Partition{
 					Size: 100,
 				}
 				spec.Firmware = constants.BiosPartName
 				spec.PartTable = constants.GPT
-				spec.ExtraPartitions = v1.PartitionList{
-					&v1.Partition{
+				spec.ExtraPartitions = sdkTypes.PartitionList{
+					&sdkTypes.Partition{
 						Size: 0,
 					},
-					&v1.Partition{
+					&sdkTypes.Partition{
 						Size: 0,
 					},
 				}
@@ -360,16 +361,16 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("Can add 1 extra partition with 0 size", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.Persistent = &v1.Partition{
+				spec.Partitions.Persistent = &sdkTypes.Partition{
 					Size: 100,
 				}
 				spec.Firmware = constants.BiosPartName
 				spec.PartTable = constants.GPT
-				spec.ExtraPartitions = v1.PartitionList{
-					&v1.Partition{
+				spec.ExtraPartitions = sdkTypes.PartitionList{
+					&sdkTypes.Partition{
 						Size: 0,
 					},
 				}
@@ -399,12 +400,12 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 			It("passes if state and source are ready", func() {
 				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &v1.Partition{
+				spec.Partitions.State = &sdkTypes.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.OEM = &v1.Partition{}
-				spec.Partitions.Recovery = &v1.Partition{}
-				spec.Partitions.Persistent = &v1.Partition{}
+				spec.Partitions.OEM = &sdkTypes.Partition{}
+				spec.Partitions.Recovery = &sdkTypes.Partition{}
+				spec.Partitions.Persistent = &sdkTypes.Partition{}
 				err := spec.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -436,7 +437,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				})
 				It("passes if state and source are ready", func() {
 					spec.Active.Source = v1.NewFileSrc("/tmp")
-					spec.Partitions.State = &v1.Partition{
+					spec.Partitions.State = &sdkTypes.Partition{
 						MountPoint: "/tmp",
 					}
 					err := spec.Sanitize()
@@ -460,7 +461,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				})
 				It("passes if state and source are ready", func() {
 					spec.Recovery.Source = v1.NewFileSrc("/tmp")
-					spec.Partitions.Recovery = &v1.Partition{
+					spec.Partitions.Recovery = &sdkTypes.Partition{
 						MountPoint: "/tmp",
 					}
 					err := spec.Sanitize()

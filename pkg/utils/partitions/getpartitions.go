@@ -25,40 +25,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jaypipes/ghw"
-	"github.com/jaypipes/ghw/pkg/block"
-	"github.com/jaypipes/ghw/pkg/context"
-	"github.com/jaypipes/ghw/pkg/linuxpath"
-	ghwUtil "github.com/jaypipes/ghw/pkg/util"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-sdk/ghw"
+	"github.com/kairos-io/kairos-sdk/types"
 	log "github.com/sirupsen/logrus"
 )
 
-// ghwPartitionToInternalPartition transforms a block.Partition from ghw lib to our v1.Partition type
-func ghwPartitionToInternalPartition(partition *block.Partition) *v1.Partition {
-	return &v1.Partition{
-		FilesystemLabel: partition.FilesystemLabel,
-		Size:            uint(partition.SizeBytes / (1024 * 1024)), // Converts B to MB
-		Name:            partition.Name,
-		FS:              partition.Type,
-		Flags:           nil,
-		MountPoint:      partition.MountPoint,
-		Path:            filepath.Join("/dev", partition.Name),
-		Disk:            filepath.Join("/dev", partition.Disk.Name),
-	}
-}
-
 // GetAllPartitions returns all partitions in the system for all disks
-func GetAllPartitions() (v1.PartitionList, error) {
-	var parts []*v1.Partition
-	blockDevices, err := block.New(ghw.WithDisableTools(), ghw.WithDisableWarnings())
-	if err != nil {
-		return nil, err
-	}
-	for _, d := range blockDevices.Disks {
+func GetAllPartitions(logger *types.KairosLogger) (types.PartitionList, error) {
+	var parts []*types.Partition
+
+	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
 		for _, part := range d.Partitions {
-			parts = append(parts, ghwPartitionToInternalPartition(part))
+			parts = append(parts, part)
 		}
 	}
 	return parts, nil
@@ -117,39 +97,15 @@ func parseMountEntry(line string) (string, string) {
 	return fields[0], mp
 }
 
-// GetPartitionFS gets the FS of a partition given
-func GetPartitionFS(partition string) (string, error) {
-	// We want to have the device always prefixed with a /dev
-	if !strings.HasPrefix(partition, "/dev") {
-		partition = filepath.Join("/dev", partition)
-	}
-	blockDevices, err := block.New(ghw.WithDisableTools(), ghw.WithDisableWarnings())
-	if err != nil {
-		return "", err
-	}
-
-	for _, disk := range blockDevices.Disks {
-		for _, part := range disk.Partitions {
-			if filepath.Join("/dev", part.Name) == partition {
-				if part.Type == ghwUtil.UNKNOWN {
-					return "", fmt.Errorf("could not find filesystem for partition %s", partition)
-				}
-				return part.Type, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("could not find filesystem for partition %s", partition)
-}
-
 // GetPartitionViaDM tries to get the partition via devicemapper for reset
 // We only need to get all this info due to the fS that we need to use to format the partition
 // Otherwise we could just format with the label ¯\_(ツ)_/¯
 // TODO: store info about persistent and oem in the state.yaml so we can directly load it
-func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
-	var part *v1.Partition
+func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
+	var part *types.Partition
 	rootPath, _ := fs.RawPath("/")
-	ctx := context.New(ghw.WithDisableTools(), ghw.WithDisableWarnings(), ghw.WithChroot(rootPath))
-	lp := linuxpath.New(ctx)
+	lp := ghw.NewPaths(rootPath)
+
 	devices, _ := fs.ReadDir(lp.SysBlock)
 	for _, dev := range devices {
 		if !strings.HasPrefix(dev.Name(), "dm-") {
@@ -178,7 +134,7 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 			partitionFS := udevInfo["ID_FS_TYPE"]
 			partitionName := udevInfo["DM_LV_NAME"]
 
-			part = &v1.Partition{
+			part = &types.Partition{
 				Name:            partitionName,
 				FilesystemLabel: label,
 				FS:              partitionFS,
@@ -268,18 +224,17 @@ func GetPartitionViaDM(fs v1.FS, label string) *v1.Partition {
 }
 
 // GetEfiPartition returns the EFI partition by looking for the partition with the label "COS_GRUB"
-func GetEfiPartition() (*v1.Partition, error) {
-	var efiPartition *v1.Partition
-	parts, err := GetAllPartitions()
-	if err != nil {
-		return efiPartition, fmt.Errorf("could not read host partitions")
-	}
-	for _, p := range parts {
-		if p.FilesystemLabel == constants.EfiLabel {
-			efiPartition = p
-			break
+func GetEfiPartition(logger *types.KairosLogger) (*types.Partition, error) {
+	var efiPartition *types.Partition
+	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
+		for _, part := range d.Partitions {
+			if part.FilesystemLabel == constants.EfiLabel {
+				efiPartition = part
+				break
+			}
 		}
 	}
+
 	if efiPartition == nil {
 		return efiPartition, fmt.Errorf("could not find EFI partition")
 	}
