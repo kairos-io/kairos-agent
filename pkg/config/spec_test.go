@@ -37,7 +37,7 @@ import (
 	"k8s.io/mount-utils"
 )
 
-var _ = Describe("Types", Label("types", "config"), Focus, func() {
+var _ = Describe("Types", Label("types", "config"), func() {
 	Describe("Config", func() {
 		var err error
 		var cleanup func()

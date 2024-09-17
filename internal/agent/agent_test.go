@@ -20,7 +20,7 @@ echo "Received $event with $payload" >> exec.log
 echo "{}"
 `
 
-var _ = Describe("Bootstrap provider", Focus, func() {
+var _ = Describe("Bootstrap provider", func() {
 	Context("Config", func() {
 		It("gets entire content", func() {
 			f, err := ioutil.TempDir("", "tests")
