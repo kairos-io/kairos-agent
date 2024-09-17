@@ -199,13 +199,13 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.AddDisk(disk)
 			ghwTest.CreateDevices()
 			defer ghwTest.Clean()
-			out, err := utils.GetDeviceByLabel(runner, "FAKE", 1)
+			out, err := utils.GetDeviceByLabel(config, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out).To(Equal("/dev/device1"))
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails if no device is found in two attempts", func() {
-			_, err := utils.GetDeviceByLabel(runner, "FAKE", 2)
+			_, err := utils.GetDeviceByLabel(config, "FAKE", 2)
 			Expect(err).NotTo(BeNil())
 			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})
@@ -241,7 +241,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.Clean()
 		})
 		It("returns all found partitions", func() {
-			parts, err := partitions.GetAllPartitions()
+			parts, err := partitions.GetAllPartitions(&logger)
 			Expect(err).To(BeNil())
 			var partNames []string
 			for _, p := range parts {
@@ -343,7 +343,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.AddDisk(disk)
 			ghwTest.CreateDevices()
 			defer ghwTest.Clean()
-			out, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
+			out, err := utils.GetFullDeviceByLabel(config, "FAKE", 1)
 			Expect(err).To(BeNil())
 			Expect(out.FilesystemLabel).To(Equal("FAKE"))
 			Expect(out.Size).To(Equal(uint(0)))
@@ -354,19 +354,19 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		It("fails to run lsblk", func() {
 			runner.ReturnError = errors.New("failed running lsblk")
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
+			_, err := utils.GetFullDeviceByLabel(config, "FAKE", 1)
 			Expect(err).To(HaveOccurred())
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails to parse json output", func() {
 			runner.ReturnValue = []byte(`{"invalidobject": []}`)
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 1)
+			_, err := utils.GetFullDeviceByLabel(config, "FAKE", 1)
 			Expect(err).To(HaveOccurred())
 			Expect(runner.CmdsMatch(cmds)).To(BeNil())
 		})
 		It("fails if no device is found in two attempts", func() {
 			runner.ReturnValue = []byte(`{"blockdevices":[{"label":"something","type": "part"}]}`)
-			_, err := utils.GetFullDeviceByLabel(runner, "FAKE", 2)
+			_, err := utils.GetFullDeviceByLabel(config, "FAKE", 2)
 			Expect(err).To(HaveOccurred())
 			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
 		})
@@ -1090,14 +1090,14 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest.CreateDevices()
 		})
 		It("returns the efi partition", func() {
-			efi, err := partitions.GetEfiPartition()
+			efi, err := partitions.GetEfiPartition(&logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(efi.FilesystemLabel).To(Equal("COS_GRUB"))
 			Expect(efi.Name).To(Equal("device1")) // Just to make sure its our mocked system
 		})
 		It("fails to find the efi partition", func() {
 			ghwTest.Clean() // Remove the disk
-			efi, err := partitions.GetEfiPartition()
+			efi, err := partitions.GetEfiPartition(&logger)
 			Expect(err).To(HaveOccurred())
 			Expect(efi).To(BeNil())
 		})

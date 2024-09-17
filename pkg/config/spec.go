@@ -237,7 +237,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
@@ -400,7 +400,7 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
 	}
 
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
@@ -553,7 +553,7 @@ func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
 	spec.Partitions.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
 
 	// Get EFI partition
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
@@ -717,16 +717,11 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	}
 
 	// Get EFI partition
-	parts, err := partitions.GetAllPartitions()
+	spec.EfiPartition, err = partitions.GetEfiPartition(&cfg.Logger)
 	if err != nil {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
-	for _, p := range parts {
-		if p.FilesystemLabel == constants.EfiLabel {
-			spec.EfiPartition = p
-			break
-		}
-	}
+
 	// Get free size of partition
 	var stat unix.Statfs_t
 	_ = unix.Statfs(spec.EfiPartition.MountPoint, &stat)

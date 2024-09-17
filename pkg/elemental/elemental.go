@@ -195,7 +195,7 @@ func (e Elemental) MountPartition(part *types.Partition, opts ...string) error {
 	}
 	if part.Path == "" {
 		// Lets error out only after 10 attempts to find the device
-		device, err := utils.GetDeviceByLabel(e.config.Runner, part.FilesystemLabel, 10)
+		device, err := utils.GetDeviceByLabel(e.config, part.FilesystemLabel, 10)
 		if err != nil {
 			e.config.Logger.Errorf("Could not find a device with label %s", part.FilesystemLabel)
 			return err
@@ -454,7 +454,7 @@ func (e *Elemental) CheckActiveDeployment(labels []string) bool {
 	e.config.Logger.Infof("Checking for active deployment")
 
 	for _, label := range labels {
-		found, _ := utils.GetDeviceByLabel(e.config.Runner, label, 1)
+		found, _ := utils.GetDeviceByLabel(e.config, label, 1)
 		if found != "" {
 			e.config.Logger.Debug("there is already an active deployment in the system")
 			return true

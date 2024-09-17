@@ -33,10 +33,10 @@ import (
 )
 
 // GetAllPartitions returns all partitions in the system for all disks
-func GetAllPartitions() (types.PartitionList, error) {
+func GetAllPartitions(logger *types.KairosLogger) (types.PartitionList, error) {
 	var parts []*types.Partition
 
-	for _, d := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
 		for _, part := range d.Partitions {
 			parts = append(parts, part)
 		}
@@ -95,26 +95,6 @@ func parseMountEntry(line string) (string, string) {
 	mp = r.Replace(mp)
 
 	return fields[0], mp
-}
-
-// GetPartitionFS gets the FS of a partition given
-func GetPartitionFS(partition string) (string, error) {
-	// We want to have the device always prefixed with a /dev
-	if !strings.HasPrefix(partition, "/dev") {
-		partition = filepath.Join("/dev", partition)
-	}
-
-	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
-		for _, part := range disk.Partitions {
-			if filepath.Join("/dev", part.Name) == partition {
-				if part.FS == ghw.UNKNOWN {
-					return "", fmt.Errorf("could not find filesystem for partition %s", partition)
-				}
-				return part.FS, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("could not find filesystem for partition %s", partition)
 }
 
 // GetPartitionViaDM tries to get the partition via devicemapper for reset
@@ -244,18 +224,17 @@ func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 }
 
 // GetEfiPartition returns the EFI partition by looking for the partition with the label "COS_GRUB"
-func GetEfiPartition() (*types.Partition, error) {
+func GetEfiPartition(logger *types.KairosLogger) (*types.Partition, error) {
 	var efiPartition *types.Partition
-	parts, err := GetAllPartitions()
-	if err != nil {
-		return efiPartition, fmt.Errorf("could not read host partitions")
-	}
-	for _, p := range parts {
-		if p.FilesystemLabel == constants.EfiLabel {
-			efiPartition = p
-			break
+	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
+		for _, part := range d.Partitions {
+			if part.FilesystemLabel == constants.EfiLabel {
+				efiPartition = part
+				break
+			}
 		}
 	}
+
 	if efiPartition == nil {
 		return efiPartition, fmt.Errorf("could not find EFI partition")
 	}

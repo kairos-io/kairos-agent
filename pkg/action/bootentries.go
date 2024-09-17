@@ -75,7 +75,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
 
 	// Get EFI partition
-	efiPartition, err := partitions.GetEfiPartition()
+	efiPartition, err := partitions.GetEfiPartition(&cfg.Logger)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
-	efiPartition, err := partitions.GetEfiPartition()
+	efiPartition, err := partitions.GetEfiPartition(&cfg.Logger)
 	if err != nil {
 		return err
 	}

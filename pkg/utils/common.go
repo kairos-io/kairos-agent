@@ -56,8 +56,8 @@ func CommandExists(command string) bool {
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
-func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, error) {
-	part, err := GetFullDeviceByLabel(runner, label, attempts)
+func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (string, error) {
+	part, err := GetFullDeviceByLabel(config, label, attempts)
 	if err != nil {
 		return "", err
 	}
@@ -66,11 +66,11 @@ func GetDeviceByLabel(runner v1.Runner, label string, attempts int) (string, err
 
 // GetFullDeviceByLabel works like GetDeviceByLabel, but it will try to get as much info as possible from the existing
 // partition and return a Partition struct
-func GetFullDeviceByLabel(runner v1.Runner, label string, attempts int) (*sdkTypes.Partition, error) {
+func GetFullDeviceByLabel(config *agentConfig.Config, label string, attempts int) (*sdkTypes.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
-		_, _ = runner.Run("udevadm", "trigger")
-		_, _ = runner.Run("udevadm", "settle")
-		parts, err := partitions.GetAllPartitions()
+		_, _ = config.Runner.Run("udevadm", "trigger")
+		_, _ = config.Runner.Run("udevadm", "settle")
+		parts, err := partitions.GetAllPartitions(&config.Logger)
 		if err != nil {
 			return nil, err
 		}
@@ -344,7 +344,7 @@ func GetTempDir(config *agentConfig.Config, suffix string) string {
 		config.Logger.Debugf("Got tmpdir from TMPDIR var: %s", dir)
 		return filepath.Join(dir, elementalTmpDir)
 	}
-	parts, err := partitions.GetAllPartitions()
+	parts, err := partitions.GetAllPartitions(&config.Logger)
 	if err != nil {
 		config.Logger.Debug("Could not get partitions, defaulting to /tmp")
 		return filepath.Join("/", "tmp", elementalTmpDir)
