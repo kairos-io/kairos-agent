@@ -2,17 +2,15 @@ package agent
 
 import (
 	"fmt"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"os"
-	"path/filepath"
-
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
+	"os"
 )
 
 // Run starts the agent provider emitting the bootstrap event.
@@ -38,18 +36,8 @@ func Run(opts ...Option) error {
 		return nil
 	}
 
-	os.MkdirAll("/var/log/kairos", 0600) //nolint:errcheck
-
-	fileName := filepath.Join("/var/log/kairos", "agent-provider.log")
-
-	// Create if not exist
-	if _, err := os.Stat(fileName); err != nil {
-		err = os.WriteFile(fileName, []byte{}, os.ModePerm)
-		if err != nil {
-			return err
-		}
-	}
-
+	fileName := "/var/log/kairos/agent-provider.log"
+	
 	if !machine.SentinelExist("firstboot") {
 		spec := v1.EmptySpec{}
 		if err := hook.Run(*c, &spec, hook.FirstBoot...); err != nil {

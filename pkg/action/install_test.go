@@ -94,13 +94,15 @@ var _ = Describe("Install action tests", func() {
 	})
 
 	Describe("Install Action", Label("install"), func() {
-		var device, cmdFail string
+		var device, cmdFail, tmpdir string
 		var err error
 		var spec *v1.InstallSpec
 		var installer *action.InstallAction
 
 		BeforeEach(func() {
-			device = "/tmp/test.img"
+			tmpdir, err = os.MkdirTemp("", "install-*")
+			Expect(err).Should(BeNil())
+			device = filepath.Join(tmpdir, "test.img")
 			Expect(os.RemoveAll(device)).Should(Succeed())
 			// at least 2Gb in size as state is set to 1G
 			_, err = diskfs.Create(device, 2*1024*1024*1024, diskfs.Raw, 512)
@@ -201,6 +203,7 @@ var _ = Describe("Install action tests", func() {
 			}
 			Expect(os.RemoveAll(device)).ToNot(HaveOccurred())
 			ghwTest.Clean()
+			Expect(os.RemoveAll(tmpdir)).ToNot(HaveOccurred())
 		})
 
 		It("Successfully installs", func() {

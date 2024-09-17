@@ -355,23 +355,26 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		var install *v1.InstallSpec
 		var err error
 		var el *elemental.Elemental
+		var tmpDir string
 
 		BeforeEach(func() {
 			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
 			config.CloudInitRunner = cInit
-			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
+			tmpDir, err = os.MkdirTemp("", "elements-*")
+			Expect(err).To(BeNil())
+			Expect(os.RemoveAll(filepath.Join(tmpDir, "/test.img"))).ToNot(HaveOccurred())
 			// at least 2Gb in size as state is set to 1G
-			_, err = diskfs.Create("/tmp/test.img", 2*1024*1024*1024, diskfs.Raw, 512)
+			_, err = diskfs.Create(filepath.Join(tmpDir, "/test.img"), 2*1024*1024*1024, diskfs.Raw, 512)
 			Expect(err).ToNot(HaveOccurred())
-			config.Install.Device = "/tmp/test.img"
+			config.Install.Device = filepath.Join(tmpDir, "/test.img")
 			install, err = agentConfig.NewInstallSpec(config)
 			Expect(err).ToNot(HaveOccurred())
-			install.Target = "/tmp/test.img"
+			install.Target = filepath.Join(tmpDir, "/test.img")
 			el = elemental.NewElemental(config)
 		})
 
 		AfterEach(func() {
-			Expect(os.RemoveAll("/tmp/test.img")).ToNot(HaveOccurred())
+			Expect(os.RemoveAll(tmpDir)).ToNot(HaveOccurred())
 		})
 
 		It("Successfully creates partitions and formats them, EFI boot", func() {
@@ -379,7 +382,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			install.Firmware = v1.EFI
 			Expect(install.Partitions.SetFirmwarePartitions(v1.EFI, v1.GPT)).To(BeNil())
 			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
-			disk, err := diskfs.Open("/tmp/test.img", diskfs.WithOpenMode(diskfs.ReadOnly))
+			disk, err := diskfs.Open(filepath.Join(tmpDir, "/test.img"), diskfs.WithOpenMode(diskfs.ReadOnly))
 			defer disk.Close()
 			Expect(err).ToNot(HaveOccurred())
 			// check that its type GPT
@@ -412,7 +415,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			install.Firmware = v1.BIOS
 			Expect(install.Partitions.SetFirmwarePartitions(v1.BIOS, v1.GPT)).To(BeNil())
 			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
-			disk, err := diskfs.Open("/tmp/test.img", diskfs.WithOpenMode(diskfs.ReadOnly))
+			disk, err := diskfs.Open(filepath.Join(tmpDir, "/test.img"), diskfs.WithOpenMode(diskfs.ReadOnly))
 			defer disk.Close()
 			Expect(err).ToNot(HaveOccurred())
 			// check that its type GPT

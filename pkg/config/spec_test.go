@@ -49,14 +49,19 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		var logger sdkTypes.KairosLogger
 		var ci *v1mock.FakeCloudInitRunner
 		var c *config.Config
+		var memLog bytes.Buffer
+
 		BeforeEach(func() {
+			memLog = bytes.Buffer{}
+			logger = sdkTypes.NewBufferLogger(&memLog)
+			logger.SetLevel("debug")
+
 			fs, cleanup, err = vfst.NewTestFS(nil)
 			Expect(err).ToNot(HaveOccurred())
 			mounter = v1mock.NewErrorMounter()
 			runner = v1mock.NewFakeRunner()
 			client = &v1mock.FakeHTTPClient{}
 			sysc = &v1mock.FakeSyscall{}
-			logger = sdkTypes.NewNullLogger()
 			ci = &v1mock.FakeCloudInitRunner{}
 			c = config.NewConfig(
 				config.WithFs(fs),
@@ -535,10 +540,11 @@ cloud-init-paths:
 				ghwTest.Clean()
 			})
 			It("Reads properly the cloud config for install", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...),
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...),
 					collector.NoLogs,
 				)
 				cfg.Fs = fs
+				cfg.Logger = logger
 
 				Expect(err).ToNot(HaveOccurred())
 				// Once we got the cfg override the fs to our test fs
@@ -559,13 +565,14 @@ cloud-init-paths:
 			})
 			It("Reads properly the cloud config for reset", func() {
 				bootedFrom = constants.SystemLabel
-				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
 				// Override the config with our test params
 				cfg.Runner = runner
 				cfg.Fs = fs
 				cfg.Mounter = mounter
 				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
 				spec, err := config.ReadSpecFromCloudConfig(cfg, "reset")
 				Expect(err).ToNot(HaveOccurred())
 				resetSpec := spec.(*v1.ResetSpec)
@@ -574,29 +581,25 @@ cloud-init-paths:
 				Expect(resetSpec.Passive.Label).To(Equal("MY_LABEL"))
 			})
 			It("Reads properly the cloud config for upgrade", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
 				// Override the config with our test params
 				cfg.Runner = runner
 				cfg.Fs = fs
 				cfg.Mounter = mounter
 				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
 				spec, err := config.ReadSpecFromCloudConfig(cfg, "upgrade")
 				Expect(err).ToNot(HaveOccurred())
 				upgradeSpec := spec.(*v1.UpgradeSpec)
 				Expect(upgradeSpec.RecoveryUpgrade()).To(BeTrue())
 			})
 			It("Fails when a wrong action is read", func() {
-				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg.Logger = logger
 				Expect(err).ToNot(HaveOccurred())
 				_, err = config.ReadSpecFromCloudConfig(cfg, "nope")
 				Expect(err).To(HaveOccurred())
-			})
-			It("Sets info level if its not on the cloud-config", func() {
-				// Now again but with no config
-				cfg, err := config.Scan(collector.Directories([]string{""}...), collector.NoLogs)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cfg.Logger.GetLevel()).To(Equal(zerolog.InfoLevel))
 			})
 			It("Sets debug level if its on the cloud-config", func() {
 				ccdata := []byte(`#cloud-config
@@ -604,7 +607,7 @@ debug: true
 `)
 				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				cfg, err := config.Scan(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cfg.Logger.GetLevel()).To(Equal(zerolog.DebugLevel))
 
