@@ -57,30 +57,20 @@ func CommandExists(command string) bool {
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
 func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (string, error) {
-	part, err := GetFullDeviceByLabel(config, label, attempts)
-	if err != nil {
-		return "", err
-	}
-	return part.Path, nil
-}
-
-// GetFullDeviceByLabel works like GetDeviceByLabel, but it will try to get as much info as possible from the existing
-// partition and return a Partition struct
-func GetFullDeviceByLabel(config *agentConfig.Config, label string, attempts int) (*sdkTypes.Partition, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = config.Runner.Run("udevadm", "trigger")
 		_, _ = config.Runner.Run("udevadm", "settle")
 		parts, err := partitions.GetAllPartitions(&config.Logger)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		part := v1.GetByLabel(label, parts)
+		part := v1.GetPartitionByNameOrLabel("", label, parts)
 		if part != nil {
-			return part, nil
+			return part.Path, nil
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return nil, errors.New("no device found")
+	return "", errors.New("no device found")
 }
 
 // CopyFile Copies source file to target file using Fs interface. If target

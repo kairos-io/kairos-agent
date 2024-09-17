@@ -280,17 +280,17 @@ func (ep *ElementalPartitions) SetDefaultLabels() {
 // TODO find a way to map custom labels when partition labels are not available
 func NewElementalPartitionsFromList(pl types.PartitionList) ElementalPartitions {
 	ep := ElementalPartitions{}
-	ep.BIOS = getPartitionByNameOrLabel(constants.BiosPartName, "", pl)
-	ep.EFI = getPartitionByNameOrLabel(constants.EfiPartName, constants.EfiLabel, pl)
-	ep.OEM = getPartitionByNameOrLabel(constants.OEMPartName, constants.OEMLabel, pl)
-	ep.Recovery = getPartitionByNameOrLabel(constants.RecoveryPartName, constants.RecoveryLabel, pl)
-	ep.State = getPartitionByNameOrLabel(constants.StatePartName, constants.StateLabel, pl)
-	ep.Persistent = getPartitionByNameOrLabel(constants.PersistentPartName, constants.PersistentLabel, pl)
+	ep.BIOS = GetPartitionByNameOrLabel(constants.BiosPartName, "", pl)
+	ep.EFI = GetPartitionByNameOrLabel(constants.EfiPartName, constants.EfiLabel, pl)
+	ep.OEM = GetPartitionByNameOrLabel(constants.OEMPartName, constants.OEMLabel, pl)
+	ep.Recovery = GetPartitionByNameOrLabel(constants.RecoveryPartName, constants.RecoveryLabel, pl)
+	ep.State = GetPartitionByNameOrLabel(constants.StatePartName, constants.StateLabel, pl)
+	ep.Persistent = GetPartitionByNameOrLabel(constants.PersistentPartName, constants.PersistentLabel, pl)
 	return ep
 }
 
-// getPartitionByNameOrLabel will get a Partition type fropm a
-func getPartitionByNameOrLabel(name string, label string, partitionList types.PartitionList) *types.Partition {
+// GetPartitionByNameOrLabel will get a types.Partition from a types.PartitionList by name or label
+func GetPartitionByNameOrLabel(name string, label string, partitionList types.PartitionList) *types.Partition {
 	var part *types.Partition
 
 	for _, p := range partitionList {

@@ -197,7 +197,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}
 		})
 		It("returns partitions by name", func() {
-			Expect(v1.GetByName("two", p)).To(Equal(&sdkTypes.Partition{
+			Expect(v1.GetPartitionByNameOrLabel("two", "", p)).To(Equal(&sdkTypes.Partition{
 				FilesystemLabel: "TWO",
 				Size:            0,
 				Name:            "two",
@@ -209,10 +209,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}))
 		})
 		It("returns nil if partiton name not found", func() {
-			Expect(v1.GetByName("nonexistent", p)).To(BeNil())
+			Expect(v1.GetPartitionByNameOrLabel("dsd", "nonexistent", p)).To(BeNil())
 		})
 		It("returns partitions by filesystem label", func() {
-			Expect(v1.GetByLabel("TWO", p)).To(Equal(&sdkTypes.Partition{
+			Expect(v1.GetPartitionByNameOrLabel("", "TWO", p)).To(Equal(&sdkTypes.Partition{
 				FilesystemLabel: "TWO",
 				Size:            0,
 				Name:            "two",
@@ -224,7 +224,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}))
 		})
 		It("returns nil if filesystem label not found", func() {
-			Expect(v1.GetByName("nonexistent", p)).To(BeNil())
+			Expect(v1.GetPartitionByNameOrLabel("sd", "nonexistent", p)).To(BeNil())
 		})
 	})
 	Describe("Specs", func() {

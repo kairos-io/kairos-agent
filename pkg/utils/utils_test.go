@@ -286,57 +286,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(duration.Seconds() >= 3).To(BeTrue())
 		})
 	})
-	Describe("GetFullDeviceByLabel", Label("lsblk", "partitions"), func() {
-		var cmds [][]string
-		BeforeEach(func() {
-			cmds = [][]string{
-				{"udevadm", "trigger"},
-				{"udevadm", "settle"},
-			}
-		})
-		It("returns found Partition", func() {
-			var flags []string
-			ghwTest := ghwMock.GhwMock{}
-			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
-				{
-					Name:            "device1",
-					FilesystemLabel: "FAKE",
-					FS:              "fakefs",
-					MountPoint:      "/mnt/fake",
-					Size:            0,
-				},
-			}}
-			ghwTest.AddDisk(disk)
-			ghwTest.CreateDevices()
-			defer ghwTest.Clean()
-			out, err := utils.GetFullDeviceByLabel(config, "FAKE", 1)
-			Expect(err).To(BeNil())
-			Expect(out.FilesystemLabel).To(Equal("FAKE"))
-			Expect(out.Size).To(Equal(uint(0)))
-			Expect(out.FS).To(Equal("fakefs"))
-			Expect(out.MountPoint).To(Equal("/mnt/fake"))
-			Expect(out.Flags).To(Equal(flags))
-			Expect(runner.CmdsMatch(cmds)).To(BeNil())
-		})
-		It("fails to run lsblk", func() {
-			runner.ReturnError = errors.New("failed running lsblk")
-			_, err := utils.GetFullDeviceByLabel(config, "FAKE", 1)
-			Expect(err).To(HaveOccurred())
-			Expect(runner.CmdsMatch(cmds)).To(BeNil())
-		})
-		It("fails to parse json output", func() {
-			runner.ReturnValue = []byte(`{"invalidobject": []}`)
-			_, err := utils.GetFullDeviceByLabel(config, "FAKE", 1)
-			Expect(err).To(HaveOccurred())
-			Expect(runner.CmdsMatch(cmds)).To(BeNil())
-		})
-		It("fails if no device is found in two attempts", func() {
-			runner.ReturnValue = []byte(`{"blockdevices":[{"label":"something","type": "part"}]}`)
-			_, err := utils.GetFullDeviceByLabel(config, "FAKE", 2)
-			Expect(err).To(HaveOccurred())
-			Expect(runner.CmdsMatch(append(cmds, cmds...))).To(BeNil())
-		})
-	})
 	Describe("CopyFile", Label("CopyFile"), func() {
 		It("Copies source file to target file", func() {
 			err := fsutils.MkdirAll(fs, "/some", constants.DirPerm)
