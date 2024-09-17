@@ -45,7 +45,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sanity-io/litter"
 	"github.com/twpayne/go-vfs/v4/vfst"
-	"k8s.io/mount-utils"
 )
 
 func TestElementalSuite(t *testing.T) {
@@ -619,7 +618,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			}}
 			ghwTest.AddDisk(disk)
 			ghwTest.CreateDevices()
-			defer ghwTest.Clean()
+
 			runner.ReturnValue = []byte(
 				fmt.Sprintf(
 					`{"blockdevices": [{"label": "%s", "type": "loop", "path": "/some/device"}]}`,
@@ -628,6 +627,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			)
 			e := elemental.NewElemental(config)
 			Expect(e.CheckActiveDeployment([]string{cnst.ActiveLabel, cnst.PassiveLabel})).To(BeTrue())
+
+			ghwTest.Clean()
 		})
 
 		It("Should not error out", func() {
@@ -921,14 +922,3 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 	})
 })
-
-// PathInMountPoints will check if the given path is in the mountPoints list
-func pathInMountPoints(mounter mount.Interface, path string) bool {
-	mountPoints, _ := mounter.List()
-	for _, m := range mountPoints {
-		if path == m.Path {
-			return true
-		}
-	}
-	return false
-}

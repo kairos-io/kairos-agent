@@ -252,40 +252,6 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(partNames).To(ContainElement("sdb1Test"))
 		})
 	})
-	Describe("GetPartitionFS", Label("lsblk", "partitions"), func() {
-		var ghwTest ghwMock.GhwMock
-		BeforeEach(func() {
-			ghwTest = ghwMock.GhwMock{}
-			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
-				{
-					Name: "device1",
-					FS:   "xfs",
-				},
-				{
-					Name: "device2",
-				},
-			}}
-			ghwTest.AddDisk(disk)
-			ghwTest.CreateDevices()
-		})
-		AfterEach(func() {
-			ghwTest.Clean()
-		})
-		It("returns found device with plain partition device", func() {
-			pFS, err := partitions.GetPartitionFS("device1")
-			Expect(err).To(BeNil())
-			Expect(pFS).To(Equal("xfs"))
-		})
-		It("returns found device with full partition device", func() {
-			pFS, err := partitions.GetPartitionFS("/dev/device1")
-			Expect(err).To(BeNil())
-			Expect(pFS).To(Equal("xfs"))
-		})
-		It("fails if no partition is found", func() {
-			_, err := partitions.GetPartitionFS("device2")
-			Expect(err).NotTo(BeNil())
-		})
-	})
 	Describe("CosignVerify", Label("cosign"), func() {
 		It("runs a keyless verification", func() {
 			_, err := utils.CosignVerify(fs, runner, "some/image:latest", "")
@@ -1088,6 +1054,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
+		})
+		AfterEach(func() {
+			ghwTest.Clean()
 		})
 		It("returns the efi partition", func() {
 			efi, err := partitions.GetEfiPartition(&logger)

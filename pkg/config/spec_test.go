@@ -18,7 +18,6 @@ package config_test
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -34,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog"
-	"github.com/sanity-io/litter"
 	"github.com/twpayne/go-vfs/v4/vfst"
 	"k8s.io/mount-utils"
 )
@@ -73,7 +71,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			c.Install = &config.Install{}
 			c.Bundles = config.Bundles{}
 			c.Config = collector.Config{}
-			fmt.Println(litter.Sdump(c))
 		})
 		AfterEach(func() {
 			cleanup()
@@ -207,7 +204,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
-				fmt.Println(litter.Sdump(spec))
 				Expect(spec.Active.Source.IsEmpty()).To(BeFalse())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
 				Expect(spec.PartTable).To(Equal(v1.GPT))
@@ -217,7 +213,6 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(spec.Firmware).To(Equal(v1.BIOS))
-				fmt.Println(litter.Sdump(spec))
 				Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
 				Expect(spec.PartTable).To(Equal(v1.GPT))
@@ -683,7 +678,6 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 	})
 
 	AfterEach(func() {
-		fmt.Println(memLog.String())
 		defer os.RemoveAll(tempDir)
 	})
 
