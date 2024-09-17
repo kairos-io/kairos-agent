@@ -20,14 +20,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install earthly
-        uses: Luet-lab/luet-install-action@v1
-        with:
-          repository: quay.io/kairos/packages
-          packages: utils/earthly
       - name: Run tests
         run: |
-          earthly -P +test --GO_VERSION=${{ matrix.go-version }}
+          go run github.com/onsi/ginkgo/v2/ginkgo run -p --github-output  --covermode=atomic --coverprofile=coverage.out -v --race -r ./...
       - name: Codecov
         uses: codecov/codecov-action@v4
         env:
