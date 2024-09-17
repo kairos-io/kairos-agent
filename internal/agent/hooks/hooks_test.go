@@ -95,8 +95,10 @@ var _ = Describe("Hooks", func() {
 			ghwTest = ghwMock.GhwMock{}
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
+			os.Setenv("GHW_CHROOT", ghwTest.Chroot)
 		})
 		AfterEach(func() {
+			ghwTest.Clean()
 			cleanup()
 		})
 		It("should copy all files with .sysext.raw extension", func() {
