@@ -11,7 +11,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"os"
-	"path/filepath"
 )
 
 // Run starts the agent provider emitting the bootstrap event.
@@ -37,17 +36,8 @@ func Run(opts ...Option) error {
 		return nil
 	}
 
-	tmpdir, _ := os.MkdirTemp("/tmp", "kairos-agent")
-	fileName := filepath.Join(tmpdir, "agent-provider.log")
-
-	// Create if not exist
-	if _, err := os.Stat(fileName); err != nil {
-		err = os.WriteFile(fileName, []byte{}, os.ModePerm)
-		if err != nil {
-			return err
-		}
-	}
-
+	fileName := "/var/log/kairos/agent-provider.log"
+	
 	if !machine.SentinelExist("firstboot") {
 		spec := v1.EmptySpec{}
 		if err := hook.Run(*c, &spec, hook.FirstBoot...); err != nil {
