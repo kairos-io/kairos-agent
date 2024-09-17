@@ -88,6 +88,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 	})
 
 	AfterEach(func() {
+		ghwTest.Clean()
 		cleanup()
 	})
 	Context("Under Uki", func() {
@@ -129,7 +130,6 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				entries, err := listSystemdEntries(config, &sdkTypes.Partition{MountPoint: "/efi"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(entries).To(HaveLen(0))
-
 			})
 		})
 		Context("SelectBootEntry", func() {
