@@ -667,6 +667,11 @@ The validate command expects a configuration file as its only argument. Local fi
 				Name:  "cloud-init-paths",
 				Usage: "Extra paths to add to the run stage",
 			},
+			&cli.BoolFlag{
+				Name:    "analyze",
+				Usage:   "Only print the modules that would run in the order they would run",
+				Aliases: []string{"a"},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			if c.Args().Len() != 1 {
@@ -691,6 +696,9 @@ The validate command expects a configuration file as its only argument. Local fi
 
 			if err != nil {
 				config.Logger.Errorf("Error reading config: %s\n", err)
+			}
+			if c.Bool("analyze") {
+				return utils.RunStageAnalyze(config, stage)
 			}
 			return utils.RunStage(config, stage)
 		},
