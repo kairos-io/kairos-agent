@@ -2,6 +2,8 @@ package agent
 
 import (
 	"fmt"
+	"os"
+
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -10,7 +12,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	"os"
 )
 
 // Run starts the agent provider emitting the bootstrap event.
@@ -37,7 +38,7 @@ func Run(opts ...Option) error {
 	}
 
 	fileName := "/var/log/kairos/agent-provider.log"
-	
+
 	if !machine.SentinelExist("firstboot") {
 		spec := v1.EmptySpec{}
 		if err := hook.Run(*c, &spec, hook.FirstBoot...); err != nil {

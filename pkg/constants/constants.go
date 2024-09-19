@@ -18,9 +18,10 @@ package constants
 
 import (
 	"errors"
-	"github.com/gofrs/uuid"
 	"os"
 	"strings"
+
+	"github.com/gofrs/uuid"
 )
 
 const (
@@ -171,7 +172,6 @@ func GetGrubModules() []string {
 func GetConfigScanDirs() []string {
 	return []string{
 		"/oem",
-		"/system/oem",
 		"/usr/local/cloud-config",
 		"/run/initramfs/live",
 		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
