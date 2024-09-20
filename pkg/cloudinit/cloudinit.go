@@ -81,3 +81,7 @@ func (ci *YipCloudInitRunner) SetModifier(m schema.Modifier) {
 func (ci *YipCloudInitRunner) SetFs(fs vfs.FS) {
 	ci.fs = fs
 }
+
+func (ci *YipCloudInitRunner) Analyze(stage string, args ...string) {
+	ci.exec.Analyze(stage, vfs.OSFS, ci.console, args...)
+}

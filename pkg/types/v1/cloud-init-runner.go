@@ -22,5 +22,6 @@ import (
 
 type CloudInitRunner interface {
 	Run(string, ...string) error
+	Analyze(string, ...string)
 	SetModifier(schema.Modifier)
 }

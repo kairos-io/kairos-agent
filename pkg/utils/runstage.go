@@ -57,14 +57,26 @@ func checkYAMLError(cfg *agentConfig.Config, allErrors, err error) error {
 	return allErrors
 }
 
+// RunstageAnalyze
+func RunStageAnalyze(cfg *agentConfig.Config, stage string) error {
+	return runstage(cfg, stage, true)
+}
+
 // RunStage will run yip
 func RunStage(cfg *agentConfig.Config, stage string) error {
+	return runstage(cfg, stage, false)
+}
+
+func runstage(cfg *agentConfig.Config, stage string, analyze bool) error {
 	var cmdLineYipURI string
 	var allErrors error
 	var cloudInitPaths []string
 
 	cloudInitPaths = append(constants.GetCloudInitPaths(), cfg.CloudInitPaths...)
 	cfg.Logger.Debugf("Cloud-init paths set to %v", cloudInitPaths)
+	if analyze {
+		cfg.Logger.Info("Analyze mode, showing DAG")
+	}
 
 	// Make sure cloud init path specified are existing in the system
 	for _, cp := range cloudInitPaths {
@@ -96,9 +108,13 @@ func RunStage(cfg *agentConfig.Config, stage string) error {
 
 	// Run all stages for each of the default cloud config paths + extra cloud config paths
 	for _, s := range []string{stageBefore, stage, stageAfter} {
-		err = cfg.CloudInitRunner.Run(s, cloudInitPaths...)
-		if err != nil {
-			allErrors = multierror.Append(allErrors, err)
+		if analyze {
+			cfg.CloudInitRunner.Analyze(s, cloudInitPaths...)
+		} else {
+			err = cfg.CloudInitRunner.Run(s, cloudInitPaths...)
+			if err != nil {
+				allErrors = multierror.Append(allErrors, err)
+			}
 		}
 	}
 
@@ -106,9 +122,13 @@ func RunStage(cfg *agentConfig.Config, stage string) error {
 	if cmdLineYipURI != "" {
 		cmdLineArgs := []string{cmdLineYipURI}
 		for _, s := range []string{stageBefore, stage, stageAfter} {
-			err = cfg.CloudInitRunner.Run(s, cmdLineArgs...)
-			if err != nil {
-				allErrors = multierror.Append(allErrors, err)
+			if analyze {
+				cfg.CloudInitRunner.Analyze(s, cloudInitPaths...)
+			} else {
+				err = cfg.CloudInitRunner.Run(s, cmdLineArgs...)
+				if err != nil {
+					allErrors = multierror.Append(allErrors, err)
+				}
 			}
 		}
 	}
@@ -117,10 +137,15 @@ func RunStage(cfg *agentConfig.Config, stage string) error {
 	cfg.CloudInitRunner.SetModifier(schema.DotNotationModifier)
 
 	for _, s := range []string{stageBefore, stage, stageAfter} {
-		err = cfg.CloudInitRunner.Run(s, string(cmdLineOut))
-		if err != nil {
-			allErrors = checkYAMLError(cfg, allErrors, err)
+		if analyze {
+			cfg.CloudInitRunner.Analyze(s, cloudInitPaths...)
+		} else {
+			err = cfg.CloudInitRunner.Run(s, string(cmdLineOut))
+			if err != nil {
+				allErrors = checkYAMLError(cfg, allErrors, err)
+			}
 		}
+
 	}
 
 	cfg.CloudInitRunner.SetModifier(nil)
