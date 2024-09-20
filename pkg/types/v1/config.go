@@ -79,7 +79,11 @@ type InstallSpec struct {
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
 	// Accept that the target can be a /dev/disk/by-{label,uuid,path,etc..} and resolve it into a /dev/device
-	if strings.HasPrefix("/dev/disk/by-", i.Target) {
+	if strings.HasPrefix(i.Target, "/dev/disk/by-") {
+		// we dont accept partitions as target so check and fail earlier for those that are partuuid or parlabel
+		if strings.Contains(i.Target, "parlabel") || strings.Contains(i.Target, "partuuid") {
+			return fmt.Errorf("target contains 'parlabel' or 'partuuid', looks like its a partition instead of a disk: %s", i.Target)
+		}
 		device, err := os.Readlink(i.Target)
 		if err != nil {
 			return fmt.Errorf("failed to read device link for %s: %w", i.Target, err)
