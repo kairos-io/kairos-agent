@@ -18,15 +18,12 @@ package v1
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/ghw"
 	"github.com/kairos-io/kairos-sdk/types"
 	"gopkg.in/yaml.v3"
+	"path/filepath"
+	"sort"
 )
 
 const (
@@ -75,35 +72,9 @@ type InstallSpec struct {
 	GrubConf        string
 }
 
-// TODO: Move it to the sdk, make it use a vfs to read the link
-func resolveTarget(target string) (string, error) {
-	// Accept that the target can be a /dev/disk/by-{label,uuid,path,etc..} and resolve it into a /dev/device
-	if strings.HasPrefix(target, "/dev/disk/by-") {
-		// we dont accept partitions as target so check and fail earlier for those that are partuuid or parlabel
-		if strings.Contains(target, "partlabel") || strings.Contains(target, "partuuid") {
-			return "", fmt.Errorf("target contains 'parlabel' or 'partuuid', looks like its a partition instead of a disk: %s", target)
-		}
-		device, err := os.Readlink(target)
-		if err != nil {
-			return "", fmt.Errorf("failed to read device link for %s: %w", target, err)
-		}
-		if !strings.HasPrefix(device, "/dev/") {
-			return "", fmt.Errorf("device %s is not a valid device path", device)
-		}
-		return device, nil
-	}
-	// If we dont resolve and dont fail, just return the original target
-	return target, nil
-}
-
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
-	var err error
-	i.Target, err = resolveTarget(i.Target)
-	if err != nil {
-		return err
-	}
 	// Check if the target device has mounted partitions
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
 		if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
