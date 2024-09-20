@@ -18,8 +18,10 @@ package v1
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/ghw"
@@ -76,6 +78,18 @@ type InstallSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
+	// Accept that the target can be a /dev/disk/by-{label,uuid,path,etc..} and resolve it into a /dev/device
+	if strings.HasPrefix("/dev/disk/by-", i.Target) {
+		device, err := os.Readlink(i.Target)
+		if err != nil {
+			return fmt.Errorf("failed to read device link for %s: %w", i.Target, err)
+		}
+		if !strings.HasPrefix(device, "/dev/") {
+			return fmt.Errorf("device %s is not a valid device path", device)
+		}
+		i.Target = device
+	}
+
 	// Check if the target device has mounted partitions
 
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
