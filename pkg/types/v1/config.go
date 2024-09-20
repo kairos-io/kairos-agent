@@ -18,12 +18,13 @@ package v1
 
 import (
 	"fmt"
+	"path/filepath"
+	"sort"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/ghw"
 	"github.com/kairos-io/kairos-sdk/types"
 	"gopkg.in/yaml.v3"
-	"path/filepath"
-	"sort"
 )
 
 const (
