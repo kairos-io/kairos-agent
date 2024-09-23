@@ -77,7 +77,6 @@ type InstallSpec struct {
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
 	// Check if the target device has mounted partitions
-
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
 		if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
 			for _, p := range disk.Partitions {

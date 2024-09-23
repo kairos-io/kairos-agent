@@ -47,6 +47,27 @@ const (
 	TiB
 )
 
+// TODO: Move it to the sdk
+func resolveTarget(fs v1.FS, target string) (string, error) {
+	// Accept that the target can be a /dev/disk/by-{label,uuid,path,etc..} and resolve it into a /dev/device
+	if strings.HasPrefix(target, "/dev/disk/by-") {
+		// we dont accept partitions as target so check and fail earlier for those that are partuuid or parlabel
+		if strings.Contains(target, "partlabel") || strings.Contains(target, "partuuid") {
+			return "", fmt.Errorf("target contains 'parlabel' or 'partuuid', looks like its a partition instead of a disk: %s", target)
+		}
+		device, err := fs.Readlink(target)
+		if err != nil {
+			return "", fmt.Errorf("failed to read device link for %s: %w", target, err)
+		}
+		if !strings.HasPrefix(device, "/dev/") {
+			return "", fmt.Errorf("device %s is not a valid device path", device)
+		}
+		return device, nil
+	}
+	// If we dont resolve and dont fail, just return the original target
+	return target, nil
+}
+
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
 func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	var firmware string
@@ -66,6 +87,13 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	} else {
 		firmware = v1.BIOS
 	}
+
+	dev, err := resolveTarget(cfg.Fs, cfg.Install.Device)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.Install.Device = dev
 
 	activeImg.Label = constants.ActiveLabel
 	activeImg.Size = constants.ImgSize
