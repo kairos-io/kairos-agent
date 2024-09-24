@@ -55,7 +55,8 @@ func resolveTarget(fs v1.FS, target string) (string, error) {
 		if strings.Contains(target, "partlabel") || strings.Contains(target, "partuuid") {
 			return "", fmt.Errorf("target contains 'parlabel' or 'partuuid', looks like its a partition instead of a disk: %s", target)
 		}
-		device, err := fs.Readlink(target)
+		// Use EvanSymlinks to properly resolve the target
+		device, err := filepath.EvalSymlinks(target)
 		if err != nil {
 			return "", fmt.Errorf("failed to read device link for %s: %w", target, err)
 		}
