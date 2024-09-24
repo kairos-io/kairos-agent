@@ -88,7 +88,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) [
 				Type:       gpt.EFISystemPartition,
 				Size:       size,                                                         // partition size in bytes
 				GUID:       uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
-				Name:       part.FilesystemLabel,
+				Name:       part.Name,
 				Attributes: 0x1, // system partition flag
 			})
 		} else if part.Name == cnst.BiosPartName {
@@ -99,7 +99,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) [
 				Type:       gpt.BIOSBoot,
 				Size:       size,                                                         // partition size in bytes
 				GUID:       uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
-				Name:       part.FilesystemLabel,
+				Name:       part.Name,
 				Attributes: 0x4, // legacy bios bootable flag
 			})
 		} else {
@@ -110,7 +110,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) [
 				Type:  gpt.LinuxFilesystem,
 				Size:  size,
 				GUID:  uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(),
-				Name:  part.FilesystemLabel,
+				Name:  part.Name,
 			})
 		}
 	}

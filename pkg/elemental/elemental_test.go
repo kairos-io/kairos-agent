@@ -398,7 +398,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			// Should be efi type
 			Expect(partition.Type).To(Equal(gpt.EFISystemPartition))
 			// should have boot label
-			Expect(partition.Name).To(Equal(cnst.EfiLabel))
+			Expect(partition.Name).To(Equal(cnst.EfiPartName))
 			// Should have predictable UUID
 			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
 			// Check the rest have the proper types
@@ -431,7 +431,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			// Should be BIOS boot type
 			Expect(partition.Type).To(Equal(gpt.BIOSBoot))
 			// should have boot label
-			Expect(partition.Name).To(Equal(cnst.EfiLabel))
+			Expect(partition.Name).To(Equal(cnst.BiosPartName))
 			// Should have predictable UUID
 			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
 			for i := 1; i < len(disk.Table.GetPartitions()); i++ {

@@ -110,7 +110,7 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 				continue
 			}
 			// we have to match the Fs it was asked with the partition in the system
-			if p.(*gpt.Partition).Name == configPart.FilesystemLabel {
+			if p.(*gpt.Partition).Name == configPart.Name {
 				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)
 				err = partitioner.FormatDevice(e.config.Runner, fmt.Sprintf("%s%d", i.GetTarget(), index+1), configPart.FS, configPart.FilesystemLabel)
 				if err != nil {
