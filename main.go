@@ -161,6 +161,10 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					if err != nil {
 						return err
 					}
+					if len(tags) == 0 {
+						fmt.Println("No newer releases found")
+						return nil
+					}
 
 					if c.Bool("recovery") && c.String("boot-entry") != "" {
 						return fmt.Errorf("only one of '--recovery' and '--boot-entry' can be set")
