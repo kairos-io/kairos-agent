@@ -170,10 +170,10 @@ func GetGrubModules() []string {
 
 func GetConfigScanDirs() []string {
 	return []string{
-		"/oem",
-		"/system/oem",
-		"/usr/local/cloud-config",
 		"/run/initramfs/live",
+		"/usr/local/cloud-config",
+		"/system/oem",
+		"/oem",
 		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
 		"/etc/elemental", // for backwards compatibility
 	}
