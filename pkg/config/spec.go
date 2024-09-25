@@ -47,15 +47,21 @@ const (
 	TiB
 )
 
-// TODO: Move it to the sdk
-func resolveTarget(fs v1.FS, target string) (string, error) {
+// resolveTarget will try to resovle a /dev/disk/by-X disk into the final real disk under /dev/X
+// We use it to calculate the device on the fly for the Config and the InstallSpec but we leave
+// the original value in teh config.Collector so its written down in the final cloud config in the
+// installed system, so users can know what parameters it was installed with in case they need to refer
+// to it down the line to know what was the original parametes
+// If the target is a normal /dev/X we dont do anything and return the original value so normal installs
+// should not be affected
+func resolveTarget(target string) (string, error) {
 	// Accept that the target can be a /dev/disk/by-{label,uuid,path,etc..} and resolve it into a /dev/device
 	if strings.HasPrefix(target, "/dev/disk/by-") {
 		// we dont accept partitions as target so check and fail earlier for those that are partuuid or parlabel
 		if strings.Contains(target, "partlabel") || strings.Contains(target, "partuuid") {
 			return "", fmt.Errorf("target contains 'parlabel' or 'partuuid', looks like its a partition instead of a disk: %s", target)
 		}
-		// Use EvanSymlinks to properly resolve the target
+		// Use EvanSymlinks to properly resolve the full path to the target
 		device, err := filepath.EvalSymlinks(target)
 		if err != nil {
 			return "", fmt.Errorf("failed to read device link for %s: %w", target, err)
@@ -65,7 +71,7 @@ func resolveTarget(fs v1.FS, target string) (string, error) {
 		}
 		return device, nil
 	}
-	// If we dont resolve and dont fail, just return the original target
+	// If we don't resolve and don't fail, just return the original target
 	return target, nil
 }
 
@@ -89,7 +95,8 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 		firmware = v1.BIOS
 	}
 
-	dev, err := resolveTarget(cfg.Fs, cfg.Install.Device)
+	// Resolve the install target
+	dev, err := resolveTarget(cfg.Install.Device)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +170,12 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	err = unmarshallFullSpec(cfg, "install", spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
+	}
+
+	// resolve also the target of the spec so we can partition properly
+	spec.Target, err = resolveTarget(spec.Target)
+	if err != nil {
+		return nil, err
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
