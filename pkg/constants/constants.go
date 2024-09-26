@@ -176,6 +176,11 @@ func GetYipConfigDirs() []string {
 	return append(GetUserConfigDirs(), "/system/oem")
 }
 
+// GetUserConfigDirs returns all the directories that might have configuration
+// supplied by the user. They are in an order which allows the users to override
+// baked-in configuration (e.g. in livecd, under /run/initramfs/live) with
+// configuration coming from datasource (e.g. a datasource cdrom, written under /oem).
+// That's why writable paths are last.
 func GetUserConfigDirs() []string {
 	return []string{
 		"/run/initramfs/live",
