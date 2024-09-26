@@ -18,9 +18,10 @@ package constants
 
 import (
 	"errors"
-	"github.com/gofrs/uuid"
 	"os"
 	"strings"
+
+	"github.com/gofrs/uuid"
 )
 
 const (

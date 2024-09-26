@@ -334,7 +334,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 
 			configStr, err := config.String()
 			if err != nil {
-				return err
+				return fmt.Errorf("getting config string: %w", err)
 			}
 			fmt.Printf("%s", configStr)
 			return nil
