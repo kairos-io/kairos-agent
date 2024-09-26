@@ -173,9 +173,9 @@ func GetConfigScanDirs() []string {
 		"/run/initramfs/live",
 		"/usr/local/cloud-config",
 		"/system/oem",
-		"/oem",
 		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
 		"/etc/elemental", // for backwards compatibility
+		"/oem",
 	}
 }
 
