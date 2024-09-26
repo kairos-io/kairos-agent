@@ -14,7 +14,9 @@ var _ = Describe("RenderTemplate action test", func() {
 	It("renders the template with config and state", func() {
 		config := agentConfig.NewConfig()
 		config.Config = collector.Config{
-			"testKey": "testValue",
+			Values: collector.ConfigValues{
+				"testKey": "testValue",
+			},
 		}
 		runtime, err := state.NewRuntime()
 		Expect(err).ToNot(HaveOccurred())

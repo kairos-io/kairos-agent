@@ -368,11 +368,11 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	// Deep look to see if upgrade.recovery == true in the config
 	// if yes, we set the upgrade spec "Entry" to "recovery"
 	entry := ""
-	_, ok := cfg.Config["upgrade"]
+	_, ok := cfg.Config.Values["upgrade"]
 	if ok {
-		_, ok = cfg.Config["upgrade"].(collector.Config)["recovery"]
+		_, ok = cfg.Config.Values["upgrade"].(collector.ConfigValues)["recovery"]
 		if ok {
-			if cfg.Config["upgrade"].(collector.Config)["recovery"].(bool) {
+			if cfg.Config.Values["upgrade"].(collector.ConfigValues)["recovery"].(bool) {
 				entry = constants.BootEntryRecovery
 			}
 		}
