@@ -169,10 +169,16 @@ func GetGrubModules() []string {
 	return []string{"loopback.mod", "squash4.mod", "xzio.mod", "gzio.mod", "regexp.mod"}
 }
 
-func GetConfigScanDirs() []string {
+// GetYipConfigDirs returns all the directories where "yip" configuration might
+// live. These include the directories were we store our system overlay files:
+// https://github.com/kairos-io/packages/tree/main/packages/static/kairos-overlay-files/files/system/oem
+func GetYipConfigDirs() []string {
+	return append(GetUserConfigDirs(), "/system/oem")
+}
+
+func GetUserConfigDirs() []string {
 	return []string{
 		"/oem",
-		"/system/oem",
 		"/usr/local/cloud-config",
 		"/run/initramfs/live",
 		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
