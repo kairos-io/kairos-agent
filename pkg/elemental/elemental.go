@@ -103,7 +103,7 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 		e.config.Logger.Errorf("Udevadm settle failed: %s", err)
 	}
 	// Partitions are in order so we can format them via that
-	for index, p := range table.GetPartitions() {
+	for _, p := range table.GetPartitions() {
 		for _, configPart := range i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()) {
 			if configPart.Name == cnst.BiosPartName {
 				// Grub partition on non-EFI is not formatted. Grub is directly installed on it
@@ -112,7 +112,16 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 			// we have to match the Fs it was asked with the partition in the system
 			if p.(*gpt.Partition).Name == configPart.Name {
 				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)
-				err = partitioner.FormatDevice(e.config.Runner, fmt.Sprintf("%s%d", i.GetTarget(), index+1), configPart.FS, configPart.FilesystemLabel)
+				// Get full partition path by the /dev/disk/by-partlabel/ facility
+				// So we don't need to infer the actual device under it but get udev to tell us
+				// So this works for "normal" devices that have the "expected" partitions (i.e. /dev/sda has /dev/sda1, /dev/sda2)
+				// And "weird" devices that have special subdevices like mmc or nvme
+				// i.e. /dev/mmcblk0 has /dev/mmcblk0p1, /dev/mmcblk0p2
+				device, err := filepath.EvalSymlinks(fmt.Sprintf("/dev/disk/by-partlabel/%s", configPart.Name))
+				if err != nil {
+					e.config.Logger.Errorf("Failed finding partition %s by partition label: %s", configPart.FilesystemLabel, err)
+				}
+				err = partitioner.FormatDevice(e.config.Runner, device, configPart.FS, configPart.FilesystemLabel)
 				if err != nil {
 					e.config.Logger.Errorf("Failed formatting partition: %s", err)
 					return err
