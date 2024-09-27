@@ -113,24 +113,35 @@ func (r ResetAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
-	// Unmount partitions if any is already mounted before formatting
-	// TODO: Is this needed???
-	err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, r.spec.Partitions.Recovery))
-	if err != nil {
-		return err
-	}
-
 	// Reformat state partition
-	err = e.FormatPartition(r.spec.Partitions.State)
-	if err != nil {
-		return err
-	}
+	// We should expose this under a flag, to reformat state before starting
+	// In case state fs is broken somehow
+	/*
+		if r.spec.FormatState {
+			state := r.spec.Partitions.State
+			if state != nil {
+				err = e.UnmountPartition(state)
+				if err != nil {
+					return err
+				}
+				err = e.FormatPartition(state)
+				if err != nil {
+					return err
+				}
+				// Mount it back
+				err = e.MountPartition(state)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	*/
 
 	// Reformat persistent partition
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
-			err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, persistent))
+			err = e.UnmountPartition(persistent)
 			if err != nil {
 				return err
 			}
@@ -146,7 +157,7 @@ func (r ResetAction) Run() (err error) {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
 			// Try to umount
-			err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, oem))
+			err = e.UnmountPartition(oem)
 			if err != nil {
 				return err
 			}
@@ -154,22 +165,26 @@ func (r ResetAction) Run() (err error) {
 			if err != nil {
 				return err
 			}
+			// Mount it back, as oem is mounted during recovery, keep everything as is
+			err = e.MountPartition(oem)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	// Mount configured partitions
-	err = e.MountPartitions(r.spec.Partitions.PartitionsByMountPoint(false, r.spec.Partitions.Recovery))
-	if err != nil {
-		return err
-	}
-	cleanup.Push(func() error {
-		return e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true, r.spec.Partitions.Recovery))
-	})
 
 	// Before reset hook happens once partitions are aready and before deploying the OS image
 	err = r.resetHook(cnst.BeforeResetHook, false)
 	if err != nil {
 		return err
 	}
+
+	// Mount COS_STATE so we can write the new images
+	err = e.MountPartition(r.spec.Partitions.State)
+	if err != nil {
+		return err
+	}
+	cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.State) })
 
 	// Deploy active image
 	meta, err := e.DeployImage(&r.spec.Active, true)
