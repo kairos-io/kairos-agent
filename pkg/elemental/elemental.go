@@ -352,7 +352,7 @@ func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interfac
 	} else if img.Label != "" && img.FS != cnst.SquashFs {
 		out, err := e.config.Runner.Run("tune2fs", "-L", img.Label, img.File)
 		if err != nil {
-			e.config.Logger.Errorf("Failed to apply label %s to %s: %s", img.Label, img.File, out)
+			e.config.Logger.Errorf("Failed to apply label %s to %s: %s", img.Label, img.File, string(out))
 			_ = e.config.Fs.Remove(img.File)
 			return nil, err
 		}
