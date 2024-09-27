@@ -116,6 +116,9 @@ func (r ResetAction) Run() (err error) {
 	// Reformat state partition
 	// We should expose this under a flag, to reformat state before starting
 	// In case state fs is broken somehow
+	// We used to format it blindly but if something happens between this format and the new image copy down below
+	// You end up with a broken system with no active or passive and reset may not even work at that point
+	// TODO: Either create a flag to do this or ignore it and never format the partition
 	/*
 		if r.spec.FormatState {
 			state := r.spec.Partitions.State
