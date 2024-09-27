@@ -89,7 +89,6 @@ var _ = Describe("Reset action tests", func() {
 		var cmdFail, bootedFrom string
 		var err error
 		BeforeEach(func() {
-
 			Expect(err).ShouldNot(HaveOccurred())
 			cmdFail = ""
 			recoveryImg := filepath.Join(constants.RunningStateDir, "cOS", constants.RecoveryImgFile)
@@ -108,22 +107,24 @@ var _ = Describe("Reset action tests", func() {
 					},
 					{
 						Name:            "device2",
+						FilesystemLabel: "COS_OEM",
+						FS:              "ext4",
+						MountPoint:      "/oem",
+					},
+					{
+						Name:            "device3",
+						FilesystemLabel: "COS_RECOVERY",
+						FS:              "ext4",
+						MountPoint:      "/run/initramfs/cos-state",
+					},
+					{
+						Name:            "device4",
 						FilesystemLabel: "COS_STATE",
 						FS:              "ext4",
 					},
 					{
-						Name:            "device3",
-						FilesystemLabel: "COS_PERSISTENT",
-						FS:              "ext4",
-					},
-					{
-						Name:            "device4",
-						FilesystemLabel: "COS_OEM",
-						FS:              "ext4",
-					},
-					{
 						Name:            "device5",
-						FilesystemLabel: "COS_RECOVERY",
+						FilesystemLabel: "COS_PERSISTENT",
 						FS:              "ext4",
 					},
 				},

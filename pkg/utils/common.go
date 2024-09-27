@@ -83,6 +83,7 @@ func CopyFile(fs v1.FS, source string, target string) (err error) {
 // Source files are concatenated into target file in the given order.
 // If target is a directory source is copied into that directory using
 // 1st source name file.
+// TODO: Log errors, return errors, whatever but dont ignore them
 func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 	if len(sources) == 0 {
 		return fmt.Errorf("Empty sources list")

@@ -447,7 +447,6 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
 	ep := v1.NewElementalPartitionsFromList(parts)
-
 	if efiExists {
 		if ep.EFI == nil {
 			return nil, fmt.Errorf("EFI partition not found")
@@ -480,7 +479,6 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	target := ep.State.Disk
 
 	// OEM partition is not a hard requirement for reset unless we have the reset oem flag
-	cfg.Logger.Info(litter.Sdump(ep.OEM))
 	if ep.OEM == nil {
 		// We could have oem in lvm which won't appear in ghw list
 		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
