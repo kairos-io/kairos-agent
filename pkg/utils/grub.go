@@ -195,6 +195,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		var model string
 		model, err = utils.OSRelease("KAIROS_MODEL", filepath.Join(cnst.ActiveDir, "etc/kairos-release"))
 		if err != nil {
+			// Fallback into os-release
 			model, err = utils.OSRelease("KAIROS_MODEL", filepath.Join(cnst.ActiveDir, "etc/os-release"))
 			if err != nil {
 				g.config.Logger.Warnf("Failed reading model info from %s and %s: %v", filepath.Join(cnst.ActiveDir, "etc/kairos-release"), filepath.Join(cnst.ActiveDir, "os/kairos-release"), err)
