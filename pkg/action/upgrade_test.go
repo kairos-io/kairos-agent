@@ -198,7 +198,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = fs.WriteFile(
-					filepath.Join(spec.Active.MountPoint, "etc", "os-release"),
+					filepath.Join(spec.Active.MountPoint, "etc", "kairos-release"),
 					[]byte("GRUB_ENTRY_NAME=TESTOS"),
 					constants.FilePerm,
 				)
@@ -253,7 +253,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
 
-				// Check that the rebrand worked with our os-release value
+				// Check that the rebrand worked with our kairos-release value
 				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"), memLog.String())
 
 				// This should be the new image
@@ -285,7 +285,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking the log")
-				// Check that the rebrand worked with our os-release value
+				// Check that the rebrand worked with our kairos-release value
 				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				By("checking active image")
@@ -319,7 +319,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
 
-				// Check that the rebrand worked with our os-release value
+				// Check that the rebrand worked with our kairos-release value
 				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				// This should be the new image
@@ -357,7 +357,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				err = upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
 
-				// Check that the rebrand worked with our os-release value
+				// Check that the rebrand worked with our kairos-release value
 				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				// Not much that we can create here as the dir copy was done on the real os, but we do the rest of the ops on a mem one
@@ -395,7 +395,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				err = fs.WriteFile(
-					filepath.Join(spec.Active.MountPoint, "etc", "os-release"),
+					filepath.Join(spec.Active.MountPoint, "etc", "kairos-release"),
 					[]byte("GRUB_ENTRY_NAME=TESTOS"),
 					constants.FilePerm,
 				)
@@ -445,7 +445,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
 
-				// Check that the rebrand worked with our os-release value
+				// Check that the rebrand worked with our kairos-release value
 				Expect(memLog).To(ContainSubstring("Setting default grub entry to TESTOS"))
 
 				// This should be the new image

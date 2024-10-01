@@ -23,7 +23,7 @@ import (
 func CurrentImage() (string, error) {
 	artifact, err := versioneer.NewArtifactFromOSRelease()
 	if err != nil {
-		return "", fmt.Errorf("creating an Artifact from os-release: %w", err)
+		return "", fmt.Errorf("creating an Artifact from kairos-release: %w", err)
 	}
 
 	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
