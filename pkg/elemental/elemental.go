@@ -547,13 +547,16 @@ func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *v1.
 	return nil
 }
 
-// SetDefaultGrubEntry Sets the default_meny_entry value in Config.GrubOEMEnv file at in
-// State partition mountpoint. If there is not a custom value in the os-release file, we do nothing
+// SetDefaultGrubEntry Sets the default_menu_entry value in Config.GrubOEMEnv file at in
+// State partition mountpoint. If there is not a custom value in the kairos-release file, we do nothing
 // As the grub config already has a sane default
 func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint string, defaultEntry string) error {
 	if defaultEntry == "" {
-		osRelease, err := utils.LoadEnvFile(e.config.Fs, filepath.Join(imgMountPoint, "etc", "os-release"))
+		var osRelease map[string]string
+		osRelease, err := utils.LoadEnvFile(e.config.Fs, filepath.Join(imgMountPoint, "etc", "kairos-release"))
 		if err != nil {
+			// Fallback to os-release
+			osRelease, err = utils.LoadEnvFile(e.config.Fs, filepath.Join(imgMountPoint, "etc", "os-release"))
 			e.config.Logger.Warnf("Could not load os-release file: %v", err)
 			return nil
 		}

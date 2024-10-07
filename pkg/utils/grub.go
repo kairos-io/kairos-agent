@@ -172,9 +172,13 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			return err
 		}
 
-		flavor, err := utils.OSRelease("FLAVOR", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+		flavor, err := utils.OSRelease("FLAVOR", filepath.Join(cnst.ActiveDir, "etc/kairos-release"))
 		if err != nil {
-			g.config.Logger.Warnf("Failed reading os-release from %s: %v", filepath.Join(cnst.ActiveDir, "etc/os-release"), err)
+			// Fallback to os-release
+			flavor, err = utils.OSRelease("FLAVOR", filepath.Join(cnst.ActiveDir, "os/kairos-release"))
+			if err != nil {
+				g.config.Logger.Warnf("Failed reading release info from %s and %s: %v", filepath.Join(cnst.ActiveDir, "etc/kairos-release"), filepath.Join(cnst.ActiveDir, "os/kairos-release"), err)
+			}
 		}
 		if flavor == "" {
 			// If os-release is gone with our vars, we dont know what flavor are we in, we should know if we are on ubuntu as we need
@@ -200,7 +204,15 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		// providing a generic package
 
 		// Shim is not available in Alpine + rpi
-		model, err := utils.OSRelease("KAIROS_MODEL", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+		var model string
+		model, err = utils.OSRelease("KAIROS_MODEL", filepath.Join(cnst.ActiveDir, "etc/kairos-release"))
+		if err != nil {
+			// Fallback into os-release
+			model, err = utils.OSRelease("KAIROS_MODEL", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+			if err != nil {
+				g.config.Logger.Warnf("Failed reading model info from %s and %s: %v", filepath.Join(cnst.ActiveDir, "etc/kairos-release"), filepath.Join(cnst.ActiveDir, "os/kairos-release"), err)
+			}
+		}
 		if strings.Contains(strings.ToLower(flavor), "alpine") && strings.Contains(strings.ToLower(model), "rpi") {
 			g.config.Logger.Debug("Running on Alpine+RPI, not copying shim or grub.")
 		} else {
@@ -222,7 +234,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			}
 			// Ubuntu efi searches for the grub.cfg file under /EFI/ubuntu/grub.cfg while we store it under /boot/grub2/grub.cfg
 			// workaround this by copying it there as well
-			// read the os-release from the rootfs to know if we are creating a ubuntu based iso
+			// read the kairos-release from the rootfs to know if we are creating a ubuntu based iso
 			if strings.Contains(strings.ToLower(flavor), "ubuntu") {
 				g.config.Logger.Infof("Ubuntu based ISO detected, copying grub.cfg to /EFI/ubuntu/grub.cfg")
 				err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/ubuntu/"), constants.DirPerm)
