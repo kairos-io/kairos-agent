@@ -180,6 +180,18 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 				g.config.Logger.Warnf("Failed reading release info from %s and %s: %v", filepath.Join(cnst.ActiveDir, "etc/kairos-release"), filepath.Join(cnst.ActiveDir, "os/kairos-release"), err)
 			}
 		}
+		if flavor == "" {
+			// If os-release is gone with our vars, we dont know what flavor are we in, we should know if we are on ubuntu as we need
+			// a workaround for the grub efi install
+			// So lets try to get the info from the normal keys shipped with the os
+			flavorFromId, err := utils.OSRelease("ID", filepath.Join(cnst.ActiveDir, "etc/os-release"))
+			if err != nil {
+				g.config.Logger.Logger.Err(err).Msg("Getting flavor")
+			}
+			if strings.Contains(strings.ToLower(flavorFromId), "ubuntu") {
+				flavor = "ubuntu"
+			}
+		}
 		g.config.Logger.Debugf("Detected Flavor: %s", flavor)
 		// Copy needed files for efi boot
 		// This seems like a chore while we could provide a package for those bundled files as they are just a shim and a grub efi
