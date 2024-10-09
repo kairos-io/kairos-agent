@@ -29,7 +29,9 @@ import (
 	"github.com/kairos-io/kairos-sdk/utils"
 	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
+	yip "github.com/mudler/yip/pkg/schema"
 	"github.com/pterm/pterm"
+	"github.com/twpayne/go-vfs/v4"
 )
 
 func displayInfo(agentConfig *Config) {
@@ -214,6 +216,29 @@ func Install(sourceImgURL string, dir ...string) error {
 func RunInstall(c *config.Config) error {
 	utils.SetEnv(c.Env)
 	utils.SetEnv(c.Install.Env)
+
+	// If nousers is enabled we do not check for the validity of the users and such
+	// At this point, the config should be fully parsed and the yip stages ready
+	if !c.Install.NoUsers {
+		found := false
+		cc, _ := c.Config.String()
+		yamlConfig, err := yip.Load(cc, vfs.OSFS, nil, nil)
+		if err != nil {
+			return err
+		}
+		for _, stage := range yamlConfig.Stages {
+			for _, x := range stage {
+				if len(x.Users) > 0 {
+					found = true
+					break
+				}
+			}
+
+		}
+		if !found {
+			return fmt.Errorf("No users found in any stage\nWe require at least one user or the install option 'install.nousers: true' to be set in the config in order to allow installing a system with no users.")
+		}
+	}
 
 	// UKI path. Check if we are on UKI AND if we are running off a cd, otherwise it makes no sense to run the install
 	// From the installed system
