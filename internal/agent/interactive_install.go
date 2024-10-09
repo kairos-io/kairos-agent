@@ -171,6 +171,11 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 		return err
 	}
 
+	makeAdmin, err := prompt("Make the user an admin (with sudo permissions)?", "y", yesNo, true, false)
+	if err != nil {
+		return err
+	}
+
 	// Cleanup the users if we selected the default values as they are not valid users
 	if users == "github:someuser,github:someuser2" {
 		users = ""
@@ -220,11 +225,16 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 
 	stage := config.NetworkStage.String()
 
+	var isAdmin []string
+	if isYes(makeAdmin) {
+		isAdmin = append(isAdmin, "admin")
+	}
+
 	if userName != "" {
 		user := schema.User{
 			Name:              userName,
 			PasswordHash:      userPassword,
-			Groups:            []string{"admin"},
+			Groups:            isAdmin,
 			SSHAuthorizedKeys: sshUsers,
 		}
 
