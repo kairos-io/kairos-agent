@@ -849,7 +849,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).To(BeNil())
 			Expect(varsParsed["default_menu_entry"]).To(Equal("dio"))
 		})
-		It("does nothing on empty default entry and no /etc/os-release", func() {
+		It("does nothing on empty default entry and no /etc/kairos-release", func() {
 			el := elemental.NewElemental(config)
 			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
 			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountPoint", "")).To(BeNil())
@@ -859,10 +859,10 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			_, err = config.Fs.Stat(filepath.Join("/tmp", cnst.GrubOEMEnv))
 			Expect(err).ToNot(BeNil())
 		})
-		It("loads /etc/os-release on empty default entry", func() {
+		It("loads /etc/kairos-release on empty default entry", func() {
 			err := fsutils.MkdirAll(config.Fs, "/imgMountPoint/etc", cnst.DirPerm)
 			Expect(err).ShouldNot(HaveOccurred())
-			err = config.Fs.WriteFile("/imgMountPoint/etc/os-release", []byte("GRUB_ENTRY_NAME=test"), cnst.FilePerm)
+			err = config.Fs.WriteFile("/imgMountPoint/etc/kairos-release", []byte("GRUB_ENTRY_NAME=test"), cnst.FilePerm)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
 

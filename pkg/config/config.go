@@ -408,7 +408,7 @@ func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
 	result.Logger.Logger.Info().Interface("version", version.GetVersion()).Msg("Kairos Agent")
 	result.Logger.Logger.Debug().Interface("version", version.Get()).Msg("Kairos Agent")
 
-	// Try to load the kairos version from the os-release file
+	// Try to load the kairos version from the kairos-release file
 	// Best effort, if it fails, we just ignore it
 	f, err := result.Fs.Open("/etc/os-release")
 	defer f.Close()
@@ -417,6 +417,17 @@ func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
 		v := osRelease["KAIROS_VERSION"]
 		if v != "" {
 			result.Logger.Logger.Info().Str("version", v).Msg("Kairos System")
+		} else {
+			// Fallback into os-release
+			f, err = result.Fs.Open("/etc/os-release")
+			defer f.Close()
+			osRelease, err = godotenv.Parse(f)
+			if err == nil {
+				v = osRelease["KAIROS_VERSION"]
+				if v != "" {
+					result.Logger.Logger.Info().Str("version", v).Msg("Kairos System")
+				}
+			}
 		}
 	}
 
