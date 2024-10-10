@@ -55,6 +55,7 @@ type Install struct {
 	ExtraPartitions        sdkTypes.PartitionList `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
 	ExtraDirsRootfs        []string               `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
 	Force                  bool                   `yaml:"force,omitempty" mapstructure:"force"`
+	NoUsers                bool                   `yaml:"nousers,omitempty" mapstructure:"nousers"`
 }
 
 func NewConfig(opts ...GenericOptions) *Config {
