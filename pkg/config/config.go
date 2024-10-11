@@ -189,6 +189,54 @@ func (c Config) LoadInstallState() (*v1.InstallState, error) {
 	return installState, nil
 }
 
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+// CheckForUsers will check the config for any users and validate that at least we have 1 admin.
+// Since Kairos 3.3.x we don't ship a default user with the system, so before a system with no specific users
+// was relying in our default cloud-configs which created a kairos user ALWAYS (with SUDO!)
+// But now we don't ship it anymore. So a user upgrading from 3.2.x to 3.3.x that created no users, will end up with a blocked
+// system.
+// So we need to see if they are setting a user in their config and if not refuse to continue
+func (c Config) CheckForUsers() (err error) {
+	// If nousers is enabled we do not check for the validity of the users and such
+	// At this point, the config should be fully parsed and the yip stages ready
+	if !c.Install.NoUsers {
+		anyAdmin := false
+		cc, _ := c.Config.String()
+		yamlConfig, err := yip.Load(cc, vfs.OSFS, nil, nil)
+		if err != nil {
+			return err
+		}
+		for _, stage := range yamlConfig.Stages {
+			for _, x := range stage {
+				if len(x.Users) > 0 {
+					for _, user := range x.Users {
+						if contains(user.Groups, "admin") || user.PrimaryGroup == "admin" {
+							anyAdmin = true
+							break
+						}
+					}
+				}
+			}
+
+		}
+		if !anyAdmin {
+			return fmt.Errorf("No users found in any stage that are part of the 'admin' group.\n" +
+				"In Kairos 3.3.x we no longer ship a default hardcoded user with the system configs and require users to provide their own user." +
+				"Please provide at least 1 user that is part of the 'admin' group(for sudo) with your cloud configs." +
+				"If you still want to continue without creating any users in the system, set 'install.nousers: true' to be in the config in order to allow a system with no users.")
+		}
+	}
+	return err
+}
+
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (c *Config) Sanitize() error {
