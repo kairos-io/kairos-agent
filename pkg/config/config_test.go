@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -263,6 +264,42 @@ var _ = Describe("Schema", func() {
 			err = fs.RemoveAll(filepath.Dir(statePath))
 			_, err = config.LoadInstallState()
 			Expect(err).Should(HaveOccurred())
+		})
+	})
+
+	Describe("Validate users in config", func() {
+		It("Validates a existing user in the system", func() {
+			cc := `#cloud-config
+stages:
+  initramfs:
+    - name: "Set user and password"
+      users:
+        kairos:
+          passwd: "kairos"
+          groups:
+            - "admin"
+`
+			config, err := pkgConfig.Scan(collector.Readers(strings.NewReader(cc)), collector.NoLogs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.CheckForUsers()).ToNot(HaveOccurred())
+		})
+		It("Fails if there is no user", func() {
+			config, err := pkgConfig.Scan()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.CheckForUsers()).To(HaveOccurred())
+		})
+		It("Fails if there is user but its not admin", func() {
+			cc := `#cloud-config
+stages:
+  initramfs:
+    - name: "Set user and password"
+      users:
+        kairos:
+          passwd: "kairos"
+`
+			config, err := pkgConfig.Scan(collector.Readers(strings.NewReader(cc)), collector.NoLogs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.CheckForUsers()).To(HaveOccurred())
 		})
 	})
 })
