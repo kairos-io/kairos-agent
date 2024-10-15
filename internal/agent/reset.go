@@ -38,6 +38,10 @@ func reset(reboot, unattended, resetOem bool, dir ...string) error {
 	if err != nil {
 		return err
 	}
+	err = cfg.CheckForUsers()
+	if err != nil {
+		return err
+	}
 	// Load the installation Config from the cloud-config data
 	resetSpec, err := config.ReadResetSpecFromConfig(cfg)
 	if err != nil {
@@ -62,6 +66,10 @@ func reset(reboot, unattended, resetOem bool, dir ...string) error {
 
 func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
 	cfg, err := sharedReset(reboot, unattended, resetOem, dir...)
+	if err != nil {
+		return err
+	}
+	err = cfg.CheckForUsers()
 	if err != nil {
 		return err
 	}
