@@ -850,12 +850,11 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		// , which mounts the host root into $HOST_DIR
 		// we should skip that dir when calculating the size as we would be doubling the calculated size
 		// Plus we will hit the usual things when checking a running system. Processes that go away, tmpfiles, etc...
-
 		// This is always set for pods running under kubernetes
 		_, underKubernetes := os.LookupEnv("KUBERNETES_SERVICE_HOST")
 		// Try to get the HOST_DIR in case we are not using the default one
 		hostDir := k8sutils.GetHostDirForK8s()
-		config.Logger.Logger.Debug().Bool("status", underKubernetes).Str("hostdir", hostDir).Msg("Running under kubernetes host directory")
+		config.Logger.Logger.Debug().Bool("status", underKubernetes).Str("hostdir", hostDir).Msg("Kubernetes check")
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
 			// If its empty we are just not setting it, so probably out of the k8s upgrade path
 			if hostDir != "" && strings.HasPrefix(path, hostDir) {

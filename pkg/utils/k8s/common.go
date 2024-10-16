@@ -21,7 +21,7 @@ func GetHostDirForK8s() string {
 			return "/host"
 		}
 	} else {
-		// We return an empty string so any filepath.join does nto alter the paths
+		// We return an empty string so any filepath.join does not alter the paths
 		return ""
 	}
 }
