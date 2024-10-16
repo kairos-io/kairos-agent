@@ -26,6 +26,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -852,14 +853,9 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 
 		// This is always set for pods running under kubernetes
 		_, underKubernetes := os.LookupEnv("KUBERNETES_SERVICE_HOST")
-		config.Logger.Logger.Info().Bool("status", underKubernetes).Msg("Running under kubernetes")
+		config.Logger.Logger.Debug().Bool("status", underKubernetes).Msg("Running under kubernetes")
 		// Try to get the HOST_DIR in case we are not using the default one
-		hostDir := os.Getenv("HOST_DIR")
-		// If we are under kubernetes but the HOST_DIR var is empty, default to /host as system-upgrade-controller mounts
-		// the host in that dir by default
-		if underKubernetes && hostDir == "" {
-			hostDir = "/host"
-		}
+		hostDir := utils.GetHostDirForK8s()
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
 			// If its empty we are just not setting it, so probably out of the k8s upgrade path
 			if hostDir != "" && strings.HasPrefix(path, hostDir) {

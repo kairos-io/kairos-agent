@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
@@ -68,10 +69,19 @@ func Upgrade(
 	source string, force, strictValidations bool, dirs []string, upgradeEntry string, preReleases bool) error {
 	bus.Manager.Initialize()
 
+	fixedDirs := make([]string, len(dirs))
+	// Check and fix dirs if we are under k8s, so we read the actual running system configs instead of only
+	// the container configs
+	// we can run it blindly as it will return an empty string if not under k8s
+	hostdir := internalutils.GetHostDirForK8s()
+	for _, dir := range dirs {
+		fixedDirs = append(fixedDirs, filepath.Join(hostdir, dir))
+	}
+
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
-		return upgradeUki(source, dirs, upgradeEntry, strictValidations)
+		return upgradeUki(source, fixedDirs, upgradeEntry, strictValidations)
 	} else {
-		return upgrade(source, dirs, upgradeEntry, strictValidations)
+		return upgrade(source, fixedDirs, upgradeEntry, strictValidations)
 	}
 }
 
