@@ -703,7 +703,8 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 
 		Expect(os.Mkdir(filepath.Join(tempDir, "host"), os.ModePerm)).ToNot(HaveOccurred())
 		Expect(createFileOfSizeInMB(filepath.Join(tempDir, "host", "what.txt"), 200)).ToNot(HaveOccurred())
-		// Set env var like the suc upgrade does
+		// Set env var like the suc upgrade and k8s does to trigger the skip
+		Expect(os.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")).ToNot(HaveOccurred())
 		Expect(os.Setenv("HOST_DIR", filepath.Join(tempDir, "host"))).ToNot(HaveOccurred())
 
 		sizeAfter, err := config.GetSourceSize(conf, imageSource)
