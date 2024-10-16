@@ -26,8 +26,8 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/ghw"
@@ -855,7 +855,7 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		_, underKubernetes := os.LookupEnv("KUBERNETES_SERVICE_HOST")
 		config.Logger.Logger.Debug().Bool("status", underKubernetes).Msg("Running under kubernetes")
 		// Try to get the HOST_DIR in case we are not using the default one
-		hostDir := utils.GetHostDirForK8s()
+		hostDir := k8sutils.GetHostDirForK8s()
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
 			// If its empty we are just not setting it, so probably out of the k8s upgrade path
 			if hostDir != "" && strings.HasPrefix(path, hostDir) {

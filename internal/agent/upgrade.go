@@ -14,6 +14,7 @@ import (
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
@@ -73,7 +74,7 @@ func Upgrade(
 	// Check and fix dirs if we are under k8s, so we read the actual running system configs instead of only
 	// the container configs
 	// we can run it blindly as it will return an empty string if not under k8s
-	hostdir := internalutils.GetHostDirForK8s()
+	hostdir := k8sutils.GetHostDirForK8s()
 	for _, dir := range dirs {
 		fixedDirs = append(fixedDirs, filepath.Join(hostdir, dir))
 	}
