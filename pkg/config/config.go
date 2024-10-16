@@ -60,6 +60,10 @@ type Install struct {
 
 func NewConfig(opts ...GenericOptions) *Config {
 	log := sdkTypes.NewKairosLogger("agent", "info", false)
+	// Get the viper config in case something in command line or env var has set it and set the level asap
+	if viper.GetBool("debug") {
+		log.SetLevel("debug")
+	}
 
 	hostPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
 	if err != nil {
