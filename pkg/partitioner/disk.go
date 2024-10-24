@@ -24,9 +24,11 @@ func (d *Disk) NewPartitionTable(partType string, parts sdkTypes.PartitionList) 
 	switch partType {
 	case v1.GPT:
 		table = &gpt.Table{
-			ProtectiveMBR: true,
-			GUID:          cnst.DiskUUID, // Set know predictable UUID
-			Partitions:    kairosPartsToDiskfsGPTParts(parts, d.Size),
+			ProtectiveMBR:      true,
+			GUID:               cnst.DiskUUID, // Set know predictable UUID
+			Partitions:         kairosPartsToDiskfsGPTParts(parts, d.Size, d.LogicalBlocksize),
+			LogicalSectorSize:  int(d.LogicalBlocksize),
+			PhysicalSectorSize: int(d.PhysicalBlocksize),
 		}
 	default:
 		return fmt.Errorf("invalid partition type: %s", partType)
@@ -39,11 +41,11 @@ func (d *Disk) NewPartitionTable(partType string, parts sdkTypes.PartitionList) 
 	return nil
 }
 
-func getSectorEndFromSize(start, size uint64) uint64 {
-	return (size / uint64(diskfs.SectorSize512)) + start - 1
+func getSectorEndFromSize(start, size uint64, sectorSize int64) uint64 {
+	return (size / uint64(sectorSize)) + start - 1
 }
 
-func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) []*gpt.Partition {
+func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64, sectorSize int64) []*gpt.Partition {
 	var partitions []*gpt.Partition
 	for index, part := range parts {
 		var start uint64
@@ -51,7 +53,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) [
 		var size uint64
 		if len(partitions) == 0 {
 			// first partition, align to 1Mb
-			start = 1024 * 1024 / uint64(diskfs.SectorSize512)
+			start = 1024 * 1024 / uint64(sectorSize)
 		} else {
 			// get latest partition end, sum 1
 			start = partitions[len(partitions)-1].End + 1
@@ -78,7 +80,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64) [
 
 		}
 
-		end = getSectorEndFromSize(start, size)
+		end = getSectorEndFromSize(start, size, sectorSize)
 
 		if part.Name == cnst.EfiPartName && part.FS == cnst.EfiFs {
 			// EFI boot partition
@@ -127,7 +129,7 @@ func WithLogger(logger sdkTypes.KairosLogger) func(d *Disk) error {
 }
 
 func NewDisk(device string, opts ...DiskOptions) (*Disk, error) {
-	d, err := diskfs.Open(device, diskfs.WithSectorSize(512))
+	d, err := diskfs.Open(device)
 	if err != nil {
 		return nil, err
 	}
