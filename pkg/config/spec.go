@@ -403,6 +403,14 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 	var size int64
 	var err error
+	var originalSize uint
+
+	// Store the default given size in the spec. This includes the user specified values which have already been marshalled in the spec
+	if spec.RecoveryUpgrade() {
+		originalSize = spec.Recovery.Size
+	} else {
+		originalSize = spec.Active.Size
+	}
 
 	var targetSpec *v1.Image
 	if spec.RecoveryUpgrade() {
@@ -412,16 +420,25 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 	}
 
 	if targetSpec.Source != nil && targetSpec.Source.IsEmpty() {
+		cfg.Logger.Debugf("No source specified for image, skipping size calculation")
 		return nil
 	}
 
 	size, err = GetSourceSize(cfg, targetSpec.Source)
 	if err != nil {
+		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 		return err
 	}
 
-	cfg.Logger.Infof("Setting image size to %dMb", size)
-	targetSpec.Size = uint(size)
+	if uint(size) < originalSize {
+		cfg.Logger.Debugf("Calculated size (%dMB) is less than specified/default size (%dMB)", size, originalSize)
+		targetSpec.Size = originalSize
+	} else {
+		cfg.Logger.Debugf("Calculated size (%dMB) is higher than specified/default size (%dMB)", size, originalSize)
+		targetSpec.Size = uint(size)
+	}
+
+	cfg.Logger.Infof("Setting image size to %dMB", targetSpec.Size)
 
 	return nil
 }
@@ -789,7 +806,7 @@ func ReadUkiUpgradeSpecFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
 // getSize will calculate the size of a file or symlink and will do nothing with directories
 // fileList: keeps track of the files visited to avoid counting a file more than once if it's a symlink. It could also be used as a way to filter some files
 // size: will be the memory that adds up all the files sizes. Meaning it could be initialized with a value greater than 0 if needed.
-func getSize(size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
+func getSize(vfs v1.FS, size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -802,7 +819,7 @@ func getSize(size *int64, fileList map[string]bool, path string, d fs.DirEntry, 
 	if d.Type()&fs.ModeSymlink != 0 {
 		// If it's a symlink, get its target and calculate its size.
 		var err error
-		actualFilePath, err = os.Readlink(path)
+		actualFilePath, err = vfs.Readlink(path)
 		if err != nil {
 			return err
 		}
@@ -813,7 +830,7 @@ func getSize(size *int64, fileList map[string]bool, path string, d fs.DirEntry, 
 		}
 	}
 
-	fileInfo, err := os.Stat(actualFilePath)
+	fileInfo, err := vfs.Stat(actualFilePath)
 	if os.IsNotExist(err) || fileList[actualFilePath] {
 		return nil
 	}
@@ -865,7 +882,7 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 				// During install or upgrade outside kubernetes, we dont care about those dirs as they are not expected to be in the source dir
 				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping dir as it is a runtime directory under kubernetes (/proc, /dev or /run)")
 			} else {
-				v := getSize(&size, filesVisited, path, d, err)
+				v := getSize(config.Fs, &size, filesVisited, path, d, err)
 				return v
 			}
 

@@ -36,7 +36,7 @@ const (
 // ImageSource represents the source from where an image is created for easy identification
 type ImageSource struct {
 	source  string `yaml:"source"`
-	srcType string
+	srcType string `yaml:"type"`
 }
 
 func (i ImageSource) Value() string {

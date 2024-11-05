@@ -392,10 +392,11 @@ func FilterKeys(d []byte) ([]byte, error) {
 }
 
 // ScanNoLogs is a wrapper around Scan that sets the logger to null
+// Also sets the NoLogs option to true by default
 func ScanNoLogs(opts ...collector.Option) (c *Config, err error) {
 	log := sdkTypes.NewNullLogger()
 	result := NewConfig(WithLogger(log))
-	return scan(result, opts...)
+	return scan(result, append(opts, collector.NoLogs)...)
 }
 
 // Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger
