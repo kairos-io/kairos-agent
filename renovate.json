@@ -11,9 +11,6 @@
   "reviewers": [ "team:maintainers" ],
   "timezone": "Europe/Brussels",
   "rebaseWhen": "behind-base-branch",
-  "constraints": {
-    "go": "1.22"
-  },
   "packageRules": [
     {
       "matchUpdateTypes": ["patch"],
