@@ -42,6 +42,7 @@ require (
 	github.com/google/go-github/v63 v63.0.0
 	github.com/google/go-github/v66 v66.0.0
 	github.com/twpayne/go-vfs/v4 v4.3.0
+	github.com/twpayne/go-vfs/v5 v5.0.4
 )
 
 require (
