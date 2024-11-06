@@ -39,9 +39,7 @@ require (
 require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/google/go-github/v63 v63.0.0
 	github.com/google/go-github/v66 v66.0.0
-	github.com/twpayne/go-vfs/v4 v4.3.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
 )
 
@@ -55,7 +53,6 @@ require (
 	github.com/Microsoft/hcsshim v0.11.7 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
-	github.com/alecthomas/assert/v2 v2.6.0 // indirect
 	github.com/anatol/devmapper.go v0.0.0-20230829043248-59ac2b9706ba // indirect
 	github.com/anatol/luks.go v0.0.0-20240507052915-92f8bb765f98 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
@@ -193,6 +190,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/tredoe/osutil v1.5.0 // indirect
+	github.com/twpayne/go-vfs/v4 v4.3.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect

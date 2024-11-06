@@ -22,7 +22,7 @@ import (
 	"github.com/mudler/yip/pkg/executor"
 	"github.com/mudler/yip/pkg/plugins"
 	"github.com/mudler/yip/pkg/schema"
-	"github.com/twpayne/go-vfs/v4"
+	"github.com/twpayne/go-vfs/v5"
 )
 
 type YipCloudInitRunner struct {
