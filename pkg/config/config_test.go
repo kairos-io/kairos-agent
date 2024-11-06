@@ -228,7 +228,7 @@ var _ = Describe("Schema", func() {
 			cleanup()
 		})
 		It("Scan can override options", func() {
-			c, err := Scan(collector.Readers(strings.NewReader(`uki-max-entries: 34`)), collector.NoLogs)
+			c, err := ScanNoLogs(collector.Readers(strings.NewReader(`uki-max-entries: 34`)))
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(c.UkiMaxEntries).To(Equal(34))
 		})
@@ -279,12 +279,12 @@ stages:
           groups:
             - "admin"
 `
-			config, err := pkgConfig.Scan(collector.Readers(strings.NewReader(cc)), collector.NoLogs)
+			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(config.CheckForUsers()).ToNot(HaveOccurred())
 		})
 		It("Fails if there is no user", func() {
-			config, err := pkgConfig.Scan()
+			config, err := pkgConfig.ScanNoLogs(collector.NoLogs)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(config.CheckForUsers()).To(HaveOccurred())
 		})
@@ -297,7 +297,7 @@ stages:
         kairos:
           passwd: "kairos"
 `
-			config, err := pkgConfig.Scan(collector.Readers(strings.NewReader(cc)), collector.NoLogs)
+			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(config.CheckForUsers()).To(HaveOccurred())
 		})

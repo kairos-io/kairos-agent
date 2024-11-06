@@ -37,4 +37,5 @@ type FS interface {
 	OpenFile(name string, flag int, perm fs.FileMode) (*os.File, error)
 	WriteFile(filename string, data []byte, perm os.FileMode) error
 	Rename(oldpath, newpath string) error
+	Truncate(name string, size int64) error
 }
