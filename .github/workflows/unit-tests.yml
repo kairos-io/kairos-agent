@@ -28,7 +28,7 @@ jobs:
         run: |
           go run github.com/onsi/ginkgo/v2/ginkgo run -p --github-output  --covermode=atomic --coverprofile=coverage.out --race -r ./...
       - name: Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
