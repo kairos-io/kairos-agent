@@ -20,18 +20,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"regexp"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -159,76 +156,82 @@ var _ = Describe("Reset action tests", func() {
 			_, err = fs.Create(grubCfg)
 			Expect(err).To(BeNil())
 
-			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
-				regexCmd := regexp.MustCompile(cmdFail)
-				if cmdFail != "" && regexCmd.MatchString(cmd) {
-					return []byte{}, errors.New("command failed")
-				}
-				return []byte{}, nil
+			// create the fake grub dir with modules, it needs an arch in the path
+			Expect(fsutils.MkdirAll(fs, filepath.Join(spec.Active.MountPoint, constants.Archx86), constants.DirPerm)).ToNot(HaveOccurred())
+			for _, mod := range constants.GetGrubModules() {
+				_, err = fs.Create(filepath.Join(spec.Active.MountPoint, constants.Archx86, mod))
+				Expect(err).ToNot(HaveOccurred())
 			}
+
+			// create fake shim
+			Expect(fsutils.MkdirAll(fs, filepath.Join(spec.Active.MountPoint, "/usr/share/efi/x86_64/"), constants.DirPerm)).ToNot(HaveOccurred())
+			_, err = fs.Create(filepath.Join(spec.Active.MountPoint, "/usr/share/efi/x86_64/", "shim.efi"))
+			Expect(err).ToNot(HaveOccurred())
+
+			// create fake grub
+			Expect(fsutils.MkdirAll(fs, filepath.Join(spec.Active.MountPoint, "/usr/share/efi/x86_64/"), constants.DirPerm)).ToNot(HaveOccurred())
+			_, err = fs.Create(filepath.Join(spec.Active.MountPoint, "/usr/share/efi/x86_64/", "grub.efi"))
+			Expect(err).ToNot(HaveOccurred())
+
 			reset = action.NewResetAction(config, spec)
 		})
 
 		AfterEach(func() {
 			ghwTest.Clean()
 		})
+		Describe("With EFI", func() {
+			It("Successfully resets on non-squashfs recovery", func() {
+				Expect(reset.Run()).To(BeNil())
+			})
+			It("Successfully resets on non-squashfs recovery including persistent data", func() {
+				spec.FormatPersistent = true
+				spec.FormatOEM = true
+				Expect(reset.Run()).To(BeNil())
+			})
+			It("Successfully resets from a squashfs recovery image", Label("channel"), func() {
+				err := fsutils.MkdirAll(config.Fs, constants.IsoBaseTree, constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				spec.Active.Source = v1.NewDirSrc(constants.IsoBaseTree)
+				Expect(reset.Run()).To(BeNil())
+			})
+			It("Successfully resets despite having errors on hooks", func() {
+				cloudInit.Error = true
+				Expect(reset.Run()).To(BeNil())
+			})
+			It("Successfully resets from a docker image", Label("docker"), func() {
+				spec.Active.Source = v1.NewDockerSrc("my/image:latest")
+				Expect(reset.Run()).To(BeNil())
 
-		It("Successfully resets on non-squashfs recovery", func() {
-			Expect(reset.Run()).To(BeNil())
-		})
-		It("Successfully resets on non-squashfs recovery including persistent data", func() {
-			spec.FormatPersistent = true
-			spec.FormatOEM = true
-			Expect(reset.Run()).To(BeNil())
-		})
-		It("Successfully resets from a squashfs recovery image", Label("channel"), func() {
-			err := fsutils.MkdirAll(config.Fs, constants.IsoBaseTree, constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			spec.Active.Source = v1.NewDirSrc(constants.IsoBaseTree)
-			Expect(reset.Run()).To(BeNil())
-		})
-		It("Successfully resets despite having errors on hooks", func() {
-			cloudInit.Error = true
-			Expect(reset.Run()).To(BeNil())
-		})
-		It("Successfully resets from a docker image", Label("docker"), func() {
-			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			Expect(reset.Run()).To(BeNil())
-
-		})
-		It("Fails installing grub", func() {
-			cmdFail = utils.FindCommand("grub2-install", []string{"grub2-install", "grub-install"})
-			Expect(reset.Run()).NotTo(BeNil())
-			Expect(runner.IncludesCmds([][]string{{cmdFail}}))
-		})
-		It("Fails formatting state partition", func() {
-			cmdFail = "mkfs.ext4"
-			Expect(reset.Run()).NotTo(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"mkfs.ext4"}}))
-		})
-		It("Fails setting the active label on non-squashfs recovery", func() {
-			cmdFail = "tune2fs"
-			Expect(reset.Run()).NotTo(BeNil())
-		})
-		It("Fails setting the passive label on squashfs recovery", func() {
-			cmdFail = "tune2fs"
-			Expect(reset.Run()).NotTo(BeNil())
-			Expect(runner.IncludesCmds([][]string{{"tune2fs"}}))
-		})
-		It("Fails mounting partitions", func() {
-			mounter.ErrorOnMount = true
-			Expect(reset.Run()).NotTo(BeNil())
-		})
-		It("Fails unmounting partitions", func() {
-			mounter.ErrorOnUnmount = true
-			Expect(reset.Run()).NotTo(BeNil())
-		})
-		It("Fails unpacking docker image ", func() {
-			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
-			extractor.SideEffect = func(imageRef, destination, platformRef string) error {
-				return fmt.Errorf("error")
-			}
-			Expect(reset.Run()).NotTo(BeNil())
+			})
+			It("Fails formatting state partition", func() {
+				cmdFail = "mkfs.ext4"
+				Expect(reset.Run()).NotTo(BeNil())
+				Expect(runner.IncludesCmds([][]string{{"mkfs.ext4"}}))
+			})
+			It("Fails setting the active label on non-squashfs recovery", func() {
+				cmdFail = "tune2fs"
+				Expect(reset.Run()).NotTo(BeNil())
+			})
+			It("Fails setting the passive label on squashfs recovery", func() {
+				cmdFail = "tune2fs"
+				Expect(reset.Run()).NotTo(BeNil())
+				Expect(runner.IncludesCmds([][]string{{"tune2fs"}}))
+			})
+			It("Fails mounting partitions", func() {
+				mounter.ErrorOnMount = true
+				Expect(reset.Run()).NotTo(BeNil())
+			})
+			It("Fails unmounting partitions", func() {
+				mounter.ErrorOnUnmount = true
+				Expect(reset.Run()).NotTo(BeNil())
+			})
+			It("Fails unpacking docker image ", func() {
+				spec.Active.Source = v1.NewDockerSrc("my/image:latest")
+				extractor.SideEffect = func(imageRef, destination, platformRef string) error {
+					return fmt.Errorf("error")
+				}
+				Expect(reset.Run()).NotTo(BeNil())
+			})
 		})
 	})
 })

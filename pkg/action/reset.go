@@ -199,6 +199,16 @@ func (r ResetAction) Run() (err error) {
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(r.cfg, r.spec.ExtraDirsRootfs, r.spec.Active.MountPoint)
 
+	// Mount EFI partition before installing grub as under EFI this copies stuff in there
+	if r.spec.Efi {
+		err = e.MountPartition(r.spec.Partitions.EFI)
+		if err != nil {
+			return err
+		}
+		cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.EFI) })
+	}
+	//TODO: does bios needs to be mounted here?
+
 	// install grub
 	grub := utils.NewGrub(r.cfg)
 	err = grub.Install(
