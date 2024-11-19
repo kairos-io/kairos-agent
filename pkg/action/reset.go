@@ -200,11 +200,14 @@ func (r ResetAction) Run() (err error) {
 	createExtraDirsInRootfs(r.cfg, r.spec.ExtraDirsRootfs, r.spec.Active.MountPoint)
 
 	// Mount EFI partition before installing grub as under EFI this copies stuff in there
-	err = e.MountPartition(r.spec.Partitions.EFI)
-	if err != nil {
-		return err
+	if r.spec.Efi {
+		err = e.MountPartition(r.spec.Partitions.EFI)
+		if err != nil {
+			return err
+		}
+		cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.EFI) })
 	}
-	cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.EFI) })
+	//TODO: does bios needs to be mounted here?
 
 	// install grub
 	grub := utils.NewGrub(r.cfg)
