@@ -92,7 +92,7 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 	for _, p := range append([]string{constants.OEMLabel, constants.PersistentLabel}, c.Install.Encrypt...) {
 		c.Logger.Infof("Encrypting %s", p)
 		_ = os.Setenv("SYSTEMD_LOG_LEVEL", "debug")
-		err := kcrypt.LuksifyMeasurements(p, []string{"11"}, []string{}, c.Logger.Logger)
+		err := kcrypt.LuksifyMeasurements(p, c.BindPublicPCR, c.BindPCR, c.Logger.Logger)
 		_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
