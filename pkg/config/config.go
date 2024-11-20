@@ -155,8 +155,8 @@ type Config struct {
 	SquashFsCompressionConfig []string              `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
 	SquashFsNoCompression     bool                  `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
 	UkiMaxEntries             int                   `yaml:"uki-max-entries,omitempty" mapstructure:"uki-max-entries"`
-	BindPCR                   []string              `yaml:"bind-pcr,omitempty" mapstructure:"bind-pcr"`
-	BindPublicPCR             []string              `yaml:"bind-public-pcr,omitempty" mapstructure:"bind-public-pcr"`
+	BindPCRs                  []string              `yaml:"bind-pcrs,omitempty" mapstructure:"bind-pcrs"`
+	BindPublicPCRs            []string              `yaml:"bind-public-pcrs,omitempty" mapstructure:"bind-public-pcrs"`
 }
 
 // WriteInstallState writes the state.yaml file to the given state and recovery paths
