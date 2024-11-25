@@ -181,6 +181,12 @@ func (i *InstallAction) Run() (err error) {
 		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
 	}
 
+	// Add boot assessment to files by appending +3 to the name
+	err = utils.AddBootAssessment(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, i.cfg.Logger)
+	if err != nil {
+		i.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
+	}
+
 	// SelectBootEntry sets the default boot entry to the selected entry
 	err = action.SelectBootEntry(i.cfg, "cos")
 	if err != nil {

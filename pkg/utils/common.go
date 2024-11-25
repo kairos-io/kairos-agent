@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -613,4 +614,46 @@ func CheckFailedInstallation(stateFile string) (bool, error) {
 		return true, fmt.Errorf("Installation failed: %s", string(content))
 	}
 	return false, nil
+}
+
+// AddBootAssessment adds boot assessment to files by appending +3 to the name
+// Only for files that dont have it already as those are the ones upgraded
+// Existing files that have a boot assessment will be left as is
+// This should be called during install, upgrade and reset
+// Mainly everything that updates the config files to point to a new artifact we need to reset the boot assessment
+// as its a new artifact that needs to be assessed
+func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogger) error {
+	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
+		// Only do files that are conf files but dont match the loader.conf
+		if !info.IsDir() && filepath.Ext(path) == ".conf" && !strings.Contains(info.Name(), "loader.conf") {
+			dir := filepath.Dir(path)
+			ext := filepath.Ext(path)
+			base := strings.TrimSuffix(filepath.Base(path), ext)
+			// Lets check if the file has a boot assessment already. If it does, we dont need to do anything
+			// If it matches continue
+			re := regexp.MustCompile(`\+\d+(-\d+)?$`)
+			if re.MatchString(base) {
+				return nil
+			}
+			newBase := fmt.Sprintf("%s+3%s", base, ext)
+			newPath := filepath.Join(dir, newBase)
+			logger.Logger.Debug().Str("from", path).Str("to", newPath).Msg("Enabling boot assessment")
+			err = os.Rename(path, newPath)
+			if err != nil {
+				logger.Logger.Err(err).Str("from", path).Str("to", newPath).Msg("Error renaming file")
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func readAssesmentFromBootEntry(bootEntry string) (int, error) {
+	re := regexp.MustCompile(`\+(\d+)(-\d+)?$`)
+	match := re.FindStringSubmatch(bootEntry)
+	if len(match) == 0 {
+		return 0, fmt.Errorf("No match found")
+	}
+	return strconv.Atoi(match[1])
 }
