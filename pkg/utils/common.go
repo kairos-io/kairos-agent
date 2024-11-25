@@ -633,6 +633,7 @@ func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogge
 			// If it matches continue
 			re := regexp.MustCompile(`\+\d+(-\d+)?$`)
 			if re.MatchString(base) {
+				logger.Logger.Debug().Str("file", path).Msg("Boot assessment already present in file")
 				return nil
 			}
 			newBase := fmt.Sprintf("%s+3%s", base, ext)
