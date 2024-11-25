@@ -80,6 +80,13 @@ func (r *ResetAction) Run() (err error) {
 		r.cfg.Logger.Errorf("copying recovery to active: %s", err.Error())
 		return fmt.Errorf("copying recovery to active: %w", err)
 	}
+
+	// Add boot assessment to files by appending +3 to the name
+	err = elementalUtils.AddBootAssessment(r.cfg.Fs, constants.UkiEfiDir, r.cfg.Logger)
+	if err != nil {
+		r.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
+	}
+
 	// SelectBootEntry sets the default boot entry to the selected entry
 	err = action.SelectBootEntry(r.cfg, "cos")
 	// Should we fail? Or warn?

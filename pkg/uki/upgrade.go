@@ -109,7 +109,11 @@ func (i *UpgradeAction) Run() (err error) {
 		i.cfg.Logger.Errorf("removing artifact set: %s", err.Error())
 		return fmt.Errorf("removing artifact set: %w", err)
 	}
-
+	// Add boot assessment to files by appending +3 to the name
+	err = elementalUtils.AddBootAssessment(i.cfg.Fs, constants.UkiEfiDir, i.cfg.Logger)
+	if err != nil {
+		i.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
+	}
 	// SelectBootEntry sets the default boot entry to the selected entry
 	err = action.SelectBootEntry(i.cfg, "cos")
 	// Should we fail? Or warn?

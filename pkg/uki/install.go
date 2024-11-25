@@ -182,7 +182,7 @@ func (i *InstallAction) Run() (err error) {
 	}
 
 	// Add boot assessment to files by appending +3 to the name
-	err = utils.AddBootAssessment(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, i.cfg.Logger)
+	err = utils.AddBootAssessment(i.cfg.Fs, constants.UkiEfiDir, i.cfg.Logger)
 	if err != nil {
 		i.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
 	}
