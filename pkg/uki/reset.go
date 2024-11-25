@@ -82,7 +82,7 @@ func (r *ResetAction) Run() (err error) {
 	}
 
 	// Add boot assessment to files by appending +3 to the name
-	err = elementalUtils.AddBootAssessment(r.cfg.Fs, constants.UkiEfiDir, r.cfg.Logger)
+	err = elementalUtils.AddBootAssessment(r.cfg.Fs, r.spec.Partitions.EFI.MountPoint, r.cfg.Logger)
 	if err != nil {
 		r.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
 	}

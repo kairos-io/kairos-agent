@@ -110,7 +110,7 @@ func (i *UpgradeAction) Run() (err error) {
 		return fmt.Errorf("removing artifact set: %w", err)
 	}
 	// Add boot assessment to files by appending +3 to the name
-	err = elementalUtils.AddBootAssessment(i.cfg.Fs, constants.UkiEfiDir, i.cfg.Logger)
+	err = elementalUtils.AddBootAssessment(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
 	if err != nil {
 		i.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
 	}
