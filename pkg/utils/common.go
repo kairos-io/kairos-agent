@@ -649,11 +649,34 @@ func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogge
 	})
 }
 
-func readAssesmentFromBootEntry(bootEntry string) (int, error) {
-	re := regexp.MustCompile(`\+(\d+)(-\d+)?$`)
-	match := re.FindStringSubmatch(bootEntry)
-	if len(match) == 0 {
-		return 0, fmt.Errorf("No match found")
+func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogger) (string, error) {
+	// Read current config for boot assessment from current config. We should already have the final config name
+	// Fix fallback and cos pointing to passive and active
+	if strings.HasPrefix(entry, "fallback") {
+		entry = strings.Replace(entry, "fallback", "passive", 1)
 	}
-	return strconv.Atoi(match[1])
+	if strings.HasPrefix(entry, "cos") {
+		entry = strings.Replace(entry, "cos", "active", 1)
+	}
+	efiPart, err := partitions.GetEfiPartition(&logger)
+	if err != nil {
+		return "", err
+	}
+	// We only want the ones that match the assessment
+	currentfile, err := fsutils.GlobFs(fs, filepath.Join(efiPart.MountPoint, "loader/entries", entry+"+*.conf"))
+	if err != nil {
+		return "", err
+	}
+	if len(currentfile) == 0 {
+		return "", nil
+	}
+	if len(currentfile) > 1 {
+		return "", fmt.Errorf("multiple boot entries found for %s", entry)
+	}
+	re := regexp.MustCompile(`(\+\d+(-\d+)?)\.conf$`)
+	if !re.MatchString(currentfile[0]) {
+		logger.Logger.Debug().Str("file", currentfile[0]).Msg("No boot assessment found in current boot entry config file")
+		return "", nil
+	}
+	return re.FindStringSubmatch(currentfile[0])[1], nil
 }
