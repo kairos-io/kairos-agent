@@ -624,6 +624,9 @@ func CheckFailedInstallation(stateFile string) (bool, error) {
 // as its a new artifact that needs to be assessed
 func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogger) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		// Only do files that are conf files but dont match the loader.conf
 		if !info.IsDir() && filepath.Ext(path) == ".conf" && !strings.Contains(info.Name(), "loader.conf") {
 			dir := filepath.Dir(path)
@@ -639,7 +642,7 @@ func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogge
 			newBase := fmt.Sprintf("%s+3%s", base, ext)
 			newPath := filepath.Join(dir, newBase)
 			logger.Logger.Debug().Str("from", path).Str("to", newPath).Msg("Enabling boot assessment")
-			err = os.Rename(path, newPath)
+			err = fs.Rename(path, newPath)
 			if err != nil {
 				logger.Logger.Err(err).Str("from", path).Str("to", newPath).Msg("Error renaming file")
 				return err
@@ -672,11 +675,11 @@ func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogge
 		return "", nil
 	}
 	if len(currentfile) > 1 {
-		return "", fmt.Errorf("multiple boot entries found for %s", entry)
+		return "", fmt.Errorf(cnst.MultipleEntriesAssessmentError, entry)
 	}
 	re := regexp.MustCompile(`(\+\d+(-\d+)?)\.conf$`)
 	if !re.MatchString(currentfile[0]) {
-		logger.Logger.Debug().Str("file", currentfile[0]).Msg("No boot assessment found in current boot entry config file")
+		logger.Logger.Debug().Str("file", currentfile[0]).Msg(cnst.NoBootAssessmentWarning)
 		return "", nil
 	}
 	return re.FindStringSubmatch(currentfile[0])[1], nil
