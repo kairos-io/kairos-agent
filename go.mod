@@ -21,8 +21,8 @@ require (
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/mudler/yip v1.12.0
 	github.com/nxadm/tail v1.4.11
-	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.1
+	github.com/onsi/ginkgo/v2 v2.22.0
+	github.com/onsi/gomega v1.36.0
 	github.com/pterm/pterm v0.12.79
 	github.com/rs/zerolog v1.33.0
 	github.com/sanity-io/litter v1.5.5
@@ -33,7 +33,7 @@ require (
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sys v0.27.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/mount-utils v0.31.1
+	k8s.io/mount-utils v0.31.3
 )
 
 require (
