@@ -109,6 +109,13 @@ func (i *UpgradeAction) Run() (err error) {
 		i.cfg.Logger.Errorf("removing artifact set: %s", err.Error())
 		return fmt.Errorf("removing artifact set: %w", err)
 	}
+
+	// add sort key to all files
+	err = AddSystemdConfSortKey(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
+	if err != nil {
+		i.cfg.Logger.Warnf("adding sort key: %s", err.Error())
+	}
+
 	// Add boot assessment to files by appending +3 to the name
 	err = elementalUtils.AddBootAssessment(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
 	if err != nil {
