@@ -273,3 +273,38 @@ func Copy(fs v1.FS, src, dst string) error {
 	}
 	return nil
 }
+
+// GlobFs returns the names of all files matching pattern or nil if there is no matching file.
+// Only consider the names of files in the directory included in the pattern, not in subdirectories.
+// So the pattern "dir/*" will return only the files in the directory "dir", not in "dir/subdir".
+func GlobFs(fs v1.FS, pattern string) ([]string, error) {
+	var matches []string
+
+	// Check if the pattern is well formed.
+	if _, err := filepath.Match(pattern, ""); err != nil {
+		return nil, err
+	}
+
+	// Split the pattern into directory and file parts.
+	dir, file := filepath.Split(pattern)
+	if dir == "" {
+		dir = "."
+	}
+
+	// Read the directory.
+	entries, err := fs.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Match the entries against the pattern.
+	for _, entry := range entries {
+		if matched, err := filepath.Match(file, entry.Name()); err != nil {
+			return nil, err
+		} else if matched {
+			matches = append(matches, filepath.Join(dir, entry.Name()))
+		}
+	}
+
+	return matches, nil
+}
