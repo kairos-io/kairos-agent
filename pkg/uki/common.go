@@ -177,7 +177,7 @@ func AddSystemdConfSortKey(fs v1.FS, artifactDir string, log sdkTypes.KairosLogg
 			log.Logger.Debug().Str("path", path).Msg("Adding sort key to file")
 			conf, err := sdkutils.SystemdBootConfReader(path)
 			if err != nil {
-				log.Errorf("Error reading conf file to extract values %s: %s", path)
+				log.Errorf("Error reading conf file to extract values %s: %s", conf, path)
 			}
 			// Now check and put the proper sort key
 			var sortKey string
@@ -204,7 +204,7 @@ func AddSystemdConfSortKey(fs v1.FS, artifactDir string, log sdkTypes.KairosLogg
 			}
 			log.Logger.Trace().Str("contents", litter.Sdump(conf)).Str("path", path).Msg("Final values for conf file")
 
-			return os.WriteFile(path, []byte(newContents), os.ModePerm)
+			return os.WriteFile(path, []byte(newContents), 0600)
 		}
 
 		return nil
