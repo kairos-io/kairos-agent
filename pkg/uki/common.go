@@ -166,3 +166,47 @@ func copyFile(src, dst string) error {
 
 	return destinationFile.Close()
 }
+
+func AddSystemdConfSortKey(fs v1.FS, artifactDir string, log sdkTypes.KairosLogger) error {
+	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// Only do files that are conf files but dont match the loader.conf
+		if !info.IsDir() && filepath.Ext(path) == ".conf" && !strings.Contains(info.Name(), "loader.conf") {
+			log.Logger.Debug().Str("path", path).Msg("Adding sort key to file")
+			conf, err := sdkutils.SystemdBootConfReader(path)
+			if err != nil {
+				log.Errorf("Error reading conf file to extract values %s: %s", path)
+			}
+			// Now check and put the proper sort key
+			var sortKey string
+			// If we have 2 different files that start with active, like with the extra-cmdline, how do we set this?
+			// Ideally if they both have the same sort key, they will be sorted by name so the single one will be first
+			// and the extra-cmdline will be second. This is the best we can do currently without making this a mess
+			// Maybe we need the bootentry command to also set the sort key somehow?
+			switch {
+			case strings.Contains(info.Name(), "active"):
+				sortKey = "0001"
+			case strings.Contains(info.Name(), "passive"):
+				sortKey = "0002"
+			case strings.Contains(info.Name(), "recovery"):
+				sortKey = "0003"
+			case strings.Contains(info.Name(), "statereset"):
+				sortKey = "0004"
+			default: // Anything that dont matches, goes to the bottom
+				sortKey = "0010"
+			}
+			conf["sort-key"] = sortKey
+			newContents := ""
+			for k, v := range conf {
+				newContents = fmt.Sprintf("%s%s %s\n", newContents, k, v)
+			}
+			log.Logger.Trace().Str("contents", litter.Sdump(conf)).Str("path", path).Msg("Final values for conf file")
+
+			return os.WriteFile(path, []byte(newContents), os.ModePerm)
+		}
+
+		return nil
+	})
+}
