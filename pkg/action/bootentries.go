@@ -133,13 +133,9 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 	if err != nil {
 		return err
 	}
-	assessment, err := utils.ReadAssessmentFromEntry(cfg.Fs, bootFileName, cfg.Logger)
-	if err != nil {
-		cfg.Logger.Logger.Err(err).Str("entry", entry).Str("boot file name", bootFileName).Msg("could not read assessment from entry")
-		return err
-	}
-	bootName := fmt.Sprintf("%s%s.conf", bootFileName, assessment)
+	bootName := fmt.Sprintf("%s.conf", bootFileName)
 	// Set the default entry to the selected entry
+	// This is the file name of the entry to be set as default, boot assesment doesnt seem to count as it uses the ID which is the config name
 	systemdConf["default"] = bootName
 	err = utils.SystemdBootConfWriter(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"), systemdConf)
 	if err != nil {
