@@ -308,7 +308,23 @@ func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
 
 // DeployImage will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
+// Creates the default system dirs by default (/sys,/proc,/dev, etc...)
 func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interface{}, err error) {
+	return e.deployImage(img, leaveMounted, true)
+}
+
+// DeployImageNodirs will deploy the given image into the target. This method
+// creates the filesystem image file, mounts it and unmounts it as needed.
+// Does not create the default system dirs so it can be used to create generic images from any source
+func (e *Elemental) DeployImageNodirs(img *v1.Image, leaveMounted bool) (info interface{}, err error) {
+	return e.deployImage(img, leaveMounted, false)
+}
+
+// deployImage is the real function that does the actual work
+// Set leaveMounted to leave the image mounted, otherwise it unmounts before returning
+// Set createDirStructure to create the directory structure in the target, which creates the expected dirs
+// for a running system. This is so we can reuse this method for creating random images, not only system ones
+func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure bool) (info interface{}, err error) {
 	target := img.MountPoint
 	if !img.Source.IsFile() {
 		if img.FS != cnst.SquashFs {
@@ -338,9 +354,11 @@ func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interfac
 		return nil, err
 	}
 	if !img.Source.IsFile() {
-		err = utils.CreateDirStructure(e.config.Fs, target)
-		if err != nil {
-			return nil, err
+		if createDirStructure {
+			err = utils.CreateDirStructure(e.config.Fs, target)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if img.FS == cnst.SquashFs {
 			squashOptions := append(cnst.GetDefaultSquashfsOptions(), e.config.SquashFsCompressionConfig...)
