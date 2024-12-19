@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -45,7 +46,7 @@ import (
 	"github.com/joho/godotenv"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/twpayne/go-vfs/v4"
+	"github.com/twpayne/go-vfs/v5"
 )
 
 func CommandExists(command string) bool {
@@ -613,4 +614,73 @@ func CheckFailedInstallation(stateFile string) (bool, error) {
 		return true, fmt.Errorf("Installation failed: %s", string(content))
 	}
 	return false, nil
+}
+
+// AddBootAssessment adds boot assessment to files by appending +3 to the name
+// Only for files that dont have it already as those are the ones upgraded
+// Existing files that have a boot assessment will be left as is
+// This should be called during install, upgrade and reset
+// Mainly everything that updates the config files to point to a new artifact we need to reset the boot assessment
+// as its a new artifact that needs to be assessed
+func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogger) error {
+	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// Only do files that are conf files but dont match the loader.conf
+		if !info.IsDir() && filepath.Ext(path) == ".conf" && !strings.Contains(info.Name(), "loader.conf") {
+			dir := filepath.Dir(path)
+			ext := filepath.Ext(path)
+			base := strings.TrimSuffix(filepath.Base(path), ext)
+			// Lets check if the file has a boot assessment already. If it does, we dont need to do anything
+			// If it matches continue
+			re := regexp.MustCompile(`\+\d+(-\d+)?$`)
+			if re.MatchString(base) {
+				logger.Logger.Debug().Str("file", path).Msg("Boot assessment already present in file")
+				return nil
+			}
+			newBase := fmt.Sprintf("%s+3%s", base, ext)
+			newPath := filepath.Join(dir, newBase)
+			logger.Logger.Debug().Str("from", path).Str("to", newPath).Msg("Enabling boot assessment")
+			err = fs.Rename(path, newPath)
+			if err != nil {
+				logger.Logger.Err(err).Str("from", path).Str("to", newPath).Msg("Error renaming file")
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogger) (string, error) {
+	// Read current config for boot assessment from current config. We should already have the final config name
+	// Fix fallback and cos pointing to passive and active
+	if strings.HasPrefix(entry, "fallback") {
+		entry = strings.Replace(entry, "fallback", "passive", 1)
+	}
+	if strings.HasPrefix(entry, "cos") {
+		entry = strings.Replace(entry, "cos", "active", 1)
+	}
+	efiPart, err := partitions.GetEfiPartition(&logger)
+	if err != nil {
+		return "", err
+	}
+	// We only want the ones that match the assessment
+	currentfile, err := fsutils.GlobFs(fs, filepath.Join(efiPart.MountPoint, "loader/entries", entry+"+*.conf"))
+	if err != nil {
+		return "", err
+	}
+	if len(currentfile) == 0 {
+		return "", nil
+	}
+	if len(currentfile) > 1 {
+		return "", fmt.Errorf(cnst.MultipleEntriesAssessmentError, entry)
+	}
+	re := regexp.MustCompile(`(\+\d+(-\d+)?)\.conf$`)
+	if !re.MatchString(currentfile[0]) {
+		logger.Logger.Debug().Str("file", currentfile[0]).Msg(cnst.NoBootAssessmentWarning)
+		return "", nil
+	}
+	return re.FindStringSubmatch(currentfile[0])[1], nil
 }

@@ -23,7 +23,7 @@ import (
 	yip "github.com/mudler/yip/pkg/schema"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
-	"github.com/twpayne/go-vfs/v4"
+	"github.com/twpayne/go-vfs/v5"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
 )
@@ -55,10 +55,15 @@ type Install struct {
 	ExtraPartitions        sdkTypes.PartitionList `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
 	ExtraDirsRootfs        []string               `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
 	Force                  bool                   `yaml:"force,omitempty" mapstructure:"force"`
+	NoUsers                bool                   `yaml:"nousers,omitempty" mapstructure:"nousers"`
 }
 
 func NewConfig(opts ...GenericOptions) *Config {
 	log := sdkTypes.NewKairosLogger("agent", "info", false)
+	// Get the viper config in case something in command line or env var has set it and set the level asap
+	if viper.GetBool("debug") {
+		log.SetLevel("debug")
+	}
 
 	hostPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
 	if err != nil {
@@ -150,6 +155,8 @@ type Config struct {
 	SquashFsCompressionConfig []string              `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
 	SquashFsNoCompression     bool                  `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
 	UkiMaxEntries             int                   `yaml:"uki-max-entries,omitempty" mapstructure:"uki-max-entries"`
+	BindPCRs                  []string              `yaml:"bind-pcrs,omitempty" mapstructure:"bind-pcrs"`
+	BindPublicPCRs            []string              `yaml:"bind-public-pcrs,omitempty" mapstructure:"bind-public-pcrs"`
 }
 
 // WriteInstallState writes the state.yaml file to the given state and recovery paths
@@ -186,6 +193,54 @@ func (c Config) LoadInstallState() (*v1.InstallState, error) {
 		return nil, err
 	}
 	return installState, nil
+}
+
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+// CheckForUsers will check the config for any users and validate that at least we have 1 admin.
+// Since Kairos 3.3.x we don't ship a default user with the system, so before a system with no specific users
+// was relying in our default cloud-configs which created a kairos user ALWAYS (with SUDO!)
+// But now we don't ship it anymore. So a user upgrading from 3.2.x to 3.3.x that created no users, will end up with a blocked
+// system.
+// So we need to see if they are setting a user in their config and if not refuse to continue
+func (c Config) CheckForUsers() (err error) {
+	// If nousers is enabled we do not check for the validity of the users and such
+	// At this point, the config should be fully parsed and the yip stages ready
+	if !c.Install.NoUsers {
+		anyAdmin := false
+		cc, _ := c.Config.String()
+		yamlConfig, err := yip.Load(cc, vfs.OSFS, nil, nil)
+		if err != nil {
+			return err
+		}
+		for _, stage := range yamlConfig.Stages {
+			for _, x := range stage {
+				if len(x.Users) > 0 {
+					for _, user := range x.Users {
+						if contains(user.Groups, "admin") || user.PrimaryGroup == "admin" {
+							anyAdmin = true
+							break
+						}
+					}
+				}
+			}
+
+		}
+		if !anyAdmin {
+			return fmt.Errorf("No users found in any stage that are part of the 'admin' group.\n" +
+				"In Kairos 3.3.x we no longer ship a default hardcoded user with the system configs and require users to provide their own user." +
+				"Please provide at least 1 user that is part of the 'admin' group(for sudo) with your cloud configs." +
+				"If you still want to continue without creating any users in the system, set 'install.nousers: true' to be in the config in order to allow a system with no users.")
+		}
+	}
+	return err
 }
 
 // Sanitize checks the consistency of the struct, returns error
@@ -339,10 +394,11 @@ func FilterKeys(d []byte) ([]byte, error) {
 }
 
 // ScanNoLogs is a wrapper around Scan that sets the logger to null
+// Also sets the NoLogs option to true by default
 func ScanNoLogs(opts ...collector.Option) (c *Config, err error) {
 	log := sdkTypes.NewNullLogger()
 	result := NewConfig(WithLogger(log))
-	return scan(result, opts...)
+	return scan(result, append(opts, collector.NoLogs)...)
 }
 
 // Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger

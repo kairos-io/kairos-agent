@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	qr "github.com/kairos-io/go-nodepair/qrcode"
+	"github.com/kairos-io/kairos-agent/v2/internal/bus"
+	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	"github.com/kairos-io/kairos-agent/v2/internal/bus"
-	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
-	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
 )

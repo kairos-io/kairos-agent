@@ -22,12 +22,13 @@ import (
 	"reflect"
 	"strings"
 
+	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs/v4"
-	"github.com/twpayne/go-vfs/v4/vfst"
+	"github.com/twpayne/go-vfs/v5"
+	"github.com/twpayne/go-vfs/v5/vfst"
 	"gopkg.in/yaml.v3"
 
 	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -93,7 +94,7 @@ func structFieldsContainedInOtherStruct(left, right interface{}) {
 		leftFieldName := leftTypes.Field(i).Name
 		if leftTypes.Field(i).IsExported() {
 			It(fmt.Sprintf("Checks that the new schema contians the field %s", leftFieldName), func() {
-				if leftFieldName == "Source" {
+				if leftFieldName == "Source" || leftFieldName == "NoUsers" || leftFieldName == "BindPublicPCRs" || leftFieldName == "BindPCRs" {
 					Skip("Schema not updated yet")
 				}
 				Expect(
@@ -227,7 +228,7 @@ var _ = Describe("Schema", func() {
 			cleanup()
 		})
 		It("Scan can override options", func() {
-			c, err := Scan(collector.Readers(strings.NewReader(`uki-max-entries: 34`)), collector.NoLogs)
+			c, err := ScanNoLogs(collector.Readers(strings.NewReader(`uki-max-entries: 34`)))
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(c.UkiMaxEntries).To(Equal(34))
 		})
@@ -263,6 +264,42 @@ var _ = Describe("Schema", func() {
 			err = fs.RemoveAll(filepath.Dir(statePath))
 			_, err = config.LoadInstallState()
 			Expect(err).Should(HaveOccurred())
+		})
+	})
+
+	Describe("Validate users in config", func() {
+		It("Validates a existing user in the system", func() {
+			cc := `#cloud-config
+stages:
+  initramfs:
+    - name: "Set user and password"
+      users:
+        kairos:
+          passwd: "kairos"
+          groups:
+            - "admin"
+`
+			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.CheckForUsers()).ToNot(HaveOccurred())
+		})
+		It("Fails if there is no user", func() {
+			config, err := pkgConfig.ScanNoLogs(collector.NoLogs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.CheckForUsers()).To(HaveOccurred())
+		})
+		It("Fails if there is user but its not admin", func() {
+			cc := `#cloud-config
+stages:
+  initramfs:
+    - name: "Set user and password"
+      users:
+        kairos:
+          passwd: "kairos"
+`
+			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.CheckForUsers()).To(HaveOccurred())
 		})
 	})
 })

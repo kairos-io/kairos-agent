@@ -19,6 +19,7 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/sanity-io/litter"
 
+	qr "github.com/kairos-io/go-nodepair/qrcode"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
@@ -27,7 +28,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	qr "github.com/mudler/go-nodepair/qrcode"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
 )
@@ -214,6 +214,11 @@ func Install(sourceImgURL string, dir ...string) error {
 func RunInstall(c *config.Config) error {
 	utils.SetEnv(c.Env)
 	utils.SetEnv(c.Install.Env)
+
+	err := c.CheckForUsers()
+	if err != nil {
+		return err
+	}
 
 	// UKI path. Check if we are on UKI AND if we are running off a cd, otherwise it makes no sense to run the install
 	// From the installed system

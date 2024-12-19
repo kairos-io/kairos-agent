@@ -129,10 +129,16 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 			}
 		}
 	}
-	bootName, err := bootNameToSystemdConf(entry)
+	bootFileName, err := bootNameToSystemdConf(entry)
 	if err != nil {
 		return err
 	}
+	assessment, err := utils.ReadAssessmentFromEntry(cfg.Fs, bootFileName, cfg.Logger)
+	if err != nil {
+		cfg.Logger.Logger.Err(err).Str("entry", entry).Str("boot file name", bootFileName).Msg("could not read assessment from entry")
+		return err
+	}
+	bootName := fmt.Sprintf("%s%s.conf", bootFileName, assessment)
 	// Set the default entry to the selected entry
 	systemdConf["default"] = bootName
 	err = utils.SystemdBootConfWriter(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"), systemdConf)
@@ -172,6 +178,10 @@ func systemdConfToBootName(conf string) (string, error) {
 	}
 
 	fileName := strings.TrimSuffix(conf, ".conf")
+
+	// Remove the boot assesment from the name we show
+	re := regexp.MustCompile(`\+\d+(-\d+)?$`)
+	fileName = re.ReplaceAllString(fileName, "")
 
 	if strings.HasPrefix(fileName, "active") {
 		bootName := "cos"
@@ -220,6 +230,8 @@ func systemdConfToBootName(conf string) (string, error) {
 	return strings.ReplaceAll(fileName, "_", " "), nil
 }
 
+// bootNameToSystemdConf converts a boot name to a systemd-boot conf file name
+// skips the .conf extension
 func bootNameToSystemdConf(name string) (string, error) {
 	differenciator := ""
 
@@ -227,38 +239,38 @@ func bootNameToSystemdConf(name string) (string, error) {
 		if name != "cos" {
 			differenciator = "_" + strings.TrimPrefix(name, "cos ")
 		}
-		return "active" + differenciator + ".conf", nil
+		return "active" + differenciator, nil
 	}
 
 	if strings.HasPrefix(name, "active") {
 		if name != "active" {
 			differenciator = "_" + strings.TrimPrefix(name, "active ")
 		}
-		return "active" + differenciator + ".conf", nil
+		return "active" + differenciator, nil
 	}
 
 	if strings.HasPrefix(name, "fallback") {
 		if name != "fallback" {
 			differenciator = "_" + strings.TrimPrefix(name, "fallback ")
 		}
-		return "passive" + differenciator + ".conf", nil
+		return "passive" + differenciator, nil
 	}
 
 	if strings.HasPrefix(name, "recovery") {
 		if name != "recovery" {
 			differenciator = "_" + strings.TrimPrefix(name, "recovery ")
 		}
-		return "recovery" + differenciator + ".conf", nil
+		return "recovery" + differenciator, nil
 	}
 
 	if strings.HasPrefix(name, "statereset") {
 		if name != "statereset" {
 			differenciator = "_" + strings.TrimPrefix(name, "statereset ")
 		}
-		return "statereset" + differenciator + ".conf", nil
+		return "statereset" + differenciator, nil
 	}
 
-	return strings.ReplaceAll(name, " ", "_") + ".conf", nil
+	return strings.ReplaceAll(name, " ", "_"), nil
 }
 
 // listBootEntriesSystemd lists the boot entries available in the systemd-boot config files

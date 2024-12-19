@@ -21,14 +21,14 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go environment
-        uses: actions/setup-go@v5.0.2
+        uses: actions/setup-go@v5.2.0
         with:
           go-version: '${{ matrix.go-version }}'
       - name: Run tests
         run: |
           go run github.com/onsi/ginkgo/v2/ginkgo run -p --github-output  --covermode=atomic --coverprofile=coverage.out --race -r ./...
       - name: Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:

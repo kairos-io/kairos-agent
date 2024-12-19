@@ -32,14 +32,15 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	"github.com/kairos-io/kairos-agent/v2/tests/matchers"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs/v4"
-	"github.com/twpayne/go-vfs/v4/vfst"
+	"github.com/twpayne/go-vfs/v5"
+	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
 func getNamesFromListFiles(list []fs.DirEntry) []string {
@@ -1061,5 +1062,207 @@ var _ = Describe("Utils", Label("utils"), func() {
 		It("returns false if rd.immucore.uki is not present", func() {
 			Expect(utils.IsUkiWithFs(fs)).To(BeFalse())
 		})
+	})
+	Describe("AddBootAssessment", func() {
+		BeforeEach(func() {
+			Expect(fsutils.MkdirAll(fs, "/efi/loader/entries", os.ModePerm)).ToNot(HaveOccurred())
+		})
+		It("adds the boot assessment to a file", func() {
+			err := fs.WriteFile("/efi/loader/entries/test.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = utils.AddBootAssessment(fs, "/efi/loader/entries", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect("/efi/loader/entries/test.conf").ToNot(matchers.BeAnExistingFileFs(fs))
+			// Should match with the +3
+			Expect("/efi/loader/entries/test+3.conf").To(matchers.BeAnExistingFileFs(fs))
+		})
+		It("adds the boot assessment to several files", func() {
+			err := fs.WriteFile("/efi/loader/entries/test1.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test3.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = utils.AddBootAssessment(fs, "/efi/loader/entries", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect("/efi/loader/entries/test1.conf").ToNot(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test2.conf").ToNot(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test3.conf").ToNot(matchers.BeAnExistingFileFs(fs))
+			// Should match with the +3
+			Expect("/efi/loader/entries/test1+3.conf").To(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test2+3.conf").To(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test3+3.conf").To(matchers.BeAnExistingFileFs(fs))
+		})
+		It("leaves assessment in place for existing files", func() {
+			err := fs.WriteFile("/efi/loader/entries/test1.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test2+3.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test3+1-2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = utils.AddBootAssessment(fs, "/efi/loader/entries", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect("/efi/loader/entries/test1.conf").ToNot(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test3+3.conf").ToNot(matchers.BeAnExistingFileFs(fs))
+			// Should match with the +3 and the existing ones left in place
+			Expect("/efi/loader/entries/test1+3.conf").To(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test2+3.conf").To(matchers.BeAnExistingFileFs(fs))
+			Expect("/efi/loader/entries/test3+1-2.conf").To(matchers.BeAnExistingFileFs(fs))
+		})
+		It("fails to write the boot assessment in non existing dir", func() {
+			err := utils.AddBootAssessment(fs, "/fake", logger)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Describe("ReadAssessmentFromEntry", func() {
+		var ghwTest ghwMock.GhwMock
+		BeforeEach(func() {
+			Expect(fsutils.MkdirAll(fs, "/efi/loader/entries", os.ModePerm)).ToNot(HaveOccurred())
+			mainDisk := sdkTypes.Disk{
+				Name: "device",
+				Partitions: []*sdkTypes.Partition{
+					{
+						Name:            "device1",
+						FilesystemLabel: "COS_GRUB",
+						FS:              "ext4",
+						MountPoint:      "/efi",
+					},
+				},
+			}
+			ghwTest = ghwMock.GhwMock{}
+			ghwTest.AddDisk(mainDisk)
+			ghwTest.CreateDevices()
+		})
+		AfterEach(func() {
+			ghwTest.Clean()
+		})
+		It("reads the assessment from a file", func() {
+			err := fs.WriteFile("/efi/loader/entries/test+2-1.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			entry, err := utils.ReadAssessmentFromEntry(fs, "test", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+2-1"))
+		})
+		It("reads passive when using fallback", func() {
+			err := fs.WriteFile("/efi/loader/entries/passive+2-1.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			// fallback should point to passive
+			entry, err := utils.ReadAssessmentFromEntry(fs, "fallback", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+2-1"))
+
+			// Should find the passive entry as well directly
+			entry, err = utils.ReadAssessmentFromEntry(fs, "passive", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+2-1"))
+		})
+		It("reads active when using cos", func() {
+			err := fs.WriteFile("/efi/loader/entries/active+1-2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			// cos should point to active
+			entry, err := utils.ReadAssessmentFromEntry(fs, "cos", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+1-2"))
+
+			// Should find the active entry as well directly
+			entry, err = utils.ReadAssessmentFromEntry(fs, "active", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+1-2"))
+		})
+
+		It("empty assessment if it doesnt match", func() {
+			entry, err := utils.ReadAssessmentFromEntry(fs, "cos", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+
+			// Should find the active entry as well directly
+			entry, err = utils.ReadAssessmentFromEntry(fs, "active", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+		})
+
+		It("fails with no EFI partition", func() {
+			ghwTest.Clean()
+			entry, err := utils.ReadAssessmentFromEntry(fs, "cos", logger)
+			Expect(err).To(HaveOccurred())
+			Expect(entry).To(Equal(""))
+		})
+
+		It("errors if more than one file matches", func() {
+			err := fs.WriteFile("/efi/loader/entries/active+1-2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/active+3-2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			entry, err := utils.ReadAssessmentFromEntry(fs, "active", logger)
+			Expect(err).To(HaveOccurred())
+			Expect(entry).To(Equal(""))
+			Expect(err.Error()).To(Equal(fmt.Sprintf(constants.MultipleEntriesAssessmentError, "active")))
+		})
+
+		It("errors if dir doesn't exist", func() {
+			// Remove all dirs
+			cleanup()
+			entry, err := utils.ReadAssessmentFromEntry(fs, "active", logger)
+			Expect(err).To(HaveOccurred())
+			Expect(entry).To(Equal(""))
+			// Check that error is os.ErrNotExist
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
+		})
+
+		It("matches with weird but valid format", func() {
+			// This are valid values, after all the asessment is just a string at the end that starts with + and has
+			// and number and an optional dash after that. It has to be before the .conf so this are valid values
+			// even if they are weird or stupid.
+			// potentially the name can be this if someone is rebuilding efi files and adding the + to indicate the build number
+			// for example.
+			// We dont use this but still want to check if these are valid.
+			err := fs.WriteFile("/efi/loader/entries/test1++++++5.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test2+3+3-1.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			entry, err := utils.ReadAssessmentFromEntry(fs, "test1", logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+5"))
+			entry, err = utils.ReadAssessmentFromEntry(fs, "test2", logger)
+			// It actually does not error but just doesn't match
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal("+3-1"))
+		})
+		It("doesn't match assessment if format is wrong", func() {
+			err := fs.WriteFile("/efi/loader/entries/test1+1djnfsdjknfsdajf2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test2+1-sadfsbauhdfkj.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test3+asdasd.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test4+-2.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/efi/loader/entries/test5+3&4.conf", []byte(""), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			entry, err := utils.ReadAssessmentFromEntry(fs, "test1", logger)
+			// It actually does not error but just doesn't match
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+			entry, err = utils.ReadAssessmentFromEntry(fs, "test2", logger)
+			// It actually does not error but just doesn't match
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+			entry, err = utils.ReadAssessmentFromEntry(fs, "test3", logger)
+			// It actually does not error but just doesn't match
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+			entry, err = utils.ReadAssessmentFromEntry(fs, "test4", logger)
+			// It actually does not error but just doesn't match
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+			entry, err = utils.ReadAssessmentFromEntry(fs, "test5", logger)
+			// It actually does not error but just doesn't match
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entry).To(Equal(""))
+		})
+
 	})
 })

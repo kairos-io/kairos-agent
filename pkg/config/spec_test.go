@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -33,7 +34,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog"
-	"github.com/twpayne/go-vfs/v4/vfst"
+	"github.com/twpayne/go-vfs/v5/vfst"
 	"k8s.io/mount-utils"
 )
 
@@ -449,6 +450,45 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(spec.Recovery.Source.IsEmpty()).To(BeTrue())
 					Expect(spec.Recovery.FS).To(Equal(constants.SquashFs))
 				})
+
+				It("sets image size to default value if not set", func() {
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.Active.Size).To(Equal(constants.ImgSize))
+				})
+
+				It("sets image size to provided value if set in the config and image is smaller", func() {
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    size: 666\n")))
+					// Set manually the config collector in the cfg file before unmarshalling the spec
+					c.Config = cfg.Config
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.Active.Size).To(Equal(uint(666)))
+				})
+				It("sets image size to default value if not set in the config and image is smaller", func() {
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    uri: dir:/\n")))
+					// Set manually the config collector in the cfg file before unmarshalling the spec
+					c.Config = cfg.Config
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.Active.Size).To(Equal(constants.ImgSize))
+				})
+
+				It("sets image size to the source if default is smaller", func() {
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    uri: file:/tmp/waka\n")))
+					// Set manually the config collector in the cfg file before unmarshalling the spec
+					c.Config = cfg.Config
+					Expect(c.Fs.Mkdir("/tmp", 0777)).ShouldNot(HaveOccurred())
+					Expect(c.Fs.WriteFile("/tmp/waka", []byte("waka"), 0777)).ShouldNot(HaveOccurred())
+					Expect(c.Fs.Truncate("/tmp/waka", 5120*1024*1024)).ShouldNot(HaveOccurred())
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					f, err := c.Fs.Stat("/tmp/waka")
+					Expect(err).ShouldNot(HaveOccurred())
+					// Make the same calculation as the code
+					Expect(spec.Active.Size).To(Equal(uint(f.Size()/1000/1000) + 100))
+				})
+
 			})
 		})
 		Describe("Config from cloudconfig", Label("cloud-config"), func() {
@@ -703,7 +743,8 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 
 		Expect(os.Mkdir(filepath.Join(tempDir, "host"), os.ModePerm)).ToNot(HaveOccurred())
 		Expect(createFileOfSizeInMB(filepath.Join(tempDir, "host", "what.txt"), 200)).ToNot(HaveOccurred())
-		// Set env var like the suc upgrade does
+		// Set env var like the suc upgrade and k8s does to trigger the skip
+		Expect(os.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")).ToNot(HaveOccurred())
 		Expect(os.Setenv("HOST_DIR", filepath.Join(tempDir, "host"))).ToNot(HaveOccurred())
 
 		sizeAfter, err := config.GetSourceSize(conf, imageSource)

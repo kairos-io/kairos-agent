@@ -14,8 +14,8 @@ import (
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/twpayne/go-vfs/v4"
-	"github.com/twpayne/go-vfs/v4/vfst"
+	"github.com/twpayne/go-vfs/v5"
+	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
 var _ = Describe("Bootentries tests", Label("bootentry"), func() {
@@ -138,14 +138,42 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("does not exist"))
 			})
-			It("selects the boot entry in a default installation", func() {
+			It("works without boot assessment", func() {
 				err := fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte("default active.conf"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/recovery.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+
+				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/statereset.conf", []byte("title kairos state reset (auto)\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
+				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
+				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reader["default"]).To(Equal("active.conf"))
+				// Should have called a remount to make it RW
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT,
+					"")).To(BeTrue())
+				// Should have called a remount to make it RO
+				Expect(syscallMock.WasMountCalledWith(
+					"",
+					"/efi",
+					"",
+					syscall.MS_REMOUNT|syscall.MS_RDONLY,
+					"")).To(BeTrue())
+			})
+
+			It("selects the boot entry in a default installation", func() {
+				err := fs.WriteFile("/efi/loader/entries/active+2-1.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/passive+3.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery+1-2.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/statereset+2-1.conf", []byte("title kairos state reset (auto)\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -155,7 +183,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive.conf"))
+				Expect(reader["default"]).To(Equal("passive+3.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -176,7 +204,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery.conf"))
+				Expect(reader["default"]).To(Equal("recovery+1-2.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -197,7 +225,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("statereset.conf"))
+				Expect(reader["default"]).To(Equal("statereset+2-1.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -218,7 +246,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active.conf"))
+				Expect(reader["default"]).To(Equal("active+2-1.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -240,7 +268,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active.conf"))
+				Expect(reader["default"]).To(Equal("active+2-1.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -260,7 +288,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			It("selects the boot entry in a extend-cmdline installation with boot branding", func() {
 				err := fs.WriteFile("/efi/loader/entries/active_install-mode_awesomeos.conf", []byte("title awesomeos\nefi /EFI/kairos/active_install-mode_awesomeos.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/passive_install-mode_awesomeos.conf", []byte("title awesomeos (fallback)\nefi /EFI/kairos/passive_install-mode_awesomeos.efi\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/entries/passive_install-mode_awesomeos+3.conf", []byte("title awesomeos (fallback)\nefi /EFI/kairos/passive_install-mode_awesomeos.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/recovery_install-mode_awesomeos.conf", []byte("title awesomeos recovery\nefi /EFI/kairos/recovery_install-mode_awesomeos.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -274,7 +302,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive_install-mode_awesomeos.conf"))
+				Expect(reader["default"]).To(Equal("passive_install-mode_awesomeos+3.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -381,11 +409,11 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/active_foobar.conf", []byte("title Kairos\nefi /EFI/kairos/active_foobar.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title Kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/entries/passive+3.conf", []byte("title Kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/passive_foobar.conf", []byte("title Kairos (fallback)\nefi /EFI/kairos/passive_foobar.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/entries/recovery.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/entries/recovery+3.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/recovery_foobar.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery_foobar.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -393,7 +421,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/efi/loader/entries/statereset_foobar.conf", []byte("title Kairos state reset (auto)\nefi /EFI/kairos/state_reset_foobar.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte("default active.conf"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = SelectBootEntry(config, "fallback")
@@ -401,7 +429,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive.conf"))
+				Expect(reader["default"]).To(Equal("passive+3.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -443,7 +471,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery.conf"))
+				Expect(reader["default"]).To(Equal("recovery+3.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
