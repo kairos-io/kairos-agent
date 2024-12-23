@@ -397,6 +397,18 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed calculating size: %w", err)
 	}
+
+	if spec.Active.Source.IsDocker() {
+                cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
+		_, err := crane.Manifest(spec.Active.Source.Value())
+		if err != nil {
+			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
+				return nil, fmt.Errorf("oci image %s does not exist", spec.Active.Source.Value())
+			}
+			return nil, err
+		}
+	}
+
 	return spec, nil
 }
 
