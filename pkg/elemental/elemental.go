@@ -236,7 +236,7 @@ func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
 	if err != nil {
 		return err
 	}
-	loopDevice, err := loop.Loop(img, e.config)
+	loopDevice, err := loop.GetLoopManager(e.config).Loop(img)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (e Elemental) UnmountImage(img *v1.Image) error {
 	if err != nil {
 		return err
 	}
-	err = loop.Unloop(img.LoopDevice, e.config)
+	err = loop.GetLoopManager(e.config).Unloop(img.LoopDevice)
 	if err != nil {
 		return err
 	}
