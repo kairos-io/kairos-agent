@@ -40,8 +40,6 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v66 v66.0.0
-	github.com/google/go-github/v67 v67.0.0
-	github.com/google/go-github/v68 v68.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
 )
 
@@ -53,7 +51,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.12.9 // indirect
-	github.com/ProtonMail/go-crypto v1.0.0 // indirect
+	github.com/ProtonMail/go-crypto v1.1.3 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/anatol/devmapper.go v0.0.0-20230829043248-59ac2b9706ba // indirect
 	github.com/anatol/luks.go v0.0.0-20240507052915-92f8bb765f98 // indirect
@@ -77,7 +75,7 @@ require (
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/containerd/typeurl/v2 v2.2.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
-	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
+	github.com/cyphar/filepath-securejoin v0.3.6 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/dgryski/go-camellia v0.0.0-20191119043421-69a8a13fb23d // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
@@ -97,8 +95,8 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20230802011745-f2460f5984f7 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.5.0 // indirect
-	github.com/go-git/go-git/v5 v5.12.0 // indirect
+	github.com/go-git/go-billy/v5 v5.6.1 // indirect
+	github.com/go-git/go-git/v5 v5.13.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -176,7 +174,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/skeema/knownhosts v1.2.2 // indirect
+	github.com/skeema/knownhosts v1.3.0 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spectrocloud-labs/herd v0.4.2 // indirect
