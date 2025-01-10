@@ -876,7 +876,7 @@ func validateSource(source string) error {
 		return nil
 	}
 
-	r, err := regexp.Compile(`^oci:|dir:|file:`)
+	r, err := regexp.Compile(`^oci:|^dir:|^file:`)
 	if err != nil {
 		return err
 	}
