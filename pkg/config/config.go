@@ -2,13 +2,10 @@ package config
 
 import (
 	"fmt"
-	"os"
+	"github.com/kairos-io/kairos-sdk/state"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"unicode"
-
-	"github.com/kairos-io/kairos-sdk/state"
 
 	"github.com/joho/godotenv"
 	version "github.com/kairos-io/kairos-agent/v2/internal/common"
@@ -30,7 +27,6 @@ import (
 
 const (
 	DefaultWebUIListenAddress = ":8080"
-	FilePrefix                = "file://"
 )
 
 type Install struct {
@@ -339,20 +335,6 @@ type Bundle struct {
 	Targets    []string `yaml:"targets,omitempty"`
 }
 
-const DefaultHeader = "#cloud-config"
-
-func HasHeader(userdata, head string) (bool, string) {
-	header := strings.SplitN(userdata, "\n", 2)[0]
-
-	// Trim trailing whitespaces
-	header = strings.TrimRightFunc(header, unicode.IsSpace)
-
-	if head != "" {
-		return head == header, header
-	}
-	return (header == DefaultHeader) || (header == "#kairos-config") || (header == "#node-config"), header
-}
-
 func (b Bundles) Options() (res [][]bundles.BundleOption) {
 	for _, bundle := range b {
 		for _, t := range bundle.Targets {
@@ -442,7 +424,7 @@ func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
 		}
 	}
 
-	if !kc.IsValid() {
+	if kc != nil && !kc.IsValid() {
 		if !o.NoLogs && !o.StrictValidation {
 			fmt.Printf("WARNING: %s\n", kc.ValidationError.Error())
 		}
@@ -515,20 +497,8 @@ func (n Stage) String() string {
 	return string(n)
 }
 
-func SaveCloudConfig(name Stage, yc yip.YipConfig) error {
-	dnsYAML, err := yaml.Marshal(yc)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join("usr", "local", "cloud-config", fmt.Sprintf("100_%s.yaml", name)), dnsYAML, 0700)
-}
-
-func FromString(s string, o interface{}) error {
-	return yaml.Unmarshal([]byte(s), o)
-}
-
 func MergeYAML(objs ...interface{}) ([]byte, error) {
-	content := [][]byte{}
+	var content [][]byte
 	for _, o := range objs {
 		dat, err := yaml.Marshal(o)
 		if err != nil {

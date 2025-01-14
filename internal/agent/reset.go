@@ -172,7 +172,9 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Co
 
 	d, err := json.Marshal(r)
 	if err != nil {
-		c.Logger.Errorf("failed to marshal reset cmdline flags/event options: %s", err)
+		if &c != nil {
+			c.Logger.Errorf("failed to marshal reset cmdline flags/event options: %s", err)
+		}
 		return c, err
 	}
 	cliConf := string(d)

@@ -3,6 +3,7 @@ package webui
 import (
 	"context"
 	"embed"
+	"errors"
 	"io"
 	"io/fs"
 	"log"
@@ -12,9 +13,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/labstack/echo/v4"
 	process "github.com/mudler/go-processmanager"
 	"github.com/nxadm/tail"
@@ -239,7 +240,7 @@ func Start(ctx context.Context) error {
 
 	ec.GET("/ws", streamProcess(&s))
 
-	if err := ec.Start(listen); err != nil && err != http.ErrServerClosed {
+	if err := ec.Start(listen); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
