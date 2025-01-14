@@ -363,6 +363,8 @@ github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82 h1:FVT07E
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82/go.mod h1:Urp7LG5jylKoDq0663qeBh0pINGcRl35nXdKx82PSoU=
 github.com/mudler/yip v1.13.0 h1:JN62ONxDpliGLH7tXFbk2rxiX+Y7G5jnLAj+LmGpPRw=
 github.com/mudler/yip v1.13.0/go.mod h1:gwH7iGcr1Jimox2xKtN2AprEO00GzY7smvuycqCL7+Y=
+github.com/mudler/yip v1.13.1 h1:kMzysvYxZybqf1ve53elrGdSaHgdJ3XtMq/ZauXdGTY=
+github.com/mudler/yip v1.13.1/go.mod h1:KuSs3KUwC+j+9yZMSAZT1e07L+RRm5Pg0O4mA4KFlm8=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6/go.mod h1:CJlz5H+gyd6CUWT45Oy4q24RdLyn7Md9Vj2/ldJBSIo=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
