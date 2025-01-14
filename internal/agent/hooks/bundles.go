@@ -39,7 +39,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 		return err
 	}
 
-	cmd := exec.Command("rsync", "-aqAX", "/var/lib/extensions", "/usr/local/.state/var-lib-extensions.bind")
+	cmd := exec.Command("rsync", "-aqAX", "/var/lib/extensions/", "/usr/local/.state/var-lib-extensions.bind")
 	_, err = cmd.CombinedOutput()
 	if c.FailOnBundleErrors && err != nil {
 		return err
