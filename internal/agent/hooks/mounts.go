@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/mudler/yip/pkg/schema"
 	yip "github.com/mudler/yip/pkg/schema"
@@ -24,7 +24,7 @@ func saveCloudConfig(name config.Stage, yc yip.YipConfig) error {
 	return os.WriteFile(filepath.Join("/oem", fmt.Sprintf("10_%s.yaml", name)), yipYAML, 0400)
 }
 
-// Read the keys sections ephemeral_mounts and bind mounts from install key in the cloud config.
+// Run Reads the keys sections ephemeral_mounts and bind mounts from install key in the cloud config.
 // If not empty write an environment file to /run/cos/custom-layout.env.
 // That env file is in turn read by /overlay/files/system/oem/11_persistency.yaml in fs.after stage.
 func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
@@ -48,15 +48,21 @@ func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
 	mountsList["CUSTOM_BIND_MOUNTS"] = strings.Join(c.Install.BindMounts, " ")
 	mountsList["CUSTOM_EPHEMERAL_MOUNTS"] = strings.Join(c.Install.EphemeralMounts, " ")
 
-	config := yip.YipConfig{Stages: map[string][]schema.Stage{
-		"rootfs": []yip.Stage{{
-			Name:            "user_custom_mounts",
-			EnvironmentFile: "/run/cos/custom-layout.env",
-			Environment:     mountsList,
-		}},
+	cfg := yip.YipConfig{Stages: map[string][]schema.Stage{
+		"rootfs": {
+			{
+				Name:            "user_custom_mounts",
+				EnvironmentFile: "/run/cos/custom-layout.env",
+				Environment:     mountsList,
+			},
+		},
 	}}
 
-	saveCloudConfig("user_custom_mounts", config) //nolint:errcheck
+	err := saveCloudConfig("user_custom_mounts", cfg)
+	if err != nil {
+		c.Logger.Logger.Error().Err(err).Msg("Failed to save cloud config")
+		return err
+	}
 	c.Logger.Logger.Debug().Msg("Finish CustomMounts hook")
 	return nil
 }

@@ -134,7 +134,7 @@ var _ = Describe("Reset action tests", func() {
 			bootedFrom = constants.SystemLabel
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 				if cmd == cmdFail {
-					return []byte{}, errors.New("Command failed")
+					return []byte{}, errors.New("command failed")
 				}
 				switch cmd {
 				case "cat":

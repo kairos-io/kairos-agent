@@ -23,7 +23,7 @@ type KcryptUKI struct{}
 func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 	// pre-check for systemd version, we need something higher or equal to 252
 	run, err := utils.SH("systemctl --version | head -1 | awk '{ print $2}'")
-	systemdVersion := strings.TrimSpace(string(run))
+	systemdVersion := strings.TrimSpace(run)
 	if err != nil {
 		c.Logger.Errorf("could not get systemd version: %s", err)
 		c.Logger.Errorf("could not get systemd version: %s", run)

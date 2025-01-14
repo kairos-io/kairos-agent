@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,14 +47,6 @@ func isYes(s string) bool {
 	}
 	return false
 }
-
-const (
-	_ = 1 << (10 * iota)
-	KiB
-	MiB
-	GiB
-	TiB
-)
 
 func promptBool(p events.YAMLPrompt) (string, error) {
 	def := "n"
@@ -125,7 +118,7 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 
 	cmd.PrintText(agentConfig.Branding.InteractiveInstall, "Installation")
 
-	disks := []string{}
+	var disks []string
 	maxSize := float64(0)
 	preferedDevice := "/dev/sda"
 
@@ -134,12 +127,12 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 		if strings.HasPrefix(disk.Name, "loop") || strings.HasPrefix(disk.Name, "ram") || strings.HasPrefix(disk.Name, "sr") || strings.HasPrefix(disk.Name, "zram") {
 			continue
 		}
-		size := float64(disk.SizeBytes) / float64(GiB)
+		size := float64(disk.SizeBytes) / float64(constants.GiB)
 		if size > maxSize {
 			maxSize = size
 			preferedDevice = "/dev/" + disk.Name
 		}
-		disks = append(disks, fmt.Sprintf("/dev/%s: (%.2f GiB) ", disk.Name, float64(disk.SizeBytes)/float64(GiB)))
+		disks = append(disks, fmt.Sprintf("/dev/%s: (%.2f GiB) ", disk.Name, float64(disk.SizeBytes)/float64(constants.GiB)))
 	}
 
 	pterm.Info.Println("Available Disks:")
@@ -194,7 +187,7 @@ func InteractiveInstall(debug, spawnShell bool, sourceImgURL string) error {
 	}
 
 	// Prompt the user by prompts defined by the provider
-	r := []events.YAMLPrompt{}
+	var r []events.YAMLPrompt
 
 	bus.Manager.Response(events.EventInteractiveInstall, func(p *pluggable.Plugin, resp *pluggable.EventResponse) {
 		err := json.Unmarshal([]byte(resp.Data), &r)

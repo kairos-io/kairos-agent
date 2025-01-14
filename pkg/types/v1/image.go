@@ -29,7 +29,7 @@ type OCIImageExtractor struct{}
 
 var _ ImageExtractor = OCIImageExtractor{}
 
-func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
+func (e OCIImageExtractor) ExtractImage(imageRef, destination, _ string) error {
 	img, err := utils.GetImage(imageRef, utils.GetCurrentPlatform(), nil, nil)
 	if err != nil {
 		return err

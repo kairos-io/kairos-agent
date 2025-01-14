@@ -55,7 +55,7 @@ func ChrootedCallback(cfg *agentConfig.Config, path string, bindMounts map[strin
 	return chroot.RunCallback(callback)
 }
 
-// Sets additional bind mounts for the chroot enviornment. They are represented
+// SetExtraMounts Sets additional bind mounts for the chroot enviornment. They are represented
 // in a map where the key is the path outside the chroot and the value is the
 // path inside the chroot.
 func (c *Chroot) SetExtraMounts(extraMounts map[string]string) {
@@ -65,11 +65,11 @@ func (c *Chroot) SetExtraMounts(extraMounts map[string]string) {
 // Prepare will mount the defaultMounts as bind mounts, to be ready when we run chroot
 func (c *Chroot) Prepare() error {
 	var err error
-	keys := []string{}
+	var keys []string
 	mountOptions := []string{"bind"}
 
 	if len(c.activeMounts) > 0 {
-		return errors.New("There are already active mountpoints for this instance")
+		return errors.New("there are already active mountpoints for this instance")
 	}
 
 	defer func() {
@@ -117,7 +117,7 @@ func (c *Chroot) Prepare() error {
 
 // Close will unmount all active mounts created in Prepare on reverse order
 func (c *Chroot) Close() error {
-	failures := []string{}
+	var failures []string
 	for len(c.activeMounts) > 0 {
 		curr := c.activeMounts[len(c.activeMounts)-1]
 		c.config.Logger.Debugf("Unmounting %s from chroot", curr)

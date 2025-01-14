@@ -146,7 +146,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				called := false
 				callback := func() error {
 					called = true
-					return errors.New("Callback error")
+					return errors.New("callback error")
 				}
 				err := chroot.RunCallback(callback)
 				Expect(err).NotTo(BeNil())
@@ -412,7 +412,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 
 			// Shouldn't be the same
 			Expect(destNames).ToNot(Equal(SourceNames))
-			expected := []string{}
+			var expected []string
 
 			for _, s := range SourceNames {
 				if s != "host" && s != "run" {
@@ -951,12 +951,12 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(result).To(Equal("three two one "))
 		})
 		It("On Cleanup keeps former error and all callbacks are executed", func() {
-			err := errors.New("Former error")
+			err := errors.New("former error")
 			count := 0
 			callback := func() error {
 				count++
 				if count == 2 {
-					return errors.New("Cleanup Error")
+					return errors.New("cleanup Error")
 				}
 				return nil
 			}

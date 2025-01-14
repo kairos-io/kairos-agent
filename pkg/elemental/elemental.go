@@ -610,7 +610,7 @@ func (e Elemental) FindKernelInitrd(rootDir string) (kernel string, initrd strin
 	return kernel, initrd, nil
 }
 
-// DeactivateDevice deactivates unmounted the block devices present within the system.
+// DeactivateDevices deactivates unmounted the block devices present within the system.
 // Useful to deactivate LVM volumes, if any, related to the target device.
 func (e Elemental) DeactivateDevices() error {
 	out, err := e.config.Runner.Run(

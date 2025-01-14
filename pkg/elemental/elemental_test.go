@@ -464,7 +464,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			}
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 				if cmdFail == cmd {
-					return []byte{}, errors.New("Command failed")
+					return []byte{}, errors.New("command failed")
 				}
 				switch cmd {
 				default:
