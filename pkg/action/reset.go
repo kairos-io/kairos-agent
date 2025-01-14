@@ -107,7 +107,7 @@ func (r *ResetAction) updateInstallState(e *elemental.Elemental, cleanup *utils.
 	)
 }
 
-// ResetRun will reset the cos system to by following several steps
+// Run will reset the cos system to by following several steps
 func (r ResetAction) Run() (err error) {
 	e := elemental.NewElemental(r.cfg)
 	cleanup := utils.NewCleanStack()

@@ -40,14 +40,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	_ = 1 << (10 * iota)
-	KiB
-	MiB
-	GiB
-	TiB
-)
-
 // resolveTarget will try to resovle a /dev/disk/by-X disk into the final real disk under /dev/X
 // We use it to calculate the device on the fly for the Config and the InstallSpec but we leave
 // the original value in teh config.Collector so its written down in the final cloud config in the
@@ -399,7 +391,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	}
 
 	if spec.Active.Source.IsDocker() {
-                cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
+		cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
 		_, err := crane.Manifest(spec.Active.Source.Value())
 		if err != nil {
 			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
@@ -1081,7 +1073,7 @@ func detectLargestDevice() string {
 	maxSize := float64(0)
 
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
-		size := float64(disk.SizeBytes) / float64(GiB)
+		size := float64(disk.SizeBytes) / float64(constants.GiB)
 		if size > maxSize {
 			maxSize = size
 			preferedDevice = "/dev/" + disk.Name

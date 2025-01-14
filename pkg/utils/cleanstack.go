@@ -27,7 +27,7 @@ func NewCleanStack() *CleanStack {
 	return &CleanStack{}
 }
 
-// Stack is a basic LIFO stack that resizes as needed.
+// CleanStack Stack is a basic LIFO stack that resizes as needed.
 type CleanStack struct {
 	jobs  []CleanJob
 	count int

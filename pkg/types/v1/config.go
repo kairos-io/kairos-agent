@@ -370,7 +370,7 @@ func (ep ElementalPartitions) PartitionsByInstallOrder(extraPartitions types.Par
 // partitions or partitions with an empty mountpoint
 func (ep ElementalPartitions) PartitionsByMountPoint(descending bool, excludes ...*types.Partition) types.PartitionList {
 	mountPointKeys := map[string]*types.Partition{}
-	mountPoints := []string{}
+	var mountPoints []string
 	partitions := types.PartitionList{}
 
 	for _, p := range ep.PartitionsByInstallOrder([]*types.Partition{}, excludes...) {

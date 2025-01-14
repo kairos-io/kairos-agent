@@ -2,7 +2,6 @@ package agent_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -23,7 +22,7 @@ echo "{}"
 var _ = Describe("Bootstrap provider", func() {
 	Context("Config", func() {
 		It("gets entire content", func() {
-			f, err := ioutil.TempDir("", "tests")
+			f, err := os.MkdirTemp("", "tests")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(f)
 

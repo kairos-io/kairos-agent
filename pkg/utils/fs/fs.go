@@ -52,7 +52,7 @@ func DirSize(fs v1.FS, path string) (int64, error) {
 	return size, err
 }
 
-// Check if a file or directory exists.
+// Exists Check if a file or directory exists.
 func Exists(fs v1.FS, path string) (bool, error) {
 	_, err := fs.Stat(path)
 	if err == nil {
@@ -208,7 +208,7 @@ func WalkDirFs(fs v1.FS, root string, fn fs.WalkDirFunc) error {
 
 func walkDir(fs v1.FS, path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) error {
 	if err := walkDirFn(path, d, nil); err != nil || !d.IsDir() {
-		if err == filepath.SkipDir && d.IsDir() {
+		if errors.Is(err, filepath.SkipDir) && d.IsDir() {
 			// Successfully skipped directory.
 			err = nil
 		}

@@ -92,43 +92,43 @@ const (
 	OEMPath                      = "/oem"
 	BootEntryRecovery            = "recovery"
 
-	// SELinux targeted policy paths
+	// SELinuxTargetedPath SELinux targeted policy paths
 	SELinuxTargetedPath        = "/etc/selinux/targeted"
 	SELinuxTargetedContextFile = SELinuxTargetedPath + "/contexts/files/file_contexts"
 	SELinuxTargetedPolicyPath  = SELinuxTargetedPath + "/policy"
 
-	// Default directory and file fileModes
+	// DirPerm Default directory and file fileModes
 	DirPerm        = os.ModeDir | os.ModePerm
 	FilePerm       = 0666
 	ConfigPerm     = 0640 // Used for config files that contain secrets or other sensitive data
 	NoWriteDirPerm = 0555 | os.ModeDir
 	TempDirPerm    = os.ModePerm | os.ModeSticky | os.ModeDir
 
-	// Eject script
 	EjectScript = "#!/bin/sh\n/usr/bin/eject -rmF"
 
 	ArchAmd64  = "amd64"
 	Archx86    = "x86_64"
 	ArchArm64  = "arm64"
 	SignedShim = "shim.efi"
-	SignedGrub = "grub.efi"
 	Rsync      = "rsync"
 
-	UkiSource         = "/run/install/uki"
-	UkiCdromSource    = "/run/initramfs/live"
-	UkiEfiDir         = "/efi"
-	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
-	UkiMaxEntries     = 3
+	UkiEfiDir     = "/efi"
+	UkiMaxEntries = 3
 
-	// Boot labeling
 	PassiveBootSuffix    = " (fallback)"
 	RecoveryBootSuffix   = " recovery"
 	StateResetBootSuffix = " state reset (auto)"
 
-	// Error
 	UpgradeNoSourceError           = "Could not find a proper source for the upgrade.\nThis can be configured in the cloud config files under the 'upgrade.system.uri' key or via cmdline using the '--source' flag."
 	MultipleEntriesAssessmentError = "multiple boot entries found for %s"
 	NoBootAssessmentWarning        = "No boot assessment found in current boot entry config file"
+)
+
+const (
+	_ = 1 << (10 * iota)
+	_
+	_
+	GiB
 )
 
 func UkiDefaultMenuEntries() []string {

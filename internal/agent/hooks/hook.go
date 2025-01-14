@@ -1,7 +1,7 @@
 package hook
 
 import (
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 )
 

@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
