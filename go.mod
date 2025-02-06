@@ -40,7 +40,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v66 v66.0.0
-	github.com/google/go-github/v68 v68.0.0
+	github.com/google/go-github/v69 v69.0.0
 	github.com/google/go-github/v69 v69.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
 )
