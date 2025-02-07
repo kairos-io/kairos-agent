@@ -667,6 +667,10 @@ The validate command expects a configuration file as its only argument. Local fi
 				Name:  "cloud-init-paths",
 				Usage: "Extra paths to add to the run stage",
 			},
+			&cli.StringSliceFlag{
+				Name:  "override-cloud-init-paths",
+				Usage: "Override paths to use when running the stage, removing defaults. Supercedes --cloud-init-paths",
+			},
 			&cli.BoolFlag{
 				Name:    "analyze",
 				Usage:   "Only print the modules that would run in the order they would run",
@@ -690,6 +694,11 @@ The validate command expects a configuration file as its only argument. Local fi
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
 				config.CloudInitPaths = append(config.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
 			}
+
+			if len(c.StringSlice("override-cloud-init-paths")) > 0 {
+				config.CloudInitPaths = c.StringSlice("override-cloud-init-paths")
+			}
+
 			if c.Bool("debug") {
 				config.Logger.SetLevel("debug")
 			}
