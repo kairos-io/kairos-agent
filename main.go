@@ -669,7 +669,7 @@ The validate command expects a configuration file as its only argument. Local fi
 			},
 			&cli.StringSliceFlag{
 				Name:  "override-cloud-init-paths",
-				Usage: "Paths to use when running the stage",
+				Usage: "Override paths to use when running the stage, removing defaults",
 			},
 			&cli.BoolFlag{
 				Name:    "analyze",
