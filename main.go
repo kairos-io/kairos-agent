@@ -669,7 +669,7 @@ The validate command expects a configuration file as its only argument. Local fi
 			},
 			&cli.StringSliceFlag{
 				Name:  "override-cloud-init-paths",
-				Usage: "Override paths to use when running the stage, removing defaults",
+				Usage: "Override paths to use when running the stage, removing defaults. Supercedes --cloud-init-paths",
 			},
 			&cli.BoolFlag{
 				Name:    "analyze",
@@ -691,12 +691,12 @@ The validate command expects a configuration file as its only argument. Local fi
 			config, err := agentConfig.Scan(collector.Directories(constants.GetYipConfigDirs()...), collector.NoLogs)
 			config.Strict = c.Bool("strict")
 
-			if len(c.StringSlice("override-cloud-init-paths")) > 0 {
-				config.CloudInitPaths = c.StringSlice("override-cloud-init-paths")
-			}
-
 			if len(c.StringSlice("cloud-init-paths")) > 0 {
 				config.CloudInitPaths = append(config.CloudInitPaths, c.StringSlice("cloud-init-paths")...)
+			}
+
+			if len(c.StringSlice("override-cloud-init-paths")) > 0 {
+				config.CloudInitPaths = c.StringSlice("override-cloud-init-paths")
 			}
 
 			if c.Bool("debug") {
