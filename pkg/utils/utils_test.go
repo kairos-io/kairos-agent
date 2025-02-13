@@ -30,7 +30,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-agent/v2/tests/matchers"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -965,7 +965,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			cleaner.Push(callback)
 			err = cleaner.Cleanup(err)
 			Expect(count).To(Equal(3))
-			Expect(err.Error()).To(ContainSubstring("Former error"))
+			Expect(err.Error()).To(ContainSubstring("former error"))
 		})
 		It("On Cleanup error reports first error and all callbacks are executed", func() {
 			var err error
