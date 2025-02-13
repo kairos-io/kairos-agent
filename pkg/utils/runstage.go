@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"errors"
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -29,7 +30,8 @@ import (
 )
 
 func onlyYAMLPartialErrors(er error) bool {
-	if merr, ok := er.(*multierror.Error); ok {
+	var merr *multierror.Error
+	if errors.As(er, &merr) {
 		for _, e := range merr.Errors {
 			// Skip partial unmarshalling errors
 			// TypeError is throwed when it is possible to read the yaml partially
@@ -57,7 +59,6 @@ func checkYAMLError(cfg *agentConfig.Config, allErrors, err error) error {
 	return allErrors
 }
 
-// RunstageAnalyze
 func RunStageAnalyze(cfg *agentConfig.Config, stage string) error {
 	return runstage(cfg, stage, true)
 }

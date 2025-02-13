@@ -87,7 +87,7 @@ func CopyFile(fs v1.FS, source string, target string) (err error) {
 // TODO: Log errors, return errors, whatever but dont ignore them
 func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 	if len(sources) == 0 {
-		return fmt.Errorf("Empty sources list")
+		return fmt.Errorf("empty sources list")
 	}
 	if dir, _ := fsutils.IsDir(fs, target); dir {
 		target = filepath.Join(target, filepath.Base(sources[0]))
@@ -123,7 +123,7 @@ func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 	return err
 }
 
-// Copies source file to target file using Fs interface
+// CreateDirStructure Copies source file to target file using Fs interface
 func CreateDirStructure(fs v1.FS, target string) error {
 	for _, dir := range []string{"/run", "/dev", "/boot", "/usr/local", "/oem"} {
 		err := fsutils.MkdirAll(fs, filepath.Join(target, dir), cnst.DirPerm)
@@ -236,7 +236,7 @@ func Shutdown(runner v1.Runner, delay time.Duration) error {
 // CosignVerify runs a cosign validation for the give image and given public key. If no
 // key is provided then it attempts a keyless validation (experimental feature).
 func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string) (string, error) {
-	args := []string{}
+	var args []string
 
 	if publicKey != "" {
 		args = append(args, "-key", publicKey)
@@ -327,7 +327,6 @@ func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) 
 func GetTempDir(config *agentConfig.Config, suffix string) string {
 	// if we got a TMPDIR var, respect and use that
 	if suffix == "" {
-		random.Seed(time.Now().UnixNano())
 		suffix = strconv.Itoa(int(random.Uint32()))
 	}
 	elementalTmpDir := fmt.Sprintf("elemental-%s", suffix)
@@ -422,7 +421,7 @@ func GetSource(config *agentConfig.Config, source string, destination string) er
 	return nil
 }
 
-// ValidContainerReferece returns true if the given string matches
+// ValidContainerReference returns true if the given string matches
 // a container registry reference, false otherwise
 func ValidContainerReference(ref string) bool {
 	if _, err := reference.ParseNormalizedNamed(ref); err != nil {
@@ -431,7 +430,7 @@ func ValidContainerReference(ref string) bool {
 	return true
 }
 
-// ValidTaggedContainerReferece returns true if the given string matches
+// ValidTaggedContainerReference returns true if the given string matches
 // a container registry reference including a tag, false otherwise.
 func ValidTaggedContainerReference(ref string) bool {
 	n, err := reference.ParseNormalizedNamed(ref)
@@ -475,7 +474,7 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 			}
 		}
 	}
-	return "", fmt.Errorf("No file found with prefixes: %v", prefixes)
+	return "", fmt.Errorf("no file found with prefixes: %v", prefixes)
 }
 
 // CalcFileChecksum opens the given file and returns the sha256 checksum of it.
@@ -611,7 +610,7 @@ func CheckFailedInstallation(stateFile string) (bool, error) {
 		if err != nil {
 			return true, err
 		}
-		return true, fmt.Errorf("Installation failed: %s", string(content))
+		return true, fmt.Errorf("installation failed: %s", string(content))
 	}
 	return false, nil
 }

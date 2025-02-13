@@ -30,7 +30,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-agent/v2/tests/matchers"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -146,7 +146,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				called := false
 				callback := func() error {
 					called = true
-					return errors.New("Callback error")
+					return errors.New("callback error")
 				}
 				err := chroot.RunCallback(callback)
 				Expect(err).NotTo(BeNil())
@@ -412,7 +412,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 
 			// Shouldn't be the same
 			Expect(destNames).ToNot(Equal(SourceNames))
-			expected := []string{}
+			var expected []string
 
 			for _, s := range SourceNames {
 				if s != "host" && s != "run" {
@@ -951,12 +951,12 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(result).To(Equal("three two one "))
 		})
 		It("On Cleanup keeps former error and all callbacks are executed", func() {
-			err := errors.New("Former error")
+			err := errors.New("former error")
 			count := 0
 			callback := func() error {
 				count++
 				if count == 2 {
-					return errors.New("Cleanup Error")
+					return errors.New("cleanup Error")
 				}
 				return nil
 			}
@@ -965,7 +965,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			cleaner.Push(callback)
 			err = cleaner.Cleanup(err)
 			Expect(count).To(Equal(3))
-			Expect(err.Error()).To(ContainSubstring("Former error"))
+			Expect(err.Error()).To(ContainSubstring("former error"))
 		})
 		It("On Cleanup error reports first error and all callbacks are executed", func() {
 			var err error

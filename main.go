@@ -32,23 +32,7 @@ import (
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v3"
 )
-
-// ReleasesToOutput gets a semver.Collection and outputs it in the given format
-// Only used here.
-func ReleasesToOutput(rels []string, output string) []string {
-	switch strings.ToLower(output) {
-	case "yaml":
-		d, _ := yaml.Marshal(rels)
-		return []string{string(d)}
-	case "json":
-		d, _ := json.Marshal(rels)
-		return []string{string(d)}
-	default:
-		return rels
-	}
-}
 
 var sourceFlag = cli.StringFlag{
 	Name:  "source",
