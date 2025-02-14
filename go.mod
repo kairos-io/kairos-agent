@@ -25,7 +25,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/pterm/pterm v0.12.80
 	github.com/rs/zerolog v1.33.0
-	github.com/sanity-io/litter v1.5.6
+	github.com/sanity-io/litter v1.5.7
 	github.com/sirupsen/logrus v1.9.4-0.20241118143825-d1e633264448
 	github.com/spf13/viper v1.19.0
 	github.com/urfave/cli/v2 v2.27.5
