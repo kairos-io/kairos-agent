@@ -178,7 +178,17 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 	}
 
 	log.Infof("Starting rsync...")
-	args := []string{"--progress", "--partial", "--human-readable", "--archive", "--xattrs", "--acls"}
+	args := []string{
+		"--progress",
+		"--partial",
+		"--human-readable",
+		"--archive",
+		"--acls",
+		"-t",
+		"-U",
+		"-o",
+		"-g",
+	}
 
 	for _, e := range excludes {
 		args = append(args, fmt.Sprintf("--exclude=%s", e))
