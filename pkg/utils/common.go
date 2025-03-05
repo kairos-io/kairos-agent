@@ -185,7 +185,7 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 		"--human-readable",
 		"--archive", // recursive, symbolic links, permissions, owner, group, modification times, device files, special files
 		"--acls",    // preserve ACLS and permissions
-		"-U",        // preserve access times
+		"--atimes",  // preserve access times
 	}
 
 	for _, e := range excludes {
