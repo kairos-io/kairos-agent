@@ -178,6 +178,7 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 	}
 
 	log.Infof("Starting rsync...")
+	// TODO: copy xattr if possible or needed for selinux contexts? Or do we just relabel those on first boot?
 	args := []string{
 		"--progress",
 		"--partial",
