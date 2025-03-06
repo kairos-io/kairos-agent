@@ -178,7 +178,15 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 	}
 
 	log.Infof("Starting rsync...")
-	args := []string{"--progress", "--partial", "--human-readable", "--archive", "--xattrs", "--acls"}
+	// TODO: copy xattr if possible or needed for selinux contexts? Or do we just relabel those on first boot?
+	args := []string{
+		"--progress",
+		"--partial",
+		"--human-readable",
+		"--archive", // recursive, symbolic links, permissions, owner, group, modification times, device files, special files
+		"--acls",    // preserve ACLS and permissions
+		"--atimes",  // preserve access times
+	}
 
 	for _, e := range excludes {
 		args = append(args, fmt.Sprintf("--exclude=%s", e))
