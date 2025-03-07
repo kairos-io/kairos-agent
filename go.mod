@@ -32,7 +32,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/urfave/cli/v2 v2.27.6
 	golang.org/x/net v0.37.0
-	golang.org/x/oauth2 v0.27.0
+	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sys v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/mount-utils v0.32.2
