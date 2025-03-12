@@ -32,7 +32,7 @@ func (k Kcrypt) Run(c config.Config, _ v1.Spec) error {
 	}()
 
 	for _, p := range c.Install.Encrypt {
-		_, err := kcrypt.Luksify(p, c.Logger.Logger)
+		_, err := kcrypt.Luksify(p, c.Logger)
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
 			if c.FailOnBundleErrors {
