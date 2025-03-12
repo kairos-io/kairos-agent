@@ -1,14 +1,20 @@
 package hook
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/utils"
+	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 )
 
 // BundlePostInstall install bundles just after installation
@@ -28,13 +34,54 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	// Note that the binding of /usr/local/.state/var-lib-extensions.bind to /var/lib/extensions on active/passive its done by inmmucore based on the
 	// 00_rootfs.yaml config which sets the bind and ephemeral paths.
 	c.Logger.Logger.Debug().Msg("Running BundlePostInstall hook")
+	_ = machine.Umount(constants.PersistentDir)
 
-	machine.Mount("COS_PERSISTENT", "/usr/local") //nolint:errcheck
+	_ = machine.Mount(constants.OEMLabel, constants.OEMPath)
 	defer func() {
-		machine.Umount("/usr/local") //nolint:errcheck
+		_ = machine.Umount(constants.OEMPath)
 	}()
 
-	err := os.MkdirAll("/usr/local/.state/var-lib-extensions.bind", os.ModeDir|os.ModePerm)
+	// Path if we have encrypted persistent and we are not on UKI
+	if len(c.Install.Encrypt) != 0 {
+		err := kcrypt.UnlockAll(false)
+		if err != nil {
+			return err
+		}
+	}
+	if len(c.Install.Encrypt) != 0 {
+		// Close all the unencrypted partitions at the end!
+		defer func() {
+			for _, p := range c.Install.Encrypt {
+				_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+				syscall.Sync()
+				c.Logger.Debugf("Closing unencrypted /dev/disk/by-label/%s", p)
+				out, err := utils.SH(fmt.Sprintf("cryptsetup close /dev/disk/by-label/%s", p))
+				// There is a known error with cryptsetup that it can't close the device because of a semaphore
+				// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
+				// output of the error
+				if err != nil && !strings.Contains(out, "incorrect semaphore state") {
+					c.Logger.Errorf("could not close /dev/disk/by-label/%s: %s", p, out)
+				}
+			}
+		}()
+	}
+
+	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	err := syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.UsrLocalPath, "ext4", 0, "")
+	if err != nil {
+		fmt.Printf("could not mount persistent: %s\n", err)
+		return err
+	}
+
+	defer func() {
+		c.Logger.Debugf("Unmounting persistent partition")
+		err := syscall.Unmount(constants.UsrLocalPath, 0)
+		if err != nil {
+			c.Logger.Errorf("could not unmount persistent partition: %s", err)
+		}
+	}()
+
+	err = os.MkdirAll("/usr/local/.state/var-lib-extensions.bind", os.ModeDir|os.ModePerm)
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
@@ -50,11 +97,6 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	}
 	defer func() {
 		_ = syscall.Unmount("/var/lib/extensions", 0)
-	}()
-
-	machine.Mount("COS_OEM", "/oem") //nolint:errcheck
-	defer func() {
-		machine.Umount("/oem") //nolint:errcheck
 	}()
 
 	opts := c.Install.Bundles.Options()
