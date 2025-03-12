@@ -308,6 +308,8 @@ github.com/kairos-io/kcrypt v0.12.2 h1:+lr8FGS0AW6D5dWSmaR3+AobL1TBTnOFgCSYctKY+
 github.com/kairos-io/kcrypt v0.12.2/go.mod h1:7SPiHzNMYl4MlxeB30s1YlHDYByTusu7u1mU5Nvicm0=
 github.com/kairos-io/kcrypt v0.13.1-0.20250312192315-531e4ff400a8 h1:od7aDyHW0V+92NmnejUW6OFwYJVkh+NPGmei6nxUpG4=
 github.com/kairos-io/kcrypt v0.13.1-0.20250312192315-531e4ff400a8/go.mod h1:/mu25Htq2tZijQ+Md4oZu09dhaHP3JKI2gvzQWA8cYA=
+github.com/kairos-io/kcrypt v0.13.1-0.20250312202502-cc57c8207fe4 h1:6YNF7d8OpwCwlF5xakBURRQYLSzF6fkNWeHvPr8uElU=
+github.com/kairos-io/kcrypt v0.13.1-0.20250312202502-cc57c8207fe4/go.mod h1:/mu25Htq2tZijQ+Md4oZu09dhaHP3JKI2gvzQWA8cYA=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 h1:YOp8St+CM/AQ9Vp4XYm4272E77MptJDHkwypQHIRl9Q=

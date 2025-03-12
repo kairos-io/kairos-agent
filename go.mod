@@ -16,7 +16,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
 	github.com/kairos-io/kairos-sdk v0.7.3
-	github.com/kairos-io/kcrypt v0.13.1-0.20250312192315-531e4ff400a8
+	github.com/kairos-io/kcrypt v0.13.1-0.20250312202502-cc57c8207fe4
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
