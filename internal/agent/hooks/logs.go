@@ -2,10 +2,6 @@ package hook
 
 import (
 	"fmt"
-	"path/filepath"
-	"strings"
-	"syscall"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -14,6 +10,9 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
+	"path/filepath"
+	"strings"
+	"syscall"
 )
 
 // CopyLogs copies all current logs to the persistent partition.
@@ -53,14 +52,14 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	}
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
-	err := syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
+	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
 	if err != nil {
 		fmt.Printf("could not mount persistent: %s\n", err)
 		return err
 	}
 
 	defer func() {
-		err := syscall.Unmount(constants.PersistentDir, 0)
+		err := machine.Umount(constants.PersistentDir)
 		if err != nil {
 			c.Logger.Errorf("could not unmount persistent partition: %s", err)
 		}

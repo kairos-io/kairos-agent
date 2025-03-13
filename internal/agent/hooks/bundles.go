@@ -66,7 +66,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
 	syscall.Sync()
-	err := syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.UsrLocalPath, "ext4", 0, "")
+	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.UsrLocalPath, "ext4", 0, "")
 	if err != nil {
 		fmt.Printf("could not mount persistent: %s\n", err)
 		return err
@@ -74,7 +74,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 
 	defer func() {
 		c.Logger.Debugf("Unmounting persistent partition")
-		err := syscall.Unmount(constants.UsrLocalPath, 0)
+		err := machine.Umount(constants.UsrLocalPath)
 		if err != nil {
 			c.Logger.Errorf("could not unmount persistent partition: %s", err)
 		}
@@ -90,12 +90,12 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
-	err = syscall.Mount("/usr/local/.state/var-lib-extensions.bind", "/var/lib/extensions", "", syscall.MS_BIND, "")
+	err = c.Syscall.Mount("/usr/local/.state/var-lib-extensions.bind", "/var/lib/extensions", "", syscall.MS_BIND, "")
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
 	defer func() {
-		_ = syscall.Unmount("/var/lib/extensions", 0)
+		_ = machine.Umount("/var/lib/extensions")
 	}()
 
 	opts := c.Install.Bundles.Options()
