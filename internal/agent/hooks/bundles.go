@@ -60,13 +60,14 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 				// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
 				// output of the error
 				if err != nil && !strings.Contains(out, "incorrect semaphore state") {
-					c.Logger.Errorf("could not close /dev/disk/by-label/%s: %s", p, out)
+					c.Logger.Warnf("could not close /dev/disk/by-label/%s: %s", p, out)
 				}
 			}
 		}()
 	}
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	syscall.Sync()
 	err := syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.UsrLocalPath, "ext4", 0, "")
 	if err != nil {
 		fmt.Printf("could not mount persistent: %s\n", err)
