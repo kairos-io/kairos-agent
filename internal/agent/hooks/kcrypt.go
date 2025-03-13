@@ -7,6 +7,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 	"path/filepath"
+	"syscall"
 )
 
 type Kcrypt struct{}
@@ -28,7 +29,10 @@ func (k Kcrypt) Run(c config.Config, _ v1.Spec) error {
 	// Config passed during install ends up here, so we need to read it
 	_ = machine.Mount("COS_OEM", "/oem")
 	defer func() {
-		_ = machine.Umount("/oem") //nolint:errcheck
+		err := syscall.Unmount(constants.OEMPath, 0)
+		if err != nil {
+			c.Logger.Errorf("could not unmount Oem partition: %s", err)
+		}
 	}()
 
 	for _, p := range c.Install.Encrypt {

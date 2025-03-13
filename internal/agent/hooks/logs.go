@@ -15,15 +15,20 @@ import (
 	"syscall"
 )
 
-// CopyLogs copies all current logs to the persistent partition
+// CopyLogs copies all current logs to the persistent partition.
 // useful during install to keep the livecd logs
 // best effort, no error handling
 type CopyLogs struct{}
 
 func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	c.Logger.Logger.Debug().Msg("Running CopyLogs hook")
-	c.Logger.Debugf("Copying logs to persistent partition")
 	_ = machine.Umount(constants.PersistentDir)
+
+	// Config passed during install ends up here, kcrypt challenger needs to read it if we are using a server for encryption
+	_ = machine.Mount(constants.OEMLabel, constants.OEMPath)
+	defer func() {
+		_ = machine.Umount(constants.OEMPath)
+	}()
 
 	// Path if we have encrypted persistent
 	if len(c.Install.Encrypt) != 0 {
@@ -31,9 +36,9 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 		if err != nil {
 			return err
 		}
-		// Close the unencrypted persistent partition at the end!
+		// Close all the unencrypted partitions at the end!
 		defer func() {
-			for _, p := range []string{constants.PersistentLabel} {
+			for _, p := range c.Install.Encrypt {
 				c.Logger.Debugf("Closing unencrypted /dev/disk/by-label/%s", p)
 				out, err := utils.SH(fmt.Sprintf("cryptsetup close /dev/disk/by-label/%s", p))
 				// There is a known error with cryptsetup that it can't close the device because of a semaphore
@@ -46,11 +51,19 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 		}()
 	}
 
-	err := machine.Mount(constants.PersistentLabel, constants.PersistentDir)
+	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
 	if err != nil {
-		c.Logger.Errorf("could not mount persistent partition: %s", err)
-		return nil
+		fmt.Printf("could not mount persistent: %s\n", err)
+		return err
 	}
+
+	defer func() {
+		err := machine.Umount(constants.PersistentDir)
+		if err != nil {
+			c.Logger.Errorf("could not unmount persistent partition: %s", err)
+		}
+	}()
 
 	// Create the directory on persistent
 	varLog := filepath.Join(constants.PersistentDir, ".state", "var-log.bind")
@@ -64,11 +77,6 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, "/var/log/", varLog, []string{}...)
 	if err != nil {
 		c.Logger.Errorf("could not copy logs to persistent partition: %s", err)
-		return nil
-	}
-	err = machine.Umount(constants.PersistentDir)
-	if err != nil {
-		c.Logger.Errorf("could not unmount persistent partition: %s", err)
 		return nil
 	}
 	syscall.Sync()
