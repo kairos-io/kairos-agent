@@ -17,9 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install earthly
-        uses: Luet-lab/luet-install-action@v1
+        uses: earthly/actions-setup@v1
         with:
-          repository: quay.io/kairos/packages
-          packages: utils/earthly
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: WebUI tests
         run: earthly +webui-tests --GO_VERSION=${{ matrix.go-version }}
