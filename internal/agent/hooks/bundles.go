@@ -47,8 +47,6 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 		if err != nil {
 			return err
 		}
-	}
-	if len(c.Install.Encrypt) != 0 {
 		// Close all the unencrypted partitions at the end!
 		defer func() {
 			for _, p := range c.Install.Encrypt {

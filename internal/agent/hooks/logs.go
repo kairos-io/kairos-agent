@@ -2,6 +2,10 @@ package hook
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
+	"syscall"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -10,12 +14,9 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
-	"path/filepath"
-	"strings"
-	"syscall"
 )
 
-// CopyLogs copies all current logs to the persistent partition
+// CopyLogs copies all current logs to the persistent partition.
 // useful during install to keep the livecd logs
 // best effort, no error handling
 type CopyLogs struct{}
