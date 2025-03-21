@@ -9,7 +9,6 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 	"path/filepath"
 	"syscall"
 )
@@ -28,17 +27,6 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	defer func() {
 		_ = machine.Umount(constants.OEMPath)
 	}()
-
-	// Path if we have encrypted persistent
-	if len(c.Install.Encrypt) != 0 && !internalutils.IsUkiWithFs(c.Fs) {
-		err := kcrypt.UnlockAll(false)
-		if err != nil {
-			lockPartitions(c)
-			return err
-		}
-		// Close all the unencrypted partitions at the end!
-		defer lockPartitions(c)
-	}
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
 	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")

@@ -44,7 +44,25 @@ func (k Kcrypt) Run(c config.Config, spec v1.Spec) error {
 			}
 		}
 	}
-	lockPartitions(c)
+
+	err = kcrypt.UnlockAllWithLogger(false, c.Logger)
+	if err != nil {
+		lockPartitions(c)
+		c.Logger.Errorf("could not unlock partitions: %s", err)
+		return err
+	}
+
+	defer lockPartitions(c)
 	c.Logger.Logger.Info().Msg("Finished encrypt hook")
+	// Now that we have everything encrypted and ready
+	err = BundlePostInstall{}.Run(c, spec)
+	if err != nil {
+		return err
+	}
+	_ = CustomMounts{}.Run(c, spec)
+	err = CopyLogs{}.Run(c, spec)
+	if err != nil {
+		return err
+	}
 	return nil
 }

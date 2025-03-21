@@ -14,10 +14,7 @@ type Interface interface {
 
 var AfterInstall = []Interface{
 	&GrubOptions{}, // Set custom GRUB options
-	&BundlePostInstall{},
-	&CustomMounts{},
-	&CopyLogs{},
-	&Lifecycle{}, // Handles poweroff/reboot by config options
+	&Lifecycle{},   // Handles poweroff/reboot by config options
 }
 
 var AfterReset = []Interface{

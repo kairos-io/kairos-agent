@@ -2,7 +2,6 @@ package hook
 
 import (
 	"fmt"
-	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 )
 
 // BundlePostInstall install bundles just after installation
@@ -40,21 +38,6 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	defer func() {
 		_ = machine.Umount(constants.OEMPath)
 	}()
-
-	// Path if we have encrypted persistent and we are not on UKI
-	// UKI runs this stage as part of the encrypt process to streamline it
-	// but on non uki we need to lock and unlock
-	if len(c.Install.Encrypt) != 0 && !internalutils.IsUkiWithFs(c.Fs) {
-		err := kcrypt.UnlockAll(false)
-		if err != nil {
-			// lock here as well as we could be in a state where we have x unlocked partitions and fail to continue
-			// and we dont want to leave them unlocked
-			lockPartitions(c)
-			return err
-		}
-		// Close all the unencrypted partitions at the end!
-		defer lockPartitions(c)
-	}
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
 	syscall.Sync()

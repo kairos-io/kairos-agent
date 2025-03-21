@@ -114,6 +114,7 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 
 	_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
 	if err != nil {
+		lockPartitions(c)
 		c.Logger.Errorf("could not unlock partitions: %s", err)
 		return err
 	}
