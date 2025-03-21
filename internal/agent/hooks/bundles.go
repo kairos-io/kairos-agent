@@ -2,10 +2,10 @@ package hook
 
 import (
 	"fmt"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -42,26 +42,18 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	}()
 
 	// Path if we have encrypted persistent and we are not on UKI
-	if len(c.Install.Encrypt) != 0 {
+	// UKI runs this stage as part of the encrypt process to streamline it
+	// but on non uki we need to lock and unlock
+	if len(c.Install.Encrypt) != 0 && !internalutils.IsUkiWithFs(c.Fs) {
 		err := kcrypt.UnlockAll(false)
 		if err != nil {
+			// lock here as well as we could be in a state where we have x unlocked partitions and fail to continue
+			// and we dont want to leave them unlocked
+			lockPartitions(c)
 			return err
 		}
 		// Close all the unencrypted partitions at the end!
-		defer func() {
-			for _, p := range c.Install.Encrypt {
-				_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
-				syscall.Sync()
-				c.Logger.Debugf("Closing unencrypted /dev/disk/by-label/%s", p)
-				out, err := utils.SH(fmt.Sprintf("cryptsetup close /dev/disk/by-label/%s", p))
-				// There is a known error with cryptsetup that it can't close the device because of a semaphore
-				// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
-				// output of the error
-				if err != nil && !strings.Contains(out, "incorrect semaphore state") {
-					c.Logger.Warnf("could not close /dev/disk/by-label/%s: %s", p, out)
-				}
-			}
-		}()
+		defer lockPartitions(c)
 	}
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")

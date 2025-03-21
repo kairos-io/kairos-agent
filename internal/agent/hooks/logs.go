@@ -11,7 +11,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/utils"
 	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 	"path/filepath"
-	"strings"
 	"syscall"
 )
 
@@ -31,24 +30,14 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	}()
 
 	// Path if we have encrypted persistent
-	if len(c.Install.Encrypt) != 0 {
+	if len(c.Install.Encrypt) != 0 && !internalutils.IsUkiWithFs(c.Fs) {
 		err := kcrypt.UnlockAll(false)
 		if err != nil {
+			lockPartitions(c)
 			return err
 		}
 		// Close all the unencrypted partitions at the end!
-		defer func() {
-			for _, p := range c.Install.Encrypt {
-				c.Logger.Debugf("Closing unencrypted /dev/disk/by-label/%s", p)
-				out, err := utils.SH(fmt.Sprintf("cryptsetup close /dev/disk/by-label/%s", p))
-				// There is a known error with cryptsetup that it can't close the device because of a semaphore
-				// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
-				// output of the error
-				if err != nil && !strings.Contains(out, "incorrect semaphore state") {
-					c.Logger.Errorf("could not close /dev/disk/by-label/%s: %s", p, out)
-				}
-			}
-		}()
+		defer lockPartitions(c)
 	}
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")

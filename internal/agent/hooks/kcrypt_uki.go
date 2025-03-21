@@ -109,6 +109,7 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 	_, _ = utils.SH("sync")
 
 	_ = os.Setenv("SYSTEMD_LOG_LEVEL", "debug")
+
 	err = kcrypt.UnlockAllWithLogger(true, c.Logger)
 
 	_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
@@ -117,18 +118,7 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 		return err
 	}
 	// Close the unlocked partitions after dealing with them, otherwise we leave them open and they can be mounted by anyone
-	defer func() {
-		for _, p := range append([]string{constants.OEMLabel, constants.PersistentLabel}, c.Install.Encrypt...) {
-			c.Logger.Debugf("Closing unencrypted /dev/disk/by-label/%s", p)
-			out, err := utils.SH(fmt.Sprintf("cryptsetup close /dev/disk/by-label/%s", p))
-			// There is a known error with cryptsetup that it can't close the device because of a semaphore
-			// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
-			// output of the error
-			if err != nil && !strings.Contains(out, "incorrect semaphore state") {
-				c.Logger.Errorf("could not close /dev/disk/by-label/%s: %s", p, out)
-			}
-		}
-	}()
+	defer lockPartitions(c)
 
 	// Here it can take the oem partition a bit of time to appear after unlocking so we need to retry a couple of time with some waiting
 	// retry + backoff

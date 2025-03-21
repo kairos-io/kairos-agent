@@ -1,8 +1,11 @@
 package hook
 
 import (
+	"fmt"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-sdk/utils"
+	"strings"
 )
 
 type Interface interface {
@@ -52,4 +55,19 @@ func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {
 		}
 	}
 	return nil
+}
+
+// lockPartitions will try to close all the partitions that are unencrypted
+func lockPartitions(c config.Config) {
+	for _, p := range c.Install.Encrypt {
+		_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+		c.Logger.Debugf("Closing unencrypted /dev/disk/by-label/%s", p)
+		out, err := utils.SH(fmt.Sprintf("cryptsetup close /dev/disk/by-label/%s", p))
+		// There is a known error with cryptsetup that it can't close the device because of a semaphore
+		// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
+		// output of the error
+		if err != nil && !strings.Contains(out, "incorrect semaphore state") {
+			c.Logger.Debugf("could not close /dev/disk/by-label/%s: %s", p, out)
+		}
+	}
 }

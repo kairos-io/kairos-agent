@@ -24,15 +24,10 @@ func saveCloudConfig(name config.Stage, yc yip.YipConfig) error {
 	return os.WriteFile(filepath.Join("/oem", fmt.Sprintf("10_%s.yaml", name)), yipYAML, 0400)
 }
 
-// Read the keys sections ephemeral_mounts and bind mounts from install key in the cloud config.
+// Run Read the keys sections ephemeral_mounts and bind mounts from install key in the cloud config.
 // If not empty write an environment file to /run/cos/custom-layout.env.
 // That env file is in turn read by /overlay/files/system/oem/11_persistency.yaml in fs.after stage.
 func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
-
-	//fmt.Println("Custom mounts hook")
-	//fmt.Println(strings.Join(c.Install.BindMounts, " "))
-	//fmt.Println(strings.Join(c.Install.EphemeralMounts, " "))
-
 	if len(c.Install.BindMounts) == 0 && len(c.Install.EphemeralMounts) == 0 {
 		return nil
 	}

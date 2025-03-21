@@ -12,7 +12,7 @@ import (
 
 type Kcrypt struct{}
 
-func (k Kcrypt) Run(c config.Config, _ v1.Spec) error {
+func (k Kcrypt) Run(c config.Config, spec v1.Spec) error {
 	if len(c.Install.Encrypt) == 0 {
 		return nil
 	}
@@ -44,6 +44,7 @@ func (k Kcrypt) Run(c config.Config, _ v1.Spec) error {
 			}
 		}
 	}
+	lockPartitions(c)
 	c.Logger.Logger.Info().Msg("Finished encrypt hook")
 	return nil
 }
