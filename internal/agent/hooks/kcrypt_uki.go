@@ -171,7 +171,7 @@ func (k KcryptUKI) Run(c config.Config, spec v1.Spec) error {
 	_ = CustomMounts{}.Run(c, spec)
 	err = CopyLogs{}.Run(c, spec)
 	if err != nil {
-		return err
+		c.Logger.Logger.Warn().Err(err).Msg("could not copy logs")
 	}
 	return nil
 }

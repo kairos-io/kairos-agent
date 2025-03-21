@@ -32,7 +32,7 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
 	if err != nil {
 		fmt.Printf("could not mount persistent: %s\n", err)
-		return err
+		return nil
 	}
 
 	defer func() {
