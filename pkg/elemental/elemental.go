@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	diskfs "github.com/diskfs/go-diskfs/disk"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -72,14 +71,11 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 		e.config.Logger.Errorf("Failed creating new partition table: %s", err)
 		return err
 	}
-
-	// Only re-read table on devices. On files there is no need and this call will fail
-	if disk.Type == diskfs.Device {
-		err = disk.ReReadPartitionTable()
-		if err != nil {
-			e.config.Logger.Errorf("Reread table: %s", err)
-			return err
-		}
+	
+	err = disk.ReReadPartitionTable()
+	if err != nil {
+		e.config.Logger.Errorf("Reread table: %s", err)
+		return err
 	}
 
 	table, err := disk.GetPartitionTable()
