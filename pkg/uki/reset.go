@@ -38,8 +38,8 @@ func (r *ResetAction) Run() (err error) {
 	// And the /dev/disk/by-label are not pointing to the proper ones
 	// We need to manually trigger udev to make sure the symlinks are correct
 	_, err = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	_, err = utils.SH("udevadm settle")
 
-	// Reformat persistent partition
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
