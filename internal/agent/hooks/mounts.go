@@ -33,9 +33,12 @@ func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
 	}
 	c.Logger.Logger.Debug().Msg("Running CustomMounts hook")
 
-	machine.Mount("COS_OEM", "/oem") //nolint:errcheck
+	err := machine.Mount("COS_OEM", "/oem")
+	if err != nil {
+		return err
+	}
 	defer func() {
-		machine.Umount("/oem") //nolint:errcheck
+		_ = machine.Umount("/oem")
 	}()
 
 	var mountsList = map[string]string{}
@@ -43,15 +46,22 @@ func (cm CustomMounts) Run(c config.Config, _ v1.Spec) error {
 	mountsList["CUSTOM_BIND_MOUNTS"] = strings.Join(c.Install.BindMounts, " ")
 	mountsList["CUSTOM_EPHEMERAL_MOUNTS"] = strings.Join(c.Install.EphemeralMounts, " ")
 
-	config := yip.YipConfig{Stages: map[string][]schema.Stage{
-		"rootfs": []yip.Stage{{
-			Name:            "user_custom_mounts",
-			EnvironmentFile: "/run/cos/custom-layout.env",
-			Environment:     mountsList,
-		}},
-	}}
+	cfg := yip.YipConfig{
+		Stages: map[string][]schema.Stage{
+			"rootfs": {
+				{
+					Name:            "user_custom_mounts",
+					EnvironmentFile: "/run/cos/custom-layout.env",
+					Environment:     mountsList,
+				},
+			},
+		},
+	}
 
-	saveCloudConfig("user_custom_mounts", config) //nolint:errcheck
+	err = saveCloudConfig("user_custom_mounts", cfg)
+	if err != nil {
+		return err
+	}
 	c.Logger.Logger.Debug().Msg("Finish CustomMounts hook")
 	return nil
 }

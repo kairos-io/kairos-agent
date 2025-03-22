@@ -12,6 +12,8 @@ type Interface interface {
 	Run(c config.Config, spec v1.Spec) error
 }
 
+// AfterInstall is a list of hooks that run after the install process
+// and after the kcrypt hooks have run
 var AfterInstall = []Interface{
 	&GrubOptions{}, // Set custom GRUB options
 	&Lifecycle{},   // Handles poweroff/reboot by config options
@@ -31,18 +33,15 @@ var FirstBoot = []Interface{
 	&GrubPostInstallOptions{},
 }
 
-// AfterUkiInstall sets which Hooks to run after uki runs the install action
+// AfterUkiInstall sets which Hooks to run after uki runs the install action.
 var AfterUkiInstall = []Interface{
 	&SysExtPostInstall{},
 	&Lifecycle{},
 }
 
-var UKIEncryptionHooks = []Interface{
-	&KcryptUKI{},
-}
-
-var EncryptionHooks = []Interface{
-	&Kcrypt{},
+// FinishInstallHooks is a list of hooks that run after the install process
+var FinishInstallHooks = []Interface{
+	&Finish{},
 }
 
 func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {
@@ -54,7 +53,7 @@ func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {
 	return nil
 }
 
-// lockPartitions will try to close all the partitions that are unencrypted
+// lockPartitions will try to close all the partitions that are unencrypted.
 func lockPartitions(c config.Config) {
 	for _, p := range c.Install.Encrypt {
 		_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")

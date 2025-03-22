@@ -199,7 +199,7 @@ func (i *InstallAction) Run() (err error) {
 		i.cfg.Logger.Warnf("selecting active boot entry: %s", err.Error())
 	}
 
-	err = hook.Run(*i.cfg, i.spec, hook.UKIEncryptionHooks...)
+	err = hook.Run(*i.cfg, i.spec, hook.FinishInstallHooks...)
 	if err != nil {
 		i.cfg.Logger.Errorf("running uki encryption hooks: %s", err.Error())
 		return err

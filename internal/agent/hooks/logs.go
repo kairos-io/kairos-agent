@@ -2,6 +2,9 @@ package hook
 
 import (
 	"fmt"
+	"path/filepath"
+	"syscall"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -9,16 +12,18 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	"path/filepath"
-	"syscall"
 )
 
-// CopyLogs copies all current logs to the persistent partition.
-// useful during install to keep the livecd logs
-// best effort, no error handling
 type CopyLogs struct{}
 
+// Run for CopyLogs copies all current logs to the persistent partition.
+// useful during install to keep the livecd logs. Its also run during reset
+// best effort, no error handling
 func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
+	// TODO: If we have encryption we need to make sure to:
+	// - Unlock the partitions
+	// - Mount OEM so we can read the config for encryption (remote server)
+	// - Mount the persistent partition
 	c.Logger.Logger.Debug().Msg("Running CopyLogs hook")
 	_ = machine.Umount(constants.PersistentDir)
 
