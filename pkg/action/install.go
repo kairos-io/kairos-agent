@@ -270,7 +270,7 @@ func (i InstallAction) Run() (err error) {
 		return err
 	}
 
-	err = hook.Run(*i.cfg, i.spec, hook.EncryptionHooks...)
+	err = hook.Run(*i.cfg, i.spec, hook.FinishInstallHooks...)
 	if err != nil {
 		return err
 	}

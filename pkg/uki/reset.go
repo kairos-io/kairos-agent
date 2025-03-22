@@ -2,7 +2,6 @@ package uki
 
 import (
 	"fmt"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -35,14 +34,12 @@ func (r *ResetAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
-	// Unmount partitions if any is already mounted before formatting
-	err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true))
-	if err != nil {
-		r.cfg.Logger.Errorf("unmounting partitions: %s", err.Error())
-		return err
-	}
+	// At this point, both partitions are unlocked but they might not be mounted, like persistent
+	// And the /dev/disk/by-label are not pointing to the proper ones
+	// We need to manually trigger udev to make sure the symlinks are correct
+	_, err = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	_, err = utils.SH("udevadm settle")
 
-	// Reformat persistent partition
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
@@ -58,9 +55,18 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatOEM {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
+			err = e.UnmountPartition(oem)
+			if err != nil {
+				return err
+			}
 			err = e.FormatPartition(oem)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting OEM partition: %s", err.Error())
+				return err
+			}
+			// Mount it back, as oem is mounted during recovery, keep everything as is
+			err = e.MountPartition(oem)
+			if err != nil {
 				return err
 			}
 		}
@@ -99,14 +105,6 @@ func (r *ResetAction) Run() (err error) {
 	if err != nil {
 		r.cfg.Logger.Errorf("selecting boot entry : %s", err.Error())
 		return err
-	}
-
-	if mnt, err := elementalUtils.IsMounted(r.cfg, r.spec.Partitions.OEM); !mnt && err == nil {
-		err = e.MountPartition(r.spec.Partitions.OEM)
-		if err != nil {
-			r.cfg.Logger.Errorf("mounting oem partition: %s", err.Error())
-			return err
-		}
 	}
 
 	err = Hook(r.cfg, constants.AfterResetHook)
