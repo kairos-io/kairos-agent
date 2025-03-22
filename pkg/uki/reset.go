@@ -34,11 +34,6 @@ func (r *ResetAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
-	// At this point, both partitions are unlocked but they might not be mounted, like persistent
-	// And the /dev/disk/by-label are not pointing to the proper ones
-	// We need to manually trigger udev to make sure the symlinks are correct
-	_, err = utils.SH("udevadm trigger --type=all || udevadm trigger")
-
 	// Reformat persistent partition
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
