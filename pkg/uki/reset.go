@@ -34,13 +34,6 @@ func (r *ResetAction) Run() (err error) {
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
-	// Unmount partitions if any is already mounted before formatting
-	err = e.UnmountPartitions(r.spec.Partitions.PartitionsByMountPoint(true))
-	if err != nil {
-		r.cfg.Logger.Errorf("unmounting partitions: %s", err.Error())
-		return err
-	}
-
 	// At this point, both partitions are unlocked but they might not be mounted, like persistent
 	// And the /dev/disk/by-label are not pointing to the proper ones
 	// We need to manually trigger udev to make sure the symlinks are correct
@@ -50,6 +43,10 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
+			err = e.UnmountPartition(persistent)
+			if err != nil {
+				return err
+			}
 			err = e.FormatPartition(persistent)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting persistent partition: %s", err.Error())
@@ -62,9 +59,18 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatOEM {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
+			err = e.UnmountPartition(oem)
+			if err != nil {
+				return err
+			}
 			err = e.FormatPartition(oem)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting OEM partition: %s", err.Error())
+				return err
+			}
+			// Mount it back, as oem is mounted during recovery, keep everything as is
+			err = e.MountPartition(oem)
+			if err != nil {
 				return err
 			}
 		}
@@ -103,14 +109,6 @@ func (r *ResetAction) Run() (err error) {
 	if err != nil {
 		r.cfg.Logger.Errorf("selecting boot entry : %s", err.Error())
 		return err
-	}
-
-	if mnt, err := elementalUtils.IsMounted(r.cfg, r.spec.Partitions.OEM); !mnt && err == nil {
-		err = e.MountPartition(r.spec.Partitions.OEM)
-		if err != nil {
-			r.cfg.Logger.Errorf("mounting oem partition: %s", err.Error())
-			return err
-		}
 	}
 
 	err = Hook(r.cfg, constants.AfterResetHook)

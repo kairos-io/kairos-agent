@@ -20,12 +20,14 @@ type CopyLogs struct{}
 // useful during install to keep the livecd logs. Its also run during reset
 // best effort, no error handling
 func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
-	// TODO: If we have encryption we need to make sure to:
+	// TODO: If we have encryption under RESET we need to make sure to:
 	// - Unlock the partitions
 	// - Mount OEM so we can read the config for encryption (remote server)
 	// - Mount the persistent partition
 	c.Logger.Logger.Debug().Msg("Running CopyLogs hook")
 	_ = machine.Umount(constants.PersistentDir)
+	_ = machine.Umount(constants.OEMDir)
+	_ = machine.Umount(constants.OEMPath)
 
 	// Config passed during install ends up here, kcrypt challenger needs to read it if we are using a server for encryption
 	_ = machine.Mount(constants.OEMLabel, constants.OEMPath)
@@ -34,6 +36,7 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	}()
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	_ = utils.MkdirAll(c.Fs, constants.PersistentDir, 0755)
 	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
 	if err != nil {
 		fmt.Printf("could not mount persistent: %s\n", err)
