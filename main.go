@@ -154,6 +154,35 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					return nil
 				},
 			},
+			{
+				Name: "auto",
+				Action: func(c *cli.Context) error {
+					tags, err := agent.ListNewerReleases(c.Bool("pre"))
+					if err != nil {
+						return err
+					}
+					if len(tags) == 0 {
+						fmt.Println("No newer releases found")
+						return nil
+					}
+
+					if c.Bool("recovery") && c.String("boot-entry") != "" {
+						return fmt.Errorf("only one of '--recovery' and '--boot-entry' can be set")
+					}
+
+					upgradeEntry := ""
+					if c.Bool("recovery") {
+						upgradeEntry = constants.BootEntryRecovery
+					} else if c.String("boot-entry") != "" {
+						upgradeEntry = c.String("boot-entry")
+					}
+
+					return agent.Upgrade(fmt.Sprintf("oci:%s", tags[0]), c.Bool("force"),
+						c.Bool("strict-validation"), constants.GetConfigScanDirs(),
+						upgradeEntry, c.Bool("pre"),
+					)
+				},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			if err := validateSource(c.String("source")); err != nil {
