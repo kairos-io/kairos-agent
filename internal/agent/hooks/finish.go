@@ -24,7 +24,7 @@ type Finish struct{}
 
 func (k Finish) Run(c config.Config, spec v1.Spec) error {
 	var err error
-	if len(c.Install.Encrypt) != 0 {
+	if len(c.Install.Encrypt) != 0 || internalutils.IsUki() {
 		c.Logger.Logger.Info().Msg("Running encrypt hook")
 
 		if internalutils.IsUki() {
