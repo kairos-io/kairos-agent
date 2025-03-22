@@ -2,8 +2,6 @@ package uki
 
 import (
 	"fmt"
-	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -43,17 +41,15 @@ func (r *ResetAction) Run() (err error) {
 		return err
 	}
 
+	// At this point, both partitions are unlocked but they might not be mounted, like persistent
+	// And the /dev/disk/by-label are not pointing to the proper ones
+	// We need to manually trigger udev to make sure the symlinks are correct
+	_, err = utils.SH("udevadm trigger --type=all || udevadm trigger")
+
 	// Reformat persistent partition
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
-			// Mount the persistent partition
-			// Now that both partitions have the same label, we need to unlock it so it gets the
-			// proper /dev/disk/by-label/<label> symlink
-			err = kcrypt.UnlockAllWithLogger(true, r.cfg.Logger)
-			if err != nil {
-				return err
-			}
 			err = e.FormatPartition(persistent)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting persistent partition: %s", err.Error())
@@ -66,11 +62,6 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatOEM {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
-			// OEM should be unlocked by default, but just in case
-			err = kcrypt.UnlockAllWithLogger(true, r.cfg.Logger)
-			if err != nil {
-				return err
-			}
 			err = e.FormatPartition(oem)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting OEM partition: %s", err.Error())
