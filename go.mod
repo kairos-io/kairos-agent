@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/cavaliergopher/grab/v3 v3.0.1
-	github.com/diskfs/go-diskfs v1.4.2
+	github.com/diskfs/go-diskfs v1.5.2
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/google/go-containerregistry v0.20.3
 	github.com/hashicorp/go-multierror v1.1.1
