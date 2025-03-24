@@ -270,7 +270,7 @@ func (i InstallAction) Run() (err error) {
 		return err
 	}
 
-	err = hook.Run(*i.cfg, i.spec, hook.FinishInstallHooks...)
+	err = hook.Run(*i.cfg, i.spec, hook.PostInstall...)
 	if err != nil {
 		return err
 	}
@@ -307,5 +307,5 @@ func (i InstallAction) Run() (err error) {
 	_ = utils.RunStage(i.cfg, "kairos-install.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
 
-	return hook.Run(*i.cfg, i.spec, hook.AfterInstall...)
+	return hook.Run(*i.cfg, i.spec, hook.FinishInstall...)
 }

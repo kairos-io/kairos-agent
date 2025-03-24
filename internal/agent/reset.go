@@ -61,7 +61,7 @@ func reset(reboot, unattended, resetOem bool, dir ...string) error {
 
 	bus.Manager.Publish(sdk.EventAfterReset, sdk.EventPayload{}) //nolint:errcheck
 
-	return hook.Run(*cfg, resetSpec, hook.AfterReset...)
+	return hook.Run(*cfg, resetSpec, hook.FinishReset...)
 }
 
 func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
@@ -92,7 +92,7 @@ func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
 
 	bus.Manager.Publish(sdk.EventAfterReset, sdk.EventPayload{}) //nolint:errcheck
 
-	return hook.Run(*cfg, resetSpec, hook.AfterReset...)
+	return hook.Run(*cfg, resetSpec, hook.FinishReset...)
 }
 
 // sharedReset is the common reset code for both uki and non-uki

@@ -12,35 +12,42 @@ type Interface interface {
 	Run(c config.Config, spec v1.Spec) error
 }
 
-// AfterInstall is a list of hooks that run after the install process
-// and after the kcrypt hooks have run
-var AfterInstall = []Interface{
-	&GrubOptions{}, // Set custom GRUB options
+// FinishInstall is a list of hooks that run when the install process is finished completely.
+// Its mean for options that are not related to the install process itself
+var FinishInstall = []Interface{
+	&GrubOptions{}, // Set custom GRUB options in OEM partition
 	&Lifecycle{},   // Handles poweroff/reboot by config options
 }
 
-var AfterReset = []Interface{
-	&CopyLogs{},
-	&Lifecycle{},
+// FinishReset is a list of hooks that run when the reset process is finished completely.
+var FinishReset = []Interface{
+	&CopyLogs{},  // Try to copy the reset logs to the persistent partition
+	&Lifecycle{}, // Handles poweroff/reboot by config options
 }
 
-var AfterUpgrade = []Interface{
-	&Lifecycle{},
+// FinishUpgrade is a list of hooks that run when the upgrade process is finished completely.
+var FinishUpgrade = []Interface{
+	&Lifecycle{}, // Handles poweroff/reboot by config options
 }
 
+// FirstBoot is a list of hooks that run on the first boot of the node.
 var FirstBoot = []Interface{
 	&BundleFirstBoot{},
 	&GrubPostInstallOptions{},
 }
 
-// AfterUkiInstall sets which Hooks to run after uki runs the install action.
-var AfterUkiInstall = []Interface{
-	&SysExtPostInstall{},
-	&Lifecycle{},
+// FinishUKIInstall is a list of hooks that run when the install process is finished completely.
+// Its mean for options that are not related to the install process itself
+var FinishUKIInstall = []Interface{
+	&SysExtPostInstall{}, // Installs sysexts into the EFI partition
+	&Lifecycle{},         // Handles poweroff/reboot by config options
 }
 
-// FinishInstallHooks is a list of hooks that run after the install process
-var FinishInstallHooks = []Interface{
+// PostInstall is a list of hooks that run after the install process has run.
+// Runs things that need to be done before we run other post install stages like
+// encrypting partitions, copying the install logs or installing bundles
+// Most of this options are optional so they are not run by default unless specified int he config
+var PostInstall = []Interface{
 	&Finish{},
 }
 
