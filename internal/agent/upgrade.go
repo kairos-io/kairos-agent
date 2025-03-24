@@ -115,7 +115,7 @@ func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictVa
 		return err
 	}
 
-	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
+	return hook.Run(*c, upgradeSpec, hook.FinishUpgrade...)
 }
 
 func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool) error {
@@ -148,7 +148,7 @@ func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, stric
 		return err
 	}
 
-	return hook.Run(*c, upgradeSpec, hook.AfterUpgrade...)
+	return hook.Run(*c, upgradeSpec, hook.FinishUpgrade...)
 }
 
 func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool) (*config.Config, error) {

@@ -199,7 +199,7 @@ func (i *InstallAction) Run() (err error) {
 		i.cfg.Logger.Warnf("selecting active boot entry: %s", err.Error())
 	}
 
-	err = hook.Run(*i.cfg, i.spec, hook.UKIEncryptionHooks...)
+	err = hook.Run(*i.cfg, i.spec, hook.PostInstall...)
 	if err != nil {
 		i.cfg.Logger.Errorf("running uki encryption hooks: %s", err.Error())
 		return err
@@ -223,7 +223,7 @@ func (i *InstallAction) Run() (err error) {
 		i.cfg.Logger.Errorf("running kairos-uki-install.after hook script: %s", err.Error())
 	}
 
-	return hook.Run(*i.cfg, i.spec, hook.AfterUkiInstall...)
+	return hook.Run(*i.cfg, i.spec, hook.FinishUKIInstall...)
 }
 
 func (i *InstallAction) SkipEntry(path string, conf map[string]string) (err error) {
