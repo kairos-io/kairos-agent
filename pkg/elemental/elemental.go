@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	diskfs "github.com/diskfs/go-diskfs/disk"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -49,7 +48,7 @@ func NewElemental(config *agentConfig.Config) *Elemental {
 // FormatPartition will format an already existing partition
 func (e *Elemental) FormatPartition(part *types.Partition, opts ...string) error {
 	e.config.Logger.Infof("Formatting '%s' partition", part.FilesystemLabel)
-	return partitioner.FormatDevice(e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
+	return partitioner.FormatDevice(e.config.Logger, e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
 }
 
 // PartitionAndFormatDevice creates a new empty partition table on target disk
@@ -73,13 +72,10 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 		return err
 	}
 
-	// Only re-read table on devices. On files there is no need and this call will fail
-	if disk.Type == diskfs.Device {
-		err = disk.ReReadPartitionTable()
-		if err != nil {
-			e.config.Logger.Errorf("Reread table: %s", err)
-			return err
-		}
+	err = disk.ReReadPartitionTable()
+	if err != nil {
+		e.config.Logger.Errorf("Reread table: %s", err)
+		return err
 	}
 
 	table, err := disk.GetPartitionTable()
@@ -121,7 +117,7 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 				if err != nil {
 					e.config.Logger.Errorf("Failed finding partition %s by partition label: %s", configPart.FilesystemLabel, err)
 				}
-				err = partitioner.FormatDevice(e.config.Runner, device, configPart.FS, configPart.FilesystemLabel)
+				err = partitioner.FormatDevice(e.config.Logger, e.config.Runner, device, configPart.FS, configPart.FilesystemLabel)
 				if err != nil {
 					e.config.Logger.Errorf("Failed formatting partition: %s", err)
 					return err

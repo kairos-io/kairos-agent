@@ -1,7 +1,6 @@
 package hook
 
 import (
-	"fmt"
 	"path/filepath"
 	"syscall"
 
@@ -39,7 +38,7 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	_ = utils.MkdirAll(c.Fs, constants.PersistentDir, 0755)
 	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
 	if err != nil {
-		fmt.Printf("could not mount persistent: %s\n", err)
+		c.Logger.Logger.Warn().Err(err).Msg("could not mount persistent")
 		return nil
 	}
 

@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/diskfs/go-diskfs"
 	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	sc "syscall"
 	"testing"
@@ -38,7 +38,7 @@ import (
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
-	"github.com/diskfs/go-diskfs"
+	fileBackend "github.com/diskfs/go-diskfs/backend/file"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	"github.com/gofrs/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -364,7 +364,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).To(BeNil())
 			Expect(os.RemoveAll(filepath.Join(tmpDir, "/test.img"))).ToNot(HaveOccurred())
 			// at least 2Gb in size as state is set to 1G
-			_, err = diskfs.Create(filepath.Join(tmpDir, "/test.img"), 2*1024*1024*1024, diskfs.Raw, 512)
+			_, err = fileBackend.CreateFromPath(filepath.Join(tmpDir, "/test.img"), 2*1024*1024*1024)
 			Expect(err).ToNot(HaveOccurred())
 			config.Install.Device = filepath.Join(tmpDir, "/test.img")
 			install, err = agentConfig.NewInstallSpec(config)
@@ -382,17 +382,18 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			install.Firmware = v1.EFI
 			Expect(install.Partitions.SetFirmwarePartitions(v1.EFI, v1.GPT)).To(BeNil())
 			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
-			disk, err := diskfs.Open(filepath.Join(tmpDir, "/test.img"), diskfs.WithOpenMode(diskfs.ReadOnly))
+			disk, err := fileBackend.OpenFromPath(filepath.Join(tmpDir, "/test.img"), true)
 			defer disk.Close()
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
 			Expect(err).ToNot(HaveOccurred())
 			// check that its type GPT
-			Expect(reflect.TypeOf(disk.Table)).To(Equal(reflect.TypeOf(&gpt.Table{})))
+			Expect(table.Type()).To(Equal("gpt"))
 			// Expect the disk UUID to be constant
-			Expect(strings.ToLower(disk.Table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
+			Expect(strings.ToLower(table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
 			// 5 partitions (boot, oem, recovery, state and persistent)
-			Expect(len(disk.Table.GetPartitions())).To(Equal(5))
+			Expect(len(table.GetPartitions())).To(Equal(5))
 			// Cast the boot partition into specific type to check the type and such
-			part := disk.Table.GetPartitions()[0]
+			part := table.GetPartitions()[0]
 			partition, ok := part.(*gpt.Partition)
 			Expect(ok).To(BeTrue())
 			// Should be efi type
@@ -402,8 +403,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			// Should have predictable UUID
 			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
 			// Check the rest have the proper types
-			for i := 1; i < len(disk.Table.GetPartitions()); i++ {
-				part := disk.Table.GetPartitions()[i]
+			for i := 1; i < len(table.GetPartitions()); i++ {
+				part := table.GetPartitions()[i]
 				partition, ok := part.(*gpt.Partition)
 				Expect(ok).To(BeTrue())
 				// all of them should have the Linux fs type
@@ -415,17 +416,19 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			install.Firmware = v1.BIOS
 			Expect(install.Partitions.SetFirmwarePartitions(v1.BIOS, v1.GPT)).To(BeNil())
 			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
-			disk, err := diskfs.Open(filepath.Join(tmpDir, "/test.img"), diskfs.WithOpenMode(diskfs.ReadOnly))
+			disk, err := fileBackend.OpenFromPath(filepath.Join(tmpDir, "/test.img"), true)
 			defer disk.Close()
 			Expect(err).ToNot(HaveOccurred())
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+			Expect(err).ToNot(HaveOccurred())
 			// check that its type GPT
-			Expect(reflect.TypeOf(disk.Table)).To(Equal(reflect.TypeOf(&gpt.Table{})))
+			Expect(table.Type()).To(Equal("gpt"))
 			// Expect the disk UUID to be constant
-			Expect(strings.ToLower(disk.Table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
+			Expect(strings.ToLower(table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
 			// 5 partitions (boot, oem, recovery, state and persistent)
-			Expect(len(disk.Table.GetPartitions())).To(Equal(5))
+			Expect(len(table.GetPartitions())).To(Equal(5))
 			// Cast the boot partition into specific type to check the type and such
-			part := disk.Table.GetPartitions()[0]
+			part := table.GetPartitions()[0]
 			partition, ok := part.(*gpt.Partition)
 			Expect(ok).To(BeTrue())
 			// Should be BIOS boot type
@@ -434,8 +437,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(partition.Name).To(Equal(cnst.BiosPartName))
 			// Should have predictable UUID
 			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
-			for i := 1; i < len(disk.Table.GetPartitions()); i++ {
-				part := disk.Table.GetPartitions()[i]
+			for i := 1; i < len(table.GetPartitions()); i++ {
+				part := table.GetPartitions()[i]
 				partition, ok := part.(*gpt.Partition)
 				Expect(ok).To(BeTrue())
 				// all of them should have the Linux fs type

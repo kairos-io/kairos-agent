@@ -19,12 +19,11 @@ package action_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/diskfs/go-diskfs"
-
 	"os"
 	"path/filepath"
 	"regexp"
 
+	fileBackend "github.com/diskfs/go-diskfs/backend/file"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -105,7 +104,8 @@ var _ = Describe("Install action tests", func() {
 			device = filepath.Join(tmpdir, "test.img")
 			Expect(os.RemoveAll(device)).Should(Succeed())
 			// at least 2Gb in size as state is set to 1G
-			_, err = diskfs.Create(device, 2*1024*1024*1024, diskfs.Raw, 512)
+
+			_, err = fileBackend.CreateFromPath(device, 2*1024*1024*1024)
 			Expect(err).ToNot(HaveOccurred())
 
 			config.Install.Device = device
