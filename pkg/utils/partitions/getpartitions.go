@@ -162,7 +162,6 @@ func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 			if len(slaves) == 1 {
 				// We got the partition this dm is associated to, now lets read that partition udev identifier
 				partNumber, err := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "slaves", slaves[0].Name(), "dev"))
-				fmt.Println(string(partNumber))
 				// If no errors and partNumber not empty read the device from udev
 				if err == nil || string(partNumber) != "" {
 					// Now for some magic!
@@ -173,7 +172,6 @@ func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 					// extract the udevInfo called ID_PART_ENTRY_DISK which gives us the udev ID of the parent disk
 					baseID := strings.Split(strings.TrimSpace(string(partNumber)), ":")
 					udevID = fmt.Sprintf("b%s:0", baseID[0])
-					fmt.Printf("Reading udevdata of device: %s\n", filepath.Join(lp.RunUdevData, udevID))
 					// Read udev info about this device
 					udevBytes, _ = fs.ReadFile(filepath.Join(lp.RunUdevData, udevID))
 					udevInfo = make(map[string]string)

@@ -1,7 +1,6 @@
 package hook
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,7 +42,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	syscall.Sync()
 	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.UsrLocalPath, "ext4", 0, "")
 	if err != nil {
-		fmt.Printf("could not mount persistent: %s\n", err)
+		c.Logger.Logger.Err(err).Msg("could not mount persistent")
 		return err
 	}
 
