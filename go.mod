@@ -30,7 +30,7 @@ require (
 	github.com/sanity-io/litter v1.5.8
 	github.com/sirupsen/logrus v1.9.4-0.20241118143825-d1e633264448
 	github.com/spf13/viper v1.19.0
-	github.com/urfave/cli/v3 v3.1.0
+	github.com/urfave/cli/v3 v3.1.1
 	golang.org/x/net v0.38.0
 	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sys v0.31.0
