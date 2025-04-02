@@ -1,8 +1,6 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.23.6
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
@@ -15,7 +13,7 @@ require (
 	github.com/jaypipes/ghw v0.16.0 // indirect
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.8.0
+	github.com/kairos-io/kairos-sdk v0.8.1
 	github.com/kairos-io/kcrypt v0.14.1
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/mitchellh/mapstructure v1.5.0
@@ -30,7 +28,6 @@ require (
 	github.com/sanity-io/litter v1.5.8
 	github.com/sirupsen/logrus v1.9.4-0.20241118143825-d1e633264448
 	github.com/spf13/viper v1.19.0
-	github.com/urfave/cli/v3 v3.1.1
 	golang.org/x/net v0.38.0
 	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sys v0.31.0
@@ -42,7 +39,6 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v69 v69.2.0
-	github.com/google/go-github/v70 v70.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
 	github.com/urfave/cli/v2 v2.27.6
 )
