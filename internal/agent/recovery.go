@@ -42,7 +42,7 @@ func Recovery() error {
 	}
 
 	if busErr != "" {
-		return fmt.Errorf(busErr)
+		return fmt.Errorf("%s", busErr)
 	}
 
 	if !agentConfig.Fast {
