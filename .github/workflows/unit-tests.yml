@@ -11,9 +11,6 @@ concurrency:
   cancel-in-progress: true
 jobs:
   unit-tests:
-    strategy:
-      matrix:
-        go-version: [ "1.23" ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -23,7 +20,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v5.4.0
         with:
-          go-version: '${{ matrix.go-version }}'
+          go-version-file: go.mod
       - name: Run tests
         run: |
           go run github.com/onsi/ginkgo/v2/ginkgo run -p --github-output  --covermode=atomic --coverprofile=coverage.out --race -r ./...
@@ -32,4 +29,4 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          file: ./coverage.out
+          files: ./coverage.out
