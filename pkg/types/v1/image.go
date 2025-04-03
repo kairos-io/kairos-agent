@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -30,7 +31,19 @@ type OCIImageExtractor struct{}
 var _ ImageExtractor = OCIImageExtractor{}
 
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
-	img, err := utils.GetImage(imageRef, utils.GetCurrentPlatform(), nil, nil)
+	// If we pass a platform
+	if platformRef != "" {
+		// make sure its correct
+		_, err := v1.ParsePlatform(platformRef)
+		if err != nil {
+			// and if we cannot properly parse it, then default to the current platform
+			platformRef = utils.GetCurrentPlatform()
+		}
+	} else {
+		// if we don't pass a platform, then default to the current platform
+		platformRef = utils.GetCurrentPlatform()
+	}
+	img, err := utils.GetImage(imageRef, platformRef, nil, nil)
 	if err != nil {
 		return err
 	}
