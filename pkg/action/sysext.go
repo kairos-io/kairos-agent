@@ -2,16 +2,16 @@ package action
 
 import (
 	"fmt"
-	"github.com/distribution/reference"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	http2 "github.com/kairos-io/kairos-agent/v2/pkg/http"
-	"github.com/kairos-io/kairos-sdk/types"
-	"github.com/kairos-io/kairos-sdk/utils"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/distribution/reference"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-sdk/utils"
+	"github.com/twpayne/go-vfs/v5"
 )
 
 // Implementation details for not trusted boot
@@ -44,6 +44,10 @@ import (
 // Extensions are provided in the following formats:
 // - .raw : image based extension
 // - any directory : directory based extension
+
+// TODO: Check which extensions are running
+// TODO: On disable we should check if the extension is running and refresh systemd-sysext?
+// TODO: On enable, should we refresh systemd-sysext immediately? Only if the current boot state equals the bootstate we enabled it for?
 
 const (
 	sysextDir        = "/var/lib/kairos/extensions/"
@@ -82,7 +86,7 @@ func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension,
 func getDirExtensions(cfg *config.Config, dir string) ([]SysExtension, error) {
 	var out []SysExtension
 	// get all the extensions in the sysextDir
-	entries, err := os.ReadDir(dir)
+	entries, err := cfg.Fs.ReadDir(dir)
 	// We don't care if the dir does not exist, we just return an empty list
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -137,14 +141,14 @@ func EnableSystemExtension(cfg *config.Config, ext string, bootState string) err
 	}
 
 	// Check if the target dir exists and create it if it doesn't
-	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if _, err := cfg.Fs.Stat(targetDir); os.IsNotExist(err) {
+		if err := vfs.MkdirAll(cfg.Fs, targetDir, 0755); err != nil {
 			return fmt.Errorf("failed to create target dir %s: %w", targetDir, err)
 		}
 	}
 
 	// Check if the extension is already enabled
-	enabled, err := os.Readlink(filepath.Join(targetDir, extension.Name))
+	enabled, err := cfg.Fs.Readlink(filepath.Join(targetDir, extension.Name))
 	// This doesnt fail if we have it already enabled
 	if err == nil {
 		if enabled == extension.Location {
@@ -154,7 +158,7 @@ func EnableSystemExtension(cfg *config.Config, ext string, bootState string) err
 	}
 
 	// Create a symlink to the extension in the target dir
-	if err := os.Symlink(extension.Location, filepath.Join(targetDir, extension.Name)); err != nil {
+	if err := cfg.Fs.Symlink(extension.Location, filepath.Join(targetDir, extension.Name)); err != nil {
 		return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
 	}
 	cfg.Logger.Infof("System extension %s enabled in %s", extension.Name, bootState)
@@ -175,7 +179,7 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string) er
 	}
 
 	// Check if the target dir exists
-	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+	if _, err := cfg.Fs.Stat(targetDir); os.IsNotExist(err) {
 		return fmt.Errorf("target dir %s does not exist", targetDir)
 	}
 
@@ -186,7 +190,7 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string) er
 	}
 
 	// Remove the symlink
-	if err := os.Remove(extension.Location); err != nil {
+	if err := cfg.Fs.Remove(extension.Location); err != nil {
 		return fmt.Errorf("failed to remove symlink for %s: %w", ext, err)
 	}
 	cfg.Logger.Infof("System extension %s disabled in %s", ext, bootState)
@@ -198,13 +202,13 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string) er
 // It will check if the extension is already installed before doing anything
 func InstallSystemExtension(cfg *config.Config, uri string) error {
 	// Parse the URI
-	download, err := parseURI(uri)
+	download, err := parseURI(cfg, uri)
 	if err != nil {
 		return fmt.Errorf("failed to parse URI %s: %w", uri, err)
 	}
 	// Check if directory exists or create it
-	if _, err := os.Stat(sysextDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(sysextDir, 0755); err != nil {
+	if _, err := cfg.Fs.Stat(sysextDir); os.IsNotExist(err) {
+		if err := vfs.MkdirAll(cfg.Fs, sysextDir, 0755); err != nil {
 			return fmt.Errorf("failed to create target dir %s: %w", sysextDir, err)
 		}
 	}
@@ -230,7 +234,7 @@ func RemoveSystemExtension(cfg *config.Config, extension string) error {
 	enabledActive, err := GetSystemExtension(cfg, extension, "active")
 	if err == nil {
 		// Remove the symlink
-		if err := os.Remove(enabledActive.Location); err != nil {
+		if err := cfg.Fs.Remove(enabledActive.Location); err != nil {
 			return fmt.Errorf("failed to remove symlink for %s: %w", enabledActive.Name, err)
 		}
 		cfg.Logger.Infof("System extension %s disabled from active", enabledActive.Name)
@@ -238,13 +242,13 @@ func RemoveSystemExtension(cfg *config.Config, extension string) error {
 	enabledPassive, err := GetSystemExtension(cfg, extension, "passive")
 	if err == nil {
 		// Remove the symlink
-		if err := os.Remove(enabledPassive.Location); err != nil {
+		if err := cfg.Fs.Remove(enabledPassive.Location); err != nil {
 			return fmt.Errorf("failed to remove symlink for %s: %w", enabledPassive.Name, err)
 		}
 		cfg.Logger.Infof("System extension %s disabled from passive", enabledPassive.Name)
 	}
 	// Remove the extension
-	if err := os.RemoveAll(installed.Location); err != nil {
+	if err := cfg.Fs.RemoveAll(installed.Location); err != nil {
 		return fmt.Errorf("failed to remove extension %s: %w", installed.Name, err)
 	}
 	cfg.Logger.Infof("System extension %s removed", installed.Name)
@@ -253,7 +257,7 @@ func RemoveSystemExtension(cfg *config.Config, extension string) error {
 
 // ParseURI parses a URI and returns a SourceDownload
 // implementation based on the scheme of the URI
-func parseURI(uri string) (SourceDownload, error) {
+func parseURI(cfg *config.Config, uri string) (SourceDownload, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -273,10 +277,10 @@ func parseURI(uri string) (SourceDownload, error) {
 		}
 		return &dockerSource{value}, nil
 	case "file":
-		return &fileSource{value}, nil
+		return &fileSource{value, cfg}, nil
 	case "http", "https":
 		// Pass the full uri including the protocol
-		return &httpSource{uri}, nil
+		return &httpSource{uri, cfg}, nil
 	default:
 		return nil, fmt.Errorf("invalid URI reference %s", uri)
 	}
@@ -292,38 +296,28 @@ type SourceDownload interface {
 }
 
 // fileSource is a struct that implements the SourceDownload interface
-// for downloading system extensions from a file. It has a single field,
-// uri, which is the URI of the file to be downloaded. The Download method
-// takes a destination path as an argument and returns an error if the
+// for downloading system extensions from a file. It has two fields,
+// uri, which is the URI of the file to be downloaded and cfg which points to the Config
+// The Download method takes a destination path as an argument and returns an error if the
 // download fails.
 type fileSource struct {
 	uri string
+	cfg *config.Config
 }
 
 // Download just copies the file to the destination
 // As this is a file source, we just copy the file to the destination, not much to it
 func (f *fileSource) Download(dst string) error {
-	src, err := os.Open(f.uri)
+	src, err := f.cfg.Fs.ReadFile(f.uri)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", f.uri, err)
+		return fmt.Errorf("failed to read file %s: %w", f.uri, err)
 	}
-	defer func(src *os.File) {
-		_ = src.Close()
-	}(src)
 
-	dstFile, err := os.Create(filepath.Join(dst, filepath.Base(f.uri)))
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", dstFile.Name(), err)
-	}
-	defer func(dstFile *os.File) {
-		_ = dstFile.Close()
-	}(dstFile)
-
-	if _, err := io.Copy(dstFile, src); err != nil {
-		return fmt.Errorf("failed to copy file %s to %s: %w", f.uri, dstFile.Name(), err)
-	}
-	if err := dstFile.Sync(); err != nil {
-		return fmt.Errorf("failed to sync file %s: %w", dstFile.Name(), err)
+	stat, _ := f.cfg.Fs.Stat(f.uri)
+	dstFile := filepath.Join(dst, filepath.Base(f.uri))
+	// Keep original permissions
+	if err = f.cfg.Fs.WriteFile(dstFile, src, stat.Mode()); err != nil {
+		return fmt.Errorf("failed to copy file %s to %s: %w", f.uri, dstFile, err)
 	}
 
 	return nil
@@ -331,13 +325,13 @@ func (f *fileSource) Download(dst string) error {
 
 type httpSource struct {
 	uri string
+	cfg *config.Config
 }
 
 func (h httpSource) Download(s string) error {
 	// Download the file from the URI
 	// and save it to the destination path
-	client := http2.NewClient()
-	return client.GetURL(types.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
+	return h.cfg.Client.GetURL(types.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
 }
 
 type dockerSource struct {
