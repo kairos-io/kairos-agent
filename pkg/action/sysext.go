@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/distribution/reference"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	http2 "github.com/kairos-io/kairos-agent/v2/pkg/http"
+	"github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-sdk/utils"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -249,6 +251,8 @@ func RemoveSystemExtension(cfg *config.Config, extension string) error {
 	return nil
 }
 
+// ParseURI parses a URI and returns a SourceDownload
+// implementation based on the scheme of the URI
 func parseURI(uri string) (SourceDownload, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
@@ -268,12 +272,11 @@ func parseURI(uri string) (SourceDownload, error) {
 			value += ":latest"
 		}
 		return &dockerSource{value}, nil
-	case "dir":
-		return &dirSource{value}, nil
 	case "file":
 		return &fileSource{value}, nil
 	case "http", "https":
-		return &httpSource{value}, nil
+		// Pass the full uri including the protocol
+		return &httpSource{uri}, nil
 	default:
 		return nil, fmt.Errorf("invalid URI reference %s", uri)
 	}
@@ -333,39 +336,8 @@ type httpSource struct {
 func (h httpSource) Download(s string) error {
 	// Download the file from the URI
 	// and save it to the destination path
-	get, err := http.Get(h.uri)
-	if err != nil {
-		return err
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(get.Body)
-
-	if get.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download file %s: %s", h.uri, get.Status)
-	}
-	out, err := os.Create(filepath.Join(s, filepath.Base(h.uri)))
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", out.Name(), err)
-	}
-	defer func(out *os.File) {
-		_ = out.Close()
-	}(out)
-	if _, err := io.Copy(out, get.Body); err != nil {
-		return fmt.Errorf("failed to copy file %s to %s: %w", h.uri, out.Name(), err)
-	}
-	if err := out.Sync(); err != nil {
-		return fmt.Errorf("failed to sync file %s: %w", out.Name(), err)
-	}
-	return nil
-}
-
-type dirSource struct {
-	uri string
-}
-
-func (d dirSource) Download(s string) error {
-	return nil
+	client := http2.NewClient()
+	return client.GetURL(types.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
 }
 
 type dockerSource struct {
@@ -373,5 +345,15 @@ type dockerSource struct {
 }
 
 func (d dockerSource) Download(s string) error {
+	// Download the file from the URI
+	// and save it to the destination path
+	image, err := utils.GetImage(d.uri, "", nil, nil)
+	if err != nil {
+		return err
+	}
+	err = utils.ExtractOCIImage(image, s)
+	if err != nil {
+		return err
+	}
 	return nil
 }

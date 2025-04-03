@@ -1099,12 +1099,12 @@ func validateSourceSysext(source string) error {
 		return nil
 	}
 
-	r, err := regexp.Compile(`^oci:|^dir:|^file:|^http:|^https:`)
+	r, err := regexp.Compile(`^oci:|^file:|^http:|^https:`)
 	if err != nil {
 		return err
 	}
 	if !r.MatchString(source) {
-		return fmt.Errorf("source %s does not match any of oci:, dir:, file: or http(s): ", source)
+		return fmt.Errorf("source %s does not match any of oci:, file: or http(s): ", source)
 	}
 
 	return nil
