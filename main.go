@@ -805,6 +805,204 @@ The validate command expects a configuration file as its only argument. Local fi
 			return action.ListBootEntries(cfg)
 		},
 	},
+	{
+		Name:        "sysext",
+		Usage:       "sysext subcommands",
+		Description: "sysext subcommands",
+		Subcommands: []*cli.Command{
+			{
+				Name:        "list",
+				Usage:       "List all the installed system extensions",
+				Description: "List all the installed system extensions",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name: "active",
+					},
+					&cli.BoolFlag{
+						Name: "passive",
+					},
+				},
+				Before: func(c *cli.Context) error {
+					if c.Bool("active") && c.Bool("passive") {
+						return fmt.Errorf("only one of --active or --passive can be set")
+					}
+					if err := checkRoot(); err != nil {
+						return err
+					}
+					return nil
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+					var bootState string
+
+					if c.Bool("active") {
+						bootState = "active"
+					}
+					if c.Bool("passive") {
+						bootState = "passive"
+					}
+					out, err := action.ListSystemExtensions(cfg, bootState)
+					if err != nil {
+						return err
+					}
+					if len(out) == 0 {
+						cfg.Logger.Logger.Info().Msg("No OS extensions found")
+						return nil
+					}
+					for _, ext := range out {
+						cfg.Logger.Info(litter.Sdump(ext))
+					}
+					return nil
+				},
+			},
+			{
+				Name:        "enable",
+				Usage:       "Enable a installed system extension for a give entry",
+				UsageText:   "enable [--active|--passive] EXTENSION",
+				Description: "Enable a system extension for a given boot entry (active or passive)",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name: "active",
+					},
+					&cli.BoolFlag{
+						Name: "passive",
+					},
+				},
+				Before: func(c *cli.Context) error {
+					if c.Bool("active") && c.Bool("passive") {
+						return fmt.Errorf("only one of --active or --passive can be set")
+					}
+					if c.Args().Len() != 1 {
+						return fmt.Errorf("extension name required")
+					}
+					if c.Bool("active") == false && c.Bool("passive") == false {
+						return fmt.Errorf("either --active or --passive must be set")
+					}
+					if err := checkRoot(); err != nil {
+						return err
+					}
+					return nil
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+					var bootState string
+					if c.Bool("active") {
+						bootState = "active"
+					}
+					if c.Bool("passive") {
+						bootState = "passive"
+					}
+					ext := c.Args().First()
+					if err := action.EnableSystemExtension(cfg, ext, bootState); err != nil {
+						cfg.Logger.Logger.Error().Err(err).Msg("failed enabling system extension")
+						return err
+					}
+					return nil
+				},
+			},
+			{
+				Name:        "disable",
+				Usage:       "Disable a installed system extension for a give entry",
+				UsageText:   "disable [--active|--passive] EXTENSION",
+				Description: "Disable a system extension for a given boot entry (active or passive)",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name: "active",
+					},
+					&cli.BoolFlag{
+						Name: "passive",
+					},
+				},
+				Before: func(c *cli.Context) error {
+					if c.Bool("active") && c.Bool("passive") {
+						return fmt.Errorf("only one of --active or --passive can be set")
+					}
+					if c.Args().Len() != 1 {
+						return fmt.Errorf("extension name required")
+					}
+					if c.Bool("active") == false && c.Bool("passive") == false {
+						return fmt.Errorf("either --active or --passive must be set")
+					}
+					if err := checkRoot(); err != nil {
+						return err
+					}
+					return nil
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+					var bootState string
+					if c.Bool("active") {
+						bootState = "active"
+					}
+					if c.Bool("passive") {
+						bootState = "passive"
+					}
+					ext := c.Args().First()
+					if err := action.DisableSystemExtension(cfg, ext, bootState); err != nil {
+						cfg.Logger.Logger.Error().Err(err).Msg("failed disabling system extension")
+						return err
+					}
+					return nil
+				},
+			},
+			{
+				Name:        "install",
+				Usage:       "Install a system extension",
+				UsageText:   "install URI",
+				Description: "Install a system extension from a given URI",
+				Action: func(c *cli.Context) error {
+					if c.Args().Len() != 1 {
+						return fmt.Errorf("extension URI required")
+					}
+					uri := c.Args().First()
+					if err := validateSourceSysext(uri); err != nil {
+						return err
+					}
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+					if err := action.InstallSystemExtension(cfg, uri); err != nil {
+						cfg.Logger.Logger.Error().Err(err).Msg("failed installing system extension")
+						return err
+					}
+					cfg.Logger.Logger.Info().Msgf("System extension %s installed", uri)
+					return nil
+				},
+			},
+			{
+				Name:        "remove",
+				Usage:       "Remove a system extension",
+				UsageText:   "remove EXTENSION",
+				Description: "Remove a installed system extension",
+				Action: func(c *cli.Context) error {
+					if c.Args().Len() != 1 {
+						return fmt.Errorf("extension required")
+					}
+					extension := c.Args().First()
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return err
+					}
+					if err := action.RemoveSystemExtension(cfg, extension); err != nil {
+						cfg.Logger.Logger.Error().Err(err).Msg("failed removing system extension")
+						return err
+					}
+					cfg.Logger.Logger.Info().Msgf("System extension %s removed", extension)
+					return nil
+				},
+			},
+		},
+	},
 }
 
 func main() {
@@ -891,6 +1089,22 @@ func validateSource(source string) error {
 	}
 	if !r.MatchString(source) {
 		return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
+	}
+
+	return nil
+}
+
+func validateSourceSysext(source string) error {
+	if source == "" {
+		return nil
+	}
+
+	r, err := regexp.Compile(`^oci:|^dir:|^file:|^http:|^https:`)
+	if err != nil {
+		return err
+	}
+	if !r.MatchString(source) {
+		return fmt.Errorf("source %s does not match any of oci:, dir:, file: or http(s): ", source)
 	}
 
 	return nil
