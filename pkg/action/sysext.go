@@ -183,10 +183,11 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string) er
 		return fmt.Errorf("target dir %s does not exist", targetDir)
 	}
 
-	// Check if the extension is enabled
+	// Check if the extension is enabled, do not fail if it is not
 	extension, err := GetSystemExtension(cfg, ext, bootState)
 	if err != nil {
-		return fmt.Errorf("system extension %s not enabled in %s: %w", ext, bootState, err)
+		cfg.Logger.Infof("system extension %s is not enabled in %s", ext, bootState)
+		return nil
 	}
 
 	// Remove the symlink
@@ -229,6 +230,10 @@ func RemoveSystemExtension(cfg *config.Config, extension string) error {
 	installed, err := GetSystemExtension(cfg, extension, "")
 	if err != nil {
 		return err
+	}
+	if installed.Name == "" && installed.Location == "" {
+		cfg.Logger.Infof("System extension %s is not installed", extension)
+		return nil
 	}
 	// Check if the extension is enabled in active or passive
 	enabledActive, err := GetSystemExtension(cfg, extension, "active")
