@@ -10,7 +10,6 @@ import (
 	"github.com/distribution/reference"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/types"
-	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/twpayne/go-vfs/v5"
 )
 
@@ -148,10 +147,10 @@ func EnableSystemExtension(cfg *config.Config, ext string, bootState string) err
 	}
 
 	// Check if the extension is already enabled
-	enabled, err := cfg.Fs.Readlink(filepath.Join(targetDir, extension.Name))
+	enabled, err := GetSystemExtension(cfg, ext, bootState)
 	// This doesnt fail if we have it already enabled
 	if err == nil {
-		if enabled == extension.Location {
+		if enabled.Name == extension.Name {
 			cfg.Logger.Infof("System extension %s is already enabled in %s", extension.Name, bootState)
 			return nil
 		}
@@ -280,7 +279,7 @@ func parseURI(cfg *config.Config, uri string) (SourceDownload, error) {
 		} else if reference.IsNameOnly(n) {
 			value += ":latest"
 		}
-		return &dockerSource{value}, nil
+		return &dockerSource{value, cfg}, nil
 	case "file":
 		return &fileSource{value, cfg}, nil
 	case "http", "https":
@@ -320,6 +319,7 @@ func (f *fileSource) Download(dst string) error {
 
 	stat, _ := f.cfg.Fs.Stat(f.uri)
 	dstFile := filepath.Join(dst, filepath.Base(f.uri))
+	f.cfg.Logger.Logger.Debug().Str("uri", f.uri).Str("target", dstFile).Msg("Copying system extension")
 	// Keep original permissions
 	if err = f.cfg.Fs.WriteFile(dstFile, src, stat.Mode()); err != nil {
 		return fmt.Errorf("failed to copy file %s to %s: %w", f.uri, dstFile, err)
@@ -336,21 +336,19 @@ type httpSource struct {
 func (h httpSource) Download(s string) error {
 	// Download the file from the URI
 	// and save it to the destination path
+	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", filepath.Join(s, filepath.Base(h.uri))).Msg("Downloading system extension")
 	return h.cfg.Client.GetURL(types.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
 }
 
 type dockerSource struct {
 	uri string
+	cfg *config.Config
 }
 
 func (d dockerSource) Download(s string) error {
 	// Download the file from the URI
 	// and save it to the destination path
-	image, err := utils.GetImage(d.uri, "", nil, nil)
-	if err != nil {
-		return err
-	}
-	err = utils.ExtractOCIImage(image, s)
+	err := d.cfg.ImageExtractor.ExtractImage(d.uri, s, "")
 	if err != nil {
 		return err
 	}
