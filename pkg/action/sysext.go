@@ -52,7 +52,6 @@ const (
 	sysextDir        = "/var/lib/kairos/extensions/"
 	sysextDirActive  = "/var/lib/kairos/extensions/active"
 	sysextDirPassive = "/var/lib/kairos/extensions/passive"
-	sysextEnabledDir = "/run/extensions/"
 )
 
 // SysExtension represents a system extension
