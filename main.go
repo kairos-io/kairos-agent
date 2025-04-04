@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -809,6 +810,13 @@ The validate command expects a configuration file as its only argument. Local fi
 		Name:        "sysext",
 		Usage:       "sysext subcommands",
 		Description: "sysext subcommands",
+		Before: func(c *cli.Context) error {
+			_, err := exec.LookPath("systemd-sysext")
+			if err != nil {
+				return fmt.Errorf("systemd-sysext not found in PATH")
+			}
+			return nil
+		},
 		Subcommands: []*cli.Command{
 			{
 				Name:        "list",
