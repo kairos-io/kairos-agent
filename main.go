@@ -849,7 +849,7 @@ The validate command expects a configuration file as its only argument. Local fi
 						return err
 					}
 					if len(out) == 0 {
-						cfg.Logger.Logger.Info().Msg("No OS extensions found")
+						cfg.Logger.Logger.Info().Msg("No system extensions found")
 						return nil
 					}
 					for _, ext := range out {
