@@ -213,6 +213,13 @@ func contains(s []string, str string) bool {
 func (c Config) CheckForUsers() (err error) {
 	// If nousers is enabled we do not check for the validity of the users and such
 	// At this point, the config should be fully parsed and the yip stages ready
+
+	// Check if the sentinel is present
+	_, sentinel := c.Fs.Stat("/etc/kairos/.nousers")
+	if sentinel == nil {
+		c.Logger.Logger.Debug().Msg("Sentinel file found, skipping user check")
+		return nil
+	}
 	if !c.Install.NoUsers {
 		anyAdmin := false
 		cc, _ := c.Config.String()
