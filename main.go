@@ -816,10 +816,12 @@ The validate command expects a configuration file as its only argument. Local fi
 				Description: "List all the installed system extensions",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name: "active",
+						Name:  "active",
+						Usage: "List the system extensions for the active boot entry",
 					},
 					&cli.BoolFlag{
-						Name: "passive",
+						Name:  "passive",
+						Usage: "List the system extensions for the passive boot entry",
 					},
 				},
 				Before: func(c *cli.Context) error {
@@ -865,10 +867,16 @@ The validate command expects a configuration file as its only argument. Local fi
 				Description: "Enable a system extension for a given boot entry (active or passive)",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name: "active",
+						Name:  "active",
+						Usage: "Enable the system extension for the active boot entry",
 					},
 					&cli.BoolFlag{
-						Name: "passive",
+						Name:  "passive",
+						Usage: "Enable the system extension for the passive boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "now",
+						Usage: "Enable the system extension now and reload systemd-sysext",
 					},
 				},
 				Before: func(c *cli.Context) error {
@@ -899,7 +907,7 @@ The validate command expects a configuration file as its only argument. Local fi
 						bootState = "passive"
 					}
 					ext := c.Args().First()
-					if err := action.EnableSystemExtension(cfg, ext, bootState); err != nil {
+					if err := action.EnableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
 						cfg.Logger.Logger.Error().Err(err).Msg("failed enabling system extension")
 						return err
 					}
@@ -913,10 +921,12 @@ The validate command expects a configuration file as its only argument. Local fi
 				Description: "Disable a system extension for a given boot entry (active or passive)",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name: "active",
+						Name:  "active",
+						Usage: "Disable the system extension for the active boot entry",
 					},
 					&cli.BoolFlag{
-						Name: "passive",
+						Name:  "passive",
+						Usage: "Disable the system extension for the passive boot entry",
 					},
 				},
 				Before: func(c *cli.Context) error {

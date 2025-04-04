@@ -2,15 +2,14 @@ package action
 
 import (
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
-
 	"github.com/distribution/reference"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/types"
 	"github.com/twpayne/go-vfs/v5"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
 )
 
 // Implementation details for not trusted boot
@@ -124,7 +123,8 @@ func GetSystemExtension(cfg *config.Config, name, bootState string) (SysExtensio
 // It will create the target dir if it does not exist
 // It will check if the extension is already enabled but not fail if it is
 // It will check if the extension is installed
-func EnableSystemExtension(cfg *config.Config, ext string, bootState string) error {
+// If now is true, it will enable the extension immediately by linking it to /run/extensions and refreshing systemd-sysext
+func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) error {
 	// first check if the extension is installed
 	extension, err := GetSystemExtension(cfg, ext, "")
 	if err != nil {
@@ -163,6 +163,32 @@ func EnableSystemExtension(cfg *config.Config, ext string, bootState string) err
 		return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
 	}
 	cfg.Logger.Infof("System extension %s enabled in %s", extension.Name, bootState)
+
+	if now {
+
+		// Check if the boot state is the same as the one we are enabling
+		// This is to avoid enabling the extension in the wrong boot state
+		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_boot", bootState))
+		if stateMatches == nil {
+			err = cfg.Fs.Symlink(filepath.Join(targetDir, extension.Name), filepath.Join("/run/extensions", extension.Name))
+			if err != nil {
+				return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
+			}
+			cfg.Logger.Infof("System extension %s enabled in /run/extensions", extension.Name)
+			// TODO: Image POLICY here for the sysext its set only in UKI during initramfs
+			// It makes the sysext check the extension for a valid signature
+			// Refresh systemd-sysext
+			output, err := cfg.Runner.Run("systemd-sysext", "refresh")
+			if err != nil {
+				cfg.Logger.Logger.Err(err).Str("output", string(output)).Msg("Failed to refresh systemd-sysext")
+				return err
+			}
+			cfg.Logger.Infof("System extension %s merged by systemd-sysext", extension.Name)
+		} else {
+			cfg.Logger.Infof("System extension %s enabled in %s but not merged by systemd-sysext as we are currently not booted in %s", extension.Name, bootState, bootState)
+		}
+
+	}
 	return nil
 }
 

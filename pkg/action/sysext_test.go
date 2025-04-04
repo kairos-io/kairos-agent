@@ -42,6 +42,8 @@ var _ = Describe("Sysext Actions test", func() {
 
 		err := vfs.MkdirAll(fs, "/var/lib/kairos/extensions", 0755)
 		Expect(err).ToNot(HaveOccurred())
+		err = vfs.MkdirAll(fs, "/run/extensions", 0755)
+		Expect(err).ToNot(HaveOccurred())
 
 		// Config object with all of our fakes on it
 		config = agentConfig.NewConfig(
@@ -152,7 +154,7 @@ var _ = Describe("Sysext Actions test", func() {
 		It("should fail to enable a extension if bootState is not valid", func() {
 			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
 			Expect(err).ToNot(HaveOccurred())
-			err = action.EnableSystemExtension(config, "valid", "invalid")
+			err = action.EnableSystemExtension(config, "valid", "invalid", false)
 			Expect(err).To(HaveOccurred())
 		})
 		It("should enable an installed extension", func() {
@@ -162,7 +164,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
-			err = action.EnableSystemExtension(config, "valid.raw", "active")
+			err = action.EnableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -177,7 +179,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for passive
-			err = action.EnableSystemExtension(config, "valid.raw", "passive")
+			err = action.EnableSystemExtension(config, "valid.raw", "passive", false)
 			Expect(err).ToNot(HaveOccurred())
 			// Passive should have the extension
 			extensions, err = action.ListSystemExtensions(config, "passive")
@@ -199,6 +201,79 @@ var _ = Describe("Sysext Actions test", func() {
 			}))
 
 		})
+		It("should enable an installed extension and reload the system with it", func() {
+			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
+			Expect(err).ToNot(HaveOccurred())
+			// Fake the boot state
+			Expect(config.Fs.Mkdir("/run/cos", 0755)).ToNot(HaveOccurred())
+			Expect(config.Fs.WriteFile("/run/cos/active_boot", []byte("true"), 0644)).ToNot(HaveOccurred())
+			extensions, err := action.ListSystemExtensions(config, "active")
+			Expect(err).ToNot(HaveOccurred())
+			// This basically returns an error if the command is not executed
+			Expect(runner.IncludesCmds([][]string{
+				{"systemd-sysext", "refresh"},
+			})).To(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			// Enable it for active
+			err = action.EnableSystemExtension(config, "valid.raw", "active", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runner.IncludesCmds([][]string{
+				{"systemd-sysext", "refresh"},
+			})).ToNot(HaveOccurred())
+			extensions, err = action.ListSystemExtensions(config, "active")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(Equal([]action.SysExtension{
+				{
+					Name:     "valid.raw",
+					Location: "/var/lib/kairos/extensions/active/valid.raw",
+				},
+			}))
+			// Passive should be empty
+			extensions, err = action.ListSystemExtensions(config, "passive")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			// Symlink should be created in /run/extensions
+			_, err = config.Fs.Stat("/run/extensions/valid.raw")
+			Expect(err).ToNot(HaveOccurred())
+			readlink, err := config.Fs.Readlink("/run/extensions/valid.raw")
+			Expect(err).ToNot(HaveOccurred())
+			// Get the raw path as the readlink will return the real path, not the one in our fake fs
+			realPath, err := config.Fs.RawPath("/var/lib/kairos/extensions/active/valid.raw")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(readlink).To(Equal(realPath))
+		})
+		It("should enable an installed extension and NOT reload the system with it if we are on the wrong boot state", func() {
+			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
+			Expect(err).ToNot(HaveOccurred())
+			extensions, err := action.ListSystemExtensions(config, "active")
+			Expect(err).ToNot(HaveOccurred())
+			// This basically returns an error if the command is not executed
+			Expect(runner.IncludesCmds([][]string{
+				{"systemd-sysext", "refresh"},
+			})).To(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			// Enable it for active
+			err = action.EnableSystemExtension(config, "valid.raw", "active", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runner.IncludesCmds([][]string{
+				{"systemd-sysext", "refresh"},
+			})).To(HaveOccurred())
+			extensions, err = action.ListSystemExtensions(config, "active")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(Equal([]action.SysExtension{
+				{
+					Name:     "valid.raw",
+					Location: "/var/lib/kairos/extensions/active/valid.raw",
+				},
+			}))
+			// Passive should be empty
+			extensions, err = action.ListSystemExtensions(config, "passive")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			// Symlink should be created in /run/extensions
+			_, err = config.Fs.Stat("/run/extensions/valid.raw")
+			Expect(err).To(HaveOccurred())
+		})
 		It("should fail to enable a missing extension", func() {
 			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
 			Expect(err).ToNot(HaveOccurred())
@@ -206,7 +281,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
-			err = action.EnableSystemExtension(config, "invalid.raw", "active")
+			err = action.EnableSystemExtension(config, "invalid.raw", "active", false)
 			Expect(err).To(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -223,7 +298,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
-			err = action.EnableSystemExtension(config, "valid.raw", "active")
+			err = action.EnableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -233,7 +308,7 @@ var _ = Describe("Sysext Actions test", func() {
 					Location: "/var/lib/kairos/extensions/active/valid.raw",
 				},
 			}))
-			err = action.EnableSystemExtension(config, "valid.raw", "active")
+			err = action.EnableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -258,7 +333,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
-			err = action.EnableSystemExtension(config, "valid.raw", "active")
+			err = action.EnableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -282,7 +357,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
-			err = action.EnableSystemExtension(config, "valid.raw", "active")
+			err = action.EnableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -393,7 +468,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
-			err = action.EnableSystemExtension(config, "valid.raw", "active")
+			err = action.EnableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
