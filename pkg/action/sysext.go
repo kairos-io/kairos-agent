@@ -107,7 +107,10 @@ func GetSystemExtension(cfg *config.Config, name, bootState string) (SysExtensio
 	}
 	// Check if the extension is installed
 	// regex against the name
-	re, _ := regexp.Compile(name)
+	re, err := regexp.Compile(name)
+	if err != nil {
+		return SysExtension{}, err
+	}
 	for _, ext := range installed {
 		if re.MatchString(ext.Name) {
 			return ext, nil
