@@ -41,7 +41,7 @@ require (
 	github.com/google/go-github/v69 v69.2.0
 	github.com/google/go-github/v70 v70.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
-	github.com/urfave/cli/v2 v2.27.6
+	github.com/urfave/cli/v3 v3.1.1
 	github.com/urfave/cli/v3 v3.1.1
 )
 
