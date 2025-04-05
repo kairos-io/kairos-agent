@@ -31,6 +31,7 @@ type FS interface {
 	RemoveAll(path string) error
 	ReadFile(filename string) ([]byte, error)
 	Readlink(name string) (string, error)
+	Symlink(oldname, newname string) error
 	RawPath(name string) (string, error)
 	ReadDir(dirname string) ([]fs.DirEntry, error)
 	Remove(name string) error
