@@ -177,7 +177,6 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 				return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
 			}
 			cfg.Logger.Infof("System extension %s enabled in /run/extensions", extension.Name)
-			// TODO: Image POLICY here for the sysext its set only in UKI during initramfs
 			// It makes the sysext check the extension for a valid signature
 			// Refresh systemd-sysext
 			output, err := cfg.Runner.Run("systemd-sysext", "refresh")
