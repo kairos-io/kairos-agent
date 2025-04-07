@@ -211,14 +211,14 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// This basically returns an error if the command is not executed
 			Expect(runner.IncludesCmds([][]string{
-				{"systemd-sysext", "refresh"},
+				{"systemctl", "restart", "systemd-sysext"},
 			})).To(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
 			err = action.EnableSystemExtension(config, "valid.raw", "active", true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runner.IncludesCmds([][]string{
-				{"systemd-sysext", "refresh"},
+				{"systemctl", "restart", "systemd-sysext"},
 			})).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -249,14 +249,14 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// This basically returns an error if the command is not executed
 			Expect(runner.IncludesCmds([][]string{
-				{"systemd-sysext", "refresh"},
+				{"systemctl", "restart", "systemd-sysext"},
 			})).To(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
 			// Enable it for active
 			err = action.EnableSystemExtension(config, "valid.raw", "active", true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runner.IncludesCmds([][]string{
-				{"systemd-sysext", "refresh"},
+				{"systemctl", "restart", "systemd-sysext"},
 			})).To(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())

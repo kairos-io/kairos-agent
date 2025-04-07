@@ -24,28 +24,9 @@ import (
 // So all the actions (list, upgrade, download, remove) will be done on the persistent dir
 // And on boot we dinamycally link and enable them based on the boot type (active,passive) via immucore
 
-// Trusted boot works very differently
-// In there, we copy the sysext into the EFI dir under the entry /EFI/kairos/$EFI_FILE.efi.extra.d/EXTENSION_FILE
-// That makes it so systemd-boot will see it, measure it and pass it to the initramfs under the /.extra/sysext dir
-// That means two things
-// We cannot soft link it as EFI partition is FAT
-// To add/remove/update we need to deal with the actual files
-// Currently we are NOT using the measuring of the sysextensions so maybe we could move into a unified system with the same behaviour as above?
-// The sysextensions in Trusted boot are SIGNED so the measurement is not that important and immucore will refuse to move
-// them into /run/extensions if the signature doesnt match, so the measurements are not that important currently and
-// maybe they are not useful if sysext is the way of upgrading your system
-
-// So potentially we have a unified system where we have the same behaviour for both, but that measn that
-// anything provided by sysext will NOT be available until the initramfs stage where we enable the sysext service
-// we can potentially move the sysext service as early as possible once we mount the persistent dir
-
-// Extensions are provided in the following formats:
-// - .raw : image based extension
-// - any directory : directory based extension
-
-// TODO: Check which extensions are running
-// TODO: On disable we should check if the extension is running and refresh systemd-sysext?
-// TODO: On enable, should we refresh systemd-sysext immediately? Only if the current boot state equals the bootstate we enabled it for?
+// TODO: Check which extensions are running? is that possible?
+// TODO: On disable we should check if the extension is running and refresh systemd-sysext? YES
+// TODO: On remove we should check if the extension is running and refresh systemd-sysext? YES
 
 const (
 	sysextDir        = "/var/lib/kairos/extensions/"
@@ -184,8 +165,8 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 			}
 			cfg.Logger.Infof("System extension %s enabled in /run/extensions", extension.Name)
 			// It makes the sysext check the extension for a valid signature
-			// Refresh systemd-sysext
-			output, err := cfg.Runner.Run("systemd-sysext", "refresh")
+			// Refresh systemd-sysext by restarting the service. As the config is set via the service overrides to nice things
+			output, err := cfg.Runner.Run("systemctl", "restart", "systemd-sysext")
 			if err != nil {
 				cfg.Logger.Logger.Err(err).Str("output", string(output)).Msg("Failed to refresh systemd-sysext")
 				return err
