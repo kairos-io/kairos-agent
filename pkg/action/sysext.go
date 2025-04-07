@@ -83,6 +83,12 @@ func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension,
 func getDirExtensions(cfg *config.Config, dir string) ([]SysExtension, error) {
 	var out []SysExtension
 	// get all the extensions in the sysextDir
+	// Try to create the dir if it does not exist
+	if _, err := cfg.Fs.Stat(dir); os.IsNotExist(err) {
+		if err := vfs.MkdirAll(cfg.Fs, dir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create target dir %s: %w", dir, err)
+		}
+	}
 	entries, err := cfg.Fs.ReadDir(dir)
 	// We don't care if the dir does not exist, we just return an empty list
 	if err != nil && !os.IsNotExist(err) {
