@@ -206,7 +206,7 @@ var _ = Describe("Sysext Actions test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// Fake the boot state
 			Expect(config.Fs.Mkdir("/run/cos", 0755)).ToNot(HaveOccurred())
-			Expect(config.Fs.WriteFile("/run/cos/active_boot", []byte("true"), 0644)).ToNot(HaveOccurred())
+			Expect(config.Fs.WriteFile("/run/cos/active_mode", []byte("true"), 0644)).ToNot(HaveOccurred())
 			extensions, err := action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
 			// This basically returns an error if the command is not executed

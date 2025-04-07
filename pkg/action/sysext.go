@@ -168,7 +168,9 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 
 		// Check if the boot state is the same as the one we are enabling
 		// This is to avoid enabling the extension in the wrong boot state
-		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_boot", bootState))
+		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_mode", bootState))
+		// TODO: Check in UKI?
+		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_state", bootState)).Msg("Checking boot state")
 		if stateMatches == nil {
 			err = cfg.Fs.Symlink(filepath.Join(targetDir, extension.Name), filepath.Join("/run/extensions", extension.Name))
 			if err != nil {
