@@ -323,7 +323,7 @@ var _ = Describe("Sysext Actions test", func() {
 	})
 	Describe("Disabling extensions", func() {
 		It("should fail if bootState is not valid", func() {
-			err := action.DisableSystemExtension(config, "whatever", "invalid")
+			err := action.DisableSystemExtension(config, "whatever", "invalid", false)
 			Expect(err).To(HaveOccurred())
 		})
 		It("should disable an enabled extension", func() {
@@ -344,7 +344,7 @@ var _ = Describe("Sysext Actions test", func() {
 				},
 			}))
 			// Disable it
-			err = action.DisableSystemExtension(config, "valid.raw", "active")
+			err = action.DisableSystemExtension(config, "valid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -368,7 +368,7 @@ var _ = Describe("Sysext Actions test", func() {
 				},
 			}))
 			// Disable a non enabled extension
-			err = action.DisableSystemExtension(config, "invalid.raw", "active")
+			err = action.DisableSystemExtension(config, "invalid.raw", "active", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "active")
 			Expect(err).ToNot(HaveOccurred())
@@ -455,7 +455,7 @@ var _ = Describe("Sysext Actions test", func() {
 					Location: "/var/lib/kairos/extensions/valid.raw",
 				},
 			}))
-			err = action.RemoveSystemExtension(config, "valid.raw")
+			err = action.RemoveSystemExtension(config, "valid.raw", false)
 			Expect(err).ToNot(HaveOccurred())
 			extensions, err = action.ListSystemExtensions(config, "")
 			Expect(err).ToNot(HaveOccurred())
@@ -478,7 +478,7 @@ var _ = Describe("Sysext Actions test", func() {
 					Location: "/var/lib/kairos/extensions/active/valid.raw",
 				},
 			}))
-			err = action.RemoveSystemExtension(config, "valid.raw")
+			err = action.RemoveSystemExtension(config, "valid.raw", false)
 			Expect(err).ToNot(HaveOccurred())
 			// Check if it is removed from active
 			extensions, err = action.ListSystemExtensions(config, "active")
@@ -504,7 +504,7 @@ var _ = Describe("Sysext Actions test", func() {
 					Location: "/var/lib/kairos/extensions/valid.raw",
 				},
 			}))
-			err = action.RemoveSystemExtension(config, "invalid.raw")
+			err = action.RemoveSystemExtension(config, "invalid.raw", false)
 			Expect(err).To(HaveOccurred())
 		})
 	})

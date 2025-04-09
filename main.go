@@ -936,6 +936,10 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "passive",
 						Usage: "Disable the system extension for the passive boot entry",
 					},
+					&cli.BoolFlag{
+						Name:  "now",
+						Usage: "Disable the system extension now and reload systemd-sysext",
+					},
 				},
 				Before: func(c *cli.Context) error {
 					if c.Bool("active") && c.Bool("passive") {
@@ -965,7 +969,7 @@ The validate command expects a configuration file as its only argument. Local fi
 						bootState = "passive"
 					}
 					ext := c.Args().First()
-					if err := action.DisableSystemExtension(cfg, ext, bootState); err != nil {
+					if err := action.DisableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
 						cfg.Logger.Logger.Error().Err(err).Msg("failed disabling system extension")
 						return err
 					}
@@ -1002,6 +1006,12 @@ The validate command expects a configuration file as its only argument. Local fi
 				Usage:       "Remove a system extension",
 				UsageText:   "remove EXTENSION",
 				Description: "Remove a installed system extension",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "now",
+						Usage: "Remove the system extension now and reload systemd-sysext",
+					},
+				},
 				Action: func(c *cli.Context) error {
 					if c.Args().Len() != 1 {
 						return fmt.Errorf("extension required")
@@ -1011,7 +1021,7 @@ The validate command expects a configuration file as its only argument. Local fi
 					if err != nil {
 						return err
 					}
-					if err := action.RemoveSystemExtension(cfg, extension); err != nil {
+					if err := action.RemoveSystemExtension(cfg, extension, c.Bool("now")); err != nil {
 						cfg.Logger.Logger.Error().Err(err).Msg("failed removing system extension")
 						return err
 					}
