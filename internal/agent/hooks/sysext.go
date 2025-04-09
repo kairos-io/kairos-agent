@@ -14,6 +14,8 @@ import (
 type SysExtPostInstall struct{}
 
 func (b SysExtPostInstall) Run(c config.Config, _ v1.Spec) error {
+	// TODO: Use the newer way of storing things in persistent partition
+	// TODO: Move it to be run under the kcrypt part so persistent is unlocked
 	c.Logger.Logger.Debug().Msg("Running SysExtPostInstall hook")
 	// mount efi partition
 	efiPart, err := partitions.GetEfiPartition(&c.Logger)
