@@ -212,10 +212,11 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string, no
 		// Check if the boot state is the same as the one we are disabling
 		// This is to avoid disabling the extension in the wrong boot state
 		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_mode", bootState))
-		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_state", bootState)).Msg("Checking boot state")
+		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_mode", bootState)).Msg("Checking boot state")
 		if stateMatches == nil {
 			// Remove the symlink from /run/extensions if is in there
-			_, stat := cfg.Fs.Stat(filepath.Join("/run/extensions", extension.Name))
+			cfg.Logger.Logger.Debug().Str("stat", filepath.Join("/run/extensions", extension.Name)).Msg("Checking if symlink exists")
+			_, stat := cfg.Fs.Readlink(filepath.Join("/run/extensions", extension.Name))
 			if stat == nil {
 				err = cfg.Fs.Remove(filepath.Join("/run/extensions", extension.Name))
 				if err != nil {
@@ -229,6 +230,8 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string, no
 					return err
 				}
 				cfg.Logger.Infof("System extension %s refreshed by systemd-sysext", extension.Name)
+			} else {
+				cfg.Logger.Logger.Info().Msg("Extension not in /run/extensions, not refreshing")
 			}
 		} else {
 			cfg.Logger.Infof("System extension %s disabled in %s but not refreshed by systemd-sysext as we are currently not booted in %s", extension.Name, bootState, bootState)
@@ -300,7 +303,7 @@ func RemoveSystemExtension(cfg *config.Config, extension string, now bool) error
 	if now {
 		// Here as we are removing the extension we need to check if its in /run/extensions
 		// We dont care about the bootState because we are removing it from all
-		_, stat := cfg.Fs.Stat(filepath.Join("/run/extensions", installed.Name))
+		_, stat := cfg.Fs.Readlink(filepath.Join("/run/extensions", installed.Name))
 		if stat == nil {
 			err = cfg.Fs.Remove(filepath.Join("/run/extensions", installed.Name))
 			if err != nil {
@@ -314,8 +317,9 @@ func RemoveSystemExtension(cfg *config.Config, extension string, now bool) error
 				return err
 			}
 			cfg.Logger.Infof("System extension %s refreshed by systemd-sysext", installed.Name)
+		} else {
+			cfg.Logger.Logger.Info().Msg("Extension not in /run/extensions, not refreshing")
 		}
-
 	}
 
 	cfg.Logger.Infof("System extension %s removed", installed.Name)
