@@ -2,7 +2,7 @@
 version: 2
 builds:
   - ldflags:
-      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}"
+      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
     env:
       - CGO_ENABLED=0
     goos:
@@ -13,7 +13,7 @@ builds:
     binary: '{{ .ProjectName }}'
     id: default
   - ldflags:
-      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}"
+      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
     env:
       - CGO_ENABLED=1
       - GOEXPERIMENT=boringcrypto
@@ -24,7 +24,7 @@ builds:
     binary: '{{ .ProjectName }}'
     id: fips-amd64
   - ldflags:
-      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}"
+      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
     env:
       - CGO_ENABLED=1
       - GOEXPERIMENT=boringcrypto
