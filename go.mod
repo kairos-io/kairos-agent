@@ -15,7 +15,7 @@ require (
 	github.com/jaypipes/ghw v0.16.0 // indirect
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.7.3
+	github.com/kairos-io/kairos-sdk v0.7.4
 	github.com/kairos-io/kcrypt v0.14.1
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/mitchellh/mapstructure v1.5.0
