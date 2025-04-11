@@ -22,7 +22,19 @@ builds:
     goarch:
       - amd64
     binary: '{{ .ProjectName }}'
-    id: fips
+    id: fips-amd64
+  - ldflags:
+      - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}"
+    env:
+      - CGO_ENABLED=1
+      - GOEXPERIMENT=boringcrypto
+      - CC=aarch64-linux-gnu-gcc
+    goos:
+      - linux
+    goarch:
+      - arm64
+    binary: '{{ .ProjectName }}'
+    id: fips-arm64
 source:
   enabled: true
   name_template: '{{ .ProjectName }}-{{ .Tag }}-source'
@@ -33,7 +45,8 @@ archives:
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}-{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
   - id: fips-archive
     ids:
-     - fips
+     - fips-arm64
+     - fips-amd64
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}-{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-fips'
 checksum:
   name_template: '{{ .ProjectName }}-{{ .Tag }}-checksums.txt'
