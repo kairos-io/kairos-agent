@@ -3,6 +3,7 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -109,6 +110,16 @@ var _ = Describe("Sysext Actions test", func() {
 			})
 			It("should return no extensions for passive enabled extensions", func() {
 				extensions, err := action.ListSystemExtensions(config, "passive")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+			})
+			It("should list recovery extensions", func() {
+				extensions, err := action.ListSystemExtensions(config, "recovery")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+			})
+			It("should list common extensions", func() {
+				extensions, err := action.ListSystemExtensions(config, "common")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(extensions).To(BeEmpty())
 			})

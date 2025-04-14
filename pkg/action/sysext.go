@@ -2,14 +2,15 @@ package action
 
 import (
 	"fmt"
-	"github.com/distribution/reference"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-sdk/types"
-	"github.com/twpayne/go-vfs/v5"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/distribution/reference"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/types"
+	"github.com/twpayne/go-vfs/v5"
 )
 
 // Implementation details for not trusted boot
@@ -29,9 +30,11 @@ import (
 // TODO: On remove we should check if the extension is running and refresh systemd-sysext? YES
 
 const (
-	sysextDir        = "/var/lib/kairos/extensions/"
-	sysextDirActive  = "/var/lib/kairos/extensions/active"
-	sysextDirPassive = "/var/lib/kairos/extensions/passive"
+	sysextDir         = "/var/lib/kairos/extensions/"
+	sysextDirActive   = "/var/lib/kairos/extensions/active"
+	sysextDirPassive  = "/var/lib/kairos/extensions/passive"
+	sysextDirRecovery = "/var/lib/kairos/extensions/recovery"
+	sysextDirCommon   = "/var/lib/kairos/extensions/common"
 )
 
 // SysExtension represents a system extension
@@ -54,6 +57,12 @@ func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension,
 	case "passive":
 		cfg.Logger.Debug("Listing passive system extensions")
 		return getDirExtensions(cfg, sysextDirPassive)
+	case "recovery":
+		cfg.Logger.Debug("Listing recovery system extensions")
+		return getDirExtensions(cfg, sysextDirRecovery)
+	case "common":
+		cfg.Logger.Debug("Listing common system extensions")
+		return getDirExtensions(cfg, sysextDirCommon)
 	default:
 		cfg.Logger.Debug("Listing all system extensions (Enabled or not)")
 		return getDirExtensions(cfg, sysextDir)
@@ -124,6 +133,10 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 		targetDir = sysextDirActive
 	case "passive":
 		targetDir = sysextDirPassive
+	case "recovery":
+		targetDir = sysextDirRecovery
+	case "common":
+		targetDir = sysextDirCommon
 	default:
 		return fmt.Errorf("boot state %s not supported", bootState)
 	}
@@ -188,6 +201,10 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string, no
 		targetDir = sysextDirActive
 	case "passive":
 		targetDir = sysextDirPassive
+	case "recovery":
+		targetDir = sysextDirRecovery
+	case "common":
+		targetDir = sysextDirCommon
 	default:
 		return fmt.Errorf("boot state %s not supported", bootState)
 	}

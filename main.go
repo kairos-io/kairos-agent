@@ -831,6 +831,14 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "passive",
 						Usage: "List the system extensions for the passive boot entry",
 					},
+					&cli.BoolFlag{
+						Name:  "recovery",
+						Usage: "List the system extensions for the recovery boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "common",
+						Usage: "List the system extensions for the common boot entry",
+					},
 				},
 				Before: func(c *cli.Context) error {
 					if c.Bool("active") && c.Bool("passive") {
@@ -853,6 +861,12 @@ The validate command expects a configuration file as its only argument. Local fi
 					}
 					if c.Bool("passive") {
 						bootState = "passive"
+					}
+					if c.Bool("recovery") {
+						bootState = "recovery"
+					}
+					if c.Bool("common") {
+						bootState = "common"
 					}
 					out, err := action.ListSystemExtensions(cfg, bootState)
 					if err != nil {
@@ -886,6 +900,14 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "now",
 						Usage: "Enable the system extension now and reload systemd-sysext",
 					},
+					&cli.BoolFlag{
+						Name:  "recovery",
+						Usage: "Enable the system extension for the recovery boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "common",
+						Usage: "Enable the system extension for the common boot entry",
+					},
 				},
 				Before: func(c *cli.Context) error {
 					if c.Bool("active") && c.Bool("passive") {
@@ -894,8 +916,8 @@ The validate command expects a configuration file as its only argument. Local fi
 					if c.Args().Len() != 1 {
 						return fmt.Errorf("extension name required")
 					}
-					if c.Bool("active") == false && c.Bool("passive") == false {
-						return fmt.Errorf("either --active or --passive must be set")
+					if c.Bool("active") == false && c.Bool("passive") == false && c.Bool("recovery") == false && c.Bool("common") == false {
+						return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
 					}
 					if err := checkRoot(); err != nil {
 						return err
@@ -913,6 +935,12 @@ The validate command expects a configuration file as its only argument. Local fi
 					}
 					if c.Bool("passive") {
 						bootState = "passive"
+					}
+					if c.Bool("recovery") {
+						bootState = "recovery"
+					}
+					if c.Bool("common") {
+						bootState = "common"
 					}
 					ext := c.Args().First()
 					if err := action.EnableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
@@ -940,6 +968,14 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "now",
 						Usage: "Disable the system extension now and reload systemd-sysext",
 					},
+					&cli.BoolFlag{
+						Name:  "recovery",
+						Usage: "Disable the system extension for the recovery boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "common",
+						Usage: "Disable the system extension for the common boot entry",
+					},
 				},
 				Before: func(c *cli.Context) error {
 					if c.Bool("active") && c.Bool("passive") {
@@ -948,8 +984,8 @@ The validate command expects a configuration file as its only argument. Local fi
 					if c.Args().Len() != 1 {
 						return fmt.Errorf("extension name required")
 					}
-					if c.Bool("active") == false && c.Bool("passive") == false {
-						return fmt.Errorf("either --active or --passive must be set")
+					if c.Bool("active") == false && c.Bool("passive") == false && c.Bool("recovery") == false && c.Bool("common") == false {
+						return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
 					}
 					if err := checkRoot(); err != nil {
 						return err
@@ -967,6 +1003,12 @@ The validate command expects a configuration file as its only argument. Local fi
 					}
 					if c.Bool("passive") {
 						bootState = "passive"
+					}
+					if c.Bool("recovery") {
+						bootState = "recovery"
+					}
+					if c.Bool("common") {
+						bootState = "common"
 					}
 					ext := c.Args().First()
 					if err := action.DisableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
