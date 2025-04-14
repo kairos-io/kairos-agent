@@ -63,7 +63,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 
 		grubargs = append(
 			grubargs,
-			fmt.Sprintf("--root-directory=%s", rootDir),
+			fmt.Sprintf("--directory=%s", rootDir),
 			fmt.Sprintf("--boot-directory=%s", bootDir),
 			"--target=i386-pc",
 			target,
