@@ -29,9 +29,11 @@ import (
 // TODO: On remove we should check if the extension is running and refresh systemd-sysext? YES
 
 const (
-	sysextDir        = "/var/lib/kairos/extensions/"
-	sysextDirActive  = "/var/lib/kairos/extensions/active"
-	sysextDirPassive = "/var/lib/kairos/extensions/passive"
+	sysextDir         = "/var/lib/kairos/extensions/"
+	sysextDirActive   = "/var/lib/kairos/extensions/active"
+	sysextDirPassive  = "/var/lib/kairos/extensions/passive"
+	sysextDirRecovery = "/var/lib/kairos/extensions/recovery"
+	sysextDirCommon   = "/var/lib/kairos/extensions/common"
 )
 
 // SysExtension represents a system extension
@@ -54,6 +56,12 @@ func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension,
 	case "passive":
 		cfg.Logger.Debug("Listing passive system extensions")
 		return getDirExtensions(cfg, sysextDirPassive)
+	case "recovery":
+		cfg.Logger.Debug("Listing recovery system extensions")
+		return getDirExtensions(cfg, sysextDirRecovery)
+	case "common":
+		cfg.Logger.Debug("Listing common system extensions")
+		return getDirExtensions(cfg, sysextDirCommon)
 	default:
 		cfg.Logger.Debug("Listing all system extensions (Enabled or not)")
 		return getDirExtensions(cfg, sysextDir)
@@ -124,6 +132,10 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 		targetDir = sysextDirActive
 	case "passive":
 		targetDir = sysextDirPassive
+	case "recovery":
+		targetDir = sysextDirRecovery
+	case "common":
+		targetDir = sysextDirCommon
 	default:
 		return fmt.Errorf("boot state %s not supported", bootState)
 	}
@@ -157,7 +169,7 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_mode", bootState))
 		// TODO: Check in UKI?
 		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_state", bootState)).Msg("Checking boot state")
-		if stateMatches == nil {
+		if stateMatches == nil || bootState == "common" {
 			err = cfg.Fs.Symlink(filepath.Join(targetDir, extension.Name), filepath.Join("/run/extensions", extension.Name))
 			if err != nil {
 				return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
@@ -188,6 +200,10 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string, no
 		targetDir = sysextDirActive
 	case "passive":
 		targetDir = sysextDirPassive
+	case "recovery":
+		targetDir = sysextDirRecovery
+	case "common":
+		targetDir = sysextDirCommon
 	default:
 		return fmt.Errorf("boot state %s not supported", bootState)
 	}
@@ -213,7 +229,7 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string, no
 		// This is to avoid disabling the extension in the wrong boot state
 		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_mode", bootState))
 		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_mode", bootState)).Msg("Checking boot state")
-		if stateMatches == nil {
+		if stateMatches == nil || bootState == "common" {
 			// Remove the symlink from /run/extensions if is in there
 			cfg.Logger.Logger.Debug().Str("stat", filepath.Join("/run/extensions", extension.Name)).Msg("Checking if symlink exists")
 			_, stat := cfg.Fs.Readlink(filepath.Join("/run/extensions", extension.Name))
@@ -279,21 +295,15 @@ func RemoveSystemExtension(cfg *config.Config, extension string, now bool) error
 		return nil
 	}
 	// Check if the extension is enabled in active or passive
-	enabledActive, err := GetSystemExtension(cfg, extension, "active")
-	if err == nil {
-		// Remove the symlink
-		if err := cfg.Fs.Remove(enabledActive.Location); err != nil {
-			return fmt.Errorf("failed to remove symlink for %s: %w", enabledActive.Name, err)
+	for _, state := range []string{"active", "passive", "recovery", "common"} {
+		enabled, err := GetSystemExtension(cfg, extension, state)
+		if err == nil {
+			// Remove the symlink
+			if err := cfg.Fs.Remove(enabled.Location); err != nil {
+				return fmt.Errorf("failed to remove symlink for %s: %w", enabled.Name, err)
+			}
+			cfg.Logger.Infof("System extension %s disabled from %s", enabled.Name, state)
 		}
-		cfg.Logger.Infof("System extension %s disabled from active", enabledActive.Name)
-	}
-	enabledPassive, err := GetSystemExtension(cfg, extension, "passive")
-	if err == nil {
-		// Remove the symlink
-		if err := cfg.Fs.Remove(enabledPassive.Location); err != nil {
-			return fmt.Errorf("failed to remove symlink for %s: %w", enabledPassive.Name, err)
-		}
-		cfg.Logger.Infof("System extension %s disabled from passive", enabledPassive.Name)
 	}
 	// Remove the extension
 	if err := cfg.Fs.RemoveAll(installed.Location); err != nil {

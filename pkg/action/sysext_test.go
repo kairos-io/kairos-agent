@@ -95,6 +95,18 @@ var _ = Describe("Sysext Actions test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(extensions).To(BeEmpty())
 			})
+			It("should return no extensions for recovery enabled extensions", func() {
+				Expect(err).ToNot(HaveOccurred())
+				extensions, err := action.ListSystemExtensions(config, "recovery")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+			})
+			It("should return no extensions for common enabled extensions", func() {
+				Expect(err).ToNot(HaveOccurred())
+				extensions, err := action.ListSystemExtensions(config, "common")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+			})
 		})
 		Describe("With empty dir", func() {
 			It("should return no extensions", func() {
@@ -109,6 +121,16 @@ var _ = Describe("Sysext Actions test", func() {
 			})
 			It("should return no extensions for passive enabled extensions", func() {
 				extensions, err := action.ListSystemExtensions(config, "passive")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+			})
+			It("should return no extensions for recovery enabled extensions", func() {
+				extensions, err := action.ListSystemExtensions(config, "recovery")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+			})
+			It("should return no extensions for common enabled extensions", func() {
+				extensions, err := action.ListSystemExtensions(config, "common")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(extensions).To(BeEmpty())
 			})
@@ -178,6 +200,12 @@ var _ = Describe("Sysext Actions test", func() {
 			extensions, err = action.ListSystemExtensions(config, "passive")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(extensions).To(BeEmpty())
+			extensions, err = action.ListSystemExtensions(config, "recovery")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			extensions, err = action.ListSystemExtensions(config, "common")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
 			// Enable it for passive
 			err = action.EnableSystemExtension(config, "valid.raw", "passive", false)
 			Expect(err).ToNot(HaveOccurred())
@@ -197,6 +225,18 @@ var _ = Describe("Sysext Actions test", func() {
 				{
 					Name:     "valid.raw",
 					Location: "/var/lib/kairos/extensions/active/valid.raw",
+				},
+			}))
+			// Enable it for recovery
+			err = action.EnableSystemExtension(config, "valid.raw", "recovery", false)
+			Expect(err).ToNot(HaveOccurred())
+			// Passive should have the extension
+			extensions, err = action.ListSystemExtensions(config, "recovery")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(Equal([]action.SysExtension{
+				{
+					Name:     "valid.raw",
+					Location: "/var/lib/kairos/extensions/recovery/valid.raw",
 				},
 			}))
 
@@ -241,6 +281,43 @@ var _ = Describe("Sysext Actions test", func() {
 			realPath, err := config.Fs.RawPath("/var/lib/kairos/extensions/active/valid.raw")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(readlink).To(Equal(realPath))
+		})
+		It("should enable an installed extension and reload the system with it if its a common one", func() {
+			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
+			Expect(err).ToNot(HaveOccurred())
+			extensions, err := action.ListSystemExtensions(config, "common")
+			Expect(err).ToNot(HaveOccurred())
+			// This basically returns an error if the command is not executed
+			Expect(runner.IncludesCmds([][]string{
+				{"systemctl", "restart", "systemd-sysext"},
+			})).To(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			// Enable it for common
+			err = action.EnableSystemExtension(config, "valid.raw", "common", true)
+			Expect(err).ToNot(HaveOccurred())
+			// Should have refreshed the systemd-sysext
+			Expect(runner.IncludesCmds([][]string{
+				{"systemctl", "restart", "systemd-sysext"},
+			})).ToNot(HaveOccurred())
+			// Should be enabled
+			extensions, err = action.ListSystemExtensions(config, "common")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(Equal([]action.SysExtension{
+				{
+					Name:     "valid.raw",
+					Location: "/var/lib/kairos/extensions/common/valid.raw",
+				},
+			}))
+			// Active and Passive should be empty
+			extensions, err = action.ListSystemExtensions(config, "active")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			extensions, err = action.ListSystemExtensions(config, "passive")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extensions).To(BeEmpty())
+			// Symlink should be created in /run/extensions
+			_, err = config.Fs.Stat("/run/extensions/valid.raw")
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should enable an installed extension and NOT reload the system with it if we are on the wrong boot state", func() {
 			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
