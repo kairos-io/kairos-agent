@@ -831,11 +831,20 @@ The validate command expects a configuration file as its only argument. Local fi
 						Name:  "passive",
 						Usage: "List the system extensions for the passive boot entry",
 					},
+					&cli.BoolFlag{
+						Name:  "recovery",
+						Usage: "List the system extensions for the recovery boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "common",
+						Usage: "List the system extensions for the common boot entry (applies to all boot states)",
+					},
 				},
 				Before: func(c *cli.Context) error {
-					if c.Bool("active") && c.Bool("passive") {
-						return fmt.Errorf("only one of --active or --passive can be set")
+					if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+						return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
 					}
+
 					if err := checkRoot(); err != nil {
 						return err
 					}
@@ -883,20 +892,31 @@ The validate command expects a configuration file as its only argument. Local fi
 						Usage: "Enable the system extension for the passive boot entry",
 					},
 					&cli.BoolFlag{
+						Name:  "recovery",
+						Usage: "List the system extensions for the recovery boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "common",
+						Usage: "List the system extensions for the common boot entry (applies to all boot states)",
+					},
+					&cli.BoolFlag{
 						Name:  "now",
 						Usage: "Enable the system extension now and reload systemd-sysext",
 					},
 				},
 				Before: func(c *cli.Context) error {
-					if c.Bool("active") && c.Bool("passive") {
-						return fmt.Errorf("only one of --active or --passive can be set")
-					}
 					if c.Args().Len() != 1 {
 						return fmt.Errorf("extension name required")
 					}
-					if c.Bool("active") == false && c.Bool("passive") == false {
-						return fmt.Errorf("either --active or --passive must be set")
+
+					if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+						return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
 					}
+
+					if noneOfEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+						return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
+					}
+
 					if err := checkRoot(); err != nil {
 						return err
 					}
@@ -937,19 +957,29 @@ The validate command expects a configuration file as its only argument. Local fi
 						Usage: "Disable the system extension for the passive boot entry",
 					},
 					&cli.BoolFlag{
+						Name:  "recovery",
+						Usage: "List the system extensions for the recovery boot entry",
+					},
+					&cli.BoolFlag{
+						Name:  "common",
+						Usage: "List the system extensions for the common boot entry (applies to all boot states)",
+					},
+					&cli.BoolFlag{
 						Name:  "now",
 						Usage: "Disable the system extension now and reload systemd-sysext",
 					},
 				},
 				Before: func(c *cli.Context) error {
-					if c.Bool("active") && c.Bool("passive") {
-						return fmt.Errorf("only one of --active or --passive can be set")
-					}
 					if c.Args().Len() != 1 {
 						return fmt.Errorf("extension name required")
 					}
-					if c.Bool("active") == false && c.Bool("passive") == false {
-						return fmt.Errorf("either --active or --passive must be set")
+
+					if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+						return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
+					}
+
+					if noneOfEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+						return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
 					}
 					if err := checkRoot(); err != nil {
 						return err
@@ -1170,4 +1200,27 @@ func getReleasesFromProvider(includePrereleases bool) ([]string, error) {
 	}
 
 	return tags, nil
+}
+
+func moreThanOneEnabled(bools ...bool) bool {
+	count := 0
+	for _, b := range bools {
+		if b {
+			count++
+		}
+		if count > 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func noneOfEnabled(bools ...bool) bool {
+	count := 0
+	for _, b := range bools {
+		if b {
+			count++
+		}
+	}
+	return count == 0
 }
