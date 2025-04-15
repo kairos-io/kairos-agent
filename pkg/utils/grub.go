@@ -312,6 +312,10 @@ func SetPersistentVariables(grubEnvFile string, vars map[string]string, c *agent
 			return fmt.Errorf("error reading existing grubenv file %s: %s", grubEnvFile, err)
 		}
 	}
+	// Check if we have a nil var
+	if len(finalVars) != 0 {
+		c.Logger.Logger.Debug().Interface("existingVars", finalVars).Msg("Existing grubenv variables")
+	}
 
 	// Merge the existing vars with the new ones
 	// existing vars will be overridden by the new ones from vars if they match
@@ -460,9 +464,10 @@ func (g Grub) copyGrub() error {
 // ReadPersistentVariables will read a grub env file and parse the values
 func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[string]string, error) {
 	vars := make(map[string]string)
+
 	f, err := c.Fs.ReadFile(grubEnvFile)
 	if err != nil {
-		return nil, err
+		return vars, err
 	}
 	for _, a := range strings.Split(string(f), "\n") {
 		// comment or fillup, so skip
@@ -473,7 +478,7 @@ func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[str
 		if len(splitted) == 2 {
 			vars[splitted[0]] = splitted[1]
 		} else {
-			return nil, fmt.Errorf("invalid format for %s", a)
+			return vars, fmt.Errorf("invalid format for %s", a)
 		}
 	}
 	return vars, nil
