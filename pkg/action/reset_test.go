@@ -36,7 +36,7 @@ import (
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
-var _ = Describe("Reset action tests", Focus, func() {
+var _ = Describe("Reset action tests", func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
