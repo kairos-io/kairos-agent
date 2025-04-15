@@ -36,7 +36,7 @@ import (
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
-var _ = Describe("Reset action tests", func() {
+var _ = Describe("Reset action tests", Focus, func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
@@ -130,7 +130,8 @@ var _ = Describe("Reset action tests", func() {
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 
-			fs.Create(constants.EfiDevice)
+			Expect(fsutils.MkdirAll(fs, constants.EfiDevice, constants.DirPerm)).ToNot(HaveOccurred())
+
 			bootedFrom = constants.SystemLabel
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 				if cmd == cmdFail {
