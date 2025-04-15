@@ -61,16 +61,37 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	if !efi {
 		g.config.Logger.Info("Installing GRUB..")
 
+		// Find where in the rootDir the grub2 files for i386-pc are
+		// Use the modinfo.sh as a marker
+		grubdir = findGrubDir(g.config.Fs, rootDir)
+		if grubdir == "" {
+			g.config.Logger.Logger.Error().Str("path", rootDir).Msg("Failed to find grub dir")
+			return fmt.Errorf("failed to find grub dir under %s", rootDir)
+		}
+
 		grubargs = append(
 			grubargs,
-			fmt.Sprintf("--root-directory=%s", rootDir),
+			fmt.Sprintf("--directory=%s", grubdir),
 			fmt.Sprintf("--boot-directory=%s", bootDir),
 			"--target=i386-pc",
 			target,
 		)
 
 		g.config.Logger.Debugf("Running grub with the following args: %s", grubargs)
-		out, err := g.config.Runner.Run(FindCommand("grub2-install", []string{"grub2-install", "grub-install"}), grubargs...)
+		grubBin := FindCommand("grub2-install", []string{
+			filepath.Join(rootDir, "/usr/sbin/", "grub2-install"),
+			filepath.Join(rootDir, "/usr/bin/", "grub2-install"),
+			filepath.Join(rootDir, "/sbin/", "grub2-install"),
+			filepath.Join(rootDir, "/usr/sbin/", "grub-install"),
+			filepath.Join(rootDir, "/usr/bin/", "grub-install"),
+			filepath.Join(rootDir, "/sbin/", "grub-install"),
+		})
+		g.config.Logger.Logger.Warn().Str("command", grubBin).Msg("Found grub binary")
+		if grubBin == "" {
+			g.config.Logger.Logger.Error().Str("path", rootDir).Msg("Grub binary not found in path")
+			return fmt.Errorf("grub binary not found in path")
+		}
+		out, err := g.config.Runner.Run(grubBin, grubargs...)
 		if err != nil {
 			g.config.Logger.Errorf(string(out))
 			return err
@@ -257,7 +278,28 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	return nil
 }
 
+// findGrubDir will find the grub dir under the dir given if possible by searching for the modinfo.sh
+// And it will return the full dir path where the modinfo.sh is contained
+func findGrubDir(vfs v1.FS, dir string) string {
+	var foundPath string
+	_ = fsutils.WalkDirFs(vfs, dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.Name() == "modinfo.sh" && strings.Contains(path, "i386-pc") {
+			// We found the grub dir, return it
+			foundPath = filepath.Dir(path)
+			return nil
+		}
+		return nil
+	})
+
+	return foundPath
+
+}
+
 // SetPersistentVariables sets the given vars into the given grubEnvFile for grub to read them
+// TODO: Ingest the existing values from the grubenv file and set them as well
 func SetPersistentVariables(grubEnvFile string, vars map[string]string, fs v1.FS) error {
 	var b bytes.Buffer
 	b.WriteString("# GRUB Environment Block\n")

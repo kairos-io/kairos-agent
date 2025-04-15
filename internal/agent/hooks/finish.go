@@ -43,7 +43,11 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 		c.Logger.Logger.Info().Msg("Finished encrypt hook")
 	}
 
-	// Now that we have everything encrypted and ready if needed
+	// Now that we have everything encrypted and ready to mount if needed
+	err = GrubPostInstallOptions{}.Run(c, spec)
+	if err != nil {
+		return err
+	}
 	err = BundlePostInstall{}.Run(c, spec)
 	if err != nil {
 		c.Logger.Logger.Warn().Err(err).Msg("could not copy run bundles post install")
