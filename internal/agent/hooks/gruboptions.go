@@ -56,7 +56,7 @@ func grubOptions(c config.Config, opts map[string]string) error {
 			return err
 		}
 	}
-	err = utils.SetPersistentVariables(filepath.Join(runtime.OEM.MountPoint, "grubenv"), opts, c.Fs)
+	err = utils.SetPersistentVariables(filepath.Join(runtime.OEM.MountPoint, "grubenv"), opts, &c)
 	if err != nil {
 		c.Logger.Logger.Error().Err(err).Msg("Failed to set grub options")
 	}

@@ -804,9 +804,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 				defer os.Remove(temp.Name())
 				Expect(utils.SetPersistentVariables(
 					temp.Name(), map[string]string{"key1": "value1", "key2": "value2"},
-					config.Fs,
+					config,
 				)).To(BeNil())
-				readVars, err := utils.ReadPersistentVariables(temp.Name(), config.Fs)
+				readVars, err := utils.ReadPersistentVariables(temp.Name(), config)
 				Expect(err).To(BeNil())
 				Expect(readVars["key1"]).To(Equal("value1"))
 				Expect(readVars["key2"]).To(Equal("value2"))
@@ -814,7 +814,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 			It("Fails setting variables", func() {
 				e := utils.SetPersistentVariables(
 					"badfilenopath", map[string]string{"key1": "value1"},
-					config.Fs,
+					config,
 				)
 				Expect(e).NotTo(BeNil())
 			})

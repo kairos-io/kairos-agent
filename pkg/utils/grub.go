@@ -24,6 +24,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -298,21 +299,38 @@ func findGrubDir(vfs v1.FS, dir string) string {
 
 }
 
-// SetPersistentVariables sets the given vars into the given grubEnvFile for grub to read them
-// TODO: Ingest the existing values from the grubenv file and set them as well
-func SetPersistentVariables(grubEnvFile string, vars map[string]string, fs v1.FS) error {
+func SetPersistentVariables(grubEnvFile string, vars map[string]string, c *agentConfig.Config) error {
 	var b bytes.Buffer
+	// Write header
 	b.WriteString("# GRUB Environment Block\n")
 
-	keys := make([]string, 0, len(vars))
-	for k := range vars {
+	// First we need to read the existing values from the grubenv file if they exist
+	finalVars, err := ReadPersistentVariables(grubEnvFile, c)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("error reading existing grubenv file %s: %s", grubEnvFile, err)
+		}
+	}
+
+	// Merge the existing vars with the new ones
+	// existing vars will be overridden by the new ones from vars if they match
+	for key, newValue := range vars {
+		if oldValue, exists := finalVars[key]; exists {
+			c.Logger.Logger.Warn().Str("key", key).Str("oldValue", oldValue).Str("newValue", newValue).Msg("Overriding existing grubenv variable")
+		}
+		finalVars[key] = newValue
+	}
+
+	keys := make([]string, 0, len(finalVars))
+
+	for k := range finalVars {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		if len(vars[k]) > 0 {
-			b.WriteString(fmt.Sprintf("%s=%s\n", k, vars[k]))
+		if len(finalVars[k]) > 0 {
+			b.WriteString(fmt.Sprintf("%s=%s\n", k, finalVars[k]))
 		}
 	}
 
@@ -322,7 +340,7 @@ func SetPersistentVariables(grubEnvFile string, vars map[string]string, fs v1.FS
 	for i := 0; i < toBeFilled; i++ {
 		b.WriteByte('#')
 	}
-	return fs.WriteFile(grubEnvFile, b.Bytes(), cnst.FilePerm)
+	return c.Fs.WriteFile(grubEnvFile, b.Bytes(), cnst.FilePerm)
 }
 
 // copyGrubFonts will try to finds and copy the needed grub fonts into the system
@@ -439,9 +457,9 @@ func (g Grub) copyGrub() error {
 }
 
 // ReadPersistentVariables will read a grub env file and parse the values
-func ReadPersistentVariables(grubEnvFile string, fs v1.FS) (map[string]string, error) {
+func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[string]string, error) {
 	vars := make(map[string]string)
-	f, err := fs.ReadFile(grubEnvFile)
+	f, err := c.Fs.ReadFile(grubEnvFile)
 	if err != nil {
 		return nil, err
 	}
