@@ -79,7 +79,8 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		)
 
 		g.config.Logger.Debugf("Running grub with the following args: %s", grubargs)
-		grubBin := FindCommand("grub2-install", []string{
+
+		grubBin := FindCommand(g.config.Fs, "", []string{
 			filepath.Join(rootDir, "/usr/sbin/", "grub2-install"),
 			filepath.Join(rootDir, "/usr/bin/", "grub2-install"),
 			filepath.Join(rootDir, "/sbin/", "grub2-install"),
@@ -87,7 +88,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			filepath.Join(rootDir, "/usr/bin/", "grub-install"),
 			filepath.Join(rootDir, "/sbin/", "grub-install"),
 		})
-		g.config.Logger.Logger.Warn().Str("command", grubBin).Msg("Found grub binary")
+		g.config.Logger.Logger.Debug().Str("command", grubBin).Msg("Found grub binary")
 		if grubBin == "" {
 			g.config.Logger.Logger.Error().Str("path", rootDir).Msg("Grub binary not found in path")
 			return fmt.Errorf("grub binary not found in path")

@@ -28,7 +28,6 @@ import (
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
@@ -149,6 +148,16 @@ var _ = Describe("Install action tests", func() {
 			err = fsutils.MkdirAll(fs, filepath.Dir(grubCfg), constants.DirPerm)
 			Expect(err).To(BeNil())
 			_, err = fs.Create(grubCfg)
+			Expect(err).To(BeNil())
+			// Create fake grub dir in rootfs and fake grub binaries
+			err = fsutils.MkdirAll(fs, filepath.Join(spec.Active.MountPoint, "sbin"), constants.DirPerm)
+			Expect(err).To(BeNil())
+			f, err := fs.Create(filepath.Join(spec.Active.MountPoint, "sbin", "grub2-install"))
+			Expect(err).To(BeNil())
+			Expect(f.Chmod(0755)).ToNot(HaveOccurred())
+			err = fsutils.MkdirAll(fs, filepath.Join(spec.Active.MountPoint, "usr", "lib", "grub", "i386-pc"), constants.DirPerm)
+			Expect(err).To(BeNil())
+			_, err = fs.Create(filepath.Join(spec.Active.MountPoint, "usr", "lib", "grub", "i386-pc", "modinfo.sh"))
 			Expect(err).To(BeNil())
 
 			mainDisk := sdkTypes.Disk{
@@ -349,9 +358,10 @@ var _ = Describe("Install action tests", func() {
 			Expect(cl.WasGetCalledWith("http://my.config.org")).To(BeTrue())
 		})
 
-		It("Fails on grub2-install errors", Label("grub"), func() {
+		It("Fails to find grub2-install", Label("grub"), func() {
 			spec.Target = device
-			cmdFail = utils.FindCommand("grub2-install", []string{"grub2-install", "grub-install"})
+			err := config.Fs.Remove(filepath.Join(spec.Active.MountPoint, "sbin", "grub2-install"))
+			Expect(err).To(BeNil())
 			Expect(installer.Run()).NotTo(BeNil())
 			Expect(runner.MatchMilestones([][]string{{"grub2-install"}}))
 		})
@@ -361,6 +371,13 @@ var _ = Describe("Install action tests", func() {
 			cmdFail = "tune2fs"
 			Expect(installer.Run()).NotTo(BeNil())
 			Expect(runner.MatchMilestones([][]string{{"tune2fs", "-L", constants.PassiveLabel}}))
+		})
+		It("Fails if there is no grub2 artifacts", Label("grub"), func() {
+			spec.Target = device
+			err := config.Fs.Remove(filepath.Join(spec.Active.MountPoint, "usr", "lib", "grub", "i386-pc", "modinfo.sh"))
+			Expect(err).To(BeNil())
+			Expect(installer.Run()).NotTo(BeNil())
+			Expect(runner.MatchMilestones([][]string{{"grub2-install"}}))
 		})
 	})
 })
