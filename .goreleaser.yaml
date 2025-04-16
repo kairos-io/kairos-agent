@@ -23,6 +23,9 @@ builds:
       - amd64
     binary: '{{ .ProjectName }}'
     id: fips-amd64
+    hooks:
+      post:
+        - bash -c 'set -e; go version {{.Path}} | grep boringcrypto || (echo "boringcrypto not found" && exit 1)'
   - ldflags:
       - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
     env:
@@ -35,6 +38,9 @@ builds:
       - arm64
     binary: '{{ .ProjectName }}'
     id: fips-arm64
+    hooks:
+      post:
+        - bash -c 'set -e; go version {{.Path}} | grep boringcrypto || (echo "boringcrypto not found" && exit 1)'
 source:
   enabled: true
   name_template: '{{ .ProjectName }}-{{ .Tag }}-source'
