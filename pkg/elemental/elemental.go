@@ -584,7 +584,7 @@ func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint stri
 	return utils.SetPersistentVariables(
 		filepath.Join(partMountPoint, cnst.GrubOEMEnv),
 		map[string]string{"default_menu_entry": defaultEntry},
-		e.config.Fs,
+		e.config,
 	)
 }
 

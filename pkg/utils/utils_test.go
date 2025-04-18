@@ -691,6 +691,17 @@ var _ = Describe("Utils", Label("utils"), func() {
 
 				err = fs.WriteFile(filepath.Join(rootDir, constants.GrubConf), []byte("console=tty1"), 0644)
 				Expect(err).ShouldNot(HaveOccurred())
+				// Create fake grub dir in rootfs and fake grub binaries
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "sbin"), constants.DirPerm)
+				Expect(err).To(BeNil())
+				f, err := fs.Create(filepath.Join(rootDir, "sbin", "grub2-install"))
+				Expect(err).To(BeNil())
+				Expect(f.Chmod(0755)).ToNot(HaveOccurred())
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "usr", "lib", "grub", "i386-pc"), constants.DirPerm)
+				Expect(err).To(BeNil())
+				_, err = fs.Create(filepath.Join(rootDir, "usr", "lib", "grub", "i386-pc", "modinfo.sh"))
+				Expect(err).To(BeNil())
+
 			})
 			It("installs with default values", func() {
 				grub := utils.NewGrub(config)
@@ -740,6 +751,18 @@ var _ = Describe("Utils", Label("utils"), func() {
 				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/bootx64.efi"))
 				Expect(err).To(BeNil())
 
+			})
+			It("fails with bios if no grub2-install file exists", func() {
+				Expect(fs.RemoveAll(filepath.Join(rootDir, "sbin", "grub2-install"))).ToNot(HaveOccurred())
+				grub := utils.NewGrub(config)
+				err := grub.Install(target, rootDir, bootDir, constants.GrubConf, "", false, "")
+				Expect(err).To(HaveOccurred())
+			})
+			It("fails with bios if no modules files exists", func() {
+				Expect(fs.RemoveAll(filepath.Join(rootDir, "usr", "lib", "grub", "i386-pc"))).ToNot(HaveOccurred())
+				grub := utils.NewGrub(config)
+				err := grub.Install(target, rootDir, bootDir, constants.GrubConf, "", false, "")
+				Expect(err).To(HaveOccurred())
 			})
 			It("fails with efi if no modules files exist", Label("efi"), func() {
 				grub := utils.NewGrub(config)
@@ -804,9 +827,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 				defer os.Remove(temp.Name())
 				Expect(utils.SetPersistentVariables(
 					temp.Name(), map[string]string{"key1": "value1", "key2": "value2"},
-					config.Fs,
+					config,
 				)).To(BeNil())
-				readVars, err := utils.ReadPersistentVariables(temp.Name(), config.Fs)
+				readVars, err := utils.ReadPersistentVariables(temp.Name(), config)
 				Expect(err).To(BeNil())
 				Expect(readVars["key1"]).To(Equal("value1"))
 				Expect(readVars["key2"]).To(Equal("value2"))
@@ -814,9 +837,34 @@ var _ = Describe("Utils", Label("utils"), func() {
 			It("Fails setting variables", func() {
 				e := utils.SetPersistentVariables(
 					"badfilenopath", map[string]string{"key1": "value1"},
-					config.Fs,
+					config,
 				)
 				Expect(e).NotTo(BeNil())
+			})
+			It("respects existing variables", func() {
+				temp, err := os.CreateTemp("", "grub-*")
+				Expect(err).ShouldNot(HaveOccurred())
+				defer os.Remove(temp.Name())
+				Expect(utils.SetPersistentVariables(
+					temp.Name(), map[string]string{"key1": "value1", "key2": "value2"},
+					config,
+				)).To(BeNil())
+				readVars, err := utils.ReadPersistentVariables(temp.Name(), config)
+				Expect(err).To(BeNil())
+				Expect(readVars["key1"]).To(Equal("value1"))
+				Expect(readVars["key2"]).To(Equal("value2"))
+
+				// Now we do it again with a different value
+				Expect(utils.SetPersistentVariables(
+					temp.Name(), map[string]string{"key1": "value3", "key3": "value4"},
+					config,
+				)).To(BeNil())
+				// Now there should be an extra key and key1 should be updated
+				readVars, err = utils.ReadPersistentVariables(temp.Name(), config)
+				Expect(err).To(BeNil())
+				Expect(readVars["key1"]).To(Equal("value3"))
+				Expect(readVars["key2"]).To(Equal("value2"))
+				Expect(readVars["key3"]).To(Equal("value4"))
 			})
 		})
 	})

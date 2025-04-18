@@ -2,7 +2,7 @@ package hook
 
 import (
 	"fmt"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"strings"
@@ -15,8 +15,7 @@ type Interface interface {
 // FinishInstall is a list of hooks that run when the install process is finished completely.
 // Its mean for options that are not related to the install process itself
 var FinishInstall = []Interface{
-	&GrubOptions{}, // Set custom GRUB options in OEM partition
-	&Lifecycle{},   // Handles poweroff/reboot by config options
+	&Lifecycle{}, // Handles poweroff/reboot by config options
 }
 
 // FinishReset is a list of hooks that run when the reset process is finished completely.
@@ -46,7 +45,7 @@ var FinishUKIInstall = []Interface{
 // PostInstall is a list of hooks that run after the install process has run.
 // Runs things that need to be done before we run other post install stages like
 // encrypting partitions, copying the install logs or installing bundles
-// Most of this options are optional so they are not run by default unless specified int he config
+// Most of this options are optional so they are not run by default unless specified in the config
 var PostInstall = []Interface{
 	&Finish{},
 }
