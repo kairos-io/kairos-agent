@@ -42,7 +42,7 @@ require (
 	github.com/google/go-github/v71 v71.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
 	github.com/urfave/cli/v2 v2.27.6
-	github.com/urfave/cli/v3 v3.1.1
+	github.com/urfave/cli/v3 v3.2.0
 )
 
 require (
