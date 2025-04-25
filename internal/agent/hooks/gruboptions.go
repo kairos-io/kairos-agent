@@ -5,7 +5,7 @@ import (
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/kairos-io/kairos-sdk/mounts"
+	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/state"
 	"path/filepath"
 )
@@ -50,11 +50,11 @@ func grubOptions(c config.Config, opts map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer mounts.Umount(state.PartitionState{Mounted: true, MountPoint: runtime.OEM.MountPoint})
 	if !runtime.OEM.Mounted {
-		if err := mounts.PrepareWrite(runtime.OEM, cnst.OEMPath); err != nil {
-			return err
-		}
+		err = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
+		defer func() {
+			_ = machine.Umount(cnst.OEMPath)
+		}()
 	}
 	err = utils.SetPersistentVariables(filepath.Join(runtime.OEM.MountPoint, "grubenv"), opts, &c)
 	if err != nil {
