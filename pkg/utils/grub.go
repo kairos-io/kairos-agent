@@ -24,6 +24,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -61,16 +62,38 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	if !efi {
 		g.config.Logger.Info("Installing GRUB..")
 
+		// Find where in the rootDir the grub2 files for i386-pc are
+		// Use the modinfo.sh as a marker
+		grubdir = findGrubDir(g.config.Fs, rootDir)
+		if grubdir == "" {
+			g.config.Logger.Logger.Error().Str("path", rootDir).Msg("Failed to find grub dir")
+			return fmt.Errorf("failed to find grub dir under %s", rootDir)
+		}
+
 		grubargs = append(
 			grubargs,
-			fmt.Sprintf("--root-directory=%s", rootDir),
+			fmt.Sprintf("--directory=%s", grubdir),
 			fmt.Sprintf("--boot-directory=%s", bootDir),
 			"--target=i386-pc",
 			target,
 		)
 
 		g.config.Logger.Debugf("Running grub with the following args: %s", grubargs)
-		out, err := g.config.Runner.Run(FindCommand("grub2-install", []string{"grub2-install", "grub-install"}), grubargs...)
+
+		grubBin := FindCommand(g.config.Fs, "", []string{
+			filepath.Join(rootDir, "/usr/sbin/", "grub2-install"),
+			filepath.Join(rootDir, "/usr/bin/", "grub2-install"),
+			filepath.Join(rootDir, "/sbin/", "grub2-install"),
+			filepath.Join(rootDir, "/usr/sbin/", "grub-install"),
+			filepath.Join(rootDir, "/usr/bin/", "grub-install"),
+			filepath.Join(rootDir, "/sbin/", "grub-install"),
+		})
+		g.config.Logger.Logger.Debug().Str("command", grubBin).Msg("Found grub binary")
+		if grubBin == "" {
+			g.config.Logger.Logger.Error().Str("path", rootDir).Msg("Grub binary not found in path")
+			return fmt.Errorf("grub binary not found in path")
+		}
+		out, err := g.config.Runner.Run(grubBin, grubargs...)
 		if err != nil {
 			g.config.Logger.Errorf(string(out))
 			return err
@@ -257,20 +280,62 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 	return nil
 }
 
-// SetPersistentVariables sets the given vars into the given grubEnvFile for grub to read them
-func SetPersistentVariables(grubEnvFile string, vars map[string]string, fs v1.FS) error {
+// findGrubDir will find the grub dir under the dir given if possible by searching for the modinfo.sh
+// And it will return the full dir path where the modinfo.sh is contained
+func findGrubDir(vfs v1.FS, dir string) string {
+	var foundPath string
+	_ = fsutils.WalkDirFs(vfs, dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.Name() == "modinfo.sh" && strings.Contains(path, "i386-pc") {
+			// We found the grub dir, return it
+			foundPath = filepath.Dir(path)
+			return nil
+		}
+		return nil
+	})
+
+	return foundPath
+
+}
+
+func SetPersistentVariables(grubEnvFile string, vars map[string]string, c *agentConfig.Config) error {
 	var b bytes.Buffer
+	// Write header
 	b.WriteString("# GRUB Environment Block\n")
 
-	keys := make([]string, 0, len(vars))
-	for k := range vars {
+	// First we need to read the existing values from the grubenv file if they exist
+	finalVars, err := ReadPersistentVariables(grubEnvFile, c)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("error reading existing grubenv file %s: %s", grubEnvFile, err)
+		}
+	}
+	// Check if we have a nil var
+	if len(finalVars) != 0 {
+		c.Logger.Logger.Debug().Interface("existingVars", finalVars).Msg("Existing grubenv variables")
+	}
+
+	// Merge the existing vars with the new ones
+	// existing vars will be overridden by the new ones from vars if they match
+	for key, newValue := range vars {
+		if oldValue, exists := finalVars[key]; exists {
+			c.Logger.Logger.Warn().Str("key", key).Str("oldValue", oldValue).Str("newValue", newValue).Msg("Overriding existing grubenv variable")
+		}
+		finalVars[key] = newValue
+	}
+
+	keys := make([]string, 0, len(finalVars))
+
+	for k := range finalVars {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		if len(vars[k]) > 0 {
-			b.WriteString(fmt.Sprintf("%s=%s\n", k, vars[k]))
+		if len(finalVars[k]) > 0 {
+			b.WriteString(fmt.Sprintf("%s=%s\n", k, finalVars[k]))
 		}
 	}
 
@@ -280,7 +345,7 @@ func SetPersistentVariables(grubEnvFile string, vars map[string]string, fs v1.FS
 	for i := 0; i < toBeFilled; i++ {
 		b.WriteByte('#')
 	}
-	return fs.WriteFile(grubEnvFile, b.Bytes(), cnst.FilePerm)
+	return c.Fs.WriteFile(grubEnvFile, b.Bytes(), cnst.FilePerm)
 }
 
 // copyGrubFonts will try to finds and copy the needed grub fonts into the system
@@ -397,11 +462,12 @@ func (g Grub) copyGrub() error {
 }
 
 // ReadPersistentVariables will read a grub env file and parse the values
-func ReadPersistentVariables(grubEnvFile string, fs v1.FS) (map[string]string, error) {
+func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[string]string, error) {
 	vars := make(map[string]string)
-	f, err := fs.ReadFile(grubEnvFile)
+
+	f, err := c.Fs.ReadFile(grubEnvFile)
 	if err != nil {
-		return nil, err
+		return vars, err
 	}
 	for _, a := range strings.Split(string(f), "\n") {
 		// comment or fillup, so skip
@@ -412,7 +478,7 @@ func ReadPersistentVariables(grubEnvFile string, fs v1.FS) (map[string]string, e
 		if len(splitted) == 2 {
 			vars[splitted[0]] = splitted[1]
 		} else {
-			return nil, fmt.Errorf("invalid format for %s", a)
+			return vars, fmt.Errorf("invalid format for %s", a)
 		}
 	}
 	return vars, nil

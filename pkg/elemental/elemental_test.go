@@ -848,7 +848,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			el := elemental.NewElemental(config)
 			Expect(config.Fs.Mkdir("/tmp", cnst.DirPerm)).To(BeNil())
 			Expect(el.SetDefaultGrubEntry("/tmp", "/imgMountpoint", "dio")).To(BeNil())
-			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config.Fs)
+			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config)
 			Expect(err).To(BeNil())
 			Expect(varsParsed["default_menu_entry"]).To(Equal("dio"))
 		})
@@ -856,7 +856,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			el := elemental.NewElemental(config)
 			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
 			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountPoint", "")).To(BeNil())
-			_, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config.Fs)
+			_, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config)
 			// Because it didnt do anything due to the entry being empty, the file should not be there
 			Expect(err).ToNot(BeNil())
 			_, err = config.Fs.Stat(filepath.Join("/tmp", cnst.GrubOEMEnv))
@@ -871,7 +871,7 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 
 			el := elemental.NewElemental(config)
 			Expect(el.SetDefaultGrubEntry("/mountpoint", "/imgMountPoint", "")).To(BeNil())
-			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/mountpoint", cnst.GrubOEMEnv), config.Fs)
+			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/mountpoint", cnst.GrubOEMEnv), config)
 			Expect(err).To(BeNil())
 			Expect(varsParsed["default_menu_entry"]).To(Equal("test"))
 
