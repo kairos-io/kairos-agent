@@ -7,9 +7,9 @@ import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	kcrypt "github.com/kairos-io/kcrypt/pkg/lib"
 	"os"
 	"regexp"
 	"strconv"
@@ -79,14 +79,14 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 	}()
 
 	for _, p := range c.Install.Encrypt {
-		_, err := kcrypt.Luksify(p, c.Logger)
+		_, err := kcrypt.Encrypt(p, c.Logger)
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
 			return err
 		}
 	}
 
-	_ = kcrypt.UnlockAllWithLogger(false, c.Logger)
+	_ = kcrypt.UnlockAll(false, c.Logger)
 
 	for _, p := range c.Install.Encrypt {
 		for i := 0; i < 10; i++ {
@@ -98,7 +98,7 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 				time.Sleep(time.Duration(i) * time.Second)
 				// Retry the unlock as well, because maybe the partition was not refreshed on time for unlock to unlock it
 				// So no matter how many tries we do, it will still be locked and will never appear
-				err := kcrypt.UnlockAllWithLogger(false, c.Logger)
+				err := kcrypt.UnlockAll(false, c.Logger)
 				if err != nil {
 					c.Logger.Debugf("UnlockAll returned: %s", err)
 				}
@@ -188,7 +188,7 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 	for _, p := range append([]string{constants.OEMLabel, constants.PersistentLabel}, c.Install.Encrypt...) {
 		c.Logger.Infof("Encrypting %s", p)
 		_ = os.Setenv("SYSTEMD_LOG_LEVEL", "debug")
-		err = kcrypt.LuksifyMeasurements(p, c.BindPublicPCRs, c.BindPCRs, c.Logger)
+		err = kcrypt.EncryptWithPcrs(p, c.BindPublicPCRs, c.BindPCRs, c.Logger)
 		_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
@@ -201,7 +201,7 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 
 	_ = os.Setenv("SYSTEMD_LOG_LEVEL", "debug")
 
-	err = kcrypt.UnlockAllWithLogger(true, c.Logger)
+	err = kcrypt.UnlockAll(true, c.Logger)
 
 	_ = os.Unsetenv("SYSTEMD_LOG_LEVEL")
 	if err != nil {
@@ -223,7 +223,7 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 				time.Sleep(time.Duration(i) * time.Second)
 				// Retry the unlock as well, because maybe the partition was not refreshed on time for unlock to unlock it
 				// So no matter how many tries we do, it will still be locked and will never appear
-				err := kcrypt.UnlockAllWithLogger(true, c.Logger)
+				err := kcrypt.UnlockAll(true, c.Logger)
 				if err != nil {
 					c.Logger.Debugf("UnlockAll returned: %s", err)
 				}
