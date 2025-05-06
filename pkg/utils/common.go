@@ -503,11 +503,27 @@ func CalcFileChecksum(fs v1.FS, fileName string) (string, error) {
 
 // FindCommand will search for the command(s) in the options given to find the current command
 // If it cant find it returns the default value give. Useful for the same binaries with different names across OS
-func FindCommand(defaultPath string, options []string) string {
+func FindCommand(fs v1.FS, defaultPath string, options []string) string {
 	for _, p := range options {
-		path, err := exec.LookPath(p)
-		if err == nil {
-			return path
+		// If its a full path, check if it exists directly
+		if strings.Contains(p, "/") {
+			d, err := fs.Stat(p)
+			if err != nil {
+				continue
+			}
+			if d.IsDir() {
+				continue
+			}
+			m := d.Mode()
+			// Check if its executable
+			if m&0111 != 0 {
+				return p
+			}
+		} else {
+			path, err := exec.LookPath(p)
+			if err == nil {
+				return path
+			}
 		}
 	}
 

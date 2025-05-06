@@ -694,7 +694,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "kairos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to kairos"))
-				variables, err := utils.ReadPersistentVariables("/oem/grubenv", fs)
+				variables, err := utils.ReadPersistentVariables("/oem/grubenv", config)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(variables["next_entry"]).To(Equal("kairos"))
 			})

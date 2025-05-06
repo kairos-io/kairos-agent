@@ -130,7 +130,8 @@ var _ = Describe("Reset action tests", func() {
 			ghwTest.AddDisk(mainDisk)
 			ghwTest.CreateDevices()
 
-			fs.Create(constants.EfiDevice)
+			Expect(fsutils.MkdirAll(fs, constants.EfiDevice, constants.DirPerm)).ToNot(HaveOccurred())
+
 			bootedFrom = constants.SystemLabel
 			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 				if cmd == cmdFail {

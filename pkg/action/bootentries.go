@@ -60,7 +60,7 @@ func selectBootEntryGrub(cfg *config.Config, entry string) error {
 	vars := map[string]string{
 		"next_entry": entry,
 	}
-	err = utils.SetPersistentVariables("/oem/grubenv", vars, cfg.Fs)
+	err = utils.SetPersistentVariables("/oem/grubenv", vars, cfg)
 	if err != nil {
 		cfg.Logger.Errorf("could not set default boot entry: %s\n", err)
 		return err
