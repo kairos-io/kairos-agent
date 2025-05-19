@@ -17,8 +17,9 @@ limitations under the License.
 package v1_test
 
 import (
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -451,7 +452,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("fails with empty source", func() {
 					err := spec.Sanitize()
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring(constants.UpgradeNoSourceError))
+					Expect(err.Error()).To(ContainSubstring(constants.UpgradeRecoveryNoSourceError))
 				})
 				It("fails with missing recovery partition", func() {
 					spec.Recovery.Source = v1.NewFileSrc("/tmp")
