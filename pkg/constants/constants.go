@@ -126,7 +126,8 @@ const (
 	StateResetBootSuffix = " state reset (auto)"
 
 	// Error
-	UpgradeNoSourceError           = "Could not find a proper source for the upgrade.\nThis can be configured in the cloud config files under the 'upgrade.system.uri' key or via cmdline using the '--source' flag."
+	UpgradeNoSourceError           = "could not find a proper source for the upgrade.\nThis can be configured in the cloud config files under the 'upgrade.system.uri' key or via cmdline using the '--source' flag"
+	UpgradeRecoveryNoSourceError   = "could not find a proper source for the recovery upgrade.\nThis can be configured in the cloud config files under the 'upgrade.recovery-system.uri' key or via cmdline using the '--source' flag"
 	MultipleEntriesAssessmentError = "multiple boot entries found for %s"
 	NoBootAssessmentWarning        = "No boot assessment found in current boot entry config file"
 )

@@ -190,7 +190,7 @@ func (u *UpgradeSpec) RecoveryUpgrade() bool {
 func (u *UpgradeSpec) Sanitize() error {
 	if u.RecoveryUpgrade() {
 		if u.Recovery.Source.IsEmpty() {
-			return fmt.Errorf(constants.UpgradeNoSourceError)
+			return fmt.Errorf(constants.UpgradeRecoveryNoSourceError)
 		}
 		if u.Partitions.Recovery == nil || u.Partitions.Recovery.MountPoint == "" {
 			return fmt.Errorf("undefined recovery partition")
