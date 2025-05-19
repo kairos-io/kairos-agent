@@ -75,11 +75,12 @@ var cmds = []*cli.Command{
 			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
 		},
 		Description: `
-Manually upgrade a kairos node Active image. Does not upgrade passive or recovery images.
+Manually upgrade a kairos node Active image. Does not upgrade the passive image. It upgrades the recovery image when the --recovery flag is passed.
 
-With no arguments, it defaults to latest available release. To specify a version, pass it as argument using the --source flag.
-Passing just the Kairos version as the first argument is no longer supported. If you speficy a positional argument, it will be treated
+To specify a version, pass it as argument using the --source flag. Passing just the Kairos version as the first argument is no longer supported. If you speficy a positional argument, it will be treated
 as a value for the --source flag.
+
+You can also specify the upgrade image by setting "upgrade.system.uri" for the active image or "upgrade.recovery-system.uri" for the recovery image, in the cloud config.
 
 To retrieve all the available versions, use "kairos upgrade list-releases"
 
@@ -167,24 +168,21 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
-			var v string
 			var source string
 			if c.Args().Len() == 1 {
-				v = c.Args().First()
 				fmt.Println("Warning: Passing a version as a positional argument is deprecated. Use --source flag instead.")
 				fmt.Println("The value will be used as a value for the --source flag")
+				source = c.Args().First()
+			}
+
+			if v := c.String("source"); v != "" {
 				source = v
 			}
 
-			image := c.String("image")
-			if v := c.String("source"); v != "" {
-				source = c.String("source")
-			}
-
-			if image != "" {
+			if v := c.String("image"); v != "" {
 				fmt.Println("--image flag is deprecated, please use --source")
 				// override source with image for now until we drop it
-				source = fmt.Sprintf("oci:%s", image)
+				source = fmt.Sprintf("oci:%s", v)
 			}
 
 			if c.Bool("recovery") && c.String("boot-entry") != "" {
