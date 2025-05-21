@@ -18,11 +18,9 @@ package utils
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"io"
 	"io/fs"
 	random "math/rand"
@@ -35,19 +33,18 @@ import (
 	"strings"
 	"time"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
-	"github.com/kairos-io/kairos-sdk/state"
-	"github.com/kairos-io/kairos-sdk/types"
-
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
-
 	"github.com/distribution/reference"
+	"github.com/foxboron/go-uefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efivarfs"
 	"github.com/joho/godotenv"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/types"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"github.com/twpayne/go-vfs/v5"
 )
 
@@ -732,57 +729,24 @@ func ReadEfivar(path string) ([]byte, error) {
 	return content, nil
 }
 
-func RemoveBootEntry(entryName string) error {
-	// Open the EFI variables directory
-	efiDir := "/sys/firmware/efi/efivars"
-	dir, err := os.Open(efiDir)
-	if err != nil {
-		return fmt.Errorf("failed to open EFI vars directory: %w", err)
-	}
-	defer dir.Close()
-
-	// Read all EFI variable files
-	files, err := dir.Readdirnames(-1)
-	if err != nil {
-		return fmt.Errorf("failed to read EFI vars: %w", err)
-	}
-
-	// Search for the boot entry matching the given name
-	var targetFile string
-	for _, file := range files {
-		if bytes.HasPrefix([]byte(file), []byte("Boot")) && bytes.Contains([]byte(file), []byte(entryName)) {
-			targetFile = file
-			break
+func RemoveBootEntry(entryName string, l types.KairosLogger) error {
+	// Remove any boot entries that match kairos
+	efifs := efivarfs.NewFS().CheckImmutable().UnsetImmutable().Open()
+	for _, entry := range efifs.GetBootOrder() {
+		e, err := efifs.GetBootEntry(entry)
+		if err != nil {
+			return err
+		}
+		// TODO: maybe contains? so we match any variations that migth appear in the future?
+		if strings.ToLower(e.Description) == strings.ToLower(entryName) {
+			fileName := fmt.Sprintf("/sys/firmware/efi/efivars/%s-%s", entry, attributes.EFI_GLOBAL_VARIABLE.Format())
+			l.Logger.Debug().Str("entry", e.Description).Str("filename", fileName).Msg("Removing boot entry")
+			err = os.Remove(fileName)
+			if err != nil {
+				l.Logger.Err(err).Str("entry", e.Description).Str("filename", fileName).Msg("Error removing boot entry")
+				return err
+			}
 		}
 	}
-
-	if targetFile == "" {
-		return fmt.Errorf("boot entry with name '%s' not found", entryName)
-	}
-
-	// Construct the full path to the EFI variable file
-	targetPath := fmt.Sprintf("%s/%s", efiDir, targetFile)
-
-	// Remove the immutable attribute if set
-	file, err := os.OpenFile(targetPath, os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("failed to open EFI variable file: %w", err)
-	}
-	defer file.Close()
-
-	var attr int
-	if attr, err = unix.IoctlGetInt(int(file.Fd()), unix.FS_IOC_GETFLAGS); err == nil {
-		const FS_IMMUTABLE_FL = 0x00000010
-		attr &^= FS_IMMUTABLE_FL
-		if err := unix.IoctlSetPointerInt(int(file.Fd()), unix.FS_IOC_SETFLAGS, attr); err != nil {
-			return fmt.Errorf("failed to remove immutable attribute: %w", err)
-		}
-	}
-
-	// Delete the EFI variable file
-	if err := os.Remove(targetPath); err != nil {
-		return fmt.Errorf("failed to remove EFI variable file: %w", err)
-	}
-
 	return nil
 }

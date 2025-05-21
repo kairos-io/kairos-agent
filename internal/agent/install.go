@@ -326,6 +326,13 @@ func runInstallUki(c *config.Config) error {
 			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE var file")
 			return err
 		}
+		// Now remove the boot entry
+		// TODO: Do we fail here?
+		err = internalutils.RemoveBootEntry("kairos", c.Logger)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE boot entry")
+			return err
+		}
 	}
 	return err
 }
