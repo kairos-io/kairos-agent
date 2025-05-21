@@ -312,18 +312,10 @@ func runInstallUki(c *config.Config) error {
 	err = installAction.Run()
 
 	if err == nil && utils.Exists(constants.PXEVarFile) {
-		// Remove the immutable attribute from the Efi var before removing it, otherwise we cant
-		sh, err := utils.SH(fmt.Sprintf("chattr -i %s", constants.PXEVarFile))
+		// TODO: do we fail here?
+		err = internalutils.RemoveEfivarPXE(c.Logger)
 		if err != nil {
-			c.Logger.Logger.Error().Err(err).Str("output", sh).Msg("Error removing immutable attribute from PXE var")
-			return err
-		}
-
-		c.Logger.Logger.Debug().Str("output", sh).Msg("Removed immutable attribute from PXE var")
-		// Remove the PXE var file
-		err = os.Remove(constants.PXEVarFile)
-		if err != nil {
-			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE var file")
+			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE Efivar")
 			return err
 		}
 		// Now remove the boot entry

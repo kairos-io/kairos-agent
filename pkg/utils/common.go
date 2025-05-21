@@ -750,3 +750,9 @@ func RemoveBootEntry(entryName string, l types.KairosLogger) error {
 	}
 	return nil
 }
+
+func RemoveEfivarPXE(l types.KairosLogger) error {
+	// Disable immutability
+	_ = efivarfs.NewFS().CheckImmutable().UnsetImmutable().Open()
+	return os.Remove(cnst.PXEVarFile)
+}
