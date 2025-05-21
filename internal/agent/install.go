@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -236,6 +240,53 @@ func RunInstall(c *config.Config) error {
 
 // runInstallUki runs the UKI path install
 func runInstallUki(c *config.Config) error {
+	// Check if we are running in PXE
+	efivar, err := internalutils.ReadEfivar(constants.PXEVarFile)
+	// We dont care if we fail to read it, that means its not there
+	if err == nil {
+		c.Logger.Logger.Info().Str("iso", string(efivar)).Msg("PXE boot detected, downloading and mounting the iso locally")
+		err = c.Client.GetURL(c.Logger, string(efivar), constants.PXEIsoFile)
+		if err != nil {
+			return err
+		}
+
+		isoLoop, err := loop.LoopRO(&v1.Image{File: constants.PXEIsoFile}, c)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error creating loop device for iso image")
+			return err
+		}
+		defer loop.Unloop(isoLoop, c)
+		c.Logger.Logger.Debug().Str("iso", isoLoop).Msg("Mounted iso loop device")
+
+		// Mount the iso under /run/initramfs/live
+		err = c.Mounter.Mount(isoLoop, constants.UkiCdromSource, constants.IsoFS, nil)
+		if err != nil {
+			c.Logger.Errorf("Error mounting iso: %s", err.Error())
+			return err
+		}
+		c.Logger.Infof("Mounted iso under %s", constants.UkiCdromSource)
+		defer c.Mounter.Unmount(constants.UkiCdromSource)
+
+		// Now mount the efi image inside the iso
+		efiLoop, err := loop.LoopRO(&v1.Image{File: filepath.Join(constants.UkiCdromSource, constants.PXEEfiBootFile)}, c)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error creating loop device for efi image")
+			return err
+		}
+		defer loop.Unloop(efiLoop, c)
+		c.Logger.Logger.Debug().Str("efi", efiLoop).Msg("Mounted efi loop device")
+
+		// Mount the efi image under /run/rootfsbase which is the same as to other boot paths mount it at
+		err = c.Mounter.Mount(efiLoop, constants.IsoBaseTree, constants.EfiFs, nil)
+		if err != nil {
+			c.Logger.Errorf("Error mounting iso: %s", err.Error())
+			return err
+		}
+		c.Logger.Infof("Mounted Efi source under %s", constants.IsoBaseTree)
+		defer c.Mounter.Unmount(constants.IsoBaseTree)
+		// Now the system should have the same paths and sources as the normal install from usb/cdrom
+	}
+
 	// Load the spec from the config
 	installSpec, err := config.ReadUkiInstallSpecFromConfig(c)
 	if err != nil {
@@ -258,7 +309,25 @@ func runInstallUki(c *config.Config) error {
 	c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
 
 	installAction := uki.NewInstallAction(c, installSpec)
-	return installAction.Run()
+	err = installAction.Run()
+
+	if err == nil && utils.Exists(constants.PXEVarFile) {
+		// Remove the immutable attribute from the Efi var before removing it, otherwise we cant
+		sh, err := utils.SH(fmt.Sprintf("chattr -i %s", constants.PXEVarFile))
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Str("output", sh).Msg("Error removing immutable attribute from PXE var")
+			return err
+		}
+
+		c.Logger.Logger.Debug().Str("output", sh).Msg("Removed immutable attribute from PXE var")
+		// Remove the PXE var file
+		err = os.Remove(constants.PXEVarFile)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE var file")
+			return err
+		}
+	}
+	return err
 }
 
 // runInstall runs the non-UKI path install

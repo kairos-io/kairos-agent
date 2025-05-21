@@ -18,9 +18,11 @@ package utils
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"io/fs"
 	random "math/rand"
@@ -706,4 +708,81 @@ func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogge
 		return "", nil
 	}
 	return re.FindStringSubmatch(currentfile[0])[1], nil
+}
+
+// ReadEfivar reads the content of an efivar file, skipping the first 4 bytes (attributes).
+func ReadEfivar(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// Skip the first 4 bytes (attributes)
+	attr := make([]byte, 4)
+	_, err = io.ReadFull(f, attr)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return content, nil
+}
+
+func RemoveBootEntry(entryName string) error {
+	// Open the EFI variables directory
+	efiDir := "/sys/firmware/efi/efivars"
+	dir, err := os.Open(efiDir)
+	if err != nil {
+		return fmt.Errorf("failed to open EFI vars directory: %w", err)
+	}
+	defer dir.Close()
+
+	// Read all EFI variable files
+	files, err := dir.Readdirnames(-1)
+	if err != nil {
+		return fmt.Errorf("failed to read EFI vars: %w", err)
+	}
+
+	// Search for the boot entry matching the given name
+	var targetFile string
+	for _, file := range files {
+		if bytes.HasPrefix([]byte(file), []byte("Boot")) && bytes.Contains([]byte(file), []byte(entryName)) {
+			targetFile = file
+			break
+		}
+	}
+
+	if targetFile == "" {
+		return fmt.Errorf("boot entry with name '%s' not found", entryName)
+	}
+
+	// Construct the full path to the EFI variable file
+	targetPath := fmt.Sprintf("%s/%s", efiDir, targetFile)
+
+	// Remove the immutable attribute if set
+	file, err := os.OpenFile(targetPath, os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open EFI variable file: %w", err)
+	}
+	defer file.Close()
+
+	var attr int
+	if attr, err = unix.IoctlGetInt(int(file.Fd()), unix.FS_IOC_GETFLAGS); err == nil {
+		const FS_IMMUTABLE_FL = 0x00000010
+		attr &^= FS_IMMUTABLE_FL
+		if err := unix.IoctlSetPointerInt(int(file.Fd()), unix.FS_IOC_SETFLAGS, attr); err != nil {
+			return fmt.Errorf("failed to remove immutable attribute: %w", err)
+		}
+	}
+
+	// Delete the EFI variable file
+	if err := os.Remove(targetPath); err != nil {
+		return fmt.Errorf("failed to remove EFI variable file: %w", err)
+	}
+
+	return nil
 }
