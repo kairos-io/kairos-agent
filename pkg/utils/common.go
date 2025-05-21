@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/foxboron/go-uefi/efi/attr"
 	"io"
 	"io/fs"
 	random "math/rand"
@@ -753,6 +754,10 @@ func RemoveBootEntry(entryName string, l types.KairosLogger) error {
 
 func RemoveEfivarPXE(l types.KairosLogger) error {
 	// Disable immutability
-	_ = efivarfs.NewFS().CheckImmutable().UnsetImmutable().Open()
+	err := attr.UnsetImmutable(cnst.PXEVarFile)
+	if err != nil {
+		l.Logger.Err(err).Str("file", cnst.PXEVarFile).Msg("Error unsetting immutable attribute")
+		return err
+	}
 	return os.Remove(cnst.PXEVarFile)
 }
