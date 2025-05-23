@@ -21,6 +21,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/foxboron/go-uefi/efi/attr"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 	"io"
 	"io/fs"
 	random "math/rand"
@@ -33,19 +35,18 @@ import (
 	"strings"
 	"time"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
-	"github.com/kairos-io/kairos-sdk/state"
-	"github.com/kairos-io/kairos-sdk/types"
-
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
-
 	"github.com/distribution/reference"
+	"github.com/foxboron/go-uefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efivarfs"
 	"github.com/joho/godotenv"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/types"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"github.com/twpayne/go-vfs/v5"
 )
 
@@ -706,4 +707,107 @@ func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogge
 		return "", nil
 	}
 	return re.FindStringSubmatch(currentfile[0])[1], nil
+}
+
+// ReadEfivar reads the content of an efivar file, skipping the first 4 bytes (attributes).
+func ReadEfivar(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// Skip the first 4 bytes (attributes)
+	attr := make([]byte, 4)
+	_, err = io.ReadFull(f, attr)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return content, nil
+}
+
+func RemoveBootEntry(entryName string, l types.KairosLogger) error {
+	// Remove any boot entries that match kairos
+	efifs := efivarfs.NewFS().CheckImmutable().UnsetImmutable().Open()
+	for _, entry := range efifs.GetBootOrder() {
+		e, err := efifs.GetBootEntry(entry)
+		if err != nil {
+			return err
+		}
+		// TODO: maybe contains? so we match any variations that migth appear in the future?
+		if strings.ToLower(e.Description) == strings.ToLower(entryName) {
+			fileName := fmt.Sprintf("/sys/firmware/efi/efivars/%s-%s", entry, attributes.EFI_GLOBAL_VARIABLE.Format())
+			l.Logger.Debug().Str("entry", e.Description).Str("filename", fileName).Msg("Removing boot entry")
+			err = os.Remove(fileName)
+			if err != nil {
+				l.Logger.Err(err).Str("entry", e.Description).Str("filename", fileName).Msg("Error removing boot entry")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func RemoveEfivarPXE(l types.KairosLogger) error {
+	// Disable immutability
+	err := attr.UnsetImmutable(cnst.PXEVarFile)
+	if err != nil {
+		l.Logger.Err(err).Str("file", cnst.PXEVarFile).Msg("Error unsetting immutable attribute")
+		return err
+	}
+	return os.Remove(cnst.PXEVarFile)
+}
+
+func SetPXEEnv(c *agentConfig.Config) error {
+	efivar, err := ReadEfivar(cnst.PXEVarFile)
+	// We dont care if we fail to read it, that means its not there
+	if err == nil {
+		c.Logger.Logger.Info().Str("iso", string(efivar)).Msg("PXE boot detected, downloading and mounting the iso locally")
+		err = c.Client.GetURL(c.Logger, string(efivar), cnst.PXEIsoFile)
+		if err != nil {
+			return err
+		}
+
+		isoLoop, err := loop.LoopRO(&v1.Image{File: cnst.PXEIsoFile}, c)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error creating loop device for iso image")
+			return err
+		}
+		defer loop.Unloop(isoLoop, c)
+		c.Logger.Logger.Debug().Str("iso", isoLoop).Msg("Mounted iso loop device")
+
+		// Mount the iso under /run/initramfs/live
+		err = c.Mounter.Mount(isoLoop, cnst.UkiCdromSource, cnst.IsoFS, nil)
+		if err != nil {
+			c.Logger.Errorf("Error mounting iso: %s", err.Error())
+			return err
+		}
+		c.Logger.Infof("Mounted iso under %s", cnst.UkiCdromSource)
+		defer c.Mounter.Unmount(cnst.UkiCdromSource)
+
+		// Now mount the efi image inside the iso
+		efiLoop, err := loop.LoopRO(&v1.Image{File: filepath.Join(cnst.UkiCdromSource, cnst.PXEEfiBootFile)}, c)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error creating loop device for efi image")
+			return err
+		}
+		defer loop.Unloop(efiLoop, c)
+		c.Logger.Logger.Debug().Str("efi", efiLoop).Msg("Mounted efi loop device")
+
+		// Mount the efi image under /run/rootfsbase which is the same as to other boot paths mount it at
+		err = c.Mounter.Mount(efiLoop, cnst.IsoBaseTree, cnst.EfiFs, nil)
+		if err != nil {
+			c.Logger.Errorf("Error mounting iso: %s", err.Error())
+			return err
+		}
+		c.Logger.Infof("Mounted Efi source under %s", cnst.IsoBaseTree)
+		defer c.Mounter.Unmount(cnst.IsoBaseTree)
+		// Now the system should have the same paths and sources as the normal install from usb/cdrom
+	}
+	return nil
 }

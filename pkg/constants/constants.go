@@ -50,6 +50,7 @@ const (
 	LinuxImgFs                   = "ext2"
 	SquashFs                     = "squashfs"
 	EfiFs                        = "vfat"
+	IsoFS                        = "iso9660"
 	EfiSize                      = uint(64)
 	OEMSize                      = uint(64)
 	PersistentSize               = uint(0)
@@ -130,6 +131,11 @@ const (
 	UpgradeRecoveryNoSourceError   = "could not find a proper source for the recovery upgrade.\nThis can be configured in the cloud config files under the 'upgrade.recovery-system.uri' key or via cmdline using the '--source' flag"
 	MultipleEntriesAssessmentError = "multiple boot entries found for %s"
 	NoBootAssessmentWarning        = "No boot assessment found in current boot entry config file"
+
+	// PXEVarFile is the path to the PXE boot entry file
+	PXEVarFile     = "/sys/firmware/efi/efivars/PXEBoot-3c909ff1-80a9-5970-94f1-fefb255c88bd"
+	PXEIsoFile     = "/tmp/pxe-source.iso"
+	PXEEfiBootFile = "efiboot.img"
 )
 
 func UkiDefaultMenuEntries() []string {
