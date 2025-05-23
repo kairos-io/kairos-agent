@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/foxboron/go-uefi/efi/attr"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 	"io"
 	"io/fs"
 	random "math/rand"
@@ -760,4 +761,53 @@ func RemoveEfivarPXE(l types.KairosLogger) error {
 		return err
 	}
 	return os.Remove(cnst.PXEVarFile)
+}
+
+func SetPXEEnv(c *agentConfig.Config) error {
+	efivar, err := ReadEfivar(cnst.PXEVarFile)
+	// We dont care if we fail to read it, that means its not there
+	if err == nil {
+		c.Logger.Logger.Info().Str("iso", string(efivar)).Msg("PXE boot detected, downloading and mounting the iso locally")
+		err = c.Client.GetURL(c.Logger, string(efivar), cnst.PXEIsoFile)
+		if err != nil {
+			return err
+		}
+
+		isoLoop, err := loop.LoopRO(&v1.Image{File: cnst.PXEIsoFile}, c)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error creating loop device for iso image")
+			return err
+		}
+		defer loop.Unloop(isoLoop, c)
+		c.Logger.Logger.Debug().Str("iso", isoLoop).Msg("Mounted iso loop device")
+
+		// Mount the iso under /run/initramfs/live
+		err = c.Mounter.Mount(isoLoop, cnst.UkiCdromSource, cnst.IsoFS, nil)
+		if err != nil {
+			c.Logger.Errorf("Error mounting iso: %s", err.Error())
+			return err
+		}
+		c.Logger.Infof("Mounted iso under %s", cnst.UkiCdromSource)
+		defer c.Mounter.Unmount(cnst.UkiCdromSource)
+
+		// Now mount the efi image inside the iso
+		efiLoop, err := loop.LoopRO(&v1.Image{File: filepath.Join(cnst.UkiCdromSource, cnst.PXEEfiBootFile)}, c)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Error creating loop device for efi image")
+			return err
+		}
+		defer loop.Unloop(efiLoop, c)
+		c.Logger.Logger.Debug().Str("efi", efiLoop).Msg("Mounted efi loop device")
+
+		// Mount the efi image under /run/rootfsbase which is the same as to other boot paths mount it at
+		err = c.Mounter.Mount(efiLoop, cnst.IsoBaseTree, cnst.EfiFs, nil)
+		if err != nil {
+			c.Logger.Errorf("Error mounting iso: %s", err.Error())
+			return err
+		}
+		c.Logger.Infof("Mounted Efi source under %s", cnst.IsoBaseTree)
+		defer c.Mounter.Unmount(cnst.IsoBaseTree)
+		// Now the system should have the same paths and sources as the normal install from usb/cdrom
+	}
+	return nil
 }
