@@ -13,22 +13,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/sanity-io/litter"
+
 	qr "github.com/kairos-io/go-nodepair/qrcode"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
-	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
-	"github.com/sanity-io/litter"
 )
 
 func displayInfo(agentConfig *Config) {
@@ -235,13 +236,6 @@ func RunInstall(c *config.Config) error {
 
 // runInstallUki runs the UKI path install
 func runInstallUki(c *config.Config) error {
-	// Check if we are running in PXE
-	err := internalutils.SetPXEEnv(c)
-	if err != nil {
-		c.Logger.Logger.Error().Err(err).Msg("Error setting PXE environment")
-		return err
-	}
-
 	// Load the spec from the config
 	installSpec, err := config.ReadUkiInstallSpecFromConfig(c)
 	if err != nil {
@@ -264,24 +258,7 @@ func runInstallUki(c *config.Config) error {
 	c.CloudInitPaths = append(c.CloudInitPaths, installSpec.CloudInit...)
 
 	installAction := uki.NewInstallAction(c, installSpec)
-	err = installAction.Run()
-
-	if err == nil && utils.Exists(constants.PXEVarFile) {
-		// TODO: do we fail here?
-		err = internalutils.RemoveEfivarPXE(c.Logger)
-		if err != nil {
-			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE Efivar")
-			return err
-		}
-		// Now remove the boot entry
-		// TODO: Do we fail here?
-		err = internalutils.RemoveBootEntry("kairos", c.Logger)
-		if err != nil {
-			c.Logger.Logger.Error().Err(err).Msg("Error removing PXE boot entry")
-			return err
-		}
-	}
-	return err
+	return installAction.Run()
 }
 
 // runInstall runs the non-UKI path install

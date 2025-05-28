@@ -23,15 +23,6 @@ func errnoIsErr(err error) error {
 
 // Loop will setup a /dev/loopX device linked to the image file by using syscalls directly to set it
 func Loop(img *v1.Image, cfg *config.Config) (loopDevice string, err error) {
-	return loop(img, cfg, os.O_RDWR)
-}
-
-// LoopRO will setup a /dev/loopX device linked to the image file by using syscalls directly to set it. Will open it RO
-func LoopRO(img *v1.Image, cfg *config.Config) (loopDevice string, err error) {
-	return loop(img, cfg, os.O_RDONLY)
-}
-
-func loop(img *v1.Image, cfg *config.Config, openPerm int) (loopDevice string, err error) {
 	log := cfg.Logger
 	log.Debugf("Opening loop control device")
 	fd, err := cfg.Fs.OpenFile("/dev/loop-control", os.O_RDONLY, 0o644)
@@ -56,7 +47,7 @@ func loop(img *v1.Image, cfg *config.Config, openPerm int) (loopDevice string, e
 		return loopDevice, err
 	}
 	log.Logger.Debug().Str("image", img.File).Msg("Opening img file")
-	imageFile, err := cfg.Fs.OpenFile(img.File, openPerm, os.ModePerm)
+	imageFile, err := cfg.Fs.OpenFile(img.File, os.O_RDWR, os.ModePerm)
 	if err != nil {
 		log.Error("failed to open image file")
 		return loopDevice, err
