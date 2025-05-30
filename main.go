@@ -855,11 +855,15 @@ The validate command expects a configuration file as its only argument. Local fi
 					}
 					var bootState string
 
-					if c.Bool("active") {
-						bootState = "active"
-					}
-					if c.Bool("passive") {
-						bootState = "passive"
+					for k, v := range map[string]bool{
+						"active":  c.Bool("active"),
+						"passive": c.Bool("passive"),
+						"common":  c.Bool("common"),
+					} {
+						if v {
+							bootState = k
+							break
+						}
 					}
 					out, err := action.ListSystemExtensions(cfg, bootState)
 					if err != nil {

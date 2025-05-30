@@ -46,26 +46,25 @@ func (s *SysExtension) String() string {
 	return s.Name
 }
 
+
+func dirFromBootState(bootState string) string {
+	switch bootState {
+	case "active":
+		return sysextDirActive
+	case "passive":
+		return sysextDirPassive
+	case "recovery":
+		return sysextDirRecovery
+	case "common":
+		return sysextDirCommon
+	default:
+		return sysextDir
+	}
+}
 // ListSystemExtensions lists the system extensions in the given directory
 // If none is passed then it shows the generic ones
 func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension, error) {
-	switch bootState {
-	case "active":
-		cfg.Logger.Debug("Listing active system extensions")
-		return getDirExtensions(cfg, sysextDirActive)
-	case "passive":
-		cfg.Logger.Debug("Listing passive system extensions")
-		return getDirExtensions(cfg, sysextDirPassive)
-	case "recovery":
-		cfg.Logger.Debug("Listing recovery system extensions")
-		return getDirExtensions(cfg, sysextDirRecovery)
-	case "common":
-		cfg.Logger.Debug("Listing common system extensions")
-		return getDirExtensions(cfg, sysextDirCommon)
-	default:
-		cfg.Logger.Debug("Listing all system extensions (Enabled or not)")
-		return getDirExtensions(cfg, sysextDir)
-	}
+	return getDirExtensions(cfg, dirFromBootState(bootState))
 }
 
 // getDirExtensions lists the system extensions in the given directory
@@ -126,19 +125,7 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 		return err
 	}
 
-	var targetDir string
-	switch bootState {
-	case "active":
-		targetDir = sysextDirActive
-	case "passive":
-		targetDir = sysextDirPassive
-	case "recovery":
-		targetDir = sysextDirRecovery
-	case "common":
-		targetDir = sysextDirCommon
-	default:
-		return fmt.Errorf("boot state %s not supported", bootState)
-	}
+	targetDir := dirFromBootState(bootState)
 
 	// Check if the target dir exists and create it if it doesn't
 	if _, err := cfg.Fs.Stat(targetDir); os.IsNotExist(err) {
@@ -194,19 +181,7 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 // DisableSystemExtension disables a system extension that is already in the system for a given bootstate
 // It removes the symlink from the target dir according to the bootstate given
 func DisableSystemExtension(cfg *config.Config, ext string, bootState string, now bool) error {
-	var targetDir string
-	switch bootState {
-	case "active":
-		targetDir = sysextDirActive
-	case "passive":
-		targetDir = sysextDirPassive
-	case "recovery":
-		targetDir = sysextDirRecovery
-	case "common":
-		targetDir = sysextDirCommon
-	default:
-		return fmt.Errorf("boot state %s not supported", bootState)
-	}
+	targetDir := dirFromBootState(bootState)
 
 	// Check if the target dir exists
 	if _, err := cfg.Fs.Stat(targetDir); os.IsNotExist(err) {
