@@ -18,7 +18,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
-	github.com/mudler/yip v1.16.1
+	github.com/mudler/yip v1.16.2
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
@@ -36,10 +36,8 @@ require (
 
 require (
 	github.com/distribution/reference v0.6.0
-	github.com/foxboron/go-uefi v0.0.0-20250207204325-69fb7dba244f
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v69 v69.2.0
-	github.com/google/go-github/v72 v72.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.4
 	github.com/urfave/cli/v2 v2.27.6
 )
@@ -93,6 +91,7 @@ require (
 	github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/foxboron/go-uefi v0.0.0-20250207204325-69fb7dba244f // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20230802011745-f2460f5984f7 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect

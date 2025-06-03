@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 )
 
-type GrubOptions struct{}
+// GrubOptionsPostInstall is a hook that runs after the install process to add grub options.
+type GrubOptionsPostInstall struct{}
 
-func (b GrubOptions) Run(c config.Config, _ v1.Spec) error {
+func (b GrubOptionsPostInstall) Run(c config.Config, _ v1.Spec) error {
 	if len(c.Install.GrubOptions) == 0 {
 		return nil
 	}
@@ -26,9 +27,10 @@ func (b GrubOptions) Run(c config.Config, _ v1.Spec) error {
 	return nil
 }
 
-type GrubPostInstallOptions struct{}
+// GrubFirstBootOptions is a hook that runs on the first boot to add grub options.
+type GrubFirstBootOptions struct{}
 
-func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
+func (b GrubFirstBootOptions) Run(c config.Config, _ v1.Spec) error {
 	if len(c.GrubOptions) == 0 {
 		return nil
 	}

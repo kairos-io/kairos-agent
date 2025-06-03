@@ -32,7 +32,7 @@ var FinishUpgrade = []Interface{
 // FirstBoot is a list of hooks that run on the first boot of the node.
 var FirstBoot = []Interface{
 	&BundleFirstBoot{},
-	&GrubPostInstallOptions{},
+	&GrubFirstBootOptions{},
 }
 
 // FinishUKIInstall is a list of hooks that run when the install process is finished completely.

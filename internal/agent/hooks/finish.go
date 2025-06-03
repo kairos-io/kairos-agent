@@ -44,7 +44,7 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 	}
 
 	// Now that we have everything encrypted and ready to mount if needed
-	err = GrubPostInstallOptions{}.Run(c, spec)
+	err = GrubOptionsPostInstall{}.Run(c, spec)
 	if err != nil {
 		return err
 	}
