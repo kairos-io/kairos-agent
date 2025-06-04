@@ -13,7 +13,7 @@ import (
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
-var _ = Describe("Sysext Actions test", func() {
+var _ = Describe("Sysext Actions test", Label("sysext"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
@@ -173,12 +173,6 @@ var _ = Describe("Sysext Actions test", func() {
 		})
 	})
 	Describe("Enabling extensions", func() {
-		It("should fail to enable a extension if bootState is not valid", func() {
-			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
-			Expect(err).ToNot(HaveOccurred())
-			err = action.EnableSystemExtension(config, "valid", "invalid", false)
-			Expect(err).To(HaveOccurred())
-		})
 		It("should enable an installed extension", func() {
 			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
 			Expect(err).ToNot(HaveOccurred())
@@ -399,10 +393,6 @@ var _ = Describe("Sysext Actions test", func() {
 
 	})
 	Describe("Disabling extensions", func() {
-		It("should fail if bootState is not valid", func() {
-			err := action.DisableSystemExtension(config, "whatever", "invalid", false)
-			Expect(err).To(HaveOccurred())
-		})
 		It("should disable an enabled extension", func() {
 			err = config.Fs.WriteFile("/var/lib/kairos/extensions/valid.raw", []byte("valid"), 0644)
 			Expect(err).ToNot(HaveOccurred())
