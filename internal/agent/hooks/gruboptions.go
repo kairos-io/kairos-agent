@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 )
 
-// GrubOptionsPostInstall is a hook that runs after the install process to add grub options.
-type GrubOptionsPostInstall struct{}
+// GrubPostInstallOptions is a hook that runs after the install process to add grub options.
+type GrubPostInstallOptions struct{}
 
-func (b GrubOptionsPostInstall) Run(c config.Config, _ v1.Spec) error {
+func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 	if len(c.Install.GrubOptions) == 0 {
 		return nil
 	}
