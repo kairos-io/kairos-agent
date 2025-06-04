@@ -46,7 +46,7 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 	// Now that we have everything encrypted and ready to mount if needed
 	err = GrubPostInstallOptions{}.Run(c, spec)
 	if err != nil {
-		c.Logger.Logger.Warn().Err(err).Msg("could not set grub options post install")
+		c.Logger.Logger.Warn().Err(err).Msg("Could not set grub options post install")
 		return err
 	}
 	err = BundlePostInstall{}.Run(c, spec)
