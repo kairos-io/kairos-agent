@@ -38,13 +38,20 @@ type Chroot struct {
 }
 
 func NewChroot(path string, config *agentConfig.Config) *Chroot {
-	return &Chroot{
+	chroot := &Chroot{
 		path:          path,
-		defaultMounts: []string{"/dev", "/dev/pts", "/proc", "/sys", "/run/systemd/journal/"}, // Add journal so we keep logs
+		defaultMounts: []string{"/dev", "/dev/pts", "/proc", "/sys"},
 		extraMounts:   map[string]string{},
 		activeMounts:  []string{},
 		config:        config,
 	}
+
+	// If we have systemd running, we need to mount the journal directory to keep logger open
+	if fi, err := os.Lstat("/run/systemd/system"); err == nil && fi.IsDir() {
+		chroot.defaultMounts = append(chroot.defaultMounts, "/run/systemd/journal/")
+	}
+
+	return chroot
 }
 
 // ChrootedCallback runs the given callback in a chroot environment
