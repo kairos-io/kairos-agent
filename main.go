@@ -855,11 +855,16 @@ The validate command expects a configuration file as its only argument. Local fi
 					}
 					var bootState string
 
-					if c.Bool("active") {
-						bootState = "active"
-					}
-					if c.Bool("passive") {
-						bootState = "passive"
+					for k, v := range map[string]bool{
+						"active":   c.Bool("active"),
+						"passive":  c.Bool("passive"),
+						"recovery": c.Bool("recovery"),
+						"common":   c.Bool("common"),
+					} {
+						if v {
+							bootState = k
+							break
+						}
 					}
 					out, err := action.ListSystemExtensions(cfg, bootState)
 					if err != nil {
@@ -926,12 +931,18 @@ The validate command expects a configuration file as its only argument. Local fi
 						return err
 					}
 					var bootState string
-					if c.Bool("active") {
-						bootState = "active"
+					for k, v := range map[string]bool{
+						"active":   c.Bool("active"),
+						"passive":  c.Bool("passive"),
+						"recovery": c.Bool("recovery"),
+						"common":   c.Bool("common"),
+					} {
+						if v {
+							bootState = k
+							break
+						}
 					}
-					if c.Bool("passive") {
-						bootState = "passive"
-					}
+
 					ext := c.Args().First()
 					if err := action.EnableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
 						cfg.Logger.Logger.Error().Err(err).Msg("failed enabling system extension")
@@ -990,11 +1001,16 @@ The validate command expects a configuration file as its only argument. Local fi
 						return err
 					}
 					var bootState string
-					if c.Bool("active") {
-						bootState = "active"
-					}
-					if c.Bool("passive") {
-						bootState = "passive"
+					for k, v := range map[string]bool{
+						"active":   c.Bool("active"),
+						"passive":  c.Bool("passive"),
+						"recovery": c.Bool("recovery"),
+						"common":   c.Bool("common"),
+					} {
+						if v {
+							bootState = k
+							break
+						}
 					}
 					ext := c.Args().First()
 					if err := action.DisableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
