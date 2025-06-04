@@ -364,6 +364,10 @@ github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5 h1:FaZD86+A9mV
 github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5/go.mod h1:WmKcT8ONmhDQIqQ+HxU+tkGWjzBEyY/KFO8LTGCu4AI=
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82 h1:FVT07EI8njvsD4tC2Hw8Xhactp5AWhsQWD4oTeQuSAU=
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82/go.mod h1:Urp7LG5jylKoDq0663qeBh0pINGcRl35nXdKx82PSoU=
+github.com/mudler/yip v1.16.0 h1:TZr9zLghe5CJXRdvBK6f5uHe6RJtotweDU+m/GNT+gY=
+github.com/mudler/yip v1.16.0/go.mod h1:Wk3CIZCqdK58+1CzamA87atJD2y/dhDKXrguUyYipCc=
+github.com/mudler/yip v1.16.1 h1:SUq136jJ6QnX0FgP87IoIvkLT8OdEp3DYQUlKzI/gOQ=
+github.com/mudler/yip v1.16.1/go.mod h1:Wk3CIZCqdK58+1CzamA87atJD2y/dhDKXrguUyYipCc=
 github.com/mudler/yip v1.16.2 h1:NFgX4KQaMLb3PLN1R9IDj6xwRrUt4kwuoipKB3wa9D8=
 github.com/mudler/yip v1.16.2/go.mod h1:Wk3CIZCqdK58+1CzamA87atJD2y/dhDKXrguUyYipCc=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
