@@ -3,7 +3,6 @@ package hook
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"syscall"
 
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -18,6 +17,10 @@ import (
 type BundlePostInstall struct{}
 
 func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
+	if len(c.Install.Bundles) == 0 {
+		c.Logger.Logger.Info().Msg("No bundles to run in BundlePostInstall hook")
+		return nil
+	}
 	// system extension are now installed to /var/lib/extensions
 	// https://github.com/kairos-io/kairos/issues/1821
 	// so if we want them to work as expected we need to mount the persistent dir and the bind dir that will
@@ -30,17 +33,28 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	// - umount the bind dir
 	// Note that the binding of /usr/local/.state/var-lib-extensions.bind to /var/lib/extensions on active/passive its done by inmmucore based on the
 	// 00_rootfs.yaml config which sets the bind and ephemeral paths.
-	c.Logger.Logger.Debug().Msg("Running BundlePostInstall hook")
-	_ = machine.Umount(constants.PersistentDir)
+	c.Logger.Logger.Info().Msg("Running BundlePostInstall hook")
+	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
+	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
 
-	_ = machine.Mount(constants.OEMLabel, constants.OEMPath)
+	c.Logger.Logger.Debug().Msg("Mounting OEM partition")
+	err := machine.Mount(constants.OEMLabel, constants.OEMPath)
+	if err != nil {
+		c.Logger.Logger.Err(err).Msg("could not mount OEM")
+		return err
+	}
 	defer func() {
-		_ = machine.Umount(constants.OEMPath)
+		c.Logger.Debugf("Unmounting OEM partition")
+		err = machine.Umount(constants.OEMPath)
+		if err != nil {
+			c.Logger.Errorf("could not unmount oem partition: %s", err)
+		}
 	}()
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
 	syscall.Sync()
-	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.UsrLocalPath, "ext4", 0, "")
+	c.Logger.Logger.Debug().Msg("Mounting persistent partition")
+	err = machine.Mount(constants.PersistentLabel, constants.UsrLocalPath)
 	if err != nil {
 		c.Logger.Logger.Err(err).Msg("could not mount persistent")
 		return err
@@ -48,7 +62,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 
 	defer func() {
 		c.Logger.Debugf("Unmounting persistent partition")
-		err := machine.Umount(constants.UsrLocalPath)
+		err = machine.Umount(constants.UsrLocalPath)
 		if err != nil {
 			c.Logger.Errorf("could not unmount persistent partition: %s", err)
 		}
@@ -77,7 +91,7 @@ func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	if c.FailOnBundleErrors && err != nil {
 		return err
 	}
-	c.Logger.Logger.Debug().Msg("Finish BundlePostInstall hook")
+	c.Logger.Logger.Info().Msg("Finish BundlePostInstall hook")
 	return nil
 }
 

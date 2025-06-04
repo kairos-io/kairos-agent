@@ -17,13 +17,13 @@ func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 	if len(c.Install.GrubOptions) == 0 {
 		return nil
 	}
-	c.Logger.Logger.Debug().Msg("Running GrubOptions hook")
+	c.Logger.Logger.Info().Msg("Running GrubOptions hook")
 	c.Logger.Debugf("Setting grub options: %s", c.Install.GrubOptions)
 	err := grubOptions(c, c.Install.GrubOptions)
 	if err != nil {
 		return err
 	}
-	c.Logger.Logger.Debug().Msg("Finish GrubOptions hook")
+	c.Logger.Logger.Info().Msg("Finish GrubOptions hook")
 	return nil
 }
 
@@ -34,13 +34,13 @@ func (b GrubFirstBootOptions) Run(c config.Config, _ v1.Spec) error {
 	if len(c.GrubOptions) == 0 {
 		return nil
 	}
-	c.Logger.Logger.Debug().Msg("Running GrubOptions hook")
+	c.Logger.Logger.Info().Msg("Running GrubOptions hook")
 	c.Logger.Debugf("Setting grub options: %s", c.GrubOptions)
 	err := grubOptions(c, c.GrubOptions)
 	if err != nil {
 		return err
 	}
-	c.Logger.Logger.Debug().Msg("Finish GrubOptions hook")
+	c.Logger.Logger.Info().Msg("Finish GrubOptions hook")
 	return nil
 }
 
@@ -53,10 +53,17 @@ func grubOptions(c config.Config, opts map[string]string) error {
 		return err
 	}
 	if !runtime.OEM.Mounted {
+		c.Logger.Logger.Debug().Msg("Mounting OEM partition")
 		err = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
+		if err != nil {
+			return err
+		}
 		defer func() {
+			c.Logger.Logger.Debug().Msg("Unmounting OEM partition")
 			_ = machine.Umount(cnst.OEMPath)
 		}()
+	} else {
+		c.Logger.Logger.Debug().Msg("OEM partition already mounted")
 	}
 	err = utils.SetPersistentVariables(filepath.Join(runtime.OEM.MountPoint, "grubenv"), opts, &c)
 	if err != nil {
