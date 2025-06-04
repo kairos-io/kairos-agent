@@ -23,7 +23,7 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	// - Unlock the partitions
 	// - Mount OEM so we can read the config for encryption (remote server)
 	// - Mount the persistent partition
-	c.Logger.Logger.Debug().Msg("Running CopyLogs hook")
+	c.Logger.Logger.Info().Msg("Running CopyLogs hook")
 	_ = machine.Umount(constants.PersistentDir)
 	_ = machine.Umount(constants.OEMDir)
 	_ = machine.Umount(constants.OEMPath)
@@ -65,6 +65,6 @@ func (k CopyLogs) Run(c config.Config, _ v1.Spec) error {
 	}
 	syscall.Sync()
 	c.Logger.Debugf("Logs copied to persistent partition")
-	c.Logger.Logger.Debug().Msg("Finish CopyLogs hook")
+	c.Logger.Logger.Info().Msg("Finish CopyLogs hook")
 	return nil
 }
