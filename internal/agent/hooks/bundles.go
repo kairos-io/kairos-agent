@@ -18,7 +18,7 @@ type BundlePostInstall struct{}
 
 func (b BundlePostInstall) Run(c config.Config, _ v1.Spec) error {
 	if len(c.Install.Bundles) == 0 {
-		c.Logger.Logger.Debug().Msg("No bundles to run in BundlePostInstall hook")
+		c.Logger.Logger.Info().Msg("No bundles to run in BundlePostInstall hook")
 		return nil
 	}
 	// system extension are now installed to /var/lib/extensions
