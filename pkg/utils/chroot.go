@@ -40,7 +40,7 @@ type Chroot struct {
 func NewChroot(path string, config *agentConfig.Config) *Chroot {
 	return &Chroot{
 		path:          path,
-		defaultMounts: []string{"/dev", "/dev/pts", "/proc", "/sys"},
+		defaultMounts: []string{"/dev", "/dev/pts", "/proc", "/sys", "/run/systemd/journal/"}, // Add journal so we keep logs
 		extraMounts:   map[string]string{},
 		activeMounts:  []string{},
 		config:        config,
