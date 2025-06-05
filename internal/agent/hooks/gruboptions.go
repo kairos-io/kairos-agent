@@ -6,7 +6,6 @@ import (
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-sdk/machine"
-	"github.com/kairos-io/kairos-sdk/state"
 	"path/filepath"
 )
 
@@ -48,24 +47,17 @@ func (b GrubFirstBootOptions) Run(c config.Config, _ v1.Spec) error {
 // It mounts the OEM partition if not already mounted
 // If its mounted but RO, it remounts it as RW
 func grubOptions(c config.Config, opts map[string]string) error {
-	runtime, err := state.NewRuntime()
-	if err != nil {
-		return err
-	}
-	if !runtime.OEM.Mounted {
-		c.Logger.Logger.Debug().Msg("Mounting OEM partition")
-		err = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			c.Logger.Logger.Debug().Msg("Unmounting OEM partition")
-			_ = machine.Umount(cnst.OEMPath)
-		}()
-	} else {
-		c.Logger.Logger.Debug().Msg("OEM partition already mounted")
-	}
-	err = utils.SetPersistentVariables(filepath.Join(cnst.OEMPath, "grubenv"), opts, &c)
+	_ = machine.Umount(cnst.OEMDir)
+	_ = machine.Umount(cnst.OEMPath)
+
+	c.Logger.Logger.Debug().Msg("Mounting OEM partition")
+	_ = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
+	defer func() {
+		c.Logger.Logger.Debug().Msg("Unmounting OEM partition")
+		_ = machine.Umount(cnst.OEMPath)
+	}()
+
+	err := utils.SetPersistentVariables(filepath.Join(cnst.OEMPath, "grubenv"), opts, &c)
 	if err != nil {
 		c.Logger.Logger.Error().Err(err).Str("grubfile", filepath.Join(cnst.OEMPath, "grubenv")).Msg("Failed to set grub options")
 	}
