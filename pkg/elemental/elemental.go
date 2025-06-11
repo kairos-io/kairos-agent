@@ -182,7 +182,7 @@ func (e Elemental) MountRWPartition(part *types.Partition) (umount func() error,
 		umount = func() error {
 			e.config.Logger.Debugf("Remounting partition %s as read-only", part.FilesystemLabel)
 			// Remount with bind and read-only options so we avoid in use errors
-			return syscall.Mount(part.MountPoint, part.MountPoint, "", syscall.MS_REMOUNT|syscall.MS_RDONLY|syscall.MS_BIND, "")
+			return e.config.Syscall.Mount(part.MountPoint, part.MountPoint, "", syscall.MS_REMOUNT|syscall.MS_RDONLY|syscall.MS_BIND, "")
 		}
 	} else {
 		err = e.MountPartition(part, "rw")

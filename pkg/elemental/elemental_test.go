@@ -142,10 +142,8 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(lst[1].Opts).To(Equal([]string{"remount", "rw"}))
 
 			Expect(umount()).ShouldNot(HaveOccurred())
-			lst, _ = mounter.List()
-			// Increased once more to remount read-onply
-			Expect(len(lst)).To(Equal(3))
-			Expect(lst[2].Opts).To(Equal([]string{"remount", "ro"}))
+			// This went to syscall so it wont appears on the mounter list
+			Expect(syscall.WasMountCalledWith(parts.OEM.MountPoint, parts.OEM.MountPoint, "", unix.MS_REMOUNT|unix.MS_RDONLY|unix.MS_BIND, "")).To(BeTrue())
 		})
 		It("Fails to mount a partition", func() {
 			mounter.ErrorOnMount = true
