@@ -173,11 +173,11 @@ func (u *UpgradeAction) Run() (err error) {
 		// Create the dir otherwise the check for mounted dir fails
 		_ = fsutils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
 		if mnt, err := utils.IsMounted(u.config, persistentPart); !mnt && err == nil {
-			u.Debug("mounting persistent partition")
 			umount, err = e.MountRWPartition(persistentPart)
 			if err != nil {
 				u.config.Logger.Warnf("could not mount persistent partition: %s", err.Error())
 			}
+			cleanup.Push(umount)
 		}
 	}
 
