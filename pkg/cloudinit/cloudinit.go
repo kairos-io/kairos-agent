@@ -34,35 +34,7 @@ type YipCloudInitRunner struct {
 // NewYipCloudInitRunner returns a default yip cloud init executor with the Elemental plugin set.
 // It accepts a logger which is used inside the runner.
 func NewYipCloudInitRunner(l sdkTypes.KairosLogger, r v1.Runner, fs vfs.FS) *YipCloudInitRunner {
-	exec := executor.NewExecutor(
-		executor.WithConditionals(
-			plugins.NodeConditional,
-			plugins.IfConditional,
-		),
-		executor.WithLogger(l),
-		executor.WithPlugins(
-			// Note, the plugin execution order depends on the order passed here
-			plugins.DNS,
-			plugins.Download,
-			plugins.Git,
-			plugins.Entities,
-			plugins.EnsureDirectories,
-			plugins.EnsureFiles,
-			plugins.Commands,
-			plugins.DeleteEntities,
-			plugins.Hostname,
-			plugins.Sysctl,
-			plugins.User,
-			plugins.SSH,
-			plugins.LoadModules,
-			plugins.Timesyncd,
-			plugins.Systemctl,
-			plugins.Environment,
-			plugins.SystemdFirstboot,
-			plugins.DataSources,
-			plugins.Layout,
-		),
-	)
+	exec := executor.NewExecutor(executor.WithLogger(l))
 	return &YipCloudInitRunner{
 		exec: exec, fs: fs,
 		console: newCloudInitConsole(l, r),
