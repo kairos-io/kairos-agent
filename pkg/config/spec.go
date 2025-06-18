@@ -155,6 +155,8 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 		Recovery:  recoveryImg,
 		Passive:   passiveImg,
 		NoFormat:  cfg.Install.NoFormat,
+		Reboot:    cfg.Install.Reboot,
+		PowerOff:  cfg.Install.Poweroff,
 	}
 
 	// Get the actual source size to calculate the image size and partitions size
