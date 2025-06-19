@@ -148,11 +148,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				_, err = fs.Create(constants.EfiDevice)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				// Set ISO base tree detection
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 
 				// Set recovery image detection detection
 				recoveryImgFile := filepath.Join(constants.LiveDir, constants.RecoverySquashFile)
@@ -177,11 +173,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.Partitions.EFI).NotTo(BeNil())
 			})
 			It("sets installation defaults from install bios media without recovery", Label("install", "bios"), func() {
-				// Set ISO base tree detection
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
@@ -225,11 +217,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.Sanitize()).To(HaveOccurred())
 			})
 			It("copies reboot flag from config to spec", Label("install", "reboot"), func() {
-				// Set ISO base tree detection
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 
 				// Set reboot flag in config
 				c.Install.Reboot = true
@@ -243,11 +231,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.ShouldShutdown()).To(BeFalse())
 			})
 			It("copies poweroff flag from config to spec", Label("install", "poweroff"), func() {
-				// Set ISO base tree detection
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 
 				// Set poweroff flag in config
 				c.Install.Reboot = false
@@ -261,11 +245,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.ShouldShutdown()).To(BeTrue())
 			})
 			It("copies both reboot and poweroff flags from config to spec", Label("install", "reboot", "poweroff"), func() {
-				// Set ISO base tree detection
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 
 				// Set both flags in config
 				c.Install.Reboot = true
@@ -279,11 +259,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.ShouldShutdown()).To(BeTrue())
 			})
 			It("defaults reboot and poweroff flags to false when not set", Label("install", "reboot", "poweroff"), func() {
-				// Set ISO base tree detection
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 
 				// Ensure flags are false in config
 				c.Install.Reboot = false
@@ -354,11 +330,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					_, err = fs.Create(constants.EfiDevice)
 					Expect(err).ShouldNot(HaveOccurred())
 
-					// Set squashfs detection
-					err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-					Expect(err).ShouldNot(HaveOccurred())
-					_, err = fs.Create(constants.IsoBaseTree)
-					Expect(err).ShouldNot(HaveOccurred())
+					setupIsoBaseTreeDetection(fs)
 
 					spec, err := config.NewResetSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
@@ -641,10 +613,7 @@ cloud-init-paths:
 				ghwTest.CreateDevices()
 
 				fs, cleanup, err = vfst.NewTestFS(nil)
-				err = fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = fs.Create(constants.IsoBaseTree)
-				Expect(err).ShouldNot(HaveOccurred())
+				setupIsoBaseTreeDetection(fs)
 			})
 
 			AfterEach(func() {
@@ -762,6 +731,13 @@ func createFileOfSizeInMB(filename string, sizeInMB int) error {
 	}
 
 	return nil
+}
+
+func setupIsoBaseTreeDetection(fs *vfst.TestFS) {
+	err := fsutils.MkdirAll(fs, filepath.Dir(constants.IsoBaseTree), constants.DirPerm)
+	Expect(err).ShouldNot(HaveOccurred())
+	_, err = fs.Create(constants.IsoBaseTree)
+	Expect(err).ShouldNot(HaveOccurred())
 }
 
 var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
