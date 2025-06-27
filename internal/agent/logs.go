@@ -34,6 +34,28 @@ func NewLogsCollector(cfg *config.Config) *LogsCollector {
 	}
 }
 
+func defaultLogsConfig() *config.LogsConfig {
+	return &config.LogsConfig{
+		Journal: []string{
+			"kairos-agent",
+			"kairos-installer",
+			"kairos-webui",
+			"cos-setup-boot",
+			"cos-setup-fs",
+			"cos-setup-network",
+			"cos-setup-reconcile",
+			"k3s",
+			"k3s-agent",
+			"k0scontroller",
+			"k0sworker",
+		},
+		Files: []string{
+			"/var/log/kairos/*.log",
+			"/run/immucore/*.log",
+		},
+	}
+}
+
 // Collect gathers logs based on the configuration stored in the LogsCollector
 func (lc *LogsCollector) Collect() (*LogsResult, error) {
 	result := &LogsResult{
@@ -42,10 +64,7 @@ func (lc *LogsCollector) Collect() (*LogsResult, error) {
 	}
 
 	// Define default configuration
-	logsConfig := &config.LogsConfig{
-		Journal: []string{"kairos-agent", "kairos-installer", "k3s"},
-		Files:   []string{"/var/log/kairos/*"},
-	}
+	logsConfig := defaultLogsConfig()
 
 	// Merge user configuration with defaults
 	if lc.config.Logs != nil {

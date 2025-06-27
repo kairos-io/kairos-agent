@@ -71,21 +71,37 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(result).ToNot(BeNil())
 
 			// Verify journalctl was called for both default and user-defined services
-			// Default services: kairos-agent, kairos-installer, k3s
+			// Default services: kairos-agent, kairos-installer, kairos-webui, cos-setup-boot, cos-setup-fs, cos-setup-network, cos-setup-reconcile, k3s, k3s-agent, k0scontroller, k0sworker
 			// User service: myservice
 			Expect(runner.CmdsMatch([][]string{
 				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "kairos-webui", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-boot", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-fs", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-network", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-reconcile", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k3s-agent", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k0scontroller", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k0sworker", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"},
 			})).To(BeNil())
 
 			// Verify that both default and user-defined services are in the result
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
 			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("kairos-webui"))
+			Expect(result.Journal).To(HaveKey("cos-setup-boot"))
+			Expect(result.Journal).To(HaveKey("cos-setup-fs"))
+			Expect(result.Journal).To(HaveKey("cos-setup-network"))
+			Expect(result.Journal).To(HaveKey("cos-setup-reconcile"))
 			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("k3s-agent"))
+			Expect(result.Journal).To(HaveKey("k0scontroller"))
+			Expect(result.Journal).To(HaveKey("k0sworker"))
 			Expect(result.Journal).To(HaveKey("myservice"))
-			Expect(result.Journal).To(HaveLen(4))
+			Expect(result.Journal).To(HaveLen(12))
 		})
 
 		It("should collect file logs with globbing", func() {
@@ -248,13 +264,21 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Verify expected structure (both default and user-defined)
-			// Default services: kairos-agent, kairos-installer, k3s
+			// Default services: kairos-agent, kairos-installer, kairos-webui, cos-setup-boot, cos-setup-fs, cos-setup-network, cos-setup-reconcile, k3s, k3s-agent, k0scontroller, k0sworker
 			// User service: myservice
 			// Default files: /var/log/kairos-*.log (if exists)
 			// User file: /var/log/test.log
 			Expect(files).To(HaveKey("journal/kairos-agent.log"))
 			Expect(files).To(HaveKey("journal/kairos-installer.log"))
+			Expect(files).To(HaveKey("journal/kairos-webui.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-boot.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-fs.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-network.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-reconcile.log"))
 			Expect(files).To(HaveKey("journal/k3s.log"))
+			Expect(files).To(HaveKey("journal/k3s-agent.log"))
+			Expect(files).To(HaveKey("journal/k0scontroller.log"))
+			Expect(files).To(HaveKey("journal/k0sworker.log"))
 			Expect(files).To(HaveKey("journal/myservice.log"))
 			Expect(files).To(HaveKey("files/var/log/test.log"))
 		})
@@ -301,10 +325,18 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
 			// Should have collected from default services but not the non-existent user service
-			Expect(result.Journal).To(HaveLen(3))
+			Expect(result.Journal).To(HaveLen(11))
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
 			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("kairos-webui"))
+			Expect(result.Journal).To(HaveKey("cos-setup-boot"))
+			Expect(result.Journal).To(HaveKey("cos-setup-fs"))
+			Expect(result.Journal).To(HaveKey("cos-setup-network"))
+			Expect(result.Journal).To(HaveKey("cos-setup-reconcile"))
 			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("k3s-agent"))
+			Expect(result.Journal).To(HaveKey("k0scontroller"))
+			Expect(result.Journal).To(HaveKey("k0sworker"))
 			Expect(result.Journal).ToNot(HaveKey("nonexistentservice"))
 		})
 
@@ -329,10 +361,18 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
 			// Should have collected from default services but not the empty user service
-			Expect(result.Journal).To(HaveLen(3))
+			Expect(result.Journal).To(HaveLen(11))
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
 			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("kairos-webui"))
+			Expect(result.Journal).To(HaveKey("cos-setup-boot"))
+			Expect(result.Journal).To(HaveKey("cos-setup-fs"))
+			Expect(result.Journal).To(HaveKey("cos-setup-network"))
+			Expect(result.Journal).To(HaveKey("cos-setup-reconcile"))
 			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("k3s-agent"))
+			Expect(result.Journal).To(HaveKey("k0scontroller"))
+			Expect(result.Journal).To(HaveKey("k0sworker"))
 			Expect(result.Journal).ToNot(HaveKey("emptyservice"))
 		})
 
@@ -360,10 +400,18 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
 			// Should have collected from default services and the existing user service
-			Expect(result.Journal).To(HaveLen(4))
+			Expect(result.Journal).To(HaveLen(12))
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
 			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("kairos-webui"))
+			Expect(result.Journal).To(HaveKey("cos-setup-boot"))
+			Expect(result.Journal).To(HaveKey("cos-setup-fs"))
+			Expect(result.Journal).To(HaveKey("cos-setup-network"))
+			Expect(result.Journal).To(HaveKey("cos-setup-reconcile"))
 			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("k3s-agent"))
+			Expect(result.Journal).To(HaveKey("k0scontroller"))
+			Expect(result.Journal).To(HaveKey("k0sworker"))
 			Expect(result.Journal).To(HaveKey("existingservice"))
 			Expect(result.Journal).ToNot(HaveKey("nonexistentservice"))
 
@@ -396,10 +444,18 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			// Verify that default services and existing user service files are created
 			Expect(files).To(HaveKey("journal/kairos-agent.log"))
 			Expect(files).To(HaveKey("journal/kairos-installer.log"))
+			Expect(files).To(HaveKey("journal/kairos-webui.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-boot.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-fs.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-network.log"))
+			Expect(files).To(HaveKey("journal/cos-setup-reconcile.log"))
 			Expect(files).To(HaveKey("journal/k3s.log"))
+			Expect(files).To(HaveKey("journal/k3s-agent.log"))
+			Expect(files).To(HaveKey("journal/k0scontroller.log"))
+			Expect(files).To(HaveKey("journal/k0sworker.log"))
 			Expect(files).To(HaveKey("journal/existingservice.log"))
 			Expect(files).ToNot(HaveKey("journal/nonexistentservice.log"))
-			Expect(files).To(HaveLen(4))
+			Expect(files).To(HaveLen(12))
 		})
 
 		It("should use default log sources when no config provided", func() {
@@ -422,7 +478,15 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(runner.CmdsMatch([][]string{
 				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "kairos-webui", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-boot", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-fs", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-network", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-reconcile", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k3s-agent", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k0scontroller", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k0sworker", "--no-pager", "-o", "cat"},
 			})).To(BeNil())
 		})
 
@@ -447,12 +511,20 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(result).ToNot(BeNil())
 
 			// Verify that both default and user-defined services were collected
-			// Default services: kairos-agent, kairos-installer, k3s
+			// Default services: kairos-agent, kairos-installer, kairos-webui, cos-setup-boot, cos-setup-fs, cos-setup-network, cos-setup-reconcile, k3s, k3s-agent, k0scontroller, k0sworker
 			// User services: myservice, myotherservice
 			Expect(runner.CmdsMatch([][]string{
 				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "kairos-webui", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-boot", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-fs", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-network", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "cos-setup-reconcile", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k3s-agent", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k0scontroller", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k0sworker", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "myotherservice", "--no-pager", "-o", "cat"},
 			})).To(BeNil())
@@ -460,10 +532,18 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			// Verify that both default and user-defined files are in the result
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
 			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("kairos-webui"))
+			Expect(result.Journal).To(HaveKey("cos-setup-boot"))
+			Expect(result.Journal).To(HaveKey("cos-setup-fs"))
+			Expect(result.Journal).To(HaveKey("cos-setup-network"))
+			Expect(result.Journal).To(HaveKey("cos-setup-reconcile"))
 			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("k3s-agent"))
+			Expect(result.Journal).To(HaveKey("k0scontroller"))
+			Expect(result.Journal).To(HaveKey("k0sworker"))
 			Expect(result.Journal).To(HaveKey("myservice"))
 			Expect(result.Journal).To(HaveKey("myotherservice"))
-			Expect(result.Journal).To(HaveLen(5))
+			Expect(result.Journal).To(HaveLen(13))
 		})
 	})
 
