@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"path/filepath"
 
@@ -71,8 +70,22 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 
-			// Verify journalctl was called
-			Expect(runner.CmdsMatch([][]string{{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"}})).To(BeNil())
+			// Verify journalctl was called for both default and user-defined services
+			// Default services: kairos-agent, kairos-installer, k3s
+			// User service: myservice
+			Expect(runner.CmdsMatch([][]string{
+				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"},
+			})).To(BeNil())
+
+			// Verify that both default and user-defined services are in the result
+			Expect(result.Journal).To(HaveKey("kairos-agent"))
+			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("myservice"))
+			Expect(result.Journal).To(HaveLen(4))
 		})
 
 		It("should collect file logs with globbing", func() {
@@ -81,6 +94,7 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 				"/var/log/test1.log",
 				"/var/log/test2.log",
 				"/var/log/subdir/test3.log",
+				"/var/log/kairos/agent.log", // Default pattern file
 			}
 
 			for _, file := range testFiles {
@@ -101,15 +115,22 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 
-			// Verify files were collected
-			Expect(result.Files).To(HaveLen(3))
+			// Verify files were collected (both default and user-defined patterns)
+			// Default pattern: /var/log/kairos/* (matches agent.log)
+			// User patterns: /var/log/*.log, /var/log/subdir/*.log
+			Expect(result.Files).To(HaveLen(4))
+			Expect(result.Files).To(HaveKey("/var/log/test1.log"))
+			Expect(result.Files).To(HaveKey("/var/log/test2.log"))
+			Expect(result.Files).To(HaveKey("/var/log/subdir/test3.log"))
+			Expect(result.Files).To(HaveKey("/var/log/kairos/agent.log"))
 		})
 
 		It("should handle nested directories correctly", func() {
 			// Create test files with same basename in different directories
 			testFiles := []string{
 				"/var/log/test.log",
-				"/var/log/subdir/test.log", // Same basename, different directory
+				"/var/log/subdir/test.log",  // Same basename, different directory
+				"/var/log/kairos/agent.log", // Default pattern file
 			}
 
 			for _, file := range testFiles {
@@ -130,10 +151,11 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 
-			// Verify both files are collected with full paths as keys
+			// Verify both files are collected with full paths as keys (including default pattern)
 			Expect(result.Files).To(HaveKey("/var/log/test.log"))
 			Expect(result.Files).To(HaveKey("/var/log/subdir/test.log"))
-			Expect(result.Files).To(HaveLen(2))
+			Expect(result.Files).To(HaveKey("/var/log/kairos/agent.log"))
+			Expect(result.Files).To(HaveLen(3))
 
 			// Create tarball
 			tarballPath := "/tmp/logs.tar.gz"
@@ -161,10 +183,11 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 				files[header.Name] = true
 			}
 
-			// Verify that both files are preserved with their full directory structure
+			// Verify that all files are preserved with their full directory structure
 			Expect(files).To(HaveKey("files/var/log/test.log"))
 			Expect(files).To(HaveKey("files/var/log/subdir/test.log"))
-			Expect(files).To(HaveLen(2))
+			Expect(files).To(HaveKey("files/var/log/kairos/agent.log"))
+			Expect(files).To(HaveLen(3))
 		})
 
 		It("should create tarball with proper structure", func() {
@@ -224,12 +247,26 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 				files[header.Name] = true
 			}
 
-			// Verify expected structure
+			// Verify expected structure (both default and user-defined)
+			// Default services: kairos-agent, kairos-installer, k3s
+			// User service: myservice
+			// Default files: /var/log/kairos-*.log (if exists)
+			// User file: /var/log/test.log
+			Expect(files).To(HaveKey("journal/kairos-agent.log"))
+			Expect(files).To(HaveKey("journal/kairos-installer.log"))
+			Expect(files).To(HaveKey("journal/k3s.log"))
 			Expect(files).To(HaveKey("journal/myservice.log"))
 			Expect(files).To(HaveKey("files/var/log/test.log"))
 		})
 
 		It("should handle missing files gracefully", func() {
+			// Create a default pattern file to ensure it's collected
+			defaultFile := "/var/log/kairos/agent.log"
+			err := fsutils.MkdirAll(fs, filepath.Dir(defaultFile), constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile(defaultFile, []byte("default log content"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
+
 			// Set logs config in the main config
 			collector.config.Logs = &config.LogsConfig{
 				Journal: []string{},
@@ -238,14 +275,19 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Files).To(HaveLen(0))
+			// Should have collected the default pattern file even though user file doesn't exist
+			Expect(result.Files).To(HaveLen(1))
+			Expect(result.Files).To(HaveKey("/var/log/kairos/agent.log"))
 		})
 
 		It("should handle journal service errors gracefully", func() {
-			// Mock journalctl to return error
+			// Mock journalctl to return no entries for non-existent service
 			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "journalctl" && len(args) > 1 && args[1] == "nonexistentservice" {
+					return []byte("-- No entries --"), nil
+				}
 				if command == "journalctl" {
-					return nil, fmt.Errorf("service not found")
+					return []byte("journal logs content"), nil
 				}
 				return []byte{}, nil
 			}
@@ -258,7 +300,106 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Journal).To(HaveLen(0))
+			// Should have collected from default services but not the non-existent user service
+			Expect(result.Journal).To(HaveLen(3))
+			Expect(result.Journal).To(HaveKey("kairos-agent"))
+			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).ToNot(HaveKey("nonexistentservice"))
+		})
+
+		It("should handle empty journal output gracefully", func() {
+			// Mock journalctl to return empty output for user service, normal for defaults
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "journalctl" && len(args) > 1 && args[1] == "emptyservice" {
+					return []byte{}, nil
+				}
+				if command == "journalctl" {
+					return []byte("journal logs content"), nil
+				}
+				return []byte{}, nil
+			}
+
+			// Set logs config in the main config
+			collector.config.Logs = &config.LogsConfig{
+				Journal: []string{"emptyservice"},
+				Files:   []string{},
+			}
+
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+			// Should have collected from default services but not the empty user service
+			Expect(result.Journal).To(HaveLen(3))
+			Expect(result.Journal).To(HaveKey("kairos-agent"))
+			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).ToNot(HaveKey("emptyservice"))
+		})
+
+		It("should not create tarball files for services with no journal entries", func() {
+			// Mock journalctl to return no entries for one service and content for another
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "journalctl" && len(args) > 1 && args[1] == "existingservice" {
+					return []byte("journal logs content"), nil
+				}
+				if command == "journalctl" && len(args) > 1 && args[1] == "nonexistentservice" {
+					return []byte("-- No entries --"), nil
+				}
+				if command == "journalctl" {
+					return []byte("default journal logs"), nil
+				}
+				return []byte{}, nil
+			}
+
+			// Set logs config in the main config
+			collector.config.Logs = &config.LogsConfig{
+				Journal: []string{"existingservice", "nonexistentservice"},
+				Files:   []string{},
+			}
+
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+			// Should have collected from default services and the existing user service
+			Expect(result.Journal).To(HaveLen(4))
+			Expect(result.Journal).To(HaveKey("kairos-agent"))
+			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("existingservice"))
+			Expect(result.Journal).ToNot(HaveKey("nonexistentservice"))
+
+			// Create tarball and verify contents
+			tarballPath := "/tmp/logs.tar.gz"
+			err = collector.CreateTarball(result, tarballPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Read and verify tarball contents
+			tarballData, err := fs.ReadFile(tarballPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Extract and verify tarball structure
+			gzr, err := gzip.NewReader(bytes.NewReader(tarballData))
+			Expect(err).ToNot(HaveOccurred())
+			defer gzr.Close()
+
+			tr := tar.NewReader(gzr)
+			files := make(map[string]bool)
+
+			for {
+				header, err := tr.Next()
+				if err == io.EOF {
+					break
+				}
+				Expect(err).ToNot(HaveOccurred())
+				files[header.Name] = true
+			}
+
+			// Verify that default services and existing user service files are created
+			Expect(files).To(HaveKey("journal/kairos-agent.log"))
+			Expect(files).To(HaveKey("journal/kairos-installer.log"))
+			Expect(files).To(HaveKey("journal/k3s.log"))
+			Expect(files).To(HaveKey("journal/existingservice.log"))
+			Expect(files).ToNot(HaveKey("journal/nonexistentservice.log"))
+			Expect(files).To(HaveLen(4))
 		})
 
 		It("should use default log sources when no config provided", func() {
@@ -283,6 +424,46 @@ var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
 				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
 				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
 			})).To(BeNil())
+		})
+
+		It("should merge user logs config with defaults", func() {
+			// Mock journalctl output
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "journalctl" && len(args) > 0 && args[0] == "-u" {
+					service := args[1]
+					return []byte("journal logs for " + service), nil
+				}
+				return []byte{}, nil
+			}
+
+			// Set logs config in the main config with user-defined services
+			collector.config.Logs = &config.LogsConfig{
+				Journal: []string{"myservice", "myotherservice"},
+				Files:   []string{"/var/log/mycustom.log"},
+			}
+
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+
+			// Verify that both default and user-defined services were collected
+			// Default services: kairos-agent, kairos-installer, k3s
+			// User services: myservice, myotherservice
+			Expect(runner.CmdsMatch([][]string{
+				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"},
+				{"journalctl", "-u", "myotherservice", "--no-pager", "-o", "cat"},
+			})).To(BeNil())
+
+			// Verify that both default and user-defined files are in the result
+			Expect(result.Journal).To(HaveKey("kairos-agent"))
+			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			Expect(result.Journal).To(HaveKey("k3s"))
+			Expect(result.Journal).To(HaveKey("myservice"))
+			Expect(result.Journal).To(HaveKey("myotherservice"))
+			Expect(result.Journal).To(HaveLen(5))
 		})
 	})
 

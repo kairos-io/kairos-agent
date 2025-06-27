@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -40,14 +41,16 @@ func (lc *LogsCollector) Collect() (*LogsResult, error) {
 		Files:   make(map[string][]byte),
 	}
 
-	// Use the logs configuration from the main config
-	logsConfig := lc.config.Logs
-	if logsConfig == nil {
-		// Fall back to default configuration if no logs config is provided
-		logsConfig = &config.LogsConfig{
-			Journal: []string{"kairos-agent", "kairos-installer", "k3s"},
-			Files:   []string{"/var/log/kairos-*.log"},
-		}
+	// Define default configuration
+	logsConfig := &config.LogsConfig{
+		Journal: []string{"kairos-agent", "kairos-installer", "k3s"},
+		Files:   []string{"/var/log/kairos/*"},
+	}
+
+	// Merge user configuration with defaults
+	if lc.config.Logs != nil {
+		logsConfig.Journal = append(logsConfig.Journal, lc.config.Logs.Journal...)
+		logsConfig.Files = append(logsConfig.Files, lc.config.Logs.Files...)
 	}
 
 	// Collect journal logs
@@ -57,6 +60,13 @@ func (lc *LogsCollector) Collect() (*LogsResult, error) {
 			lc.config.Logger.Warnf("Failed to collect journal logs for service %s: %v", service, err)
 			continue
 		}
+
+		// Skip services with no journal entries
+		if len(output) == 0 || string(output) == "-- No entries --" {
+			lc.config.Logger.Debugf("No journal entries found for service %s, skipping", service)
+			continue
+		}
+
 		result.Journal[service] = output
 	}
 
@@ -141,10 +151,7 @@ func (lc *LogsCollector) CreateTarball(result *LogsResult, outputPath string) er
 
 // globFiles expands glob patterns to matching files
 func (lc *LogsCollector) globFiles(pattern string) ([]string, error) {
-	// For now, implement a simple glob pattern matching
-	// In a real implementation, you might want to use filepath.Glob or a more sophisticated glob library
-
-	// Simple implementation for basic patterns like "*.log"
+	// Handle wildcard patterns like "*.log", "kairos-*.log", or "/var/log/kairos/*"
 	if strings.Contains(pattern, "*") {
 		dir := filepath.Dir(pattern)
 		base := filepath.Base(pattern)
@@ -177,12 +184,19 @@ func (lc *LogsCollector) globFiles(pattern string) ([]string, error) {
 
 // matchesPattern checks if a filename matches a glob pattern
 func (lc *LogsCollector) matchesPattern(fileName, pattern string) bool {
-	// Simple wildcard matching for "*.log" patterns
-	if strings.HasPrefix(pattern, "*.") {
-		ext := strings.TrimPrefix(pattern, "*")
-		return strings.HasSuffix(fileName, ext)
+	// Convert glob pattern to regex pattern
+	// Escape special regex characters and replace * with .*
+	regexPattern := regexp.QuoteMeta(pattern)
+	regexPattern = strings.ReplaceAll(regexPattern, "\\*", ".*")
+
+	// Compile the regex pattern
+	re, err := regexp.Compile("^" + regexPattern + "$")
+	if err != nil {
+		// If regex compilation fails, fall back to exact match
+		return fileName == pattern
 	}
-	return fileName == pattern
+
+	return re.MatchString(fileName)
 }
 
 // ExecuteLogsCommand executes the logs command with the given parameters
