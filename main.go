@@ -1099,7 +1099,7 @@ The output will be a tarball with logs organized by type (journal/, files/).`,
 			&cli.StringFlag{
 				Name:    "output",
 				Usage:   "Output path for the logs tarball",
-				Value:   "/tmp/kairos-logs.tar.gz",
+				Value:   "./kairos-logs.tar.gz",
 				Aliases: []string{"o"},
 			},
 		},
