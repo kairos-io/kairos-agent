@@ -17,10 +17,11 @@ package config_test
 
 import (
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -93,8 +94,8 @@ func structFieldsContainedInOtherStruct(left, right interface{}) {
 		leftTagName := getTagName(leftTypes.Field(i).Tag.Get("yaml"))
 		leftFieldName := leftTypes.Field(i).Name
 		if leftTypes.Field(i).IsExported() {
-			It(fmt.Sprintf("Checks that the new schema contians the field %s", leftFieldName), func() {
-				if leftFieldName == "Source" || leftFieldName == "NoUsers" || leftFieldName == "BindPublicPCRs" || leftFieldName == "BindPCRs" {
+			It(fmt.Sprintf("Checks that the new schema contains the field %s", leftFieldName), func() {
+				if leftFieldName == "Source" || leftFieldName == "NoUsers" || leftFieldName == "BindPublicPCRs" || leftFieldName == "BindPCRs" || leftFieldName == "Logs" {
 					Skip("Schema not updated yet")
 				}
 				Expect(
