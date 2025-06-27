@@ -17,7 +17,7 @@ import (
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
-var _ = FDescribe("Logs Command", Label("logs", "cmd"), func() {
+var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 	var (
 		fs      *vfst.TestFS
 		cleanup func()
