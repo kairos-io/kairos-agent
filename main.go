@@ -1230,11 +1230,10 @@ func moreThanOneEnabled(bools ...bool) bool {
 }
 
 func noneOfEnabled(bools ...bool) bool {
-	count := 0
 	for _, b := range bools {
 		if b {
-			count++
+			return false // Found at least one true, so not "none of enabled"
 		}
 	}
-	return count == 0
+	return true // No true values found, so "none of enabled"
 }
