@@ -27,10 +27,11 @@ import (
 )
 
 const (
-	docker = "docker"
-	oci    = "oci"
-	file   = "file"
-	dir    = "dir"
+	docker  = "docker"
+	oci     = "oci"
+	file    = "file"
+	dir     = "dir"
+	ocitar  = "ocitar"
 )
 
 // ImageSource represents the source from where an image is created for easy identification
@@ -53,6 +54,10 @@ func (i ImageSource) IsDir() bool {
 
 func (i ImageSource) IsFile() bool {
 	return i.srcType == file
+}
+
+func (i ImageSource) IsOCITar() bool {
+	return i.srcType == ocitar
 }
 
 func (i ImageSource) IsEmpty() bool {
@@ -108,6 +113,9 @@ func (i *ImageSource) updateFromURI(uri string) error {
 	case file:
 		i.srcType = file
 		i.source = value
+	case ocitar:
+		i.srcType = ocitar
+		i.source = value
 	default:
 		return i.parseImageReference(uri)
 	}
@@ -146,4 +154,8 @@ func NewFileSrc(src string) *ImageSource {
 
 func NewDirSrc(src string) *ImageSource {
 	return &ImageSource{source: src, srcType: dir}
+}
+
+func NewOCITarSrc(src string) *ImageSource {
+	return &ImageSource{source: src, srcType: ocitar}
 }

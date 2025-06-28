@@ -1209,12 +1209,12 @@ func validateSource(source string) error {
 		return nil
 	}
 
-	r, err := regexp.Compile(`^oci:|^dir:|^file:`)
+	r, err := regexp.Compile(`^oci:|^dir:|^file:|^ocitar:`)
 	if err != nil {
 		return err
 	}
 	if !r.MatchString(source) {
-		return fmt.Errorf("source %s does not match any of oci:, dir: or file: ", source)
+		return fmt.Errorf("source %s does not match any of oci:, dir:, file: or ocitar: ", source)
 	}
 
 	return nil
