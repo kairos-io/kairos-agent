@@ -56,6 +56,19 @@ func defaultLogsConfig() *config.LogsConfig {
 	}
 }
 
+// isSystemdAvailable checks if systemd is available on the system
+func (lc *LogsCollector) isSystemdAvailable() bool {
+	// Check for systemctl in common locations
+	for _, path := range []string{"/sbin/systemctl", "/bin/systemctl", "/usr/sbin/systemctl", "/usr/bin/systemctl"} {
+		if _, err := lc.config.Fs.Stat(path); err == nil {
+			lc.config.Logger.Debugf("Found systemd at %s", path)
+			return true
+		}
+	}
+	lc.config.Logger.Debugf("systemd not found, skipping journal log collection")
+	return false
+}
+
 // Collect gathers logs based on the configuration stored in the LogsCollector
 func (lc *LogsCollector) Collect() (*LogsResult, error) {
 	result := &LogsResult{
@@ -72,21 +85,26 @@ func (lc *LogsCollector) Collect() (*LogsResult, error) {
 		logsConfig.Files = append(logsConfig.Files, lc.config.Logs.Files...)
 	}
 
-	// Collect journal logs
-	for _, service := range logsConfig.Journal {
-		output, err := lc.config.Runner.Run("journalctl", "-u", service, "--no-pager", "-o", "cat")
-		if err != nil {
-			lc.config.Logger.Warnf("Failed to collect journal logs for service %s: %v", service, err)
-			continue
-		}
+	// Check if systemd is available before collecting journal logs
+	if lc.isSystemdAvailable() {
+		// Collect journal logs
+		for _, service := range logsConfig.Journal {
+			output, err := lc.config.Runner.Run("journalctl", "-u", service, "--no-pager", "-o", "cat")
+			if err != nil {
+				lc.config.Logger.Warnf("Failed to collect journal logs for service %s: %v", service, err)
+				continue
+			}
 
-		// Skip services with no journal entries
-		if len(output) == 0 || string(output) == "-- No entries --" {
-			lc.config.Logger.Debugf("No journal entries found for service %s, skipping", service)
-			continue
-		}
+			// Skip services with no journal entries
+			if len(output) == 0 || string(output) == "-- No entries --" {
+				lc.config.Logger.Debugf("No journal entries found for service %s, skipping", service)
+				continue
+			}
 
-		result.Journal[service] = output
+			result.Journal[service] = output
+		}
+	} else {
+		lc.config.Logger.Infof("systemd not available, skipping journal log collection")
 	}
 
 	// Collect file logs with globbing support

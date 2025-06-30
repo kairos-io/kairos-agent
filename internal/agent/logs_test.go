@@ -26,12 +26,23 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 		runner  *v1mock.FakeRunner
 	)
 
+	// Helper function to create a mock systemctl file for systemd detection
+	createMockSystemctl := func() {
+		err := fsutils.MkdirAll(fs, "/usr/bin", constants.DirPerm)
+		Expect(err).ToNot(HaveOccurred())
+		err = fs.WriteFile("/usr/bin/systemctl", []byte("#!/bin/sh\necho 'mock systemctl'"), constants.FilePerm)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	BeforeEach(func() {
 		fs, cleanup, err = vfst.NewTestFS(nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		logger = types.NewNullLogger()
 		runner = v1mock.NewFakeRunner()
+
+		// Create mock systemctl for systemd detection in all tests
+		createMockSystemctl()
 	})
 
 	AfterEach(func() {
