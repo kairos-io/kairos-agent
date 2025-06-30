@@ -51,6 +51,7 @@ func defaultLogsConfig() *config.LogsConfig {
 		},
 		Files: []string{
 			"/var/log/kairos/*.log",
+			"/var/log/cos-*.log",
 			"/run/immucore/*.log",
 		},
 	}
