@@ -33,6 +33,12 @@ const (
 	FilePrefix                = "file://"
 )
 
+// LogsConfig represents the configuration for log collection
+type LogsConfig struct {
+	Journal []string `yaml:"journal,omitempty"`
+	Files   []string `yaml:"files,omitempty"`
+}
+
 type Install struct {
 	Auto                   bool                   `yaml:"auto,omitempty"`
 	Reboot                 bool                   `yaml:"reboot,omitempty"`
@@ -157,6 +163,7 @@ type Config struct {
 	UkiMaxEntries             int                   `yaml:"uki-max-entries,omitempty" mapstructure:"uki-max-entries"`
 	BindPCRs                  []string              `yaml:"bind-pcrs,omitempty" mapstructure:"bind-pcrs"`
 	BindPublicPCRs            []string              `yaml:"bind-public-pcrs,omitempty" mapstructure:"bind-public-pcrs"`
+	Logs                      *LogsConfig           `yaml:"logs,omitempty"`
 }
 
 // WriteInstallState writes the state.yaml file to the given state and recovery paths
