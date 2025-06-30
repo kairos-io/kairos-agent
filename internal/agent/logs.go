@@ -4,8 +4,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"io/fs"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -187,54 +187,13 @@ func (lc *LogsCollector) CreateTarball(result *LogsResult, outputPath string) er
 	return nil
 }
 
-// globFiles expands glob patterns to matching files
+// globFiles expands glob patterns to matching files using the standard library
 func (lc *LogsCollector) globFiles(pattern string) ([]string, error) {
-	// Handle wildcard patterns like "*.log", "kairos-*.log", or "/var/log/kairos/*"
-	if strings.Contains(pattern, "*") {
-		dir := filepath.Dir(pattern)
-		base := filepath.Base(pattern)
-
-		// List files in directory
-		entries, err := lc.config.Fs.ReadDir(dir)
-		if err != nil {
-			return nil, err
-		}
-
-		var matches []string
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				fileName := entry.Name()
-				if lc.matchesPattern(fileName, base) {
-					matches = append(matches, filepath.Join(dir, fileName))
-				}
-			}
-		}
-		return matches, nil
-	}
-
-	// No glob pattern, return the file if it exists
-	if exists, _ := fsutils.Exists(lc.config.Fs, pattern); exists {
-		return []string{pattern}, nil
-	}
-
-	return nil, nil
-}
-
-// matchesPattern checks if a filename matches a glob pattern
-func (lc *LogsCollector) matchesPattern(fileName, pattern string) bool {
-	// Convert glob pattern to regex pattern
-	// Escape special regex characters and replace * with .*
-	regexPattern := regexp.QuoteMeta(pattern)
-	regexPattern = strings.ReplaceAll(regexPattern, "\\*", ".*")
-
-	// Compile the regex pattern
-	re, err := regexp.Compile("^" + regexPattern + "$")
+	matches, err := fs.Glob(lc.config.Fs, pattern)
 	if err != nil {
-		// If regex compilation fails, fall back to exact match
-		return fileName == pattern
+		return nil, err
 	}
-
-	return re.MatchString(fileName)
+	return matches, nil
 }
 
 // ExecuteLogsCommand executes the logs command with the given parameters
