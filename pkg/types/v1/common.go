@@ -31,7 +31,7 @@ const (
 	oci     = "oci"
 	file    = "file"
 	dir     = "dir"
-	ocitar  = "ocitar"
+	ocifile = "ocifile"
 )
 
 // ImageSource represents the source from where an image is created for easy identification
@@ -56,8 +56,8 @@ func (i ImageSource) IsFile() bool {
 	return i.srcType == file
 }
 
-func (i ImageSource) IsOCITar() bool {
-	return i.srcType == ocitar
+func (i ImageSource) IsOCIFile() bool {
+	return i.srcType == ocifile
 }
 
 func (i ImageSource) IsEmpty() bool {
@@ -113,8 +113,8 @@ func (i *ImageSource) updateFromURI(uri string) error {
 	case file:
 		i.srcType = file
 		i.source = value
-	case ocitar:
-		i.srcType = ocitar
+	case ocifile:
+		i.srcType = ocifile
 		i.source = value
 	default:
 		return i.parseImageReference(uri)
@@ -156,6 +156,6 @@ func NewDirSrc(src string) *ImageSource {
 	return &ImageSource{source: src, srcType: dir}
 }
 
-func NewOCITarSrc(src string) *ImageSource {
-	return &ImageSource{source: src, srcType: ocitar}
+func NewOCIFileSrc(src string) *ImageSource {
+	return &ImageSource{source: src, srcType: ocifile}
 }

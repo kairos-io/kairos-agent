@@ -18,6 +18,7 @@ package v1_test
 
 import (
 	"fmt"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +38,8 @@ var _ = Describe("Types", Label("types", "common"), func() {
 			Expect(o.IsDir()).To(BeTrue())
 			o = v1.NewFileSrc("file")
 			Expect(o.IsFile()).To(BeTrue())
+			o = v1.NewOCIFileSrc("file")
+			Expect(o.IsOCIFile()).To(BeTrue())
 			o = v1.NewDockerSrc("image")
 			Expect(o.IsDocker()).To(BeTrue())
 			o = v1.NewEmptySrc()

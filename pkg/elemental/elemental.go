@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/containerd/containerd/archive"
 	"github.com/diskfs/go-diskfs/partition/gpt"
@@ -415,28 +416,28 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 		if err != nil {
 			return nil, err
 		}
-	} else if imgSrc.IsOCITar() {
+	} else if imgSrc.IsOCIFile() {
 		// Extract OCI image from tar file
 		e.config.Logger.Infof("Loading OCI image from tar file %s", imgSrc.Value())
-		
+
 		// Try to load the image from the tar file
 		// First attempt: Try to load without specifying a tag
 		img, err := tarball.ImageFromPath(imgSrc.Value(), nil)
-		
-		// Second attempt: If that fails, try with a specific tag
+
+		// Second attempt: If that fails, try with a oci-image:latest tag convention
 		if err != nil {
-			e.config.Logger.Infof("Trying to load with explicit tag: %v", err)
+			e.config.Logger.Infof("Trying to load with explicit oci-image:latest tag: %v", err)
 			tag, tagErr := name.NewTag("oci-image:latest")
 			if tagErr != nil {
 				e.config.Logger.Errorf("Failed to create tag reference: %v", tagErr)
 				return nil, fmt.Errorf("failed to create tag reference: %w", tagErr)
 			}
-			
+
 			img, err = tarball.ImageFromPath(imgSrc.Value(), &tag)
 			if err != nil {
 				// Third attempt: Try to extract the tar file directly
 				e.config.Logger.Infof("Trying to extract tar file directly: %v", err)
-				
+
 				// Create a temporary directory to extract the tar file
 				tmpDir, err := fsutils.TempDir(e.config.Fs, "", "ocitar-extract")
 				if err != nil {
@@ -444,15 +445,14 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 					return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 				}
 				defer e.config.Fs.RemoveAll(tmpDir)
-				
+
 				// Extract the tar file to the temporary directory
 				e.config.Logger.Infof("Extracting tar file to temporary directory: %s", tmpDir)
-				cmd := fmt.Sprintf("tar -xf %s -C %s", imgSrc.Value(), tmpDir)
-				if _, err := e.config.Runner.Run(cmd); err != nil {
-					e.config.Logger.Errorf("Failed to extract tar file: %v", err)
+				if out, err := e.config.Runner.Run("tar", "-xf", imgSrc.Value(), "-C", tmpDir); err != nil {
+					e.config.Logger.Errorf("Failed to extract tar file: %v\n%s", err, string(out))
 					return nil, fmt.Errorf("failed to extract tar file: %w", err)
 				}
-				
+
 				// Copy the extracted contents to the target
 				e.config.Logger.Infof("Copying extracted contents to target: %s", target)
 				excludes := []string{}
@@ -460,17 +460,17 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 					e.config.Logger.Errorf("Failed to copy extracted contents: %v", err)
 					return nil, fmt.Errorf("failed to copy extracted contents: %w", err)
 				}
-				
+
 				// Successfully extracted and copied the contents
 				return nil, nil
 			}
 		}
-		
+
 		if err != nil {
 			e.config.Logger.Errorf("Failed to load image from tar file: %v", err)
 			return nil, fmt.Errorf("failed to load image from tar file: %w", err)
 		}
-		
+
 		// Extract the image contents to the target
 		reader := mutate.Extract(img)
 		_, err = archive.Apply(context.Background(), target, reader)

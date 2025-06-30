@@ -54,7 +54,7 @@ func ReleasesToOutput(rels []string, output string) []string {
 
 var sourceFlag = cli.StringFlag{
 	Name:  "source",
-	Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` or `oci:` for the type of source.\nFor example `file:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+	Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` `oci:`,or `ocifile:` for the type of source.\nFor example `ocifile:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 }
 
 var cmds = []*cli.Command{
@@ -1209,12 +1209,12 @@ func validateSource(source string) error {
 		return nil
 	}
 
-	r, err := regexp.Compile(`^oci:|^dir:|^file:|^ocitar:`)
+	r, err := regexp.Compile(`^oci:|^dir:|^file:|^ocifile:`)
 	if err != nil {
 		return err
 	}
 	if !r.MatchString(source) {
-		return fmt.Errorf("source %s does not match any of oci:, dir:, file: or ocitar: ", source)
+		return fmt.Errorf("source %s does not match any of oci:, dir:, file: or ocifile: ", source)
 	}
 
 	return nil

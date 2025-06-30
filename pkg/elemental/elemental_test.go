@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/diskfs/go-diskfs"
-	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
 	"strings"
 	sc "syscall"
 	"testing"
+
+	"github.com/diskfs/go-diskfs"
+	"golang.org/x/sys/unix"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -597,6 +598,29 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 			Expect(err).NotTo(BeNil())
 			Expect(runner.CmdsMatch([][]string{{"cosign", "verify", "docker/image:latest"}}))
 		})
+		It("Unpacks a locally saved docker image file to target", Label("docker"), func() {
+			// Clear any previous commands
+			runner.ClearCmds()
+
+			ociTarPath := "/tmp/oci-image.tar"
+			// Create a dummy OCI image tar file
+			err := fs.WriteFile(ociTarPath, []byte("dummy oci image content"), 0644)
+			Expect(err).To(BeNil())
+
+			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+				fullCmd := fmt.Sprintf("Running command: %s %s", cmd, strings.Join(args, " "))
+				_, _ = GinkgoWriter.Write([]byte(fullCmd + "\n"))
+				if cmd == "tar" && len(args) >= 2 && args[0] == "-xf" {
+					_, _ = GinkgoWriter.Write([]byte("Simulating successful tar extraction\n"))
+					return []byte{}, nil
+				}
+				return []byte{}, nil
+			}
+			_, err = e.DumpSource(destDir, v1.NewOCIFileSrc(ociTarPath))
+			Expect(err).To(BeNil())
+			Expect(runner.IncludesCmds([][]string{{"tar", "-xf", ociTarPath}})).To(BeNil())
+		})
+
 		It("Copies image file to target", func() {
 			sourceImg := "/source.img"
 			destFile := filepath.Join(destDir, "active.img")
