@@ -398,7 +398,8 @@ type Image struct {
 	Label      string       `yaml:"label,omitempty" mapstructure:"label"`
 	Size       uint         `yaml:"size,omitempty" mapstructure:"size"`
 	FS         string       `yaml:"fs,omitempty" mapstructure:"fs"`
-	Source     *ImageSource `yaml:"uri,omitempty" mapstructure:"uri"`
+	URI        string       `yaml:"uri,omitempty" mapstructure:"uri"` // deprecated, use Source instead
+	Source     *ImageSource `yaml:"source,omitempty" mapstructure:"source"`
 	MountPoint string       `yaml:"-"`
 	LoopDevice string       `yaml:"-"`
 }
