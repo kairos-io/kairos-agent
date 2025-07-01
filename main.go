@@ -1075,6 +1075,46 @@ The validate command expects a configuration file as its only argument. Local fi
 			},
 		},
 	},
+	{
+		Name:  "logs",
+		Usage: "Collect logs from the system",
+		Description: `Collect logs from various sources on the Kairos system and create a compressed tarball.
+
+The command will collect logs from:
+- Journal logs from specified services (default: kairos-agent, systemd, k3s)
+- Log files from specified paths with globbing support
+
+Configuration can be provided in the Kairos config file under the 'logs' section:
+
+logs:
+  journal:
+  - myservice
+  - myotherservice
+  files:
+  - /var/log/mybinary/*
+  - /var/log/something.log
+
+The output will be a tarball with logs organized by type (journal/, files/).`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "output",
+				Usage:   "Output path for the logs tarball",
+				Value:   "./kairos-logs.tar.gz",
+				Aliases: []string{"o"},
+			},
+		},
+		Action: func(c *cli.Context) error {
+			outputPath := c.String("output")
+
+			// Get the filesystem and runner from the config
+			cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+			if err != nil {
+				return fmt.Errorf("failed to scan config: %w", err)
+			}
+
+			return agent.ExecuteLogsCommand(cfg.Fs, cfg.Logger, cfg.Runner, outputPath)
+		},
+	},
 }
 
 func main() {
@@ -1230,11 +1270,10 @@ func moreThanOneEnabled(bools ...bool) bool {
 }
 
 func noneOfEnabled(bools ...bool) bool {
-	count := 0
 	for _, b := range bools {
 		if b {
-			count++
+			return false // Found at least one true, so not "none of enabled"
 		}
 	}
-	return count == 0
+	return true // No true values found, so "none of enabled"
 }
