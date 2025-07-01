@@ -82,7 +82,7 @@ as a value for the --source flag.
 
 You can also specify the upgrade image by setting "upgrade.system.uri" for the active image or "upgrade.recovery-system.uri" for the recovery image, in the cloud config.
 
-To retrieve all the available versions, use "kairos upgrade list-releases"
+To retrieve all the available versions, use "kairos upgrade list-releases". Use the --registry flag to specify a custom registry to retrieve the versions from, otherwise it will default to quay.io/kairos.
 
 $ kairos upgrade list-releases
 
@@ -98,6 +98,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					},
 					&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 					&cli.BoolFlag{Name: "all", Usage: "Include older releases"},
+					&cli.StringFlag{Name: "registry", Usage: "Registry to retrieve the releases from. Defaults to quay.io/kairos.", Value: "quay.io/kairos"},
 				},
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
@@ -132,13 +133,13 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 
 					if c.Bool("all") {
 						fmt.Println("Available releases (all):")
-						tags, err = agent.ListAllReleases(c.Bool("pre"))
+						tags, err = agent.ListAllReleases(c.Bool("pre"), c.String("registry"))
 						if err != nil {
 							return err
 						}
 					} else {
 						fmt.Println("Available releases with higher version:")
-						tags, err = agent.ListNewerReleases(c.Bool("pre"))
+						tags, err = agent.ListNewerReleases(c.Bool("pre"), c.String("registry"))
 						if err != nil {
 							return err
 						}
