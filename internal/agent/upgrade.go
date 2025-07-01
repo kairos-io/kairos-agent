@@ -21,18 +21,13 @@ import (
 	"github.com/kairos-io/kairos-sdk/versioneer"
 )
 
-func CurrentImage() (string, error) {
+func CurrentImage(registry string) (string, error) {
 	artifact, err := versioneer.NewArtifactFromOSRelease()
 	if err != nil {
 		return "", fmt.Errorf("creating an Artifact from kairos-release: %w", err)
 	}
 
-	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
-	if err != nil {
-		return "", err
-	}
-
-	return artifact.ContainerName(registryAndOrg)
+	return artifact.ContainerName(registry)
 }
 
 func ListAllReleases(includePrereleases bool, registry string) ([]string, error) {
