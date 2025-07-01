@@ -29,6 +29,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkUtils "github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
@@ -82,7 +83,7 @@ as a value for the --source flag.
 
 You can also specify the upgrade image by setting "upgrade.system.uri" for the active image or "upgrade.recovery-system.uri" for the recovery image, in the cloud config.
 
-To retrieve all the available versions, use "kairos upgrade list-releases"
+To retrieve all the available versions, use "kairos upgrade list-releases". Use the --registry flag to specify a custom registry to retrieve the versions from, otherwise it will default to quay.io/kairos.
 
 $ kairos upgrade list-releases
 
@@ -98,9 +99,22 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 					},
 					&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 					&cli.BoolFlag{Name: "all", Usage: "Include older releases"},
+					&cli.StringFlag{Name: "registry", Usage: "Registry to retrieve the releases from. Defaults to quay.io/kairos.", Value: "quay.io/kairos"},
 				},
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
+				Before: func(c *cli.Context) error {
+					// Check if the registry is set in the OS release and warn that its deprecated
+					registryAndOrg, err := sdkUtils.OSRelease("REGISTRY_AND_ORG")
+					if err == nil {
+						fmt.Println("Warning: The 'REGISTRY_AND_ORG' OS release variable is deprecated. Use the '--registry' flag instead.")
+						fmt.Println("Warning: Using the values from 'REGISTRY_AND_ORG' instead of the flag.")
+						_ = c.Set("registry", registryAndOrg)
+
+					}
+					fmt.Println(fmt.Sprintf("Using registry: %s", c.String("registry")))
+					return nil
+				},
 				Action: func(c *cli.Context) error {
 					if utils.IsUki() {
 						fmt.Println("You are running in \"trusted boot\" mode")
@@ -132,13 +146,13 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 
 					if c.Bool("all") {
 						fmt.Println("Available releases (all):")
-						tags, err = agent.ListAllReleases(c.Bool("pre"))
+						tags, err = agent.ListAllReleases(c.Bool("pre"), c.String("registry"))
 						if err != nil {
 							return err
 						}
 					} else {
 						fmt.Println("Available releases with higher version:")
-						tags, err = agent.ListNewerReleases(c.Bool("pre"))
+						tags, err = agent.ListNewerReleases(c.Bool("pre"), c.String("registry"))
 						if err != nil {
 							return err
 						}

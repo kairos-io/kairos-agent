@@ -35,10 +35,10 @@ func CurrentImage() (string, error) {
 	return artifact.ContainerName(registryAndOrg)
 }
 
-func ListAllReleases(includePrereleases bool) ([]string, error) {
+func ListAllReleases(includePrereleases bool, registry string) ([]string, error) {
 	var err error
 
-	tagList, err := allReleases()
+	tagList, err := allReleases(registry)
 	if err != nil {
 		return []string{}, err
 	}
@@ -50,10 +50,10 @@ func ListAllReleases(includePrereleases bool) ([]string, error) {
 	return tagList.FullImages()
 }
 
-func ListNewerReleases(includePrereleases bool) ([]string, error) {
+func ListNewerReleases(includePrereleases bool, registry string) ([]string, error) {
 	var err error
 
-	tagList, err := newerReleases()
+	tagList, err := newerReleases(registry)
 	if err != nil {
 		return []string{}, err
 	}
@@ -167,18 +167,13 @@ func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strict
 
 }
 
-func allReleases() (versioneer.TagList, error) {
+func allReleases(registry string) (versioneer.TagList, error) {
 	artifact, err := versioneer.NewArtifactFromOSRelease()
 	if err != nil {
 		return versioneer.TagList{}, err
 	}
 
-	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
-	if err != nil {
-		return versioneer.TagList{}, err
-	}
-
-	tagList, err := artifact.TagList(registryAndOrg)
+	tagList, err := artifact.TagList(registry)
 	if err != nil {
 		return tagList, err
 	}
@@ -186,18 +181,13 @@ func allReleases() (versioneer.TagList, error) {
 	return tagList.OtherAnyVersion().RSorted(), nil
 }
 
-func newerReleases() (versioneer.TagList, error) {
+func newerReleases(registry string) (versioneer.TagList, error) {
 	artifact, err := versioneer.NewArtifactFromOSRelease()
 	if err != nil {
 		return versioneer.TagList{}, err
 	}
 
-	registryAndOrg, err := utils.OSRelease("REGISTRY_AND_ORG")
-	if err != nil {
-		return versioneer.TagList{}, err
-	}
-
-	tagList, err := artifact.TagList(registryAndOrg)
+	tagList, err := artifact.TagList(registry)
 	if err != nil {
 		return tagList, err
 	}
