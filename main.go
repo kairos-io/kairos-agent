@@ -123,7 +123,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 						return nil
 					}
 
-					currentImage, err := agent.CurrentImage()
+					currentImage, err := agent.CurrentImage(c.String("registry"))
 					if err != nil {
 						return err
 					}
