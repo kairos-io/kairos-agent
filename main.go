@@ -29,6 +29,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkUtils "github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
@@ -102,6 +103,17 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				},
 				Name:        "list-releases",
 				Description: `List all available releases versions`,
+				Before: func(c *cli.Context) error {
+					// Check if the registry is set in the OS release and warn that its deprecated
+					_, err := sdkUtils.OSRelease("REGISTRY_AND_ORG")
+					if err == nil {
+						fmt.Println("Warning: The 'REGISTRY_AND_ORG' OS release variable is deprecated. Use the '--registry' flag instead.")
+					}
+					if c.String("registry") == "quay.io/kairos" {
+						fmt.Println("Using default registry: quay.io/kairos")
+					}
+					return nil
+				},
 				Action: func(c *cli.Context) error {
 					if utils.IsUki() {
 						fmt.Println("You are running in \"trusted boot\" mode")
