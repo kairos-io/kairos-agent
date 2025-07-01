@@ -105,13 +105,14 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				Description: `List all available releases versions`,
 				Before: func(c *cli.Context) error {
 					// Check if the registry is set in the OS release and warn that its deprecated
-					_, err := sdkUtils.OSRelease("REGISTRY_AND_ORG")
+					registryAndOrg, err := sdkUtils.OSRelease("REGISTRY_AND_ORG")
 					if err == nil {
 						fmt.Println("Warning: The 'REGISTRY_AND_ORG' OS release variable is deprecated. Use the '--registry' flag instead.")
+						fmt.Println("Warning: Using the values from 'REGISTRY_AND_ORG' instead of the flag.")
+						_ = c.Set("registry", registryAndOrg)
+
 					}
-					if c.String("registry") == "quay.io/kairos" {
-						fmt.Println("Using default registry: quay.io/kairos")
-					}
+					fmt.Println(fmt.Sprintf("Using registry: %s", c.String("registry")))
 					return nil
 				},
 				Action: func(c *cli.Context) error {
