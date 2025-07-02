@@ -1087,14 +1087,11 @@ func checkDeprecatedURIUsage(logger types.KairosLogger, sp v1.Spec) {
 	case *v1.InstallSpec:
 		checkImageURI(&s.Active, logger, "install.system")
 		checkImageURI(&s.Recovery, logger, "install.recovery-system")
-		checkImageURI(&s.Passive, logger, "install.passive")
 	case *v1.UpgradeSpec:
 		checkImageURI(&s.Active, logger, "upgrade.system")
 		checkImageURI(&s.Recovery, logger, "upgrade.recovery-system")
-		checkImageURI(&s.Passive, logger, "upgrade.passive")
 	case *v1.ResetSpec:
 		checkImageURI(&s.Active, logger, "reset.system")
-		checkImageURI(&s.Passive, logger, "reset.passive")
 	case *v1.InstallUkiSpec:
 		checkImageURI(&s.Active, logger, "install-uki.system")
 	case *v1.UpgradeUkiSpec:
