@@ -420,7 +420,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 		// Extract OCI image from tar file
 		e.config.Logger.Infof("Loading OCI image from tar file %s", imgSrc.Value())
 
-		// Try to load the image from the tar file
+		// Accounting for different image save conventions between tools, load the image from the tar file
 		// First attempt: Try to load without specifying a tag
 		img, err := tarball.ImageFromPath(imgSrc.Value(), nil)
 
@@ -448,6 +448,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 
 				// Extract the tar file to the temporary directory
 				e.config.Logger.Infof("Extracting tar file to temporary directory: %s", tmpDir)
+				//TODO: update to use native golang tar
 				if out, err := e.config.Runner.Run("tar", "-xf", imgSrc.Value(), "-C", tmpDir); err != nil {
 					e.config.Logger.Errorf("Failed to extract tar file: %v\n%s", err, string(out))
 					return nil, fmt.Errorf("failed to extract tar file: %w", err)
