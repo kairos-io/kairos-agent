@@ -510,7 +510,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(spec.Active.Size).To(Equal(uint(666)))
 				})
 				It("sets image size to default value if not set in the config and image is smaller", func() {
-					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    uri: dir:/\n")))
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: dir:/\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
 					c.Config = cfg.Config
 					spec, err := config.NewUpgradeSpec(c)
@@ -519,7 +519,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				})
 
 				It("sets image size to the source if default is smaller", func() {
-					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    uri: file:/tmp/waka\n")))
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: file:/tmp/waka\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
 					c.Config = cfg.Config
 					Expect(c.Fs.Mkdir("/tmp", 0777)).ShouldNot(HaveOccurred())
@@ -531,6 +531,26 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err).ShouldNot(HaveOccurred())
 					// Make the same calculation as the code
 					Expect(spec.Active.Size).To(Equal(uint(f.Size()/1000/1000) + 100))
+				})
+
+				It("parses deprecated 'uri' field into Source for backwards compatibility", func() {
+					// Create a test file using the virtual file system
+					Expect(c.Fs.Mkdir("/tmp", 0777)).ShouldNot(HaveOccurred())
+					Expect(c.Fs.WriteFile("/tmp/testfile", []byte("test"), 0777)).ShouldNot(HaveOccurred())
+					Expect(c.Fs.Truncate("/tmp/testfile", 1024*1024)).ShouldNot(HaveOccurred())
+
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader(`#cloud-config
+upgrade:
+  system:
+    uri: file:/tmp/testfile
+`)))
+					Expect(err).ToNot(HaveOccurred())
+					// Set manually the config collector in the cfg file before unmarshalling the spec
+					c.Config = cfg.Config
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(spec.Active.Source).ToNot(BeNil())
+					Expect(spec.Active.Source.Value()).To(Equal("/tmp/testfile"))
 				})
 
 			})
@@ -569,9 +589,9 @@ reset:
 upgrade:
   recovery: true
   system:
-    uri: oci:busybox
+    source: oci:busybox
   recovery-system:
-    uri: oci:busybox
+    source: oci:busybox
 cloud-init-paths:
 - /what
 `)

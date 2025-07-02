@@ -1074,7 +1074,41 @@ func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
 		return fmt.Errorf("error unmarshalling %s Spec: %w", subkey, err)
 	}
 
+	// Check for deprecated URI usage and add warnings
+	checkDeprecatedURIUsage(r.Logger, sp)
+
 	return nil
+}
+
+// checkDeprecatedURIUsage checks if any Image structs in the spec have the deprecated URI field set
+// and logs a warning if found, also converts URI to Source for backwards compatibility
+func checkDeprecatedURIUsage(logger types.KairosLogger, sp v1.Spec) {
+	switch s := sp.(type) {
+	case *v1.InstallSpec:
+		checkImageURI(&s.Active, logger, "install.system")
+		checkImageURI(&s.Recovery, logger, "install.recovery-system")
+	case *v1.UpgradeSpec:
+		checkImageURI(&s.Active, logger, "upgrade.system")
+		checkImageURI(&s.Recovery, logger, "upgrade.recovery-system")
+	case *v1.ResetSpec:
+		checkImageURI(&s.Active, logger, "reset.system")
+	case *v1.InstallUkiSpec:
+		checkImageURI(&s.Active, logger, "install-uki.system")
+	case *v1.UpgradeUkiSpec:
+		checkImageURI(&s.Active, logger, "upgrade-uki.system")
+	}
+}
+
+// checkImageURI checks if an Image has the deprecated URI field set and handles the conversion
+func checkImageURI(img *v1.Image, logger types.KairosLogger, fieldPath string) {
+	if img.URI != "" {
+		logger.Warnf("The 'uri' field in %s is deprecated, please use 'source' instead", fieldPath)
+		if img.Source == nil || img.Source.IsEmpty() {
+			if source, err := v1.NewSrcFromURI(img.URI); err == nil {
+				img.Source = source
+			}
+		}
+	}
 }
 
 // detectLargestDevice returns the largest disk found
