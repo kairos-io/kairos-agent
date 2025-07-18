@@ -183,17 +183,11 @@ func (p *customizationPage) View() string {
 
 // Helper methods to check configuration
 func (p *customizationPage) isUserConfigured() bool {
-	if &mainModel != nil {
-		return mainModel.username != "" && mainModel.password != ""
-	}
-	return false
+	return mainModel.username != "" && mainModel.password != ""
 }
 
 func (p *customizationPage) isSSHConfigured() bool {
-	if &mainModel != nil {
-		return len(mainModel.sshKeys) > 0
-	}
-	return false
+	return len(mainModel.sshKeys) > 0
 }
 
 func (p *customizationPage) ID() string { return "customization" }
