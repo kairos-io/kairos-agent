@@ -30,9 +30,20 @@ func newDiskSelectionPage() *diskSelectionPage {
 	}
 	var disks []diskStruct
 
+	const minDiskSizeBytes = 1 * 1024 * 1024 * 1024 // 1 GiB
+	excludedDevicePrefixes := []string{"loop", "ram", "sr", "zram"}
+
 	for _, disk := range bl.Disks {
-		if disk.Name == "loop0" || disk.Name == "ram0" || disk.Name == "sr0" || disk.Name == "zram0" || disk.SizeBytes < 1*1024*1024*1024 {
-			continue // Skip loop, ram, sr, zram devices, and skip disks smaller than 1 GiB
+		// Check if the device name starts with any excluded prefix
+		excluded := false
+		for _, prefix := range excludedDevicePrefixes {
+			if strings.HasPrefix(disk.Name, prefix) {
+				excluded = true
+				break
+			}
+		}
+		if excluded || disk.SizeBytes < minDiskSizeBytes {
+			continue // Skip excluded devices and disks smaller than the minimum size
 		}
 		disks = append(disks, diskStruct{name: filepath.Join("/dev", disk.Name), size: fmt.Sprintf("%.2f GiB", float64(disk.SizeBytes)/float64(1024*1024*1024)), id: len(disks)})
 	}
