@@ -14,10 +14,10 @@ import (
 // - `spawnShell`: If true, spawns a shell after the installation process.
 // - `source`: The source of the installation. (Consider reviewing its necessity as noted in the TODO comment.)
 // - `l`: A logger instance for logging messages during the installation process.
-func InteractiveInstall(spawnShell bool, source string, l types.KairosLogger) error {
+func InteractiveInstall(spawnShell bool, source string, logger types.KairosLogger) error {
 	var err error
 	// Set a default window size
-	p := tea.NewProgram(InitialModel(&l, source), tea.WithAltScreen())
+	p := tea.NewProgram(InitialModel(&logger, source), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v", err)
 		os.Exit(1)
