@@ -105,12 +105,14 @@ func (p *customizationPage) Init() tea.Cmd {
 			}
 			optIdx := startIdx + i
 			if prompt.Bool == false {
+				mainModel.log.Debugf("Adding customization option for %s", prompt.YAMLSection)
 				p.options = append(p.options, fmt.Sprintf("Configure %s", prompt.YAMLSection))
 				pageID := idFromSection(prompt)
 				p.cursorWithIds[optIdx] = pageID
 				newPage := newGenericQuestionPage(prompt)
 				mainModel.pages = append(mainModel.pages, newPage)
 			} else {
+				mainModel.log.Debugf("Adding customization option(bool) for %s", prompt.YAMLSection)
 				p.options = append(p.options, fmt.Sprintf("Configure %s", prompt.YAMLSection))
 				pageID := idFromSection(prompt)
 				p.cursorWithIds[optIdx] = pageID

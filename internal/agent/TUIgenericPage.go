@@ -128,7 +128,7 @@ func (g *genericBoolPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 		case "enter":
 			// in both cases we just go back to customization
 			// Save the value to mainModel.extraFields
-			mainModel.log.Info("Setting value", g.options[g.cursor], "for section:", g.section.YAMLSection)
+			mainModel.log.Infof("Setting value %s for section %s:", g.options[g.cursor], g.section.YAMLSection)
 			setValueForSectionInMainModel(g.options[g.cursor], g.section.YAMLSection)
 			return g, func() tea.Msg { return GoToPageMsg{PageID: "customization"} }
 		}
@@ -158,7 +158,7 @@ func setValueForSectionInMainModel(value string, section string) {
 	// Transform "Yes" to "true" and "No" to "false"
 	if value == "Yes" {
 		value = "true"
-	} else {
+	} else if value == "No" {
 		value = "false"
 	}
 	// Ensure mainModel.extraFields is initialized

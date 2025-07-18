@@ -137,8 +137,8 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 	cc, _ = config.ScanNoLogs(collector.Readers(strings.NewReader(finalCloudConfig)), collector.MergeBootLine)
 
 	// Generate final config
-	//ccString, _ := cc.String()
-	//m.log.Logger.Info().Interface("config", cc).Msg("Generated cloud config")
+	ccString, _ := cc.String()
+	m.log.Logger.Info().Msgf("Generated cloud config: %s", ccString)
 
 	return cc
 }
