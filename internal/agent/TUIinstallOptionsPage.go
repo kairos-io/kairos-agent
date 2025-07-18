@@ -17,7 +17,7 @@ func newInstallOptionsPage() *installOptionsPage {
 	return &installOptionsPage{
 		options: []string{
 			"Start Install",
-			"Customize Further",
+			"Customize Further (User, SSH Keys, etc.)",
 		},
 		cursor: 0,
 	}

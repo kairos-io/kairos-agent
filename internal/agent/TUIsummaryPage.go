@@ -3,6 +3,8 @@ package agent
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"gopkg.in/yaml.v3"
 )
 
 // Summary Page
@@ -31,13 +33,15 @@ func (p *summaryPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 }
 
 func (p *summaryPage) View() string {
+	warningStyle := lipgloss.NewStyle().Foreground(kairosHighlight2)
+
 	s := "Installation Summary\n\n"
 	s += "Selected Disk: " + mainModel.disk + "\n\n"
 	s += "Configuration Summary:\n"
 	if mainModel.username != "" {
 		s += fmt.Sprintf("  - Username: %s\n", mainModel.username)
 	} else {
-		s += "  - Username: Not set\n"
+		s += "  - " + warningStyle.Render("Username: Not set, login to the system wont be possible") + "\n"
 	}
 	if len(mainModel.sshKeys) > 0 {
 		s += fmt.Sprintf("  - SSH Keys: %s\n", mainModel.sshKeys)
@@ -46,9 +50,12 @@ func (p *summaryPage) View() string {
 	}
 
 	if len(mainModel.extraFields) > 0 {
-		s += "  - Extra Options:\n"
-		for key, value := range mainModel.extraFields {
-			s += fmt.Sprintf("    - %s: %v\n", key, value)
+		s += "\nExtra Options:\n"
+		yamlStr, err := yaml.Marshal(mainModel.extraFields)
+		if err == nil {
+			s += "\n" + string(yamlStr) + "\n"
+		} else {
+			s += "    (error displaying extra options)\n"
 		}
 	} else {
 		s += "  - Extra Options: Not set\n"
