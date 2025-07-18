@@ -89,11 +89,11 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	mainModel.log.Debugf("Received message: %T", msg)
+	mainModel.log.Tracef("Received message: %T", msg)
 	// Deal with window size changes first
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		mainModel.log.Debugf("Window size changed: %dx%d", msg.Width, msg.Height)
+		mainModel.log.Tracef("Window size changed: %dx%d", msg.Width, msg.Height)
 		mainModel.width = msg.Width
 		mainModel.height = msg.Height
 		return m, nil
@@ -102,7 +102,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	currentIdx := -1
 	for i, p := range mainModel.pages {
 		if p.ID() == mainModel.currentPageID {
-			mainModel.log.Debugf("Found current page: %s at index %d", p.ID(), i)
+			mainModel.log.Tracef("Found current page: %s at index %d", p.ID(), i)
 			currentIdx = i
 			break
 		}
@@ -157,7 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	mainModel.log.Debug("Dealing with message in mainModel.Update")
+	mainModel.log.Tracef("Dealing with message in mainModel.Update")
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -201,7 +201,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return mainModel, tea.Batch(cmd, mainModel.pages[i].Init())
 					}
 				}
-				mainModel.log.Debugf("model.Update: pageID=%s not found in mainModel.pages", goToPageMsg.PageID)
+				mainModel.log.Tracef("model.Update: pageID=%s not found in mainModel.pages", goToPageMsg.PageID)
 			}
 		}
 
@@ -212,7 +212,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	mainModel.log.Debugf("Rendering view for current page: %s", mainModel.currentPageID)
+	mainModel.log.Tracef("Rendering view for current page: %s", mainModel.currentPageID)
 	if mainModel.width == 0 || mainModel.height == 0 {
 		mainModel.log.Debug("Window size is not set, returning loading message")
 		return "Loading..."

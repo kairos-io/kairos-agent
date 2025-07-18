@@ -1,7 +1,10 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 	"strings"
 	"time"
@@ -41,84 +44,77 @@ func newInstallProcessPage() *installProcessPage {
 }
 
 func (p *installProcessPage) Init() tea.Cmd {
-	// Save the configuration before starting the installation
-	_ = NewInteractiveInstallConfig(&mainModel)
-	// call agent here but this fails due to circular dep
+	oldLog := mainModel.log
+	cc := NewInteractiveInstallConfig(&mainModel)
+	// Create a new logger to track the install process output
+	// TODO: Maybe do a dual logger or something? So we can still see the output in the old logger decently
+	logBuffer := bytes.Buffer{}
+	bufferLog := types.NewBufferLogger(&logBuffer)
+	cc.Logger = bufferLog
 
-	// TODO: Change this to call the Runinstall function directly
-	// Start the actual installer binary as a background process
-	/*
-		go func() {
-			defer close(p.done)
+	// Start the installer in a goroutine
+	go func() {
+		defer close(p.done)
+		err := RunInstall(cc)
+		if err != nil {
+			return
+		}
+	}()
 
-			//agent.RunInstall(c)
+	// Track the log buffer and send mapped steps to p.output
+	go func() {
+		lastLen := 0
+		for {
+			time.Sleep(100 * time.Millisecond)
+			buf := logBuffer.Bytes()
+			if len(buf) > lastLen {
+				newLogs := buf[lastLen:]
+				lines := bytes.Split(newLogs, []byte("\n"))
+				for _, line := range lines {
+					strLine := string(line)
+					if len(strLine) == 0 {
+						continue
+					}
 
-			cmd := exec.Command("kairos-agent", "manual-install", filepath.Join(os.TempDir(), "kairos-install-config.yaml"))
-			p.cmd = cmd // Store reference to cmd
+					oldLog.Print(strLine)
+					// Parse log line as JSON and extract the message field
+					var logEntry map[string]interface{}
+					msg := strLine
+					if err := json.Unmarshal([]byte(strLine), &logEntry); err == nil {
+						// Log the message to the old logger still so we have it there
+						if m, ok := logEntry["message"].(string); ok {
+							msg = m
+						}
+					}
 
-			// Create pipes for stdout and stderr
-			stdout, err := cmd.StdoutPipe()
-			if err != nil {
-				mainModel.log.Printf("Error creating stdout pipe: %v", err)
-				return
-			}
-
-			stderr, err := cmd.StderrPipe()
-			if err != nil {
-				mainModel.log.Printf("Error creating stderr pipe: %v", err)
-				return
-			}
-
-			// Start the command
-			if err := cmd.Start(); err != nil {
-				mainModel.log.Printf("Error starting installer: %v", err)
-				return
-			}
-
-			// Create a scanner to read stdout line by line
-			scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
-
-			// Read output and send it to the channel
-			go func() {
-				for scanner.Scan() {
-					line := scanner.Text()
-					mainModel.log.Printf("Installer output: %s", line)
-
-					// Parse output to determine current step based on keywords
-					// Basically the output of agent doesnt match exactly what we want to show in the UI,
-					// so we map what we found in the agent output to the steps we want to show in the UI.
-					if strings.Contains(line, AgentPartitionLog) {
+					if strings.Contains(msg, AgentPartitionLog) {
 						p.output <- StepPrefix + InstallPartitionStep
-					} else if strings.Contains(line, AgentBeforeInstallLog) {
+					} else if strings.Contains(msg, AgentBeforeInstallLog) {
 						p.output <- StepPrefix + InstallBeforeInstallStep
-					} else if strings.Contains(line, AgentActiveLog) {
+					} else if strings.Contains(msg, AgentActiveLog) {
 						p.output <- StepPrefix + InstallActiveStep
-					} else if strings.Contains(line, AgentBootloaderLog) {
+					} else if strings.Contains(msg, AgentBootloaderLog) {
 						p.output <- StepPrefix + InstallBootloaderStep
-					} else if strings.Contains(line, AgentRecoveryLog) {
+					} else if strings.Contains(msg, AgentRecoveryLog) {
 						p.output <- StepPrefix + InstallRecoveryStep
-					} else if strings.Contains(line, AgentPassiveLog) {
+					} else if strings.Contains(msg, AgentPassiveLog) {
 						p.output <- StepPrefix + InstallPassiveStep
-					} else if strings.Contains(line, AgentAfterInstallLog) && !strings.Contains(line, "chroot") {
+					} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
 						p.output <- StepPrefix + InstallAfterInstallStep
-					} else if strings.Contains(line, AgentCompleteLog) {
+					} else if strings.Contains(msg, AgentCompleteLog) {
 						p.output <- StepPrefix + InstallCompleteStep
 					}
 				}
-			}()
-
-			// Wait for the command to complete
-			if err := cmd.Wait(); err != nil {
-				mainModel.log.Printf("Error waiting for installer: %v", err)
-				p.output <- ErrorPrefix + err.Error()
-			} else {
-				mainModel.log.Printf("Installation completed successfully")
-				p.output <- StepPrefix + InstallCompleteStep
+				lastLen = len(buf)
 			}
-		}()
+			select {
+			case <-p.done:
+				return
+			default:
+			}
+		}
+	}()
 
-
-	*/
 	// Return a command that will check for output from the installer
 	return func() tea.Msg {
 		return CheckInstallerMsg{}
@@ -203,10 +199,13 @@ func (p *installProcessPage) View() string {
 	}
 
 	if p.progress < len(p.steps)-1 {
-		s += "\n[!]  Do not power off the system during installation!"
+		// Make the warning message red
+		warning := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true).Render("[!]  Do not power off the system during installation!")
+		s += "\n" + warning
 	} else {
-		s += "\nInstallation completed successfully!"
-		s += "\nYou can now reboot your system."
+		// Make the completion message green
+		complete := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true).Render("Installation completed successfully!\nYou can now reboot your system.")
+		s += "\n" + complete
 	}
 
 	return s
