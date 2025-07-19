@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -503,9 +504,13 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
-			source := c.String("source")
+			log := sdkTypes.NewKairosLogger("agent", "info", true)
+			// Get the viper config in case something in command line or env var has set it and set the level asap
+			if viper.GetBool("debug") {
+				log.SetLevel("debug")
+			}
 
-			return agent.InteractiveInstall(c.Bool("debug"), c.Bool("shell"), source)
+			return agent.InteractiveInstall(c.Bool("shell"), c.String("source"), log)
 		},
 	},
 	{
