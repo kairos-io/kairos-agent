@@ -27,6 +27,8 @@ func (p *summaryPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			return p, func() tea.Msg { return GoToPageMsg{PageID: "install_process"} }
+		case "v":
+			return p, func() tea.Msg { return GoToPageMsg{PageID: "userdata"} }
 		}
 	}
 	return p, nil
@@ -69,7 +71,7 @@ func (p *summaryPage) Title() string {
 }
 
 func (p *summaryPage) Help() string {
-	return "Press enter to start the installation process.\n"
+	return "Press enter to start the installation process.\nPress v to view the generated userdata."
 }
 
 func (p *summaryPage) ID() string { return "summary" }

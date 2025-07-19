@@ -145,7 +145,7 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 
 	// Generate final config
 	ccString, _ := cc.String()
-	m.log.Logger.Info().Msgf("Generated cloud config: %s", ccString)
+	m.log.Logger.Debug().Msgf("Generated cloud config: %s", ccString)
 
 	return cc
 }

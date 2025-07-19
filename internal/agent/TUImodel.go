@@ -68,6 +68,7 @@ func InitialModel(l *types.KairosLogger, source string) Model {
 		newSSHKeysPage(),
 		newSummaryPage(),
 		newInstallProcessPage(),
+		newUserdataPage(),
 	}
 	mainModel.currentPageID = mainModel.pages[0].ID() // Start with the first page
 
@@ -261,6 +262,10 @@ func (m Model) View() string {
 	}
 	if currentIdx != -1 {
 		if _, ok := mainModel.pages[currentIdx].(*installProcessPage); ok {
+			fullHelp = help
+		} else if _, ok := mainModel.pages[currentIdx].(*summaryPage); ok {
+			fullHelp = help
+		} else if _, ok := mainModel.pages[currentIdx].(*userdataPage); ok {
 			fullHelp = help
 		} else {
 			fullHelp = help + " • ESC: back • q/ctrl+c: quit"
