@@ -2,6 +2,7 @@ package agent
 
 import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/mudler/yip/pkg/schema"
 	"os"
@@ -134,7 +135,13 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 	}
 
 	finalCloudConfig := config.AddHeader("#cloud-config", string(dat))
-	cc, _ = config.ScanNoLogs(collector.Readers(strings.NewReader(finalCloudConfig)), collector.MergeBootLine)
+
+	// Read also any userdata in the system
+	cc, _ = config.ScanNoLogs(
+		collector.Readers(strings.NewReader(finalCloudConfig)),
+		collector.Directories(constants.GetUserConfigDirs()...),
+		collector.MergeBootLine,
+	)
 
 	// Generate final config
 	ccString, _ := cc.String()
