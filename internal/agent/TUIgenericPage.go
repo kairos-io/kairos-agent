@@ -72,6 +72,12 @@ func idFromSection(section YAMLPrompt) string {
 	return strings.Replace(section.YAMLSection, ".", "_", -1)
 }
 
+func (g genericQuestionPage) Configured() bool {
+	// Check if the section has been configured in mainModel.extraFields
+	_, exists := getValueForSectionInMainModel(g.section.YAMLSection)
+	return exists
+}
+
 // newGenericQuestionPage initializes a new generic question page with a text input Model.
 // Uses the provided section to set up the input Model.
 func newGenericQuestionPage(section YAMLPrompt) *genericQuestionPage {
@@ -150,6 +156,12 @@ func (g *genericBoolPage) View() string {
 	return s
 }
 
+func (g *genericBoolPage) Configured() bool {
+	// Check if the section has been configured in mainModel.extraFields
+	_, exists := getValueForSectionInMainModel(g.section.YAMLSection)
+	return exists
+}
+
 // setValueForSectionInMainModel sets a value in the mainModel's extraFields map
 // for a given section, which is specified as a dot-separated string.
 // It creates nested maps as necessary to reach the specified section.
@@ -180,4 +192,22 @@ func setValueForSectionInMainModel(value string, section string) {
 			}
 		}
 	}
+}
+
+// getValueForSectionInMainModel retrieves a value from the mainModel's extraFields map
+// for a given section, which is specified as a dot-separated string.
+func getValueForSectionInMainModel(section string) (string, bool) {
+	sections := strings.Split(section, ".")
+	currentMap := mainModel.extraFields
+
+	for _, key := range sections {
+		if nextMap, ok := currentMap[key].(map[string]interface{}); ok {
+			currentMap = nextMap
+		} else if value, ok := currentMap[key]; ok {
+			return fmt.Sprintf("%v", value), true
+		} else {
+			return "", false
+		}
+	}
+	return "", false
 }

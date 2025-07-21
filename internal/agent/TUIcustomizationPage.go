@@ -163,17 +163,9 @@ func (p *customizationPage) View() string {
 			cursor = lipgloss.NewStyle().Foreground(kairosAccent).Render(">")
 		}
 		tick := ""
-		if option == "User & Password" {
-			// User & Password
-			if p.isUserConfigured() {
-				tick = lipgloss.NewStyle().Foreground(kairosAccent).Render(checkMark)
-			}
-		}
-		if option == "SSH Keys" {
-			// SSH Keys
-			if p.isSSHConfigured() {
-				tick = lipgloss.NewStyle().Foreground(kairosAccent).Render(checkMark)
-			}
+		pageID, ok := p.cursorWithIds[i]
+		if ok && p.isConfigured(pageID) {
+			tick = lipgloss.NewStyle().Foreground(kairosAccent).Render(checkMark)
 		}
 		s += fmt.Sprintf("%s %s %s\n", cursor, option, tick)
 	}
@@ -191,3 +183,25 @@ func (p *customizationPage) isSSHConfigured() bool {
 }
 
 func (p *customizationPage) ID() string { return "customization" }
+
+// isConfigured checks if a given pageID is configured, supporting both static and dynamic fields
+func (p *customizationPage) isConfigured(pageID string) bool {
+	// Hardcoded checks for static fields
+	if pageID == "user_password" {
+		return p.isUserConfigured()
+	}
+	if pageID == "ssh_keys" {
+		return p.isSSHConfigured()
+	}
+	// Try to find a page with this ID and call Configured() if available
+	for _, page := range mainModel.pages {
+		if idProvider, ok := page.(interface{ ID() string }); ok && idProvider.ID() == pageID {
+			// We found the page with the given ID, check if it has a Configured method
+			if configuredProvider, ok := page.(interface{ Configured() bool }); ok {
+				// Call the Configured method to check if it's configured
+				return configuredProvider.Configured()
+			}
+		}
+	}
+	return false
+}
