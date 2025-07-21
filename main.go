@@ -869,9 +869,14 @@ The validate command expects a configuration file as its only argument. Local fi
 						return fmt.Errorf("")
 					}
 					if _, err := os.Stat(c.Args().First()); os.IsNotExist(err) {
-						cli.HelpPrinter(c.App.Writer, fmt.Sprintf("File %s does not exist\n\n", c.Args().First()), c.Command)
-						_ = cli.ShowSubcommandHelp(c)
-						return fmt.Errorf("")
+						// try to create the file
+						f, err := os.Create(c.Args().First())
+						if err != nil {
+							cli.HelpPrinter(c.App.Writer, fmt.Sprintf("Could not create missing %s file\n\n", c.Args().First()), c.Command)
+							_ = cli.ShowSubcommandHelp(c)
+						}
+						f.Close()
+						return nil
 					}
 					return nil
 				},
