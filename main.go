@@ -819,6 +819,94 @@ The validate command expects a configuration file as its only argument. Local fi
 		},
 	},
 	{
+		Name:  "grubedit",
+		Usage: "grubedit subcommands",
+		Subcommands: []*cli.Command{
+			{
+				Name:      "list",
+				Usage:     "List all the grub variables from a file",
+				UsageText: "grubedit list FILE",
+				Before: func(c *cli.Context) error {
+					if c.Args().Len() != 1 {
+						cli.HelpPrinter(c.App.Writer, "File argument missing\n\n", c.Command)
+						_ = cli.ShowSubcommandHelp(c)
+						return fmt.Errorf("")
+					}
+					if _, err := os.Stat(c.Args().First()); os.IsNotExist(err) {
+						return fmt.Errorf("file %s does not exist", c.Args().First())
+					}
+					return nil
+				},
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					if err != nil {
+						return err
+					}
+					vars, err := utils.ReadPersistentVariables(c.Args().First(), config)
+					if err != nil {
+						config.Logger.Logger.Error().Err(err).Msgf("Error reading grub variables from %s", c.Args().First())
+						return err
+					}
+					if len(vars) == 0 {
+						config.Logger.Logger.Info().Msgf("No grub variables found in %s", c.Args().First())
+					} else {
+						config.Logger.Logger.Info().Msgf("Grub variables found in %s:", c.Args().First())
+						for k, v := range vars {
+							config.Logger.Logger.Info().Msgf("%s=%s", k, v)
+						}
+					}
+					return nil
+				},
+			},
+			{
+				Name:      "set",
+				Usage:     "Add or Edit a variable in a grub file. setting an existing variable to an empty value will remove it",
+				UsageText: "grubedit set FILE KEY=VALUE",
+				Before: func(c *cli.Context) error {
+					if c.Args().Len() != 2 {
+						cli.HelpPrinter(c.App.Writer, "File and key=value arguments missing\n\n", c.Command)
+						_ = cli.ShowSubcommandHelp(c)
+						return fmt.Errorf("")
+					}
+					if _, err := os.Stat(c.Args().First()); os.IsNotExist(err) {
+						cli.HelpPrinter(c.App.Writer, fmt.Sprintf("File %s does not exist\n\n", c.Args().First()), c.Command)
+						_ = cli.ShowSubcommandHelp(c)
+						return fmt.Errorf("")
+					}
+					return nil
+				},
+				Action: func(c *cli.Context) error {
+					config, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+					if err != nil {
+						return err
+					}
+
+					// Transform the key=value argument into a map
+					parts := strings.SplitN(c.Args().Get(1), "=", 2)
+					vars := make(map[string]string)
+					if len(parts) != 2 {
+						return fmt.Errorf("key=value argument must be in the format KEY=VALUE")
+					}
+					if parts[1] == "" {
+						// If the value is empty, we remove the variable
+						vars[parts[0]] = ""
+					} else {
+						// Otherwise we set the variable to the value
+						vars[parts[0]] = parts[1]
+					}
+
+					err = utils.SetPersistentVariables(c.Args().First(), vars, config)
+					if err != nil {
+						config.Logger.Logger.Error().Err(err).Msgf("Error setting grub variables in %s", c.Args().First())
+						return err
+					}
+
+					return nil
+				},
+			},
+		},
+	},
+	{
 		Name:        "sysext",
 		Usage:       "sysext subcommands",
 		Description: "sysext subcommands",
