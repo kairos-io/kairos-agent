@@ -820,63 +820,55 @@ The validate command expects a configuration file as its only argument. Local fi
 	},
 	{
 		Name:  "grubedit",
-		Usage: "grubedit subcommands",
+		Usage: "grubedit [set] KEY=VALUE",
+		Description: "Show or edit grub variables.\n\n" +
+			"Use `grubedit set KEY=VALUE` to set a grub variable. If the value is empty, it will remove the variable.\n\n" +
+			"Use `grubedit` to list all the grub variables found in the grub environment file.",
+		Action: func(c *cli.Context) error {
+			config, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
+			if err != nil {
+				return err
+			}
+			grubEnv := c.String("grub-file")
+			if _, err := config.Fs.Stat(grubEnv); err != nil && os.IsNotExist(err) {
+				// If file doesn't exist, we just log it and return
+				// Is not really an error, its just that there is no file so no vars are set
+				config.Logger.Logger.Info().Msgf("No file %s found", grubEnv)
+				return nil
+			}
+			vars, err := utils.ReadPersistentVariables(grubEnv, config)
+			if err != nil {
+				config.Logger.Logger.Error().Err(err).Msgf("Error reading grub variables from %s", grubEnv)
+				return err
+			}
+			if len(vars) == 0 {
+				config.Logger.Logger.Info().Msgf("No grub variables found in %s", grubEnv)
+			} else {
+				// Format the variables into a nice aligned list
+				maxKeyLen := 0
+				for k := range vars {
+					if len(k) > maxKeyLen {
+						maxKeyLen = len(k)
+					}
+				}
+				var b strings.Builder
+				for k, v := range vars {
+					b.WriteString(fmt.Sprintf("%-*s = %s\n", maxKeyLen, k, v))
+				}
+				config.Logger.Logger.Info().Msgf("Grub variables found in %s:\n%s", grubEnv, b.String())
+			}
+			return nil
+		},
 		Subcommands: []*cli.Command{
 			{
-				Name:      "list",
-				Usage:     "List all the grub variables from a file",
-				UsageText: "grubedit list FILE",
+				Name:      "set",
+				Usage:     "Add or Edit a grub variable. Setting an existing variable to an empty value will remove it",
+				UsageText: "grubedit set KEY=VALUE",
 				Before: func(c *cli.Context) error {
 					if c.Args().Len() != 1 {
-						cli.HelpPrinter(c.App.Writer, "File argument missing\n\n", c.Command)
-						_ = cli.ShowSubcommandHelp(c)
-						return fmt.Errorf("")
-					}
-					if _, err := os.Stat(c.Args().First()); os.IsNotExist(err) {
-						return fmt.Errorf("file %s does not exist", c.Args().First())
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs, collector.StrictValidation(c.Bool("strict-validation")))
-					if err != nil {
-						return err
-					}
-					vars, err := utils.ReadPersistentVariables(c.Args().First(), config)
-					if err != nil {
-						config.Logger.Logger.Error().Err(err).Msgf("Error reading grub variables from %s", c.Args().First())
-						return err
-					}
-					if len(vars) == 0 {
-						config.Logger.Logger.Info().Msgf("No grub variables found in %s", c.Args().First())
-					} else {
-						config.Logger.Logger.Info().Msgf("Grub variables found in %s:", c.Args().First())
-						for k, v := range vars {
-							config.Logger.Logger.Info().Msgf("%s=%s", k, v)
-						}
-					}
-					return nil
-				},
-			},
-			{
-				Name:      "set",
-				Usage:     "Add or Edit a variable in a grub file. setting an existing variable to an empty value will remove it",
-				UsageText: "grubedit set FILE KEY=VALUE",
-				Before: func(c *cli.Context) error {
-					if c.Args().Len() != 2 {
 						cli.HelpPrinter(c.App.Writer, "File and key=value arguments missing\n\n", c.Command)
 						_ = cli.ShowSubcommandHelp(c)
 						return fmt.Errorf("")
-					}
-					if _, err := os.Stat(c.Args().First()); os.IsNotExist(err) {
-						// try to create the file
-						f, err := os.Create(c.Args().First())
-						if err != nil {
-							cli.HelpPrinter(c.App.Writer, fmt.Sprintf("Could not create missing %s file\n\n", c.Args().First()), c.Command)
-							_ = cli.ShowSubcommandHelp(c)
-						}
-						f.Close()
-						return nil
 					}
 					return nil
 				},
@@ -887,7 +879,7 @@ The validate command expects a configuration file as its only argument. Local fi
 					}
 
 					// Transform the key=value argument into a map
-					parts := strings.SplitN(c.Args().Get(1), "=", 2)
+					parts := strings.SplitN(c.Args().First(), "=", 2)
 					vars := make(map[string]string)
 					if len(parts) != 2 {
 						return fmt.Errorf("key=value argument must be in the format KEY=VALUE")
@@ -900,14 +892,27 @@ The validate command expects a configuration file as its only argument. Local fi
 						vars[parts[0]] = parts[1]
 					}
 
-					err = utils.SetPersistentVariables(c.Args().First(), vars, config)
+					grubEnv := c.String("grub-file")
+					err = utils.SetPersistentVariables(grubEnv, vars, config)
 					if err != nil {
 						config.Logger.Logger.Error().Err(err).Msgf("Error setting grub variables in %s", c.Args().First())
 						return err
 					}
+					if parts[1] == "" {
+						config.Logger.Logger.Info().Msgf("Removed grub variable %s from %s", parts[0], grubEnv)
+					} else {
+						config.Logger.Logger.Info().Msgf("Set grub variable %s=%s in %s", parts[0], parts[1], grubEnv)
+					}
 
 					return nil
 				},
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "grub-file",
+				Usage: "Path to the grub environment file to list or set variables to/from.",
+				Value: filepath.Join(constants.OEMPath, constants.GrubEnv),
 			},
 		},
 	},
