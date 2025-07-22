@@ -474,6 +474,9 @@ func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[str
 		if strings.HasPrefix(a, "#") {
 			continue
 		}
+		if a == "" {
+			continue
+		}
 		splitted := strings.Split(a, "=")
 		if len(splitted) == 2 {
 			vars[splitted[0]] = splitted[1]
