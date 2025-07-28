@@ -21,7 +21,7 @@ var _ = Describe("RenderTemplate action test", func() {
 		runtime, err := state.NewRuntime()
 		Expect(err).ToNot(HaveOccurred())
 
-		result, err := RenderTemplate(".fixtures/template.yaml", config, runtime)
+		result, err := RenderTemplate("fixtures/template.yaml", config, runtime)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).ToNot(BeNil())
 		Expect(len(result)).ToNot(BeZero())
