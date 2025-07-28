@@ -182,13 +182,13 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions = NewInstallElementalPartitions(cfg.Logger, spec)
+	spec.Partitions = NewInstallPartitions(cfg.Logger, spec)
 
 	return spec, nil
 }
 
-func NewInstallElementalPartitions(log types.KairosLogger, spec *v1.InstallSpec) v1.ElementalPartitions {
-	pt := v1.ElementalPartitions{}
+func NewInstallPartitions(log types.KairosLogger, spec *v1.InstallSpec) v1.Partitions {
+	pt := v1.Partitions{}
 	var oemSize uint
 	if spec.Partitions.OEM != nil && spec.Partitions.OEM.Size != 0 {
 		oemSize = spec.Partitions.OEM.Size
@@ -286,7 +286,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
-	ep := v1.NewElementalPartitionsFromList(parts)
+	ep := v1.NewPartitionsFromList(parts)
 
 	if ep.Recovery == nil {
 		// We could have recovery in lvm which won't appear in ghw list
@@ -478,7 +478,7 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
-	ep := v1.NewElementalPartitionsFromList(parts)
+	ep := v1.NewPartitionsFromList(parts)
 	if efiExists {
 		if ep.EFI == nil {
 			return nil, fmt.Errorf("EFI partition not found")
@@ -612,7 +612,7 @@ func ReadResetSpecFromConfig(c *Config) (*v1.ResetSpec, error) {
 func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
 	spec = &v1.ResetUkiSpec{
 		FormatPersistent: true, // Persistent is formatted by default
-		Partitions:       v1.ElementalPartitions{},
+		Partitions:       v1.Partitions{},
 	}
 
 	_, ukiBootMode := cfg.Fs.Stat("/run/cos/uki_boot_mode")
@@ -1017,7 +1017,7 @@ func BootedFrom(runner v1.Runner, label string) bool {
 func hasSquashedRecovery(config *Config, recovery *types.Partition) (squashed bool, err error) {
 	mountPoint := recovery.MountPoint
 	if mnt, _ := isMounted(config, recovery); !mnt {
-		tmpMountDir, err := fsutils.TempDir(config.Fs, "", "elemental")
+		tmpMountDir, err := fsutils.TempDir(config.Fs, "", "deploy")
 		if err != nil {
 			config.Logger.Errorf("failed creating temporary dir: %v", err)
 			return false, err

@@ -153,7 +153,7 @@ var _ = Describe("Schema", func() {
 					Recovery: v1.Image{
 						Size: 10000,
 					},
-					Partitions: v1.ElementalPartitions{
+					Partitions: v1.Partitions{
 						OEM: &sdkTypes.Partition{
 							Size: 5120,
 							FS:   "ext4",

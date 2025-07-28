@@ -76,7 +76,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	AfterEach(func() { cleanup() })
 
 	It("fails if strict mode is enabled", Label("strict"), func() {
-		d, err := fsutils.TempDir(fs, "", "elemental")
+		d, err := fsutils.TempDir(fs, "", "runstage")
 		Expect(err).ToNot(HaveOccurred())
 		_ = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte("stages: [foo,bar]"), os.ModePerm)
 		config.Strict = true
@@ -93,7 +93,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	})
 
 	It("Goes over extra paths", func() {
-		d, err := fsutils.TempDir(fs, "", "elemental")
+		d, err := fsutils.TempDir(fs, "", "runstage")
 		Expect(err).ToNot(HaveOccurred())
 		config.Logger.SetLevel("debug")
 		config.CloudInitPaths = []string{d}
@@ -106,7 +106,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 	})
 
 	It("parses cmdline uri", func() {
-		d, _ := fsutils.TempDir(fs, "", "elemental")
+		d, _ := fsutils.TempDir(fs, "", "runstage")
 		_ = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte{}, os.ModePerm)
 
 		writeCmdline(fmt.Sprintf("cos.setup=%s/test.yaml", d), fs)

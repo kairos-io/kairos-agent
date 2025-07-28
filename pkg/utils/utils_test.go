@@ -85,7 +85,123 @@ var _ = Describe("Utils", Label("utils"), func() {
 		)
 	})
 	AfterEach(func() { cleanup() })
+	Describe("DeactivateDevices", Label("blkdeactivate"), func() {
+		It("calls blkdeactivat", func() {
+			err := utils.DeactivateDevices(config)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(runner.CmdsMatch([][]string{{
+				"blkdeactivate", "--lvmoptions", "retry,wholevg",
+				"--dmoptions", "force,retry", "--errors",
+			}})).To(BeNil())
+		})
+	})
+	Describe("SelinuxRelabel", Label("SelinuxRelabel", "selinux"), func() {
+		var policyFile string
+		var relabelCmd []string
+		BeforeEach(func() {
+			// to mock the existance of setfiles command on non selinux hosts
+			err := fsutils.MkdirAll(fs, "/usr/sbin", constants.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			sbin, err := fs.RawPath("/usr/sbin")
+			Expect(err).ShouldNot(HaveOccurred())
 
+			path := os.Getenv("PATH")
+			os.Setenv("PATH", fmt.Sprintf("%s:%s", sbin, path))
+			_, err = fs.Create("/usr/sbin/setfiles")
+			Expect(err).ShouldNot(HaveOccurred())
+			err = fs.Chmod("/usr/sbin/setfiles", 0777)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			// to mock SELinux policy files
+			policyFile = filepath.Join(constants.SELinuxTargetedPolicyPath, "policy.31")
+			err = fsutils.MkdirAll(fs, filepath.Dir(constants.SELinuxTargetedContextFile), constants.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = fs.Create(constants.SELinuxTargetedContextFile)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = fsutils.MkdirAll(fs, constants.SELinuxTargetedPolicyPath, constants.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = fs.Create(policyFile)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			relabelCmd = []string{
+				"setfiles", "-c", policyFile, "-e", "/dev", "-e", "/proc", "-e", "/sys",
+				"-F", constants.SELinuxTargetedContextFile, "/",
+			}
+		})
+		It("does nothing if the context file is not found", func() {
+			err := fs.Remove(constants.SELinuxTargetedContextFile)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Expect(utils.SelinuxRelabel(config, "/", true)).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{{}}))
+		})
+		It("does nothing if the policy file is not found", func() {
+			err := fs.Remove(policyFile)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(utils.SelinuxRelabel(config, "/", true)).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{{}}))
+		})
+		It("relabels the current root", func() {
+			Expect(utils.SelinuxRelabel(config, "", true)).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{relabelCmd})).To(BeNil())
+			runner.ClearCmds()
+			Expect(utils.SelinuxRelabel(config, "/", true)).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{relabelCmd})).To(BeNil())
+		})
+		It("fails to relabel the current root", func() {
+			runner.ReturnError = errors.New("setfiles failure")
+			Expect(utils.SelinuxRelabel(config, "", true)).NotTo(BeNil())
+			Expect(runner.CmdsMatch([][]string{relabelCmd})).To(BeNil())
+		})
+		It("ignores relabel failures", func() {
+			runner.ReturnError = errors.New("setfiles failure")
+			Expect(utils.SelinuxRelabel(config, "", false)).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{relabelCmd})).To(BeNil())
+		})
+		It("relabels the given root-tree path", func() {
+			contextFile := filepath.Join("/root", constants.SELinuxTargetedContextFile)
+			err := fsutils.MkdirAll(fs, filepath.Dir(contextFile), constants.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = fs.Create(contextFile)
+			Expect(err).ShouldNot(HaveOccurred())
+			policyFile = filepath.Join("/root", policyFile)
+			err = fsutils.MkdirAll(fs, filepath.Join("/root", constants.SELinuxTargetedPolicyPath), constants.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = fs.Create(policyFile)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			relabelCmd = []string{
+				"setfiles", "-c", policyFile, "-F", "-r", "/root", contextFile, "/root",
+			}
+
+			Expect(utils.SelinuxRelabel(config, "/root", true)).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{relabelCmd})).To(BeNil())
+		})
+	})
+	Describe("CloudConfig", Label("CloudConfig", "cloud-config"), func() {
+		It("Copies the cloud config file", func() {
+			testString := "In a galaxy far far away..."
+			cloudInit := []string{"/config.yaml"}
+			err := fs.WriteFile(cloudInit[0], []byte(testString), constants.FilePerm)
+			Expect(err).To(BeNil())
+			Expect(err).To(BeNil())
+
+			err = utils.CopyCloudConfig(config, cloudInit)
+			Expect(err).To(BeNil())
+			configFilePath := fmt.Sprintf("%s/90_custom.yaml", constants.OEMDir)
+			copiedFile, err := fs.ReadFile(configFilePath)
+			Expect(err).To(BeNil())
+			Expect(copiedFile).To(ContainSubstring(testString))
+			stat, err := fs.Stat(configFilePath)
+			Expect(err).To(BeNil())
+			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
+
+		})
+		It("Doesnt do anything if the config file is not set", func() {
+			err := utils.CopyCloudConfig(config, []string{})
+			Expect(err).To(BeNil())
+		})
+	})
 	Describe("Chroot", Label("chroot"), func() {
 		var chroot *utils.Chroot
 		BeforeEach(func() {
@@ -358,9 +474,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 	})
 	Describe("SyncData", Label("SyncData"), func() {
 		It("Copies all files from source to target", func() {
-			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "testsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "testtarget")
 			Expect(err).ShouldNot(HaveOccurred())
 
 			for i := 0; i < 5; i++ {
@@ -383,9 +499,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 
 		It("Copies all files from source to target respecting excludes", func() {
-			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "testsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "testtarget")
 			Expect(err).ShouldNot(HaveOccurred())
 
 			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "host"), constants.DirPerm)
@@ -426,9 +542,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 
 		It("Copies all files from source to target respecting excludes with '/' prefix", func() {
-			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "testsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "testtarget")
 			Expect(err).ShouldNot(HaveOccurred())
 
 			fsutils.MkdirAll(fs, filepath.Join(sourceDir, "host"), constants.DirPerm)
@@ -458,14 +574,14 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 
 		It("should not fail if dirs are empty", func() {
-			sourceDir, err := fsutils.TempDir(fs, "", "elementalsource")
+			sourceDir, err := fsutils.TempDir(fs, "", "testsource")
 			Expect(err).ShouldNot(HaveOccurred())
-			destDir, err := fsutils.TempDir(fs, "", "elementaltarget")
+			destDir, err := fsutils.TempDir(fs, "", "testtarget")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(utils.SyncData(logger, realRunner, fs, sourceDir, destDir)).To(BeNil())
 		})
 		It("should NOT fail if destination does not exist", func() {
-			sourceDir, err := fsutils.TempDir(fs, "", "elemental")
+			sourceDir, err := fsutils.TempDir(fs, "", "test")
 			err = fs.WriteFile(filepath.Join(sourceDir, "testfile"), []byte("sdjfnsdjkfjkdsanfkjsnda"), os.ModePerm)
 			Expect(err).ToNot(HaveOccurred())
 			err = utils.SyncData(logger, realRunner, fs, sourceDir, "/welp")

@@ -28,11 +28,11 @@ import (
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
-	Describe("ElementalPartitions", func() {
+	Describe("Partitions", func() {
 		var p sdkTypes.PartitionList
-		var ep v1.ElementalPartitions
+		var ep v1.Partitions
 		BeforeEach(func() {
-			ep = v1.ElementalPartitions{}
+			ep = v1.Partitions{}
 			p = sdkTypes.PartitionList{
 				&sdkTypes.Partition{
 					FilesystemLabel: "COS_OEM",
@@ -91,8 +91,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			err := ep.SetFirmwarePartitions(v1.BIOS, v1.MSDOS)
 			Expect(err).Should(HaveOccurred())
 		})
-		It("initializes an ElementalPartitions from a PartitionList", func() {
-			ep := v1.NewElementalPartitionsFromList(p)
+		It("initializes an Partitions from a PartitionList", func() {
+			ep := v1.NewPartitionsFromList(p)
 			Expect(ep.Persistent != nil).To(BeTrue())
 			Expect(ep.OEM != nil).To(BeTrue())
 			Expect(ep.BIOS == nil).To(BeTrue())
@@ -102,14 +102,14 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 		Describe("returns a partition list by install order", func() {
 			It("with no extra parts", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := v1.NewPartitionsFromList(p)
 				lst := ep.PartitionsByInstallOrder([]*sdkTypes.Partition{})
 				Expect(len(lst)).To(Equal(2))
 				Expect(lst[0].Name == "oem").To(BeTrue())
 				Expect(lst[1].Name == "persistent").To(BeTrue())
 			})
 			It("with extra parts with size > 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := v1.NewPartitionsFromList(p)
 				var extraParts []*sdkTypes.Partition
 				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", Size: 5})
 
@@ -120,7 +120,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(lst[2].Name == "persistent").To(BeTrue())
 			})
 			It("with extra part with size == 0 and persistent.Size == 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := v1.NewPartitionsFromList(p)
 				var extraParts []*sdkTypes.Partition
 				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
@@ -130,7 +130,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(lst[1].Name == "persistent").To(BeTrue())
 			})
 			It("with extra part with size == 0 and persistent.Size > 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := v1.NewPartitionsFromList(p)
 				ep.Persistent.Size = 10
 				var extraParts []*sdkTypes.Partition
 				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", FilesystemLabel: "LABEL", Size: 0})
@@ -142,7 +142,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(lst[2].Name == "extra").To(BeTrue())
 			})
 			It("with several extra parts with size == 0 and persistent.Size > 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := v1.NewPartitionsFromList(p)
 				ep.Persistent.Size = 10
 				var extraParts []*sdkTypes.Partition
 				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra1", Size: 0})
@@ -157,14 +157,14 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 
 		It("returns a partition list by mount order", func() {
-			ep := v1.NewElementalPartitionsFromList(p)
+			ep := v1.NewPartitionsFromList(p)
 			lst := ep.PartitionsByMountPoint(false)
 			Expect(len(lst)).To(Equal(2))
 			Expect(lst[0].Name == "persistent").To(BeTrue())
 			Expect(lst[1].Name == "oem").To(BeTrue())
 		})
 		It("returns a partition list by mount reverse order", func() {
-			ep := v1.NewElementalPartitionsFromList(p)
+			ep := v1.NewPartitionsFromList(p)
 			lst := ep.PartitionsByMountPoint(true)
 			Expect(len(lst)).To(Equal(2))
 			Expect(lst[0].Name == "oem").To(BeTrue())
@@ -242,7 +242,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Passive: v1.Image{
 						Source: v1.NewEmptySrc(),
 					},
-					Partitions: v1.ElementalPartitions{
+					Partitions: v1.Partitions{
 						OEM:        &sdkTypes.Partition{},
 						Recovery:   &sdkTypes.Partition{},
 						Persistent: &sdkTypes.Partition{},

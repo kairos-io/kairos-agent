@@ -24,12 +24,13 @@ import (
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	events "github.com/kairos-io/kairos-sdk/bus"
-
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	events "github.com/kairos-io/kairos-sdk/bus"
 )
 
 func (i *InstallAction) installHook(hook string, chroot bool) error {
@@ -132,12 +133,12 @@ func (i InstallAction) Run() (err error) {
 	// Set installation sources from a downloaded ISO
 
 	if i.spec.Iso != "" {
-		tmpDir, err := elemental.GetIso(i.cfg, i.spec.Iso)
+		tmpDir, err := GetIso(i.cfg, i.spec.Iso)
 		if err != nil {
 			return err
 		}
 		cleanup.Push(func() error { return i.cfg.Fs.RemoveAll(tmpDir) })
-		err = elemental.UpdateSourcesFormDownloadedISO(i.cfg, tmpDir, &i.spec.Active, &i.spec.Recovery)
+		err = UpdateSourcesFormDownloadedISO(i.cfg, tmpDir, &i.spec.Active, &i.spec.Recovery)
 		if err != nil {
 			return err
 		}
@@ -147,7 +148,7 @@ func (i InstallAction) Run() (err error) {
 		i.cfg.Logger.Infof("NoFormat is true, skipping format and partitioning")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
-		if elemental.CheckActiveDeployment(i.cfg, labels) && !i.spec.Force {
+		if utils.CheckActiveDeployment(i.cfg, labels) && !i.spec.Force {
 			return fmt.Errorf("use `force` flag to run an installation over the current running deployment")
 		}
 
@@ -163,23 +164,23 @@ func (i InstallAction) Run() (err error) {
 		}
 	} else {
 		// Deactivate any active volume on target
-		err = elemental.DeactivateDevices(i.cfg)
+		err = utils.DeactivateDevices(i.cfg)
 		if err != nil {
 			return err
 		}
 		// Partition device
-		err = elemental.PartitionAndFormatDevice(i.cfg, i.spec)
+		err = partitioner.PartitionAndFormatDevice(i.cfg, i.spec)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = elemental.MountPartitions(i.cfg, i.spec.Partitions.PartitionsByMountPoint(false))
+	err = deploy.MountPartitions(i.cfg, i.spec.Partitions.PartitionsByMountPoint(false))
 	if err != nil {
 		return err
 	}
 	cleanup.Push(func() error {
-		return elemental.UnmountPartitions(i.cfg, i.spec.Partitions.PartitionsByMountPoint(true))
+		return deploy.UnmountPartitions(i.cfg, i.spec.Partitions.PartitionsByMountPoint(true))
 	})
 
 	// Before install hook happens after partitioning but before the image OS is applied
@@ -194,17 +195,17 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Deploy active image
-	systemMeta, err := elemental.DeployImage(i.cfg, &i.spec.Active, true)
+	systemMeta, err := deploy.DeployImage(i.cfg, &i.spec.Active, true)
 	if err != nil {
 		return err
 	}
-	cleanup.Push(func() error { return elemental.UnmountImage(i.cfg, &i.spec.Active) })
+	cleanup.Push(func() error { return deploy.UnmountImage(i.cfg, &i.spec.Active) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(i.cfg, i.spec.ExtraDirsRootfs, i.spec.Active.MountPoint)
 
 	// Copy cloud-init if any
-	err = elemental.CopyCloudConfig(i.cfg, i.spec.CloudInit)
+	err = utils.CopyCloudConfig(i.cfg, i.spec.CloudInit)
 	if err != nil {
 		return err
 	}
@@ -232,7 +233,7 @@ func (i InstallAction) Run() (err error) {
 		binds[i.spec.Partitions.OEM.MountPoint] = cnst.OEMPath
 	}
 	err = utils.ChrootedCallback(
-		i.cfg, i.spec.Active.MountPoint, binds, func() error { return elemental.SelinuxRelabel(i.cfg, "/", true) },
+		i.cfg, i.spec.Active.MountPoint, binds, func() error { return utils.SelinuxRelabel(i.cfg, "/", true) },
 	)
 	if err != nil {
 		return err
@@ -244,7 +245,7 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Installation rebrand (only grub for now)
-	err = elemental.SetDefaultGrubEntry(i.cfg,
+	err = SetDefaultGrubEntry(i.cfg,
 		i.spec.Partitions.State.MountPoint,
 		i.spec.Active.MountPoint,
 		i.spec.GrubDefEntry,
@@ -254,17 +255,17 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Unmount active image
-	err = elemental.UnmountImage(i.cfg, &i.spec.Active)
+	err = deploy.UnmountImage(i.cfg, &i.spec.Active)
 	if err != nil {
 		return err
 	}
 	// Install Recovery
-	recoveryMeta, err := elemental.DeployImage(i.cfg, &i.spec.Recovery, false)
+	recoveryMeta, err := deploy.DeployImage(i.cfg, &i.spec.Recovery, false)
 	if err != nil {
 		return err
 	}
 	// Install Passive
-	_, err = elemental.DeployImage(i.cfg, &i.spec.Passive, false)
+	_, err = deploy.DeployImage(i.cfg, &i.spec.Passive, false)
 	if err != nil {
 		return err
 	}
@@ -307,4 +308,78 @@ func (i InstallAction) Run() (err error) {
 	_ = events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
 
 	return hook.Run(*i.cfg, i.spec, hook.FinishInstall...)
+}
+
+// GetIso will try to:
+// download the iso into a temporary folder and mount the iso file as loop
+// in cnst.DownloadedIsoMnt
+func GetIso(config *config.Config, iso string) (tmpDir string, err error) {
+	tmpDir, err = fsutils.TempDir(config.Fs, "", "getiso")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err != nil {
+			_ = config.Fs.RemoveAll(tmpDir)
+		}
+	}()
+
+	isoMnt := filepath.Join(tmpDir, "iso")
+	rootfsMnt := filepath.Join(tmpDir, "rootfs")
+
+	tmpFile := filepath.Join(tmpDir, "cOs.iso")
+	err = utils.GetSource(config, iso, tmpFile)
+	if err != nil {
+		return "", err
+	}
+	err = fsutils.MkdirAll(config.Fs, isoMnt, cnst.DirPerm)
+	if err != nil {
+		return "", err
+	}
+	config.Logger.Infof("Mounting iso %s into %s", tmpFile, isoMnt)
+	err = config.Mounter.Mount(tmpFile, isoMnt, "auto", []string{"loop"})
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err != nil {
+			_ = config.Mounter.Unmount(isoMnt)
+		}
+	}()
+
+	config.Logger.Infof("Mounting squashfs image from iso into %s", rootfsMnt)
+	err = fsutils.MkdirAll(config.Fs, rootfsMnt, cnst.DirPerm)
+	if err != nil {
+		return "", err
+	}
+	err = config.Mounter.Mount(filepath.Join(isoMnt, cnst.IsoRootFile), rootfsMnt, "auto", []string{})
+	return tmpDir, err
+}
+
+// UpdateSourcesFormDownloadedISO checks a downaloaded and mounted ISO in workDir and updates the active and recovery image
+// descriptions to use the squashed rootfs from the downloaded ISO.
+func UpdateSourcesFormDownloadedISO(config *config.Config, workDir string, activeImg *v1.Image, recoveryImg *v1.Image) error {
+	rootfsMnt := filepath.Join(workDir, "rootfs")
+	isoMnt := filepath.Join(workDir, "iso")
+
+	if activeImg != nil {
+		activeImg.Source = v1.NewDirSrc(rootfsMnt)
+	}
+	if recoveryImg != nil {
+		squashedImgSource := filepath.Join(isoMnt, cnst.RecoverySquashFile)
+		if exists, _ := fsutils.Exists(config.Fs, squashedImgSource); exists {
+			recoveryImg.Source = v1.NewFileSrc(squashedImgSource)
+			recoveryImg.FS = cnst.SquashFs
+		} else if activeImg != nil {
+			recoveryImg.Source = v1.NewFileSrc(activeImg.File)
+			recoveryImg.FS = cnst.LinuxImgFs
+			// Only update label if unset, it could happen if the host is running form another ISO.
+			if recoveryImg.Label == "" {
+				recoveryImg.Label = cnst.SystemLabel
+			}
+		} else {
+			return fmt.Errorf("can't set recovery image from ISO, source image is missing")
+		}
+	}
+	return nil
 }

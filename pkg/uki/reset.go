@@ -5,11 +5,12 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/utils"
+	sdkUtils "github.com/kairos-io/kairos-sdk/utils"
 )
 
 type ResetAction struct {
@@ -23,26 +24,26 @@ func NewResetAction(cfg *config.Config, spec *v1.ResetUkiSpec) *ResetAction {
 
 func (r *ResetAction) Run() (err error) {
 	// Run pre-install stage
-	if err = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.pre"); err != nil {
+	if err = utils.RunStage(r.cfg, "kairos-uki-reset.pre"); err != nil {
 		r.cfg.Logger.Errorf("running kairos-uki-reset.pre stage: %s", err.Error())
 	}
 	if err = events.RunHookScript("/usr/bin/kairos-agent.uki.reset.pre.hook"); err != nil {
 		r.cfg.Logger.Errorf("running kairos-uki-reset.pre hook script: %s", err.Error())
 	}
 
-	cleanup := utils.NewCleanStack()
+	cleanup := sdkUtils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
 	// At this point, both partitions are unlocked but they might not be mounted, like persistent
 	// And the /dev/disk/by-label are not pointing to the proper ones
 	// We need to manually trigger udev to make sure the symlinks are correct
-	_, err = utils.SH("udevadm trigger --type=all || udevadm trigger")
-	_, err = utils.SH("udevadm settle")
+	_, err = sdkUtils.SH("udevadm trigger --type=all || udevadm trigger")
+	_, err = sdkUtils.SH("udevadm settle")
 
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
-			err = elemental.FormatPartition(r.cfg, persistent)
+			err = partitioner.FormatDevice(r.cfg.Logger, r.cfg.Runner, persistent.Path, persistent.FS, persistent.FilesystemLabel)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting persistent partition: %s", err.Error())
 				return err
@@ -54,17 +55,17 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatOEM {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
-			err = elemental.UnmountPartition(r.cfg, oem)
+			err = deploy.UnmountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
-			err = elemental.FormatPartition(r.cfg, oem)
+			err = partitioner.FormatDevice(r.cfg.Logger, r.cfg.Runner, oem.Path, oem.FS, oem.FilesystemLabel)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting OEM partition: %s", err.Error())
 				return err
 			}
 			// Mount it back, as oem is mounted during recovery, keep everything as is
-			err = elemental.MountPartition(r.cfg, oem)
+			err = deploy.MountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
@@ -72,7 +73,7 @@ func (r *ResetAction) Run() (err error) {
 	}
 
 	// REMOUNT /efi as RW (its RO by default)
-	umount, err := elemental.MountRWPartition(r.cfg, r.spec.Partitions.EFI)
+	umount, err := deploy.MountRWPartition(r.cfg, r.spec.Partitions.EFI)
 	if err != nil {
 		r.cfg.Logger.Errorf("mounting EFI partition as RW: %s", err.Error())
 		return err
@@ -93,7 +94,7 @@ func (r *ResetAction) Run() (err error) {
 	}
 
 	// Add boot assessment to files by appending +3 to the name
-	err = elementalUtils.AddBootAssessment(r.cfg.Fs, r.spec.Partitions.EFI.MountPoint, r.cfg.Logger)
+	err = utils.AddBootAssessment(r.cfg.Fs, r.spec.Partitions.EFI.MountPoint, r.cfg.Logger)
 	if err != nil {
 		r.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
 	}
@@ -112,7 +113,7 @@ func (r *ResetAction) Run() (err error) {
 		return err
 	}
 
-	if err = elementalUtils.RunStage(r.cfg, "kairos-uki-reset.after"); err != nil {
+	if err = utils.RunStage(r.cfg, "kairos-uki-reset.after"); err != nil {
 		r.cfg.Logger.Errorf("running kairos-uki-reset.after stage: %s", err.Error())
 	}
 

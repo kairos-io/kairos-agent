@@ -24,9 +24,9 @@ import (
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
 )
@@ -148,12 +148,12 @@ func (u *UpgradeAction) Run() (err error) {
 		finalImageFile = filepath.Join(u.spec.Partitions.State.MountPoint, "cOS", constants.ActiveImgFile)
 	}
 
-	umount, err := elemental.MountRWPartition(u.config, u.spec.Partitions.State)
+	umount, err := deploy.MountRWPartition(u.config, u.spec.Partitions.State)
 	if err != nil {
 		return err
 	}
 	cleanup.Push(umount)
-	umount, err = elemental.MountRWPartition(u.config, u.spec.Partitions.Recovery)
+	umount, err = deploy.MountRWPartition(u.config, u.spec.Partitions.Recovery)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (u *UpgradeAction) Run() (err error) {
 		// Create the dir otherwise the check for mounted dir fails
 		_ = fsutils.MkdirAll(u.config.Fs, persistentPart.MountPoint, constants.DirPerm)
 		if mnt, err := utils.IsMounted(u.config, persistentPart); !mnt && err == nil {
-			umount, err = elemental.MountRWPartition(u.config, persistentPart)
+			umount, err = deploy.MountRWPartition(u.config, persistentPart)
 			if err != nil {
 				u.config.Logger.Warnf("could not mount persistent partition: %s", err.Error())
 			}
@@ -187,12 +187,12 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 
 	u.Info("deploying image %s to %s", upgradeImg.Source.Value(), upgradeImg.File)
-	upgradeMeta, err := elemental.DeployImage(u.config, &upgradeImg, true)
+	upgradeMeta, err := deploy.DeployImage(u.config, &upgradeImg, true)
 	if err != nil {
 		u.Error("Failed deploying image to file '%s': %s", upgradeImg.File, err)
 		return err
 	}
-	cleanup.Push(func() error { return elemental.UnmountImage(u.config, &upgradeImg) })
+	cleanup.Push(func() error { return deploy.UnmountImage(u.config, &upgradeImg) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(u.config, u.spec.ExtraDirsRootfs, upgradeImg.MountPoint)
@@ -212,7 +212,7 @@ func (u *UpgradeAction) Run() (err error) {
 		}
 		err = utils.ChrootedCallback(
 			u.config, upgradeImg.MountPoint, binds,
-			func() error { return elemental.SelinuxRelabel(u.config, "/", true) },
+			func() error { return utils.SelinuxRelabel(u.config, "/", true) },
 		)
 		if err != nil {
 			return err
@@ -228,13 +228,13 @@ func (u *UpgradeAction) Run() (err error) {
 	// Only apply rebrand stage for system upgrades
 	if !u.spec.RecoveryUpgrade() {
 		u.Info("rebranding")
-		if rebrandingErr := elemental.SetDefaultGrubEntry(u.config, u.spec.Partitions.State.MountPoint, upgradeImg.MountPoint, u.spec.GrubDefEntry); rebrandingErr != nil {
+		if rebrandingErr := SetDefaultGrubEntry(u.config, u.spec.Partitions.State.MountPoint, upgradeImg.MountPoint, u.spec.GrubDefEntry); rebrandingErr != nil {
 			u.config.Logger.Warn("failure while rebranding GRUB default entry (ignoring), run with --debug to see more details")
 			u.config.Logger.Debug(rebrandingErr.Error())
 		}
 	}
 
-	err = elemental.UnmountImage(u.config, &upgradeImg)
+	err = deploy.UnmountImage(u.config, &upgradeImg)
 	if err != nil {
 		u.Error("failed unmounting transition image")
 		return err

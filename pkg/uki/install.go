@@ -11,12 +11,13 @@ import (
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
-	sdkutils "github.com/kairos-io/kairos-sdk/utils"
+	sdkUtils "github.com/kairos-io/kairos-sdk/utils"
 )
 
 type InstallAction struct {
@@ -53,27 +54,27 @@ func (i *InstallAction) Run() (err error) {
 		}
 	} else {
 		// Deactivate any active volume on target
-		err = elemental.DeactivateDevices(i.cfg)
+		err = utils.DeactivateDevices(i.cfg)
 		if err != nil {
 			i.cfg.Logger.Errorf("deactivating devices: %s", err.Error())
 			return err
 		}
 
 		// Partition device
-		err = elemental.PartitionAndFormatDevice(i.cfg, i.spec)
+		err = partitioner.PartitionAndFormatDevice(i.cfg, i.spec)
 		if err != nil {
 			i.cfg.Logger.Errorf("partitioning and formating devices: %s", err.Error())
 			return err
 		}
 	}
 
-	err = elemental.MountPartitions(i.cfg, i.spec.GetPartitions().PartitionsByMountPoint(false))
+	err = deploy.MountPartitions(i.cfg, i.spec.GetPartitions().PartitionsByMountPoint(false))
 	if err != nil {
 		i.cfg.Logger.Errorf("mounting partitions: %s", err.Error())
 		return err
 	}
 	cleanup.Push(func() error {
-		return elemental.UnmountPartitions(i.cfg, i.spec.GetPartitions().PartitionsByMountPoint(true))
+		return deploy.UnmountPartitions(i.cfg, i.spec.GetPartitions().PartitionsByMountPoint(true))
 	})
 
 	// Before install hook happens after partitioning but before the image OS is applied (this is for compatibility with normal install, so users can reuse their configs)
@@ -90,7 +91,7 @@ func (i *InstallAction) Run() (err error) {
 
 	// Store cloud-config in TPM or copy it to COS_OEM?
 	// Copy cloud-init if any
-	err = elemental.CopyCloudConfig(i.cfg, i.spec.CloudInit)
+	err = utils.CopyCloudConfig(i.cfg, i.spec.CloudInit)
 	if err != nil {
 		i.cfg.Logger.Errorf("copying cloud config: %s", err.Error())
 		return err
@@ -109,7 +110,7 @@ func (i *InstallAction) Run() (err error) {
 	// partition. If not stop here.
 
 	// Copy the efi file into the proper dir
-	_, err = elemental.DumpSource(i.cfg, i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
+	_, err = deploy.DumpSource(i.cfg, i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
 	if err != nil {
 		i.cfg.Logger.Errorf("dumping source: %s", err.Error())
 		return err
@@ -132,7 +133,7 @@ func (i *InstallAction) Run() (err error) {
 
 		if filepath.Ext(filename) == ".conf" {
 			// Extract the values
-			conf, err := sdkutils.SystemdBootConfReader(path)
+			conf, err := sdkUtils.SystemdBootConfReader(path)
 			if err != nil {
 				i.cfg.Logger.Errorf("Error reading conf file to extract values %s: %s", path, err)
 				return err

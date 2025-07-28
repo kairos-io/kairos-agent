@@ -8,12 +8,12 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/signatures"
-	"github.com/kairos-io/kairos-sdk/utils"
+	sdkUtils "github.com/kairos-io/kairos-sdk/utils"
 )
 
 type UpgradeAction struct {
@@ -26,10 +26,10 @@ func NewUpgradeAction(cfg *config.Config, spec *v1.UpgradeUkiSpec) *UpgradeActio
 }
 
 func (i *UpgradeAction) Run() (err error) {
-	cleanup := utils.NewCleanStack()
+	cleanup := sdkUtils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Run pre-install stage
-	if err = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.pre"); err != nil {
+	if err = utils.RunStage(i.cfg, "kairos-uki-upgrade.pre"); err != nil {
 		i.cfg.Logger.Errorf("running kairos-uki-upgrade.pre stage: %s", err.Error())
 	}
 
@@ -38,7 +38,7 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// REMOUNT /efi as RW (its RO by default)
-	umount, err := elemental.MountRWPartition(i.cfg, i.spec.EfiPartition)
+	umount, err := deploy.MountRWPartition(i.cfg, i.spec.EfiPartition)
 	if err != nil {
 		i.cfg.Logger.Errorf("remounting efi as RW: %s", err.Error())
 		return err
@@ -65,7 +65,7 @@ func (i *UpgradeAction) Run() (err error) {
 
 	i.cfg.Logger.Infof("installing entry: active")
 	// Dump artifact to efi dir
-	_, err = elemental.DumpSource(i.cfg, constants.UkiEfiDir, i.spec.Active.Source)
+	_, err = deploy.DumpSource(i.cfg, constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {
 		i.cfg.Logger.Errorf("dumping the source: %s", err.Error())
 		return err
@@ -116,7 +116,7 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// Add boot assessment to files by appending +3 to the name
-	err = elementalUtils.AddBootAssessment(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
+	err = utils.AddBootAssessment(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
 	if err != nil {
 		i.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
 	}
@@ -128,7 +128,7 @@ func (i *UpgradeAction) Run() (err error) {
 		return err
 	}
 
-	if err = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after"); err != nil {
+	if err = utils.RunStage(i.cfg, "kairos-uki-upgrade.after"); err != nil {
 		i.cfg.Logger.Errorf("running kairos-uki-upgrade.after stage: %s", err.Error())
 	}
 
@@ -153,7 +153,7 @@ func (i *UpgradeAction) installEntry(entry string) error {
 	defer os.RemoveAll(tmpDir)
 
 	// Dump artifact to tmp dir
-	_, err = elemental.DumpSource(i.cfg, tmpDir, i.spec.Active.Source)
+	_, err = deploy.DumpSource(i.cfg, tmpDir, i.spec.Active.Source)
 	if err != nil {
 		i.cfg.Logger.Errorf("dumping the source to the tmp dir: %s", err.Error())
 		return err

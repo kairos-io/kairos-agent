@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
@@ -16,52 +18,51 @@ import (
 )
 
 var _ = Describe("Common action tests", func() {
+	var config *agentConfig.Config
+	var fs vfs.FS
+	var logger sdkTypes.KairosLogger
+	var runner *v1mock.FakeRunner
+	var mounter *v1mock.ErrorMounter
+	var syscall *v1mock.FakeSyscall
+	var client *v1mock.FakeHTTPClient
+	var cloudInit *v1mock.FakeCloudInitRunner
+	var cleanup func()
+	var memLog *bytes.Buffer
+	var extractor *v1mock.FakeImageExtractor
+
+	BeforeEach(func() {
+		runner = v1mock.NewFakeRunner()
+		syscall = &v1mock.FakeSyscall{}
+		mounter = v1mock.NewErrorMounter()
+		client = &v1mock.FakeHTTPClient{}
+		memLog = &bytes.Buffer{}
+		logger = sdkTypes.NewBufferLogger(memLog)
+		extractor = v1mock.NewFakeImageExtractor(logger)
+		logger.SetLevel("debug")
+		var err error
+		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
+		Expect(err).Should(BeNil())
+
+		cloudInit = &v1mock.FakeCloudInitRunner{}
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(client),
+			agentConfig.WithCloudInitRunner(cloudInit),
+			agentConfig.WithImageExtractor(extractor),
+		)
+		config.Install = &agentConfig.Install{}
+		config.Bundles = agentConfig.Bundles{}
+		config.Config = collector.Config{}
+	})
+
+	AfterEach(func() {
+		cleanup()
+	})
 	Describe("createExtraDirsInRootfs", func() {
-		var config *agentConfig.Config
-		var fs vfs.FS
-		var logger sdkTypes.KairosLogger
-		var runner *v1mock.FakeRunner
-		var mounter *v1mock.ErrorMounter
-		var syscall *v1mock.FakeSyscall
-		var client *v1mock.FakeHTTPClient
-		var cloudInit *v1mock.FakeCloudInitRunner
-		var cleanup func()
-		var memLog *bytes.Buffer
-		var extractor *v1mock.FakeImageExtractor
-
-		BeforeEach(func() {
-			runner = v1mock.NewFakeRunner()
-			syscall = &v1mock.FakeSyscall{}
-			mounter = v1mock.NewErrorMounter()
-			client = &v1mock.FakeHTTPClient{}
-			memLog = &bytes.Buffer{}
-			logger = sdkTypes.NewBufferLogger(memLog)
-			extractor = v1mock.NewFakeImageExtractor(logger)
-			logger.SetLevel("debug")
-			var err error
-			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
-			Expect(err).Should(BeNil())
-
-			cloudInit = &v1mock.FakeCloudInitRunner{}
-			config = agentConfig.NewConfig(
-				agentConfig.WithFs(fs),
-				agentConfig.WithRunner(runner),
-				agentConfig.WithLogger(logger),
-				agentConfig.WithMounter(mounter),
-				agentConfig.WithSyscall(syscall),
-				agentConfig.WithClient(client),
-				agentConfig.WithCloudInitRunner(cloudInit),
-				agentConfig.WithImageExtractor(extractor),
-			)
-			config.Install = &agentConfig.Install{}
-			config.Bundles = agentConfig.Bundles{}
-			config.Config = collector.Config{}
-		})
-
-		AfterEach(func() {
-			cleanup()
-		})
-
 		It("creates the dirs", func() {
 			extraDirs := []string{"one", "/two"}
 			rootDir := "/"
@@ -120,6 +121,41 @@ var _ = Describe("Common action tests", func() {
 				_, err := fs.Stat(filepath.Join(rootDir, d))
 				Expect(err).To(HaveOccurred())
 			}
+		})
+	})
+	Describe("SetDefaultGrubEntry", Label("SetDefaultGrubEntry", "grub"), func() {
+		It("Sets the default grub entry without issues", func() {
+			Expect(config.Fs.Mkdir("/tmp", cnst.DirPerm)).To(BeNil())
+			Expect(SetDefaultGrubEntry(config, "/tmp", "/imgMountpoint", "dio")).To(BeNil())
+			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config)
+			Expect(err).To(BeNil())
+			Expect(varsParsed["default_menu_entry"]).To(Equal("dio"))
+		})
+		It("does nothing on empty default entry and no /etc/kairos-release", func() {
+			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
+			Expect(SetDefaultGrubEntry(config, "/mountpoint", "/imgMountPoint", "")).To(BeNil())
+			_, err := utils.ReadPersistentVariables(filepath.Join("/tmp", cnst.GrubOEMEnv), config)
+			// Because it didnt do anything due to the entry being empty, the file should not be there
+			Expect(err).ToNot(BeNil())
+			_, err = config.Fs.Stat(filepath.Join("/tmp", cnst.GrubOEMEnv))
+			Expect(err).ToNot(BeNil())
+		})
+		It("loads /etc/kairos-release on empty default entry", func() {
+			err := config.Fs.Mkdir("/imgMountPoint/", cnst.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = config.Fs.Mkdir("/imgMountPoint/etc", cnst.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = config.Fs.WriteFile("/imgMountPoint/etc/kairos-release", []byte("GRUB_ENTRY_NAME=test"), cnst.FilePerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(config.Fs.Mkdir("/mountpoint", cnst.DirPerm)).To(BeNil())
+			Expect(SetDefaultGrubEntry(config, "/mountpoint", "/imgMountPoint", "")).To(BeNil())
+			varsParsed, err := utils.ReadPersistentVariables(filepath.Join("/mountpoint", cnst.GrubOEMEnv), config)
+			Expect(err).To(BeNil())
+			Expect(varsParsed["default_menu_entry"]).To(Equal("test"))
+
+		})
+		It("Fails setting grubenv", func() {
+			Expect(SetDefaultGrubEntry(config, "nonexisting", "nonexisting", "default_entry")).NotTo(BeNil())
 		})
 	})
 })

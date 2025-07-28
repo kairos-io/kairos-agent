@@ -35,13 +35,12 @@ var _ = Describe("HTTPClient", Label("http"), func() {
 	BeforeEach(func() {
 		client = http.NewClient()
 		log = sdkTypes.NewNullLogger()
-		destDir, _ = os.MkdirTemp("", "elemental-test")
+		destDir, _ = os.MkdirTemp("", "aget-test")
 	})
 	AfterEach(func() {
 		os.RemoveAll(destDir)
 	})
 	It("Downloads a test file to destination folder", func() {
-		// Download a public elemental release
 		_, err := os.Stat(filepath.Join(destDir, "core-alpine-arm-rpi-v2.0.0-grype.json"))
 		Expect(err).NotTo(BeNil())
 		Expect(client.GetURL(log, source, destDir)).To(BeNil())
@@ -49,7 +48,7 @@ var _ = Describe("HTTPClient", Label("http"), func() {
 		Expect(err).To(BeNil())
 	})
 	It("Downloads a test file to some specified destination file", func() {
-		// Download a public elemental release
+		// Download a public release
 		_, err := os.Stat(filepath.Join(destDir, "testfile"))
 		Expect(err).NotTo(BeNil())
 		Expect(client.GetURL(log, source, filepath.Join(destDir, "testfile"))).To(BeNil())

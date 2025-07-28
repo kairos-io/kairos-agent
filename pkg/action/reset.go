@@ -19,13 +19,14 @@ package action
 import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	"path/filepath"
 	"time"
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 )
 
 func (r *ResetAction) resetHook(hook string, chroot bool) error {
@@ -94,7 +95,7 @@ func (r *ResetAction) updateInstallState(cleanup *utils.CleanStack, meta interfa
 		installState.Partitions[cnst.RecoveryPartName] = r.spec.State.Partitions[cnst.RecoveryPartName]
 	}
 
-	umount, err := elemental.MountRWPartition(r.cfg, r.spec.Partitions.Recovery)
+	umount, err := deploy.MountRWPartition(r.cfg, r.spec.Partitions.Recovery)
 	if err != nil {
 		return err
 	}
@@ -143,11 +144,11 @@ func (r ResetAction) Run() (err error) {
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
-			err = elemental.UnmountPartition(r.cfg, persistent)
+			err = deploy.UnmountPartition(r.cfg, persistent)
 			if err != nil {
 				return err
 			}
-			err = elemental.FormatPartition(r.cfg, persistent)
+			err = partitioner.FormatDevice(r.cfg.Logger, r.cfg.Runner, persistent.Path, persistent.FS, persistent.FilesystemLabel)
 			if err != nil {
 				return err
 			}
@@ -159,16 +160,16 @@ func (r ResetAction) Run() (err error) {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
 			// Try to umount
-			err = elemental.UnmountPartition(r.cfg, oem)
+			err = deploy.UnmountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
-			err = elemental.FormatPartition(r.cfg, oem)
+			err = partitioner.FormatDevice(r.cfg.Logger, r.cfg.Runner, oem.Path, oem.FS, oem.FilesystemLabel)
 			if err != nil {
 				return err
 			}
 			// Mount it back, as oem is mounted during recovery, keep everything as is
-			err = elemental.MountPartition(r.cfg, oem)
+			err = deploy.MountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
@@ -182,29 +183,29 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	// Mount COS_STATE so we can write the new images
-	err = elemental.MountPartition(r.cfg, r.spec.Partitions.State)
+	err = deploy.MountPartition(r.cfg, r.spec.Partitions.State)
 	if err != nil {
 		return err
 	}
-	cleanup.Push(func() error { return elemental.UnmountPartition(r.cfg, r.spec.Partitions.State) })
+	cleanup.Push(func() error { return deploy.UnmountPartition(r.cfg, r.spec.Partitions.State) })
 
 	// Deploy active image
-	meta, err := elemental.DeployImage(r.cfg, &r.spec.Active, true)
+	meta, err := deploy.DeployImage(r.cfg, &r.spec.Active, true)
 	if err != nil {
 		return err
 	}
-	cleanup.Push(func() error { return elemental.UnmountImage(r.cfg, &r.spec.Active) })
+	cleanup.Push(func() error { return deploy.UnmountImage(r.cfg, &r.spec.Active) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(r.cfg, r.spec.ExtraDirsRootfs, r.spec.Active.MountPoint)
 
 	// Mount EFI partition before installing grub as under EFI this copies stuff in there
 	if r.spec.Efi {
-		err = elemental.MountPartition(r.cfg, r.spec.Partitions.EFI)
+		err = deploy.MountPartition(r.cfg, r.spec.Partitions.EFI)
 		if err != nil {
 			return err
 		}
-		cleanup.Push(func() error { return elemental.UnmountPartition(r.cfg, r.spec.Partitions.EFI) })
+		cleanup.Push(func() error { return deploy.UnmountPartition(r.cfg, r.spec.Partitions.EFI) })
 	}
 	//TODO: does bios needs to be mounted here?
 
@@ -235,7 +236,7 @@ func (r ResetAction) Run() (err error) {
 	}
 	err = utils.ChrootedCallback(
 		r.cfg, r.spec.Active.MountPoint, binds,
-		func() error { return elemental.SelinuxRelabel(r.cfg, "/", true) },
+		func() error { return utils.SelinuxRelabel(r.cfg, "/", true) },
 	)
 	if err != nil {
 		return err
@@ -247,7 +248,7 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	// installation rebrand (only grub for now)
-	err = elemental.SetDefaultGrubEntry(r.cfg,
+	err = SetDefaultGrubEntry(r.cfg,
 		r.spec.Partitions.State.MountPoint,
 		r.spec.Active.MountPoint,
 		r.spec.GrubDefEntry,
@@ -257,13 +258,13 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	// Unmount active image
-	err = elemental.UnmountImage(r.cfg, &r.spec.Active)
+	err = deploy.UnmountImage(r.cfg, &r.spec.Active)
 	if err != nil {
 		return err
 	}
 
 	// Install Passive
-	_, err = elemental.DeployImage(r.cfg, &r.spec.Passive, false)
+	_, err = deploy.DeployImage(r.cfg, &r.spec.Passive, false)
 	if err != nil {
 		return err
 	}

@@ -380,4 +380,78 @@ var _ = Describe("Install action tests", func() {
 			Expect(runner.MatchMilestones([][]string{{"grub2-install"}}))
 		})
 	})
+	Describe("GetIso", Label("GetIso", "iso"), func() { // TODO: move to action
+		It("Gets the iso and returns the temporary where it is stored", func() {
+			tmpDir, err := fsutils.TempDir(fs, "", "getiso-test")
+			Expect(err).To(BeNil())
+			err = fs.WriteFile(fmt.Sprintf("%s/fake.iso", tmpDir), []byte("Hi"), constants.FilePerm)
+			Expect(err).To(BeNil())
+			iso := fmt.Sprintf("%s/fake.iso", tmpDir)
+			isoDir, err := action.GetIso(config, iso)
+			Expect(err).To(BeNil())
+			// Confirm that the iso is stored in isoDir
+			fsutils.Exists(fs, filepath.Join(isoDir, "cOs.iso"))
+		})
+		It("Fails if it cant find the iso", func() {
+			iso := "http://whatever"
+			cl.Error = true
+			_, err := action.GetIso(config, iso)
+			Expect(err).ToNot(BeNil())
+		})
+		It("Fails if it cannot mount the iso", func() {
+			mounter.ErrorOnMount = true
+			tmpDir, err := fsutils.TempDir(fs, "", "getiso-test")
+			Expect(err).To(BeNil())
+			err = fs.WriteFile(fmt.Sprintf("%s/fake.iso", tmpDir), []byte("Hi"), constants.FilePerm)
+			Expect(err).To(BeNil())
+			iso := fmt.Sprintf("%s/fake.iso", tmpDir)
+			_, err = action.GetIso(config, iso)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("mount error"))
+		})
+	})
+	Describe("UpdateSourcesFormDownloadedISO", Label("iso"), func() {
+		var activeImg, recoveryImg *v1.Image
+		BeforeEach(func() {
+			activeImg, recoveryImg = nil, nil
+		})
+		It("updates active image", func() {
+			activeImg = &v1.Image{}
+			err := action.UpdateSourcesFormDownloadedISO(config, "/some/dir", activeImg, recoveryImg)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(activeImg.Source.IsDir()).To(BeTrue())
+			Expect(activeImg.Source.Value()).To(Equal("/some/dir/rootfs"))
+			Expect(recoveryImg).To(BeNil())
+		})
+		It("updates active and recovery image", func() {
+			activeImg = &v1.Image{File: "activeFile"}
+			recoveryImg = &v1.Image{}
+			err := action.UpdateSourcesFormDownloadedISO(config, "/some/dir", activeImg, recoveryImg)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(recoveryImg.Source.IsFile()).To(BeTrue())
+			Expect(recoveryImg.Source.Value()).To(Equal("activeFile"))
+			Expect(recoveryImg.Label).To(Equal(constants.SystemLabel))
+			Expect(activeImg.Source.IsDir()).To(BeTrue())
+			Expect(activeImg.Source.Value()).To(Equal("/some/dir/rootfs"))
+		})
+		It("updates recovery only image", func() {
+			recoveryImg = &v1.Image{}
+			isoMnt := "/some/dir/iso"
+			err := fsutils.MkdirAll(fs, isoMnt, constants.DirPerm)
+			Expect(err).ShouldNot(HaveOccurred())
+			recoverySquash := filepath.Join(isoMnt, constants.RecoverySquashFile)
+			_, err = fs.Create(recoverySquash)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = action.UpdateSourcesFormDownloadedISO(config, "/some/dir", activeImg, recoveryImg)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(recoveryImg.Source.IsFile()).To(BeTrue())
+			Expect(recoveryImg.Source.Value()).To(Equal(recoverySquash))
+			Expect(activeImg).To(BeNil())
+		})
+		It("fails to update recovery from active file", func() {
+			recoveryImg = &v1.Image{}
+			err := action.UpdateSourcesFormDownloadedISO(config, "/some/dir", activeImg, recoveryImg)
+			Expect(err).Should(HaveOccurred())
+		})
+	})
 })
