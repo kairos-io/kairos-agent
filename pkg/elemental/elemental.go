@@ -40,31 +40,9 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 )
 
-// Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
-type Elemental struct {
-	config *agentConfig.Config
-}
-
-func NewElemental(config *agentConfig.Config) *Elemental {
-	return &Elemental{
-		config: config,
-	}
-}
-
-// Deprecated: Use FormatPartition instead
-func (e *Elemental) FormatPartition(part *types.Partition, opts ...string) error {
-	return FormatPartition(e.config, part, opts...)
-}
-
 // FormatPartition will format an already existing partition
-// Decoupled from Elemental to allow for use in other contexts
 func FormatPartition(config *agentConfig.Config, part *types.Partition, opts ...string) error {
 	return partitioner.FormatDevice(config.Logger, config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
-}
-
-// Deprecated: Use PartitionAndFormatDevice instead
-func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
-	return PartitionAndFormatDevice(e.config, i)
 }
 
 // PartitionAndFormatDevice creates a new empty partition table on target disk
@@ -145,11 +123,6 @@ func PartitionAndFormatDevice(config *agentConfig.Config, i v1.SharedInstallSpec
 	return nil
 }
 
-// Deprecated: Use MountPartitions instead
-func (e Elemental) MountPartitions(parts types.PartitionList) error {
-	return MountPartitions(e.config, parts)
-}
-
 // MountPartitions mounts configured partitions. Partitions with an unset mountpoint are not mounted.
 // Note umounts must be handled by caller logic.
 func MountPartitions(config *agentConfig.Config, parts types.PartitionList) error {
@@ -167,11 +140,6 @@ func MountPartitions(config *agentConfig.Config, parts types.PartitionList) erro
 	}
 
 	return err
-}
-
-// Deprecated: Use UnmountPartitions instead
-func (e Elemental) UnmountPartitions(parts types.PartitionList) error {
-	return UnmountPartitions(e.config, parts)
 }
 
 // UnmountPartitions unmounts configured partitiosn. Partitions with an unset mountpoint are not unmounted.
@@ -195,11 +163,6 @@ func UnmountPartitions(config *agentConfig.Config, parts types.PartitionList) er
 		return errors.New(errMsg)
 	}
 	return nil
-}
-
-// Deprecated: Use MountRWPartition instead
-func (e Elemental) MountRWPartition(part *types.Partition) (umount func() error, err error) {
-	return MountRWPartition(e.config, part)
 }
 
 // MountRWPartition mounts, or remounts if needed, a partition with RW permissions
@@ -226,11 +189,6 @@ func MountRWPartition(config *agentConfig.Config, part *types.Partition) (umount
 	return umount, nil
 }
 
-// Deprecated: Use MountPartition instead
-func (e Elemental) MountPartition(part *types.Partition, opts ...string) error {
-	return MountPartition(e.config, part, opts...)
-}
-
 // MountPartition mounts a partition with the given mount options
 func MountPartition(config *agentConfig.Config, part *types.Partition, opts ...string) error {
 	config.Logger.Debugf("Mounting partition %s", part.FilesystemLabel)
@@ -255,11 +213,6 @@ func MountPartition(config *agentConfig.Config, part *types.Partition, opts ...s
 	return nil
 }
 
-// Deprecated: Use UnmountPartition instead
-func (e Elemental) UnmountPartition(part *types.Partition) error {
-	return UnmountPartition(e.config, part)
-}
-
 // UnmountPartition unmounts the given partition or does nothing if not mounted
 func UnmountPartition(config *agentConfig.Config, part *types.Partition) error {
 	if mnt, _ := utils.IsMounted(config, part); !mnt {
@@ -268,11 +221,6 @@ func UnmountPartition(config *agentConfig.Config, part *types.Partition) error {
 	}
 	config.Logger.Debugf("Unmounting partition %s", part.FilesystemLabel)
 	return config.Mounter.Unmount(part.MountPoint)
-}
-
-// Deprecated: Use MountImage instead
-func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
-	return MountImage(e.config, img, opts...)
 }
 
 // MountImage mounts an image with the given mount options
@@ -297,11 +245,6 @@ func MountImage(config *agentConfig.Config, img *v1.Image, opts ...string) error
 	return nil
 }
 
-// Deprecated: Use UnmountImage instead
-func (e Elemental) UnmountImage(img *v1.Image) error {
-	return UnmountImage(e.config, img)
-}
-
 // UnmountImage unmounts the given image or does nothing if not mounted
 func UnmountImage(config *agentConfig.Config, img *v1.Image) error {
 	// Using IsLikelyNotMountPoint seams to be safe as we are not checking
@@ -322,11 +265,6 @@ func UnmountImage(config *agentConfig.Config, img *v1.Image) error {
 	}
 	img.LoopDevice = ""
 	return err
-}
-
-// Deprecated: Use CreateFileSystemImage instead
-func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
-	return CreateFileSystemImage(e.config, img)
 }
 
 // CreateFileSystemImage creates the image file for config.target
@@ -362,11 +300,6 @@ func CreateFileSystemImage(config *agentConfig.Config, img *v1.Image) error {
 	return nil
 }
 
-// Deprecated: Use DeployImage instead
-func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interface{}, err error) {
-	return DeployImage(e.config, img, leaveMounted)
-}
-
 // DeployImage will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
 // Creates the default system dirs by default (/sys,/proc,/dev, etc...)
@@ -374,21 +307,11 @@ func DeployImage(config *agentConfig.Config, img *v1.Image, leaveMounted bool) (
 	return deployImage(config, img, leaveMounted, true)
 }
 
-// Deprecated: Use DeployImageNodirs instead
-func (e *Elemental) DeployImageNodirs(img *v1.Image, leaveMounted bool) (info interface{}, err error) {
-	return DeployImageNodirs(e.config, img, leaveMounted)
-}
-
 // DeployImageNodirs will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
 // Does not create the default system dirs so it can be used to create generic images from any source
 func DeployImageNodirs(config *agentConfig.Config, img *v1.Image, leaveMounted bool) (info interface{}, err error) {
 	return deployImage(config, img, leaveMounted, false)
-}
-
-// Deprecated: Use deployImage instead
-func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure bool) (info interface{}, err error) {
-	return deployImage(e.config, img, leaveMounted, createDirStructure)
 }
 
 // deployImage is the real function that does the actual work
@@ -459,11 +382,6 @@ func deployImage(config *agentConfig.Config, img *v1.Image, leaveMounted, create
 		}
 	}
 	return info, nil
-}
-
-// Deprecated: Use DumpSource instead
-func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info interface{}, err error) { // nolint:gocyclo
-	return DumpSource(e.config, target, imgSrc)
 }
 
 // DumpSource sets the image data according to the image source type
@@ -571,11 +489,6 @@ func DumpSource(config *agentConfig.Config, target string, imgSrc *v1.ImageSourc
 	return info, nil
 }
 
-// Deprecated: Use CopyCloudConfig instead
-func (e *Elemental) CopyCloudConfig(cloudInit []string) (err error) {
-	return CopyCloudConfig(e.config, cloudInit)
-}
-
 // CopyCloudConfig will check if there is a cloud init in the config and store it on the target
 func CopyCloudConfig(config *agentConfig.Config, cloudInit []string) (err error) {
 	config.Logger.Infof("List of cloud inits to copy: %+v\n", cloudInit)
@@ -593,11 +506,6 @@ func CopyCloudConfig(config *agentConfig.Config, cloudInit []string) (err error)
 		config.Logger.Infof("Finished copying cloud config file %s to %s", ci, customConfig)
 	}
 	return nil
-}
-
-// Deprecated: Use SelinuxRelabel instead
-func (e *Elemental) SelinuxRelabel(rootDir string, raiseError bool) error {
-	return SelinuxRelabel(e.config, rootDir, raiseError)
 }
 
 // SelinuxRelabel will relabel the system if it finds the binary and the context
@@ -625,11 +533,6 @@ func SelinuxRelabel(config *agentConfig.Config, rootDir string, raiseError bool)
 	return nil
 }
 
-// Deprecated: Use CheckActiveDeployment instead
-func (e *Elemental) CheckActiveDeployment(labels []string) bool {
-	return CheckActiveDeployment(e.config, labels)
-}
-
 // CheckActiveDeployment returns true if at least one of the provided filesystem labels is found within the system
 func CheckActiveDeployment(config *agentConfig.Config, labels []string) bool {
 	config.Logger.Infof("Checking for active deployment")
@@ -642,11 +545,6 @@ func CheckActiveDeployment(config *agentConfig.Config, labels []string) bool {
 		}
 	}
 	return false
-}
-
-// Deprecated: Use GetIso instead
-func (e *Elemental) GetIso(iso string) (tmpDir string, err error) {
-	return GetIso(e.config, iso)
 }
 
 // GetIso will try to:
@@ -696,11 +594,6 @@ func GetIso(config *agentConfig.Config, iso string) (tmpDir string, err error) {
 	return tmpDir, err
 }
 
-// Deprecated: Use UpdateSourcesFormDownloadedISO instead
-func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *v1.Image, recoveryImg *v1.Image) error {
-	return UpdateSourcesFormDownloadedISO(e.config, workDir, activeImg, recoveryImg)
-}
-
 // UpdateSourcesFormDownloadedISO checks a downaloaded and mounted ISO in workDir and updates the active and recovery image
 // descriptions to use the squashed rootfs from the downloaded ISO.
 func UpdateSourcesFormDownloadedISO(config *agentConfig.Config, workDir string, activeImg *v1.Image, recoveryImg *v1.Image) error {
@@ -727,11 +620,6 @@ func UpdateSourcesFormDownloadedISO(config *agentConfig.Config, workDir string, 
 		}
 	}
 	return nil
-}
-
-// Deprecated: Use SetDefaultGrubEntry instead
-func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint string, defaultEntry string) error {
-	return SetDefaultGrubEntry(e.config, partMountPoint, imgMountPoint, defaultEntry)
 }
 
 // SetDefaultGrubEntry Sets the default_menu_entry value in Config.GrubOEMEnv file at in
@@ -761,11 +649,6 @@ func SetDefaultGrubEntry(config *agentConfig.Config, partMountPoint string, imgM
 	)
 }
 
-// Deprecated: Use FindKernelInitrd instead
-func (e Elemental) FindKernelInitrd(rootDir string) (kernel string, initrd string, err error) {
-	return FindKernelInitrd(e.config, rootDir)
-}
-
 // FindKernelInitrd finds for kernel and intird files inside the /boot directory of a given
 // root tree path. It assumes kernel and initrd files match certain file name prefixes.
 func FindKernelInitrd(config *agentConfig.Config, rootDir string) (kernel string, initrd string, err error) {
@@ -782,11 +665,6 @@ func FindKernelInitrd(config *agentConfig.Config, rootDir string) (kernel string
 		return "", "", err
 	}
 	return kernel, initrd, nil
-}
-
-// Deprecated: Use DeactivateDevices instead
-func (e Elemental) DeactivateDevices() error {
-	return DeactivateDevices(e.config)
 }
 
 // DeactivateDevices deactivates unmounted the block devices present within the system.

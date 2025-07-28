@@ -30,7 +30,6 @@ func (r *ResetAction) Run() (err error) {
 		r.cfg.Logger.Errorf("running kairos-uki-reset.pre hook script: %s", err.Error())
 	}
 
-	e := elemental.NewElemental(r.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
@@ -43,7 +42,7 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
-			err = e.FormatPartition(persistent)
+			err = elemental.FormatPartition(r.cfg, persistent)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting persistent partition: %s", err.Error())
 				return err
@@ -55,17 +54,17 @@ func (r *ResetAction) Run() (err error) {
 	if r.spec.FormatOEM {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
-			err = e.UnmountPartition(oem)
+			err = elemental.UnmountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
-			err = e.FormatPartition(oem)
+			err = elemental.FormatPartition(r.cfg, oem)
 			if err != nil {
 				r.cfg.Logger.Errorf("formatting OEM partition: %s", err.Error())
 				return err
 			}
 			// Mount it back, as oem is mounted during recovery, keep everything as is
-			err = e.MountPartition(oem)
+			err = elemental.MountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
@@ -73,7 +72,7 @@ func (r *ResetAction) Run() (err error) {
 	}
 
 	// REMOUNT /efi as RW (its RO by default)
-	umount, err := e.MountRWPartition(r.spec.Partitions.EFI)
+	umount, err := elemental.MountRWPartition(r.cfg, r.spec.Partitions.EFI)
 	if err != nil {
 		r.cfg.Logger.Errorf("mounting EFI partition as RW: %s", err.Error())
 		return err

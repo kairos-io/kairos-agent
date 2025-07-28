@@ -29,7 +29,6 @@ func NewInstallAction(cfg *config.Config, spec *v1.InstallUkiSpec) *InstallActio
 }
 
 func (i *InstallAction) Run() (err error) {
-	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Run pre-install stage
@@ -54,27 +53,27 @@ func (i *InstallAction) Run() (err error) {
 		}
 	} else {
 		// Deactivate any active volume on target
-		err = e.DeactivateDevices()
+		err = elemental.DeactivateDevices(i.cfg)
 		if err != nil {
 			i.cfg.Logger.Errorf("deactivating devices: %s", err.Error())
 			return err
 		}
 
 		// Partition device
-		err = e.PartitionAndFormatDevice(i.spec)
+		err = elemental.PartitionAndFormatDevice(i.cfg, i.spec)
 		if err != nil {
 			i.cfg.Logger.Errorf("partitioning and formating devices: %s", err.Error())
 			return err
 		}
 	}
 
-	err = e.MountPartitions(i.spec.GetPartitions().PartitionsByMountPoint(false))
+	err = elemental.MountPartitions(i.cfg, i.spec.GetPartitions().PartitionsByMountPoint(false))
 	if err != nil {
 		i.cfg.Logger.Errorf("mounting partitions: %s", err.Error())
 		return err
 	}
 	cleanup.Push(func() error {
-		return e.UnmountPartitions(i.spec.GetPartitions().PartitionsByMountPoint(true))
+		return elemental.UnmountPartitions(i.cfg, i.spec.GetPartitions().PartitionsByMountPoint(true))
 	})
 
 	// Before install hook happens after partitioning but before the image OS is applied (this is for compatibility with normal install, so users can reuse their configs)
@@ -91,7 +90,7 @@ func (i *InstallAction) Run() (err error) {
 
 	// Store cloud-config in TPM or copy it to COS_OEM?
 	// Copy cloud-init if any
-	err = e.CopyCloudConfig(i.spec.CloudInit)
+	err = elemental.CopyCloudConfig(i.cfg, i.spec.CloudInit)
 	if err != nil {
 		i.cfg.Logger.Errorf("copying cloud config: %s", err.Error())
 		return err
@@ -110,7 +109,7 @@ func (i *InstallAction) Run() (err error) {
 	// partition. If not stop here.
 
 	// Copy the efi file into the proper dir
-	_, err = e.DumpSource(i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
+	_, err = elemental.DumpSource(i.cfg, i.spec.Partitions.EFI.MountPoint, i.spec.Active.Source)
 	if err != nil {
 		i.cfg.Logger.Errorf("dumping source: %s", err.Error())
 		return err

@@ -26,7 +26,6 @@ func NewUpgradeAction(cfg *config.Config, spec *v1.UpgradeUkiSpec) *UpgradeActio
 }
 
 func (i *UpgradeAction) Run() (err error) {
-	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Run pre-install stage
@@ -39,7 +38,7 @@ func (i *UpgradeAction) Run() (err error) {
 	}
 
 	// REMOUNT /efi as RW (its RO by default)
-	umount, err := e.MountRWPartition(i.spec.EfiPartition)
+	umount, err := elemental.MountRWPartition(i.cfg, i.spec.EfiPartition)
 	if err != nil {
 		i.cfg.Logger.Errorf("remounting efi as RW: %s", err.Error())
 		return err
@@ -66,7 +65,7 @@ func (i *UpgradeAction) Run() (err error) {
 
 	i.cfg.Logger.Infof("installing entry: active")
 	// Dump artifact to efi dir
-	_, err = e.DumpSource(constants.UkiEfiDir, i.spec.Active.Source)
+	_, err = elemental.DumpSource(i.cfg, constants.UkiEfiDir, i.spec.Active.Source)
 	if err != nil {
 		i.cfg.Logger.Errorf("dumping the source: %s", err.Error())
 		return err
@@ -154,8 +153,7 @@ func (i *UpgradeAction) installEntry(entry string) error {
 	defer os.RemoveAll(tmpDir)
 
 	// Dump artifact to tmp dir
-	e := elemental.NewElemental(i.cfg)
-	_, err = e.DumpSource(tmpDir, i.spec.Active.Source)
+	_, err = elemental.DumpSource(i.cfg, tmpDir, i.spec.Active.Source)
 	if err != nil {
 		i.cfg.Logger.Errorf("dumping the source to the tmp dir: %s", err.Error())
 		return err

@@ -122,7 +122,6 @@ func NewInstallAction(cfg *config.Config, spec *v1.InstallSpec) *InstallAction {
 
 // Run will install the system from a given configuration
 func (i InstallAction) Run() (err error) {
-	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
@@ -133,12 +132,12 @@ func (i InstallAction) Run() (err error) {
 	// Set installation sources from a downloaded ISO
 
 	if i.spec.Iso != "" {
-		tmpDir, err := e.GetIso(i.spec.Iso)
+		tmpDir, err := elemental.GetIso(i.cfg, i.spec.Iso)
 		if err != nil {
 			return err
 		}
 		cleanup.Push(func() error { return i.cfg.Fs.RemoveAll(tmpDir) })
-		err = e.UpdateSourcesFormDownloadedISO(tmpDir, &i.spec.Active, &i.spec.Recovery)
+		err = elemental.UpdateSourcesFormDownloadedISO(i.cfg, tmpDir, &i.spec.Active, &i.spec.Recovery)
 		if err != nil {
 			return err
 		}
@@ -148,7 +147,7 @@ func (i InstallAction) Run() (err error) {
 		i.cfg.Logger.Infof("NoFormat is true, skipping format and partitioning")
 		// Check force flag against current device
 		labels := []string{i.spec.Active.Label, i.spec.Recovery.Label}
-		if e.CheckActiveDeployment(labels) && !i.spec.Force {
+		if elemental.CheckActiveDeployment(i.cfg, labels) && !i.spec.Force {
 			return fmt.Errorf("use `force` flag to run an installation over the current running deployment")
 		}
 
@@ -164,23 +163,23 @@ func (i InstallAction) Run() (err error) {
 		}
 	} else {
 		// Deactivate any active volume on target
-		err = e.DeactivateDevices()
+		err = elemental.DeactivateDevices(i.cfg)
 		if err != nil {
 			return err
 		}
 		// Partition device
-		err = e.PartitionAndFormatDevice(i.spec)
+		err = elemental.PartitionAndFormatDevice(i.cfg, i.spec)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = e.MountPartitions(i.spec.Partitions.PartitionsByMountPoint(false))
+	err = elemental.MountPartitions(i.cfg, i.spec.Partitions.PartitionsByMountPoint(false))
 	if err != nil {
 		return err
 	}
 	cleanup.Push(func() error {
-		return e.UnmountPartitions(i.spec.Partitions.PartitionsByMountPoint(true))
+		return elemental.UnmountPartitions(i.cfg, i.spec.Partitions.PartitionsByMountPoint(true))
 	})
 
 	// Before install hook happens after partitioning but before the image OS is applied
@@ -195,17 +194,17 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Deploy active image
-	systemMeta, err := e.DeployImage(&i.spec.Active, true)
+	systemMeta, err := elemental.DeployImage(i.cfg, &i.spec.Active, true)
 	if err != nil {
 		return err
 	}
-	cleanup.Push(func() error { return e.UnmountImage(&i.spec.Active) })
+	cleanup.Push(func() error { return elemental.UnmountImage(i.cfg, &i.spec.Active) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(i.cfg, i.spec.ExtraDirsRootfs, i.spec.Active.MountPoint)
 
 	// Copy cloud-init if any
-	err = e.CopyCloudConfig(i.spec.CloudInit)
+	err = elemental.CopyCloudConfig(i.cfg, i.spec.CloudInit)
 	if err != nil {
 		return err
 	}
@@ -233,7 +232,7 @@ func (i InstallAction) Run() (err error) {
 		binds[i.spec.Partitions.OEM.MountPoint] = cnst.OEMPath
 	}
 	err = utils.ChrootedCallback(
-		i.cfg, i.spec.Active.MountPoint, binds, func() error { return e.SelinuxRelabel("/", true) },
+		i.cfg, i.spec.Active.MountPoint, binds, func() error { return elemental.SelinuxRelabel(i.cfg, "/", true) },
 	)
 	if err != nil {
 		return err
@@ -245,7 +244,7 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Installation rebrand (only grub for now)
-	err = e.SetDefaultGrubEntry(
+	err = elemental.SetDefaultGrubEntry(i.cfg,
 		i.spec.Partitions.State.MountPoint,
 		i.spec.Active.MountPoint,
 		i.spec.GrubDefEntry,
@@ -255,17 +254,17 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Unmount active image
-	err = e.UnmountImage(&i.spec.Active)
+	err = elemental.UnmountImage(i.cfg, &i.spec.Active)
 	if err != nil {
 		return err
 	}
 	// Install Recovery
-	recoveryMeta, err := e.DeployImage(&i.spec.Recovery, false)
+	recoveryMeta, err := elemental.DeployImage(i.cfg, &i.spec.Recovery, false)
 	if err != nil {
 		return err
 	}
 	// Install Passive
-	_, err = e.DeployImage(&i.spec.Passive, false)
+	_, err = elemental.DeployImage(i.cfg, &i.spec.Passive, false)
 	if err != nil {
 		return err
 	}

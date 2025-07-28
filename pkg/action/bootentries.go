@@ -278,7 +278,6 @@ func bootNameToSystemdConf(name string) (string, error) {
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
 func listBootEntriesSystemd(cfg *config.Config) error {
 	var err error
-	e := elemental.NewElemental(cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
@@ -291,12 +290,12 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 		if efiPartition.MountPoint == "" {
 			efiPartition.MountPoint = cnst.EfiDir
 		}
-		err = e.MountPartition(efiPartition)
+		err = elemental.MountPartition(cfg, efiPartition)
 		if err != nil {
 			cfg.Logger.Errorf("could not mount EFI partition: %s", err)
 			return err
 		}
-		cleanup.Push(func() error { return e.UnmountPartition(efiPartition) })
+		cleanup.Push(func() error { return elemental.UnmountPartition(cfg, efiPartition) })
 	}
 
 	// Get default entry from loader.conf
