@@ -1429,4 +1429,16 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 
 	})
+	Describe("GetTempDir", Label("tmpdir"), Serial, func() { // Run them in serial due to the use of env vars
+		It("returns a temp dir with the prefix", func() {
+			Expect(utils.GetTempDir(config, "testprefix")).To(Equal("/tmp/agent-testprefix"))
+		})
+		It("returns a temp dir with the prefix respecting the TMP_DIR var", func() {
+			// We can simulate this by using a bad prefix
+			oldValue := os.Getenv("TMPDIR")
+			os.Setenv("TMPDIR", "/whatever")
+			defer os.Setenv("TMPDIR", oldValue)
+			Expect(utils.GetTempDir(config, "testprefix")).To(Equal("/whatever/agent-testprefix"))
+		})
+	})
 })
