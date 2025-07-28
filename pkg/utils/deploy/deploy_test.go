@@ -1,0 +1,638 @@
+/*
+   Copyright © 2021 SUSE LLC
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+package deploy_test
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
+	"os"
+	"path/filepath"
+	"strings"
+	sc "syscall"
+	"testing"
+
+	"github.com/diskfs/go-diskfs"
+	"golang.org/x/sys/unix"
+
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
+	fileBackend "github.com/diskfs/go-diskfs/backend/file"
+	"github.com/diskfs/go-diskfs/partition/gpt"
+	"github.com/gofrs/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/sanity-io/litter"
+	"github.com/twpayne/go-vfs/v5/vfst"
+)
+
+func TestDeploySuite(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Deploy test suite")
+}
+
+var _ = Describe("Deploy", Label("deploy"), func() {
+	var config *agentConfig.Config
+	var runner *v1mock.FakeRunner
+	var logger sdkTypes.KairosLogger
+	var syscall *v1mock.FakeSyscall
+	var cl *v1mock.FakeHTTPClient
+	var mounter *v1mock.ErrorMounter
+	var fs *vfst.TestFS
+	var cleanup func()
+	var extractor *v1mock.FakeImageExtractor
+	var memLog *bytes.Buffer
+	var devLoopInt int
+
+	BeforeEach(func() {
+		memLog = &bytes.Buffer{}
+		logger = sdkTypes.NewBufferLogger(memLog)
+		logger.SetLevel("debug")
+		runner = v1mock.NewFakeRunner()
+		syscall = &v1mock.FakeSyscall{}
+		devLoopInt = 44
+		syscall.SideEffectSyscall = func(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err sc.Errno) {
+			// Trap the call for getting a free loop device number
+			if trap == sc.SYS_IOCTL && a2 == unix.LOOP_CTL_GET_FREE {
+				// This is a "get free loop device" syscall
+				// We return 44 so it gets the /dev/loop44 because we are cool like that
+				// Also we can check below that indeed it set that device as expected
+				return uintptr(devLoopInt), 0, sc.Errno(syscall.ReturnValue)
+			}
+			return 0, 0, sc.Errno(syscall.ReturnValue)
+		}
+		mounter = v1mock.NewErrorMounter()
+		cl = &v1mock.FakeHTTPClient{}
+		fs, cleanup, _ = vfst.NewTestFS(map[string]interface{}{
+			"/dev/loop-control":                    "",
+			fmt.Sprintf("/dev/loop%d", devLoopInt): "",
+		})
+		extractor = v1mock.NewFakeImageExtractor(logger)
+		config = agentConfig.NewConfig(
+			agentConfig.WithFs(fs),
+			agentConfig.WithRunner(runner),
+			agentConfig.WithLogger(logger),
+			agentConfig.WithMounter(mounter),
+			agentConfig.WithSyscall(syscall),
+			agentConfig.WithClient(cl),
+			agentConfig.WithImageExtractor(extractor),
+		)
+	})
+	AfterEach(func() { cleanup() })
+	Describe("MountRWPartition", Label("mount"), func() {
+		var parts v1.Partitions
+		BeforeEach(func() {
+			spec := &v1.InstallSpec{}
+			parts = agentConfig.NewInstallPartitions(logger, spec)
+
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = fs.Create("/some/device")
+			Expect(err).ToNot(HaveOccurred())
+
+			parts.OEM.Path = "/dev/device1"
+
+		})
+
+		It("Mounts and umounts a partition with RW", func() {
+			umount, err := deploy.MountRWPartition(config, parts.OEM)
+			Expect(err).To(BeNil())
+			lst, _ := mounter.List()
+			Expect(len(lst)).To(Equal(1))
+			Expect(lst[0].Opts).To(Equal([]string{"rw"}))
+
+			Expect(umount()).ShouldNot(HaveOccurred())
+			lst, _ = mounter.List()
+			Expect(len(lst)).To(Equal(0))
+		})
+		It("Remounts a partition with RW", func() {
+			err := deploy.MountPartition(config, parts.OEM)
+			Expect(err).To(BeNil())
+			lst, _ := mounter.List()
+			Expect(len(lst)).To(Equal(1))
+
+			umount, err := deploy.MountRWPartition(config, parts.OEM)
+			Expect(err).To(BeNil())
+			lst, _ = mounter.List()
+			// fake mounter is not merging remounts it just appends
+			Expect(len(lst)).To(Equal(2))
+			Expect(lst[1].Opts).To(Equal([]string{"remount", "rw"}))
+
+			Expect(umount()).ShouldNot(HaveOccurred())
+			// This went to syscall so it wont appears on the mounter list
+			Expect(syscall.WasMountCalledWith(parts.OEM.MountPoint, parts.OEM.MountPoint, "", unix.MS_REMOUNT|unix.MS_RDONLY|unix.MS_BIND, "")).To(BeTrue())
+		})
+		It("Fails to mount a partition", func() {
+			mounter.ErrorOnMount = true
+			_, err := deploy.MountRWPartition(config, parts.OEM)
+			Expect(err).Should(HaveOccurred())
+		})
+		It("Fails to remount a partition", func() {
+			err := deploy.MountPartition(config, parts.OEM)
+			Expect(err).To(BeNil())
+			lst, _ := mounter.List()
+			Expect(len(lst)).To(Equal(1))
+
+			mounter.ErrorOnMount = true
+			_, err = deploy.MountRWPartition(config, parts.OEM)
+			Expect(err).Should(HaveOccurred())
+			lst, _ = mounter.List()
+			Expect(len(lst)).To(Equal(1))
+		})
+	})
+	Describe("MountPartitions", Label("MountPartitions", "disk", "partition", "mount"), func() {
+
+		var parts v1.Partitions
+		BeforeEach(func() {
+			spec := &v1.InstallSpec{}
+			parts = agentConfig.NewInstallPartitions(logger, spec)
+
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = fs.Create("/some/device")
+			Expect(err).ToNot(HaveOccurred())
+
+			parts.OEM.Path = "/dev/device2"
+			parts.Recovery.Path = "/dev/device3"
+			parts.State.Path = "/dev/device4"
+			parts.Persistent.Path = "/dev/device5"
+
+		})
+
+		It("Mounts disk partitions", func() {
+			err := deploy.MountPartitions(config, parts.PartitionsByMountPoint(false))
+			Expect(err).To(BeNil())
+			lst, _ := mounter.List()
+			Expect(len(lst)).To(Equal(4))
+		})
+
+		It("Mounts disk partitions excluding recovery", func() {
+			err := deploy.MountPartitions(config, parts.PartitionsByMountPoint(false, parts.Recovery))
+			Expect(err).To(BeNil())
+			lst, _ := mounter.List()
+			for _, i := range lst {
+				Expect(i.Path).NotTo(Equal("/dev/device3"))
+			}
+		})
+
+		It("Fails if some partition resists to mount ", func() {
+			mounter.ErrorOnMount = true
+			err := deploy.MountPartitions(config, parts.PartitionsByMountPoint(false))
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("Fails if oem partition is not found ", func() {
+			parts.OEM.Path = ""
+			err := deploy.MountPartitions(config, parts.PartitionsByMountPoint(false))
+			Expect(err).NotTo(BeNil())
+		})
+	})
+	Describe("UnmountPartitions", Label("UnmountPartitions", "disk", "partition", "unmount"), func() {
+		var parts v1.Partitions
+		BeforeEach(func() {
+			spec := &v1.InstallSpec{}
+			parts = agentConfig.NewInstallPartitions(logger, spec)
+
+			err := fsutils.MkdirAll(fs, "/some", cnst.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = fs.Create("/some/device")
+			Expect(err).ToNot(HaveOccurred())
+
+			parts.OEM.Path = "/dev/device2"
+			parts.Recovery.Path = "/dev/device3"
+			parts.State.Path = "/dev/device4"
+			parts.Persistent.Path = "/dev/device5"
+
+			err = deploy.MountPartitions(config, parts.PartitionsByMountPoint(false))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Unmounts disk partitions", func() {
+			err := deploy.UnmountPartitions(config, parts.PartitionsByMountPoint(true))
+			Expect(err).To(BeNil())
+			lst, _ := mounter.List()
+			Expect(len(lst)).To(Equal(0))
+		})
+
+		It("Fails to unmount disk partitions", func() {
+			mounter.ErrorOnUnmount = true
+			err := deploy.UnmountPartitions(config, parts.PartitionsByMountPoint(true))
+			Expect(err).NotTo(BeNil())
+		})
+	})
+	Describe("MountImage", Label("MountImage", "mount", "image"), func() {
+		var img *v1.Image
+		BeforeEach(func() {
+			img = &v1.Image{MountPoint: "/some/mountpoint", File: "/image.file"}
+			Expect(fs.WriteFile("/image.file", []byte{}, cnst.FilePerm)).To(Succeed())
+		})
+
+		It("Mounts file system image", func() {
+			err := deploy.MountImage(config, img)
+			Expect(err).To(BeNil())
+			Expect(img.LoopDevice).To(Equal(fmt.Sprintf("/dev/loop%d", devLoopInt)), litter.Sdump(img))
+		})
+
+		It("Fails to set a loop device", Label("loop"), func() {
+			// Return error on syscall call
+			syscall.ReturnValue = 10
+			Expect(deploy.MountImage(config, img)).NotTo(BeNil())
+			Expect(img.LoopDevice).To(Equal(""))
+		})
+
+		It("Fails to mount a loop device", Label("loop"), func() {
+			mounter.ErrorOnMount = true
+			Expect(deploy.MountImage(config, img)).NotTo(BeNil())
+			Expect(img.LoopDevice).To(Equal(""))
+		})
+	})
+	Describe("UnmountImage", Label("UnmountImage", "mount", "image"), func() {
+		var img *v1.Image
+		BeforeEach(func() {
+			img = &v1.Image{MountPoint: "/some/mountpoint", File: "/image.file"}
+			Expect(fs.WriteFile("/image.file", []byte{}, cnst.FilePerm)).To(Succeed())
+			Expect(deploy.MountImage(config, img)).To(BeNil())
+			Expect(img.LoopDevice).To(Equal(fmt.Sprintf("/dev/loop%d", devLoopInt)))
+		})
+
+		It("Unmounts file system image", func() {
+			Expect(deploy.UnmountImage(config, img)).To(BeNil())
+			Expect(img.LoopDevice).To(Equal(""))
+		})
+
+		It("Fails to unmount a mountpoint", func() {
+			mounter.ErrorOnUnmount = true
+			Expect(deploy.UnmountImage(config, img)).NotTo(BeNil())
+		})
+
+		It("Fails to unset a loop device", Label("loop"), func() {
+			syscall.ReturnValue = 10
+			Expect(deploy.UnmountImage(config, img)).NotTo(BeNil())
+		})
+	})
+	Describe("CreateFileSystemImage", Label("CreateFileSystemImage", "image"), func() {
+		var img *v1.Image
+		BeforeEach(func() {
+			img = &v1.Image{
+				Label:      cnst.ActiveLabel,
+				Size:       32,
+				File:       filepath.Join(cnst.StateDir, "cOS", cnst.ActiveImgFile),
+				FS:         cnst.LinuxImgFs,
+				MountPoint: cnst.ActiveDir,
+				Source:     v1.NewDirSrc(cnst.IsoBaseTree),
+			}
+			_ = fsutils.MkdirAll(fs, cnst.IsoBaseTree, cnst.DirPerm)
+		})
+
+		It("Creates a new file system image", func() {
+			_, err := fs.Stat(img.File)
+			Expect(err).NotTo(BeNil())
+			err = deploy.CreateFileSystemImage(config, img)
+			Expect(err).To(BeNil())
+			stat, err := fs.Stat(img.File)
+			Expect(err).To(BeNil())
+			Expect(stat.Size()).To(Equal(int64(32 * 1024 * 1024)))
+		})
+
+		It("Fails formatting a file system image", Label("format"), func() {
+			runner.ReturnError = errors.New("run error")
+			_, err := fs.Stat(img.File)
+			Expect(err).NotTo(BeNil())
+			err = deploy.CreateFileSystemImage(config, img)
+			Expect(err).NotTo(BeNil())
+			_, err = fs.Stat(img.File)
+			Expect(err).NotTo(BeNil())
+		})
+	})
+	Describe("PartitionAndFormatDevice", Label("PartitionAndFormatDevice", "partition", "format"), func() {
+		var cInit *v1mock.FakeCloudInitRunner
+		var install *v1.InstallSpec
+		var err error
+		var tmpDir string
+
+		BeforeEach(func() {
+			cInit = &v1mock.FakeCloudInitRunner{ExecStages: []string{}, Error: false}
+			config.CloudInitRunner = cInit
+			tmpDir, err = os.MkdirTemp("", "elements-*")
+			Expect(err).To(BeNil())
+			Expect(os.RemoveAll(filepath.Join(tmpDir, "/test.img"))).ToNot(HaveOccurred())
+			// at least 2Gb in size as state is set to 1G
+			_, err = fileBackend.CreateFromPath(filepath.Join(tmpDir, "/test.img"), 2*1024*1024*1024)
+			Expect(err).ToNot(HaveOccurred())
+			config.Install.Device = filepath.Join(tmpDir, "/test.img")
+			install, err = agentConfig.NewInstallSpec(config)
+			Expect(err).ToNot(HaveOccurred())
+			install.Target = filepath.Join(tmpDir, "/test.img")
+		})
+
+		AfterEach(func() {
+			Expect(os.RemoveAll(tmpDir)).ToNot(HaveOccurred())
+		})
+
+		It("Successfully creates partitions and formats them, EFI boot", func() {
+			install.PartTable = v1.GPT
+			install.Firmware = v1.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(v1.EFI, v1.GPT)).To(BeNil())
+			Expect(partitioner.PartitionAndFormatDevice(config, install)).To(BeNil())
+			disk, err := fileBackend.OpenFromPath(filepath.Join(tmpDir, "/test.img"), true)
+			defer disk.Close()
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+			Expect(err).ToNot(HaveOccurred())
+			// check that its type GPT
+			Expect(table.Type()).To(Equal("gpt"))
+			// Expect the disk UUID to be constant
+			Expect(strings.ToLower(table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
+			// 5 partitions (boot, oem, recovery, state and persistent)
+			Expect(len(table.GetPartitions())).To(Equal(5))
+			// Cast the boot partition into specific type to check the type and such
+			part := table.GetPartitions()[0]
+			partition, ok := part.(*gpt.Partition)
+			Expect(ok).To(BeTrue())
+			// Should be efi type
+			Expect(partition.Type).To(Equal(gpt.EFISystemPartition))
+			// should have boot label
+			Expect(partition.Name).To(Equal(cnst.EfiPartName))
+			// Should have predictable UUID
+			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
+			// Check the rest have the proper types
+			for i := 1; i < len(table.GetPartitions()); i++ {
+				part := table.GetPartitions()[i]
+				partition, ok := part.(*gpt.Partition)
+				Expect(ok).To(BeTrue())
+				// all of them should have the Linux fs type
+				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
+			}
+		})
+		It("Successfully creates partitions and formats them, BIOS boot", func() {
+			install.PartTable = v1.GPT
+			install.Firmware = v1.BIOS
+			Expect(install.Partitions.SetFirmwarePartitions(v1.BIOS, v1.GPT)).To(BeNil())
+			Expect(partitioner.PartitionAndFormatDevice(config, install)).To(BeNil())
+			disk, err := fileBackend.OpenFromPath(filepath.Join(tmpDir, "/test.img"), true)
+			defer disk.Close()
+			Expect(err).ToNot(HaveOccurred())
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+			Expect(err).ToNot(HaveOccurred())
+			// check that its type GPT
+			Expect(table.Type()).To(Equal("gpt"))
+			// Expect the disk UUID to be constant
+			Expect(strings.ToLower(table.UUID())).To(Equal(strings.ToLower(cnst.DiskUUID)))
+			// 5 partitions (boot, oem, recovery, state and persistent)
+			Expect(len(table.GetPartitions())).To(Equal(5))
+			// Cast the boot partition into specific type to check the type and such
+			part := table.GetPartitions()[0]
+			partition, ok := part.(*gpt.Partition)
+			Expect(ok).To(BeTrue())
+			// Should be BIOS boot type
+			Expect(partition.Type).To(Equal(gpt.BIOSBoot))
+			// should have boot label
+			Expect(partition.Name).To(Equal(cnst.BiosPartName))
+			// Should have predictable UUID
+			Expect(strings.ToLower(partition.UUID())).To(Equal(strings.ToLower(uuid.NewV5(uuid.NamespaceURL, cnst.EfiLabel).String())))
+			for i := 1; i < len(table.GetPartitions()); i++ {
+				part := table.GetPartitions()[i]
+				partition, ok := part.(*gpt.Partition)
+				Expect(ok).To(BeTrue())
+				// all of them should have the Linux fs type
+				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
+			}
+		})
+	})
+	Describe("DeployImage", Label("DeployImage"), func() {
+		var img *v1.Image
+		var cmdFail string
+		BeforeEach(func() {
+			sourceDir, err := fsutils.TempDir(fs, "", "deploy")
+			Expect(err).ShouldNot(HaveOccurred())
+			destDir, err := fsutils.TempDir(fs, "", "deploy")
+			Expect(err).ShouldNot(HaveOccurred())
+			cmdFail = ""
+			img = &v1.Image{
+				FS:         cnst.LinuxImgFs,
+				Size:       16,
+				Source:     v1.NewDirSrc(sourceDir),
+				MountPoint: destDir,
+				File:       filepath.Join(destDir, "image.img"),
+				Label:      "some_label",
+			}
+			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+				if cmdFail == cmd {
+					return []byte{}, errors.New("Command failed")
+				}
+				switch cmd {
+				default:
+					GinkgoWriter.Println(fmt.Sprintf("Command %s called but we dont catch it", cmd))
+					return []byte{}, nil
+				}
+			}
+		})
+		It("Deploys an image from a directory and leaves it mounted", func() {
+			Expect(deploy.DeployImage(config, img, true)).To(BeNil())
+		})
+		It("Deploys an image from a directory and leaves it unmounted", func() {
+			Expect(deploy.DeployImage(config, img, false)).To(BeNil())
+		})
+		It("Deploys an squashfs image from a directory", func() {
+			img.FS = cnst.SquashFs
+			Expect(deploy.DeployImage(config, img, true)).To(BeNil())
+			Expect(runner.MatchMilestones([][]string{
+				{
+					"mksquashfs", "/tmp/deploy-tmp", "/tmp/deploy/image.img",
+					"-b", "1024k", "-comp", "gzip",
+				},
+			}))
+		})
+		It("Deploys a file image and mounts it", func() {
+			sourceImg := "/source.img"
+			_, err := fs.Create(sourceImg)
+			Expect(err).To(BeNil())
+			destDir, err := fsutils.TempDir(fs, "", "deploy")
+			Expect(err).To(BeNil())
+			img.Source = v1.NewFileSrc(sourceImg)
+			img.MountPoint = destDir
+			Expect(deploy.DeployImage(config, img, true)).To(BeNil())
+		})
+		It("Deploys a file image and fails to mount it", func() {
+			sourceImg := "/source.img"
+			_, err := fs.Create(sourceImg)
+			Expect(err).To(BeNil())
+			destDir, err := fsutils.TempDir(fs, "", "deploy")
+			Expect(err).To(BeNil())
+			img.Source = v1.NewFileSrc(sourceImg)
+			img.MountPoint = destDir
+			mounter.ErrorOnMount = true
+			_, err = deploy.DeployImage(config, img, true)
+			Expect(err).NotTo(BeNil())
+		})
+		It("Deploys a file image and fails to label it", func() {
+			sourceImg := "/source.img"
+			_, err := fs.Create(sourceImg)
+			Expect(err).To(BeNil())
+			destDir, err := fsutils.TempDir(fs, "", "deploy")
+			Expect(err).To(BeNil())
+			img.Source = v1.NewFileSrc(sourceImg)
+			img.MountPoint = destDir
+			cmdFail = "tune2fs"
+			_, err = deploy.DeployImage(config, img, true)
+			Expect(err).NotTo(BeNil())
+		})
+		It("Fails creating the squashfs filesystem", func() {
+			cmdFail = "mksquashfs"
+			img.FS = cnst.SquashFs
+			_, err := deploy.DeployImage(config, img, true)
+			Expect(err).NotTo(BeNil())
+			Expect(runner.MatchMilestones([][]string{
+				{
+					"mksquashfs", "/tmp/deploy-tmp", "/tmp/deploy/image.img",
+					"-b", "1024k", "-comp", "gzip",
+				},
+			}))
+		})
+		It("Fails formatting the image", func() {
+			cmdFail = "mkfs.ext2"
+			_, err := deploy.DeployImage(config, img, true)
+			Expect(err).NotTo(BeNil())
+		})
+		It("Fails mounting the image", func() {
+			mounter.ErrorOnMount = true
+			_, err := deploy.DeployImage(config, img, true)
+			Expect(err).NotTo(BeNil())
+		})
+		It("Fails unmounting the image after copying", func() {
+			mounter.ErrorOnUnmount = true
+			_, err := deploy.DeployImage(config, img, false)
+			Expect(err).NotTo(BeNil())
+		})
+	})
+	Describe("DumpSource", Label("dump"), func() {
+		var destDir string
+		BeforeEach(func() {
+			var err error
+			destDir, err = fsutils.TempDir(fs, "", "deploy")
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+		It("Copies files from a directory source", func() {
+			rsyncCount := 0
+			src := ""
+			dest := ""
+			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+				if cmd == cnst.Rsync {
+					rsyncCount += 1
+					src = args[len(args)-2]
+					dest = args[len(args)-1]
+
+				}
+				return []byte{}, nil
+			}
+			_, err := deploy.DumpSource(config, "/dest", v1.NewDirSrc("/source"))
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rsyncCount).To(Equal(1))
+			Expect(src).To(HaveSuffix("/source/"))
+			Expect(dest).To(HaveSuffix("/dest/"))
+		})
+		It("Unpacks a docker image to target", Label("docker"), func() {
+			_, err := deploy.DumpSource(config, destDir, v1.NewDockerSrc("docker/image:latest"))
+			Expect(err).To(BeNil())
+		})
+		It("Unpacks a docker image to target with cosign validation", Label("docker", "cosign"), func() {
+			config.Cosign = true
+			_, err := deploy.DumpSource(config, destDir, v1.NewDockerSrc("docker/image:latest"))
+			Expect(err).To(BeNil())
+			Expect(runner.CmdsMatch([][]string{{"cosign", "verify", "docker/image:latest"}}))
+		})
+		It("Fails cosign validation", Label("cosign"), func() {
+			runner.ReturnError = errors.New("cosign error")
+			config.Cosign = true
+			_, err := deploy.DumpSource(config, destDir, v1.NewDockerSrc("docker/image:latest"))
+			Expect(err).NotTo(BeNil())
+			Expect(runner.CmdsMatch([][]string{{"cosign", "verify", "docker/image:latest"}}))
+		})
+		It("Unpacks a locally saved docker image file to target", Label("docker"), func() {
+			// Clear any previous commands
+			runner.ClearCmds()
+
+			ociTarPath := "/tmp/oci-image.tar"
+			// Create a dummy OCI image tar file
+			err := fs.WriteFile(ociTarPath, []byte("dummy oci image content"), 0644)
+			Expect(err).To(BeNil())
+
+			runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+				fullCmd := fmt.Sprintf("Running command: %s %s", cmd, strings.Join(args, " "))
+				_, _ = GinkgoWriter.Write([]byte(fullCmd + "\n"))
+				if cmd == "tar" && len(args) >= 2 && args[0] == "-xf" {
+					_, _ = GinkgoWriter.Write([]byte("Simulating successful tar extraction\n"))
+					return []byte{}, nil
+				}
+				return []byte{}, nil
+			}
+			_, err = deploy.DumpSource(config, destDir, v1.NewOCIFileSrc(ociTarPath))
+			Expect(err).To(BeNil())
+			Expect(runner.IncludesCmds([][]string{{"tar", "-xf", ociTarPath}})).To(BeNil())
+		})
+
+		It("Copies image file to target", func() {
+			sourceImg := "/source.img"
+			destFile := filepath.Join(destDir, "active.img")
+			_, err := fs.Create(sourceImg)
+			Expect(err).To(BeNil())
+			_, err = deploy.DumpSource(config, destFile, v1.NewFileSrc(sourceImg))
+			Expect(err).To(BeNil())
+			Expect(runner.IncludesCmds([][]string{{cnst.Rsync}}))
+		})
+		It("Fails to copy, source file is not present", func() {
+			_, err := deploy.DumpSource(config, "whatever", v1.NewFileSrc("/source.img"))
+			Expect(err).NotTo(BeNil())
+		})
+	})
+	Describe("CheckActiveDeployment", Label("check"), func() { // TODO: Move to utils
+		It("deployment found", func() {
+			ghwTest := ghwMock.GhwMock{}
+			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+				{
+					Name:            "device1",
+					FilesystemLabel: cnst.ActiveLabel,
+				},
+			}}
+			ghwTest.AddDisk(disk)
+			ghwTest.CreateDevices()
+
+			runner.ReturnValue = []byte(
+				fmt.Sprintf(
+					`{"blockdevices": [{"label": "%s", "type": "loop", "path": "/some/device"}]}`,
+					cnst.ActiveLabel,
+				),
+			)
+			Expect(utils.CheckActiveDeployment(config, []string{cnst.ActiveLabel, cnst.PassiveLabel})).To(BeTrue())
+
+			ghwTest.Clean()
+		})
+
+		It("Should not error out", func() {
+			runner.ReturnValue = []byte("")
+			Expect(utils.CheckActiveDeployment(config, []string{cnst.ActiveLabel, cnst.PassiveLabel})).To(BeFalse())
+		})
+	})
+})
