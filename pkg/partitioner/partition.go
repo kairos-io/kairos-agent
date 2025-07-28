@@ -73,9 +73,13 @@ func PartitionAndFormatDevice(config *agentConfig.Config, i v1.SharedInstallSpec
 				// So this works for "normal" devices that have the "expected" partitions (i.e. /dev/sda has /dev/sda1, /dev/sda2)
 				// And "weird" devices that have special subdevices like mmc or nvme
 				// i.e. /dev/mmcblk0 has /dev/mmcblk0p1, /dev/mmcblk0p2
-				device, err := filepath.EvalSymlinks(fmt.Sprintf("/dev/disk/by-partlabel/%s", configPart.Name))
+				dev, err := config.Fs.RawPath(fmt.Sprintf("/dev/disk/by-partlabel/%s", configPart.Name))
 				if err != nil {
-					config.Logger.Errorf("Failed finding partition %s by partition label: %s", configPart.FilesystemLabel, err)
+					return err
+				}
+				device, err := filepath.EvalSymlinks(dev)
+				if err != nil {
+					config.Logger.Errorf("Failed finding partition %s by partition label with symlink %s: %s", configPart.FilesystemLabel, dev, err)
 				}
 				err = FormatDevice(config.Logger, config.Runner, device, configPart.FS, configPart.FilesystemLabel)
 				if err != nil {
