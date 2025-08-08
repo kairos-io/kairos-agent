@@ -10,13 +10,12 @@ import (
 	"strings"
 	"syscall"
 
-	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
-
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 )
@@ -278,7 +277,6 @@ func bootNameToSystemdConf(name string) (string, error) {
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
 func listBootEntriesSystemd(cfg *config.Config) error {
 	var err error
-	e := elemental.NewElemental(cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 	// Get EFI partition
@@ -291,12 +289,12 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 		if efiPartition.MountPoint == "" {
 			efiPartition.MountPoint = cnst.EfiDir
 		}
-		err = e.MountPartition(efiPartition)
+		err = deploy.MountPartition(cfg, efiPartition)
 		if err != nil {
 			cfg.Logger.Errorf("could not mount EFI partition: %s", err)
 			return err
 		}
-		cleanup.Push(func() error { return e.UnmountPartition(efiPartition) })
+		cleanup.Push(func() error { return deploy.UnmountPartition(cfg, efiPartition) })
 	}
 
 	// Get default entry from loader.conf
