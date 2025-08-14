@@ -31,7 +31,7 @@ require (
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sys v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/mount-utils v0.33.3
+	k8s.io/mount-utils v0.33.4
 )
 
 require (
