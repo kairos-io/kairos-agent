@@ -37,8 +37,7 @@ import (
 
 	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos-sdk/types"
-
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	kairosConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 
@@ -57,7 +56,7 @@ func CommandExists(command string) bool {
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
-func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (string, error) {
+func GetDeviceByLabel(config *kairosConfig.Config, label string, attempts int) (string, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = config.Runner.Run("udevadm", "trigger")
 		_, _ = config.Runner.Run("udevadm", "settle")
@@ -233,11 +232,47 @@ func Reboot(runner v1.Runner, delay time.Duration) error {
 	return err
 }
 
+// RebootWithCustomCommand reboots the system using a custom command after the given delay (in seconds) time passed.
+func RebootWithCustomCommand(runner v1.Runner, delay time.Duration, customCommand string) error {
+	time.Sleep(delay * time.Second)
+	if customCommand == "" {
+		return Reboot(runner, 0) // No additional delay since we already slept
+	}
+	_, err := runner.Run("/bin/sh", "-c", customCommand)
+	return err
+}
+
 // Shutdown halts the system afater the given delay (in seconds) time passed.
 func Shutdown(runner v1.Runner, delay time.Duration) error {
 	time.Sleep(delay * time.Second)
 	_, err := runner.Run("poweroff", "-f")
 	return err
+}
+
+// ShutdownWithCustomCommand shuts down the system using a custom command after the given delay (in seconds) time passed.
+func ShutdownWithCustomCommand(runner v1.Runner, delay time.Duration, customCommand string) error {
+	time.Sleep(delay * time.Second)
+	if customCommand == "" {
+		return Shutdown(runner, 0) // No additional delay since we already slept
+	}
+	_, err := runner.Run("/bin/sh", "-c", customCommand)
+	return err
+}
+
+// RebootWithConfig reboots the system using custom command from config if provided, otherwise uses default reboot.
+func RebootWithConfig(runner v1.Runner, delay time.Duration, installConfig *kairosConfig.Install) error {
+	if installConfig != nil && installConfig.RebootCommand != "" {
+		return RebootWithCustomCommand(runner, delay, installConfig.RebootCommand)
+	}
+	return Reboot(runner, delay)
+}
+
+// ShutdownWithConfig shuts down the system using custom command from config if provided, otherwise uses default shutdown.
+func ShutdownWithConfig(runner v1.Runner, delay time.Duration, installConfig *kairosConfig.Install) error {
+	if installConfig != nil && installConfig.ShutdownCommand != "" {
+		return ShutdownWithCustomCommand(runner, delay, installConfig.ShutdownCommand)
+	}
+	return Shutdown(runner, delay)
 }
 
 // CosignVerify runs a cosign validation for the give image and given public key. If no
@@ -310,7 +345,7 @@ func LoadEnvFile(fs v1.FS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) {
+func IsMounted(config *kairosConfig.Config, part *types.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -331,7 +366,7 @@ func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) 
 // It will respect TMPDIR and use that if exists, fallback to try the persistent partition if its mounted
 // and finally the default /tmp/ dir
 // suffix is what is appended to the dir name elemental-suffix. If empty it will randomly generate a number
-func GetTempDir(config *agentConfig.Config, suffix string) string {
+func GetTempDir(config *kairosConfig.Config, suffix string) string {
 	// if we got a TMPDIR var, respect and use that
 	if suffix == "" {
 		random.Seed(time.Now().UnixNano())
@@ -397,7 +432,7 @@ func IsHTTPURI(uri string) (bool, error) {
 
 // GetSource copies given source to destination, if source is a local path it simply
 // copies files, if source is a remote URL it tries to download URL to destination.
-func GetSource(config *agentConfig.Config, source string, destination string) error {
+func GetSource(config *kairosConfig.Config, source string, destination string) error {
 	local, err := IsLocalURI(source)
 	if err != nil {
 		config.Logger.Errorf("Not a valid url: %s", source)

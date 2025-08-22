@@ -45,6 +45,8 @@ type Install struct {
 	NoFormat               bool                   `yaml:"no-format,omitempty"`
 	Device                 string                 `yaml:"device,omitempty"`
 	Poweroff               bool                   `yaml:"poweroff,omitempty"`
+	RebootCommand          string                 `yaml:"reboot_command,omitempty"`
+	ShutdownCommand        string                 `yaml:"shutdown_command,omitempty"`
 	GrubOptions            map[string]string      `yaml:"grub_options,omitempty"`
 	Bundles                Bundles                `yaml:"bundles,omitempty"`
 	Encrypt                []string               `yaml:"encrypted_partitions,omitempty"`
