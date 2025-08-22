@@ -1,6 +1,8 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.24.4
+go 1.24.5
+
+toolchain go1.24.6
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -42,7 +44,6 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v69 v69.2.0
-	github.com/google/go-github/v74 v74.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.5
 	github.com/urfave/cli/v2 v2.27.7
 )
@@ -235,3 +236,5 @@ require (
 	pault.ag/go/modprobe v0.2.0 // indirect
 	pault.ag/go/topsort v0.1.1 // indirect
 )
+
+replace github.com/kairos-io/kairos-sdk => github.com/aidanleuck/kairos-sdk v0.0.0-20250821145705-fe48b0f88e1f
