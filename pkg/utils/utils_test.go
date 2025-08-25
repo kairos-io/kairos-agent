@@ -286,6 +286,56 @@ var _ = Describe("Utils", Label("utils"), func() {
 			Expect(runner.CmdsMatch([][]string{{"poweroff", "-f"}})).To(BeNil())
 			Expect(duration.Seconds() >= 3).To(BeTrue())
 		})
+		It("reboots with custom command", func() {
+			start := time.Now()
+			utils.RebootWithCustomCommand(runner, 1, "custom-reboot -now")
+			duration := time.Since(start)
+			Expect(runner.CmdsMatch([][]string{{"/bin/sh", "-c", "custom-reboot -now"}})).To(BeNil())
+			Expect(duration.Seconds() >= 1).To(BeTrue())
+		})
+		It("shuts down with custom command", func() {
+			start := time.Now()
+			utils.ShutdownWithCustomCommand(runner, 1, "custom-shutdown --force")
+			duration := time.Since(start)
+			Expect(runner.CmdsMatch([][]string{{"/bin/sh", "-c", "custom-shutdown --force"}})).To(BeNil())
+			Expect(duration.Seconds() >= 1).To(BeTrue())
+		})
+		It("reboots with config using custom command", func() {
+			installConfig := &agentConfig.Install{
+				RebootCommand: "systemctl reboot --custom",
+			}
+			start := time.Now()
+			utils.RebootWithConfig(runner, 1, installConfig)
+			duration := time.Since(start)
+			Expect(runner.CmdsMatch([][]string{{"/bin/sh", "-c", "systemctl reboot --custom"}})).To(BeNil())
+			Expect(duration.Seconds() >= 1).To(BeTrue())
+		})
+		It("shuts down with config using custom command", func() {
+			installConfig := &agentConfig.Install{
+				ShutdownCommand: "systemctl poweroff --custom",
+			}
+			start := time.Now()
+			utils.ShutdownWithConfig(runner, 1, installConfig)
+			duration := time.Since(start)
+			Expect(runner.CmdsMatch([][]string{{"/bin/sh", "-c", "systemctl poweroff --custom"}})).To(BeNil())
+			Expect(duration.Seconds() >= 1).To(BeTrue())
+		})
+		It("reboots with config falling back to default when no custom command", func() {
+			installConfig := &agentConfig.Install{}
+			start := time.Now()
+			utils.RebootWithConfig(runner, 1, installConfig)
+			duration := time.Since(start)
+			Expect(runner.CmdsMatch([][]string{{"reboot", "-f"}})).To(BeNil())
+			Expect(duration.Seconds() >= 1).To(BeTrue())
+		})
+		It("shuts down with config falling back to default when no custom command", func() {
+			installConfig := &agentConfig.Install{}
+			start := time.Now()
+			utils.ShutdownWithConfig(runner, 1, installConfig)
+			duration := time.Since(start)
+			Expect(runner.CmdsMatch([][]string{{"poweroff", "-f"}})).To(BeNil())
+			Expect(duration.Seconds() >= 1).To(BeTrue())
+		})
 	})
 	Describe("CopyFile", Label("CopyFile"), func() {
 		It("Copies source file to target file", func() {
