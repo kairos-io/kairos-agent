@@ -381,6 +381,11 @@ func generateInstallConfForCLIArgs(sourceImageURL string) string {
 
 // generateInstallConfForManualCLIArgs creates a kairos configuration for flags passed via manual install
 func generateInstallConfForManualCLIArgs(device string, reboot, poweroff bool) string {
+	// if no options were passed, return empty string
+	if !reboot && !poweroff && device == "" {
+		return ""
+	}
+
 	cfg := "install:\n"
 	// Only add those options if they are set to true, otherwise it gets the default values from the config
 	if reboot {
@@ -391,10 +396,6 @@ func generateInstallConfForManualCLIArgs(device string, reboot, poweroff bool) s
 	}
 	if device != "" {
 		cfg += fmt.Sprintf("  device: %s\n", device)
-	}
-	// if no options were passed, return empty string
-	if !reboot && !poweroff && device == "" {
-		return ""
 	}
 	return cfg
 }
