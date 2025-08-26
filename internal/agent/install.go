@@ -115,6 +115,7 @@ func Install(sourceImgURL string, dir ...string) error {
 	cc, err = config.Scan(collector.Directories(dir...),
 		collector.Readers(strings.NewReader(cliConf)),
 		collector.MergeBootLine)
+
 	if err == nil && cc.Install != nil && cc.Install.Auto {
 		err = RunInstall(cc)
 		if err != nil {
@@ -380,15 +381,20 @@ func generateInstallConfForCLIArgs(sourceImageURL string) string {
 
 // generateInstallConfForManualCLIArgs creates a kairos configuration for flags passed via manual install
 func generateInstallConfForManualCLIArgs(device string, reboot, poweroff bool) string {
-	cfg := fmt.Sprintf(`install:
-  reboot: %t
-  poweroff: %t
-`, reboot, poweroff)
-
+	cfg := "install:\n"
+	// Only add those options if they are set to true, otherwise it gets the default values from the config
+	if reboot {
+		cfg += "  reboot: true\n"
+	}
+	if poweroff {
+		cfg += "  poweroff: true\n"
+	}
 	if device != "" {
-		cfg += fmt.Sprintf(`
-  device: %s
-`, device)
+		cfg += fmt.Sprintf("  device: %s\n", device)
+	}
+	// if no options were passed, return empty string
+	if !reboot && !poweroff && device == "" {
+		return ""
 	}
 	return cfg
 }
