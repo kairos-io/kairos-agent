@@ -19,18 +19,18 @@ package utils
 import (
 	"bytes"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-sdk/utils"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 // Grub is the struct that will allow us to install grub to the target device
@@ -60,6 +60,34 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 
 	// only install grub on non-efi systems
 	if !efi {
+		// Workaround for livecd installs where the root dir is identified as LiveOS_rootfs
+		// some grub versions try to probe the system and fail as they cant find anything linked to that name
+		// so we create a symlink to the COS_STATE partition so grub can probe the target disk properly and then remove it
+		// The path is CWD/LiveOS_rootfs so we need to get the CWD and create the symlink there
+
+		// get the current dir
+		currentDir, err := os.Getwd()
+		if err != nil {
+			g.config.Logger.Warnf("Failed getting current dir: %s", err)
+			return err
+		}
+
+		liveOsDir := filepath.Join(currentDir, "LiveOS_rootfs")
+		// Now create the symlink (source, target)
+		err = g.config.Fs.Symlink(filepath.Join("/dev/disk/by-label/", cnst.StateLabel), liveOsDir)
+		if err != nil {
+			g.config.Logger.Warnf("Failed creating liveos symlink: %s", err)
+			return err
+		}
+
+		// Remove the symlink at the end
+		defer func() {
+			err = g.config.Fs.Remove(liveOsDir)
+			if err != nil {
+				g.config.Logger.Warnf("Failed removing liveos symlink: %s", err)
+			}
+		}()
+
 		g.config.Logger.Info("Installing GRUB..")
 
 		// Find where in the rootDir the grub2 files for i386-pc are
@@ -74,7 +102,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			grubargs,
 			fmt.Sprintf("--directory=%s", grubdir),
 			fmt.Sprintf("--boot-directory=%s", bootDir),
-			"--target=i386-pc",
+			"--target=i386-pc", "-v",
 			target,
 		)
 
