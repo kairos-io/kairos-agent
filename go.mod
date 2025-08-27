@@ -21,7 +21,7 @@ require (
 	github.com/mudler/yip v1.16.5
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.25.1
-	github.com/onsi/gomega v1.38.1
+	github.com/onsi/gomega v1.38.2
 	github.com/pterm/pterm v0.12.81
 	github.com/rs/zerolog v1.34.0
 	github.com/sanity-io/litter v1.5.8
