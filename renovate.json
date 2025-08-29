@@ -21,10 +21,10 @@
       "automerge": true
     },
     {
-      "matchPackagePatterns": [
-        "^github\\.com/containerd/containerd"
-      ],
-      "enabled": false
+      "enabled": false,
+      "matchPackageNames": [
+        "/^github\\.com/containerd/containerd/"
+      ]
     }
   ]
 }
