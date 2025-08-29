@@ -19,13 +19,14 @@ package action
 import (
 	"fmt"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	"path/filepath"
 	"time"
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/deploy"
 )
 
 func (r *ResetAction) resetHook(hook string, chroot bool) error {
@@ -53,7 +54,7 @@ func NewResetAction(cfg *agentConfig.Config, spec *v1.ResetSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 
-func (r *ResetAction) updateInstallState(e *elemental.Elemental, cleanup *utils.CleanStack, meta interface{}) error {
+func (r *ResetAction) updateInstallState(cleanup *utils.CleanStack, meta interface{}) error {
 	if r.spec.Partitions.Recovery == nil || r.spec.Partitions.State == nil {
 		return fmt.Errorf("undefined state or recovery partition")
 	}
@@ -94,7 +95,7 @@ func (r *ResetAction) updateInstallState(e *elemental.Elemental, cleanup *utils.
 		installState.Partitions[cnst.RecoveryPartName] = r.spec.State.Partitions[cnst.RecoveryPartName]
 	}
 
-	umount, err := e.MountRWPartition(r.spec.Partitions.Recovery)
+	umount, err := deploy.MountRWPartition(r.cfg, r.spec.Partitions.Recovery)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,6 @@ func (r *ResetAction) updateInstallState(e *elemental.Elemental, cleanup *utils.
 
 // ResetRun will reset the cos system to by following several steps
 func (r ResetAction) Run() (err error) {
-	e := elemental.NewElemental(r.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
@@ -144,11 +144,11 @@ func (r ResetAction) Run() (err error) {
 	if r.spec.FormatPersistent {
 		persistent := r.spec.Partitions.Persistent
 		if persistent != nil {
-			err = e.UnmountPartition(persistent)
+			err = deploy.UnmountPartition(r.cfg, persistent)
 			if err != nil {
 				return err
 			}
-			err = e.FormatPartition(persistent)
+			err = partitioner.FormatDevice(r.cfg.Logger, r.cfg.Runner, persistent.Path, persistent.FS, persistent.FilesystemLabel)
 			if err != nil {
 				return err
 			}
@@ -160,16 +160,16 @@ func (r ResetAction) Run() (err error) {
 		oem := r.spec.Partitions.OEM
 		if oem != nil {
 			// Try to umount
-			err = e.UnmountPartition(oem)
+			err = deploy.UnmountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
-			err = e.FormatPartition(oem)
+			err = partitioner.FormatDevice(r.cfg.Logger, r.cfg.Runner, oem.Path, oem.FS, oem.FilesystemLabel)
 			if err != nil {
 				return err
 			}
 			// Mount it back, as oem is mounted during recovery, keep everything as is
-			err = e.MountPartition(oem)
+			err = deploy.MountPartition(r.cfg, oem)
 			if err != nil {
 				return err
 			}
@@ -183,29 +183,29 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	// Mount COS_STATE so we can write the new images
-	err = e.MountPartition(r.spec.Partitions.State)
+	err = deploy.MountPartition(r.cfg, r.spec.Partitions.State)
 	if err != nil {
 		return err
 	}
-	cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.State) })
+	cleanup.Push(func() error { return deploy.UnmountPartition(r.cfg, r.spec.Partitions.State) })
 
 	// Deploy active image
-	meta, err := e.DeployImage(&r.spec.Active, true)
+	meta, err := deploy.DeployImage(r.cfg, &r.spec.Active, true)
 	if err != nil {
 		return err
 	}
-	cleanup.Push(func() error { return e.UnmountImage(&r.spec.Active) })
+	cleanup.Push(func() error { return deploy.UnmountImage(r.cfg, &r.spec.Active) })
 
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(r.cfg, r.spec.ExtraDirsRootfs, r.spec.Active.MountPoint)
 
 	// Mount EFI partition before installing grub as under EFI this copies stuff in there
 	if r.spec.Efi {
-		err = e.MountPartition(r.spec.Partitions.EFI)
+		err = deploy.MountPartition(r.cfg, r.spec.Partitions.EFI)
 		if err != nil {
 			return err
 		}
-		cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.EFI) })
+		cleanup.Push(func() error { return deploy.UnmountPartition(r.cfg, r.spec.Partitions.EFI) })
 	}
 	//TODO: does bios needs to be mounted here?
 
@@ -236,7 +236,7 @@ func (r ResetAction) Run() (err error) {
 	}
 	err = utils.ChrootedCallback(
 		r.cfg, r.spec.Active.MountPoint, binds,
-		func() error { return e.SelinuxRelabel("/", true) },
+		func() error { return utils.SelinuxRelabel(r.cfg, "/", true) },
 	)
 	if err != nil {
 		return err
@@ -248,7 +248,7 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	// installation rebrand (only grub for now)
-	err = e.SetDefaultGrubEntry(
+	err = SetDefaultGrubEntry(r.cfg,
 		r.spec.Partitions.State.MountPoint,
 		r.spec.Active.MountPoint,
 		r.spec.GrubDefEntry,
@@ -258,13 +258,13 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	// Unmount active image
-	err = e.UnmountImage(&r.spec.Active)
+	err = deploy.UnmountImage(r.cfg, &r.spec.Active)
 	if err != nil {
 		return err
 	}
 
 	// Install Passive
-	_, err = e.DeployImage(&r.spec.Passive, false)
+	_, err = deploy.DeployImage(r.cfg, &r.spec.Passive, false)
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ func (r ResetAction) Run() (err error) {
 		return err
 	}
 
-	err = r.updateInstallState(e, cleanup, meta)
+	err = r.updateInstallState(cleanup, meta)
 	if err != nil {
 		return err
 	}
