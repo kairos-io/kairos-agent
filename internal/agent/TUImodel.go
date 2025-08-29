@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+
 	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 
 	"strings"
@@ -115,6 +116,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Hijack all keys if on install process page
 	if installPage, ok := mainModel.pages[currentIdx].(*installProcessPage); ok {
+		// If install failed or finished, any key exits, no abort modal
+		if installPage.errorMsg != "" || installPage.progress >= len(installPage.steps)-1 {
+			mainModel.showAbortConfirm = false // Ensure abort modal is closed
+			if _, isKey := msg.(tea.KeyMsg); isKey {
+				return mainModel, tea.Quit
+			}
+		}
 		if mainModel.showAbortConfirm {
 			// Allow CheckInstallerMsg to update progress even when popup is open
 			if _, isCheck := msg.(CheckInstallerMsg); isCheck {
@@ -140,21 +148,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if keyMsg, isKey := msg.(tea.KeyMsg); isKey {
 			if keyMsg.Type == tea.KeyCtrlC || keyMsg.String() == "ctrl+c" {
-				mainModel.showAbortConfirm = true
-				return mainModel, nil
+				// Only show abort modal if install is not failed/finished
+				if installPage.errorMsg == "" && installPage.progress < len(installPage.steps)-1 {
+					mainModel.showAbortConfirm = true
+					return mainModel, nil
+				}
+				// If failed/finished, just exit
+				return mainModel, tea.Quit
 			}
 		}
 		if installPage.progress < len(installPage.steps)-1 {
 			// Ignore all key events during install
 			if _, isKey := msg.(tea.KeyMsg); isKey {
 				return mainModel, nil
-			}
-		}
-		if installPage.progress >= len(installPage.steps)-1 {
-			// After install, any key exits
-			fmt.Print("\033[H\033[2J") // Clear the screen before quitting
-			if _, isKey := msg.(tea.KeyMsg); isKey {
-				return mainModel, tea.Quit
 			}
 		}
 	}
