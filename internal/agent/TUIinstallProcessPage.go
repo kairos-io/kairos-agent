@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/kairos-io/kairos-sdk/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -15,12 +17,16 @@ import (
 
 // Install Process Page
 type installProcessPage struct {
-	progress int
-	step     string
-	steps    []string
-	done     chan bool   // Channel to signal when installation is complete
-	output   chan string // Channel to receive output from the installer
-	cmd      *exec.Cmd   // Reference to the running installer command
+	progress      int
+	step          string
+	steps         []string
+	done          chan bool
+	output        chan string
+	logsDone      chan bool
+	installerDone chan bool // Signal when installer is finished
+	once          sync.Once // Ensure goroutines are started only once
+	cmd           *exec.Cmd
+	errorMsg      string
 }
 
 func newInstallProcessPage() *installProcessPage {
@@ -38,84 +44,99 @@ func newInstallProcessPage() *installProcessPage {
 			InstallAfterInstallStep,
 			InstallCompleteStep,
 		},
-		done:   make(chan bool),
-		output: make(chan string),
+		done:          make(chan bool),
+		output:        make(chan string, 10), // Buffered channel to avoid blocking
+		logsDone:      make(chan bool),
+		installerDone: make(chan bool),
 	}
 }
 
 func (p *installProcessPage) Init() tea.Cmd {
-	oldLog := mainModel.log
-	cc := NewInteractiveInstallConfig(&mainModel)
-	// Create a new logger to track the install process output
-	// TODO: Maybe do a dual logger or something? So we can still see the output in the old logger decently
-	logBuffer := bytes.Buffer{}
-	bufferLog := types.NewBufferLogger(&logBuffer)
-	cc.Logger = bufferLog
-
-	// Start the installer in a goroutine
-	go func() {
-		defer close(p.done)
-		err := RunInstall(cc)
-		if err != nil {
+	p.once.Do(func() {
+		oldLog := mainModel.log
+		cc := NewInteractiveInstallConfig(&mainModel)
+		if cc == nil {
+			p.errorMsg = "Failed to initialize install configuration."
 			return
 		}
-	}()
+		logBuffer := bytes.Buffer{}
+		bufferLog := types.NewBufferLogger(&logBuffer)
+		cc.Logger = bufferLog
 
-	// Track the log buffer and send mapped steps to p.output
-	go func() {
-		lastLen := 0
-		for {
-			time.Sleep(100 * time.Millisecond)
-			buf := logBuffer.Bytes()
-			if len(buf) > lastLen {
-				newLogs := buf[lastLen:]
-				lines := bytes.Split(newLogs, []byte("\n"))
-				for _, line := range lines {
-					strLine := string(line)
-					if len(strLine) == 0 {
-						continue
-					}
-
-					oldLog.Print(strLine)
-					// Parse log line as JSON and extract the message field
-					var logEntry map[string]interface{}
-					msg := strLine
-					if err := json.Unmarshal([]byte(strLine), &logEntry); err == nil {
-						// Log the message to the old logger still so we have it there
-						if m, ok := logEntry["message"].(string); ok {
-							msg = m
+		// Start log goroutine (only one!)
+		go func() {
+			lastLen := 0
+			errorSent := false
+		logLoop:
+			for {
+				time.Sleep(100 * time.Millisecond)
+				buf := logBuffer.Bytes()
+				if len(buf) > lastLen {
+					newLogs := buf[lastLen:]
+					lines := bytes.Split(newLogs, []byte("\n"))
+					for _, line := range lines {
+						strLine := string(line)
+						if len(strLine) == 0 {
+							continue
+						}
+						oldLog.Print(strLine)
+						var logEntry map[string]interface{}
+						msg := strLine
+						if err := json.Unmarshal([]byte(strLine), &logEntry); err == nil {
+							if m, ok := logEntry["message"].(string); ok {
+								msg = m
+							}
+							if level, ok := logEntry["level"].(string); ok && (level == "error" || level == "fatal") {
+								if !errorSent {
+									p.errorMsg = msg
+									errorSent = true
+								}
+								continue
+							}
+						}
+						if strings.Contains(msg, AgentPartitionLog) {
+							p.output <- StepPrefix + InstallPartitionStep
+						} else if strings.Contains(msg, AgentBeforeInstallLog) {
+							p.output <- StepPrefix + InstallBeforeInstallStep
+						} else if strings.Contains(msg, AgentActiveLog) {
+							p.output <- StepPrefix + InstallActiveStep
+						} else if strings.Contains(msg, AgentBootloaderLog) {
+							p.output <- StepPrefix + InstallBootloaderStep
+						} else if strings.Contains(msg, AgentRecoveryLog) {
+							p.output <- StepPrefix + InstallRecoveryStep
+						} else if strings.Contains(msg, AgentPassiveLog) {
+							p.output <- StepPrefix + InstallPassiveStep
+						} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
+							p.output <- StepPrefix + InstallAfterInstallStep
+						} else if strings.Contains(msg, AgentCompleteLog) {
+							p.output <- StepPrefix + InstallCompleteStep
 						}
 					}
-
-					if strings.Contains(msg, AgentPartitionLog) {
-						p.output <- StepPrefix + InstallPartitionStep
-					} else if strings.Contains(msg, AgentBeforeInstallLog) {
-						p.output <- StepPrefix + InstallBeforeInstallStep
-					} else if strings.Contains(msg, AgentActiveLog) {
-						p.output <- StepPrefix + InstallActiveStep
-					} else if strings.Contains(msg, AgentBootloaderLog) {
-						p.output <- StepPrefix + InstallBootloaderStep
-					} else if strings.Contains(msg, AgentRecoveryLog) {
-						p.output <- StepPrefix + InstallRecoveryStep
-					} else if strings.Contains(msg, AgentPassiveLog) {
-						p.output <- StepPrefix + InstallPassiveStep
-					} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
-						p.output <- StepPrefix + InstallAfterInstallStep
-					} else if strings.Contains(msg, AgentCompleteLog) {
-						p.output <- StepPrefix + InstallCompleteStep
-					}
+					lastLen = len(buf)
 				}
-				lastLen = len(buf)
+				// Wait for installerDone before exiting
+				select {
+				case <-p.installerDone:
+					if len(buf) == lastLen {
+						break logLoop
+					}
+				default:
+				}
 			}
-			select {
-			case <-p.done:
-				return
-			default:
-			}
-		}
-	}()
+			close(p.logsDone) // Signal that log goroutine is done
+		}()
 
-	// Return a command that will check for output from the installer
+		// Start installer goroutine (only one!)
+		go func() {
+			err := RunInstall(cc)
+			close(p.installerDone) // Signal installer is done
+			<-p.logsDone           // Wait for logs to finish
+			close(p.output)        // Only close output here
+			close(p.done)          // Only close done here
+			_ = err                // ignore error, handled in logs
+		}()
+	})
+
 	return func() tea.Msg {
 		return CheckInstallerMsg{}
 	}
@@ -151,7 +172,8 @@ func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 			} else if strings.HasPrefix(output, ErrorPrefix) {
 				// Handle error
 				errorMsg := strings.TrimPrefix(output, ErrorPrefix)
-				p.step = "Error: " + errorMsg
+				p.step = "Error: " + errorMsg // This stops the progress bar from continuing
+				p.errorMsg = errorMsg
 				return p, nil
 			}
 
@@ -177,6 +199,14 @@ func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 
 func (p *installProcessPage) View() string {
 	s := "Installation in Progress\n\n"
+
+	if p.errorMsg != "" {
+		s := "Installation encountered an error.\n\n"
+		// Show error message in red
+		errMsgStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true).Render("[!] Installation error: " + p.errorMsg)
+		s += errMsgStyled + "\n\n"
+		return s
+	}
 
 	// Progress bar
 	totalSteps := len(p.steps)
@@ -216,7 +246,7 @@ func (p *installProcessPage) Title() string {
 }
 
 func (p *installProcessPage) Help() string {
-	if p.progress >= len(p.steps)-1 {
+	if p.progress >= len(p.steps)-1 || p.errorMsg != "" {
 		return "Press any key to exit"
 	}
 	return "Installation in progress - Use ctrl+c to abort"
@@ -234,12 +264,6 @@ func (p *installProcessPage) Abort() {
 	select {
 	case <-p.done:
 		// already closed
-	default:
-		close(p.done)
-	}
-	// Optionally, send a message to output channel
-	select {
-	case p.output <- ErrorPrefix + "Installation aborted by user":
 	default:
 	}
 }
