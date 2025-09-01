@@ -10,17 +10,17 @@ require (
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/google/go-containerregistry v0.20.6
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/jaypipes/ghw v0.19.0
+	github.com/jaypipes/ghw v0.19.1
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.9.8
+	github.com/kairos-io/kairos-sdk v0.10.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/mudler/yip v1.16.5
 	github.com/nxadm/tail v1.4.11
-	github.com/onsi/ginkgo/v2 v2.25.1
+	github.com/onsi/ginkgo/v2 v2.25.2
 	github.com/onsi/gomega v1.38.2
 	github.com/pterm/pterm v0.12.81
 	github.com/rs/zerolog v1.34.0
@@ -31,7 +31,7 @@ require (
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sys v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/mount-utils v0.33.4
+	k8s.io/mount-utils v0.34.0
 )
 
 require (
@@ -121,7 +121,7 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/itchyny/gojq v0.12.17 // indirect
 	github.com/itchyny/timefmt-go v0.1.6 // indirect
-	github.com/jaypipes/pcidb v1.1.0 // indirect
+	github.com/jaypipes/pcidb v1.1.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jezek/xgb v1.1.0 // indirect
 	github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 // indirect
@@ -192,7 +192,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/tredoe/osutil v1.5.0 // indirect
 	github.com/twpayne/go-vfs/v4 v4.3.0 // indirect
-	github.com/ulikunitz/xz v0.5.11 // indirect
+	github.com/ulikunitz/xz v0.5.14 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vbatts/tar-split v0.12.1 // indirect
@@ -232,7 +232,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
+	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect
 	pault.ag/go/modprobe v0.2.0 // indirect
 	pault.ag/go/topsort v0.1.1 // indirect
 )
