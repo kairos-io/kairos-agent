@@ -15,8 +15,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var internalLogger = types.NewKairosLogger("interactive-installer", "debug", true)
-
 // Install Process Page
 type installProcessPage struct {
 	progress      int
@@ -55,11 +53,9 @@ func newInstallProcessPage() *installProcessPage {
 
 func (p *installProcessPage) Init() tea.Cmd {
 	p.once.Do(func() {
-		internalLogger.Logger.Info().Msg("[Init] Starting installer and log goroutines")
 		oldLog := mainModel.log
 		cc := NewInteractiveInstallConfig(&mainModel)
 		if cc == nil {
-			internalLogger.Logger.Error().Msg("[Init] Failed to initialize install configuration.")
 			p.errorMsg = "Failed to initialize install configuration."
 			return
 		}
@@ -69,7 +65,6 @@ func (p *installProcessPage) Init() tea.Cmd {
 
 		// Start log goroutine (only one!)
 		go func() {
-			internalLogger.Logger.Info().Msg("[Log Goroutine] Started")
 			lastLen := 0
 			errorSent := false
 		logLoop:
@@ -85,7 +80,6 @@ func (p *installProcessPage) Init() tea.Cmd {
 							continue
 						}
 						oldLog.Print(strLine)
-						internalLogger.Logger.Debug().Msg("[Log Goroutine] Read line: " + strLine)
 						var logEntry map[string]interface{}
 						msg := strLine
 						if err := json.Unmarshal([]byte(strLine), &logEntry); err == nil {
@@ -93,68 +87,29 @@ func (p *installProcessPage) Init() tea.Cmd {
 								msg = m
 							}
 							if level, ok := logEntry["level"].(string); ok && (level == "error" || level == "fatal") {
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Error detected: " + msg)
 								if !errorSent {
 									p.errorMsg = msg
-									select {
-									case p.output <- ErrorPrefix + msg:
-										internalLogger.Logger.Info().Msg("[Log Goroutine] Sent error to output channel")
-									default:
-										internalLogger.Logger.Warn().Msg("[Log Goroutine] Output channel blocked, error not sent")
-									}
 									errorSent = true
 								}
 								continue
 							}
 						}
 						if strings.Contains(msg, AgentPartitionLog) {
-							select {
-							case p.output <- StepPrefix + InstallPartitionStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step PartitionStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallPartitionStep
 						} else if strings.Contains(msg, AgentBeforeInstallLog) {
-							select {
-							case p.output <- StepPrefix + InstallBeforeInstallStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step BeforeInstallStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallBeforeInstallStep
 						} else if strings.Contains(msg, AgentActiveLog) {
-							select {
-							case p.output <- StepPrefix + InstallActiveStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step ActiveStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallActiveStep
 						} else if strings.Contains(msg, AgentBootloaderLog) {
-							select {
-							case p.output <- StepPrefix + InstallBootloaderStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step BootloaderStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallBootloaderStep
 						} else if strings.Contains(msg, AgentRecoveryLog) {
-							select {
-							case p.output <- StepPrefix + InstallRecoveryStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step RecoveryStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallRecoveryStep
 						} else if strings.Contains(msg, AgentPassiveLog) {
-							select {
-							case p.output <- StepPrefix + InstallPassiveStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step PassiveStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallPassiveStep
 						} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
-							select {
-							case p.output <- StepPrefix + InstallAfterInstallStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step AfterInstallStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallAfterInstallStep
 						} else if strings.Contains(msg, AgentCompleteLog) {
-							select {
-							case p.output <- StepPrefix + InstallCompleteStep:
-								internalLogger.Logger.Info().Msg("[Log Goroutine] Sent step CompleteStep")
-							default:
-							}
+							p.output <- StepPrefix + InstallCompleteStep
 						}
 					}
 					lastLen = len(buf)
@@ -163,31 +118,25 @@ func (p *installProcessPage) Init() tea.Cmd {
 				select {
 				case <-p.installerDone:
 					if len(buf) == lastLen {
-						internalLogger.Logger.Info().Msg("[Log Goroutine] Installer done and no new logs, exiting loop")
 						break logLoop
 					}
 				default:
 				}
 			}
-			internalLogger.Logger.Info().Msg("[Log Goroutine] Closing logsDone channel")
 			close(p.logsDone) // Signal that log goroutine is done
 		}()
 
 		// Start installer goroutine (only one!)
 		go func() {
-			internalLogger.Logger.Info().Msg("[Installer Goroutine] Started")
 			err := RunInstall(cc)
-			internalLogger.Logger.Info().Msg("[Installer Goroutine] RunInstall returned")
 			close(p.installerDone) // Signal installer is done
 			<-p.logsDone           // Wait for logs to finish
-			internalLogger.Logger.Info().Msg("[Installer Goroutine] Closing output and done channels")
-			close(p.output) // Only close output here
-			close(p.done)   // Only close done here
-			_ = err         // ignore error, handled in logs
+			close(p.output)        // Only close output here
+			close(p.done)          // Only close done here
+			_ = err                // ignore error, handled in logs
 		}()
 	})
 
-	internalLogger.Logger.Info().Msg("[Init] Returning CheckInstallerMsg command")
 	return func() tea.Msg {
 		return CheckInstallerMsg{}
 	}
