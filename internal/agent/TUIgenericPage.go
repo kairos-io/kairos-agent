@@ -167,12 +167,6 @@ func (g *genericBoolPage) Configured() bool {
 // It creates nested maps as necessary to reach the specified section.
 func setValueForSectionInMainModel(value string, section string) {
 	sections := strings.Split(section, ".")
-	// Transform "Yes" to "true" and "No" to "false"
-	if value == "Yes" {
-		value = "true"
-	} else if value == "No" {
-		value = "false"
-	}
 	// Ensure mainModel.extraFields is initialized
 	if mainModel.extraFields == nil {
 		mainModel.extraFields = make(map[string]interface{})
@@ -181,7 +175,13 @@ func setValueForSectionInMainModel(value string, section string) {
 	currentMap := mainModel.extraFields
 	for i, key := range sections {
 		if i == len(sections)-1 {
-			currentMap[key] = value
+			if value == "Yes" || value == "yes" || value == "true" || value == "True" {
+				currentMap[key] = true
+			} else if value == "No" || value == "no" || value == "false" || value == "False" {
+				currentMap[key] = false
+			} else {
+				currentMap[key] = value
+			}
 		} else {
 			if nextMap, ok := currentMap[key].(map[string]interface{}); ok {
 				currentMap = nextMap

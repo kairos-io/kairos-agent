@@ -174,8 +174,9 @@ func (u *UpgradeAction) Run() (err error) {
 			umount, err = deploy.MountRWPartition(u.config, persistentPart)
 			if err != nil {
 				u.config.Logger.Warnf("could not mount persistent partition: %s", err.Error())
+			} else {
+				cleanup.Push(umount)
 			}
-			cleanup.Push(umount)
 		}
 	}
 

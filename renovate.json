@@ -19,6 +19,12 @@
         "patch"
       ],
       "automerge": true
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        "/^github\\.com/containerd/containerd/"
+      ]
     }
   ]
 }
