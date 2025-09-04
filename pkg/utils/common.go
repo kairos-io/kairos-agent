@@ -330,35 +330,35 @@ func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) 
 // GetTempDir returns the dir for storing related temporal files
 // It will respect TMPDIR and use that if exists, fallback to try the persistent partition if its mounted
 // and finally the default /tmp/ dir
-// suffix is what is appended to the dir name elemental-suffix. If empty it will randomly generate a number
+// suffix is what is appended to the dir name suffix. If empty it will randomly generate a number
 func GetTempDir(config *agentConfig.Config, suffix string) string {
 	// if we got a TMPDIR var, respect and use that
 	if suffix == "" {
 		random.Seed(time.Now().UnixNano())
 		suffix = strconv.Itoa(int(random.Uint32()))
 	}
-	elementalTmpDir := fmt.Sprintf("elemental-%s", suffix)
+	agentTmpDir := fmt.Sprintf("agent-%s", suffix)
 	dir := os.Getenv("TMPDIR")
 	if dir != "" {
 		config.Logger.Debugf("Got tmpdir from TMPDIR var: %s", dir)
-		return filepath.Join(dir, elementalTmpDir)
+		return filepath.Join(dir, agentTmpDir)
 	}
 	parts, err := partitions.GetAllPartitions(&config.Logger)
 	if err != nil {
 		config.Logger.Debug("Could not get partitions, defaulting to /tmp")
-		return filepath.Join("/", "tmp", elementalTmpDir)
+		return filepath.Join("/", "tmp", agentTmpDir)
 	}
 	// Check persistent and if its mounted
-	ep := v1.NewElementalPartitionsFromList(parts)
+	ep := v1.NewPartitionsFromList(parts)
 	persistent := ep.Persistent
 	if persistent != nil {
 		if mnt, _ := IsMounted(config, persistent); mnt {
 			config.Logger.Debugf("Using tmpdir on persistent volume: %s", persistent.MountPoint)
-			return filepath.Join(persistent.MountPoint, "tmp", elementalTmpDir)
+			return filepath.Join(persistent.MountPoint, "tmp", agentTmpDir)
 		}
 	}
 	config.Logger.Debug("Could not get any valid tmpdir, defaulting to /tmp")
-	return filepath.Join("/", "tmp", elementalTmpDir)
+	return filepath.Join("/", "tmp", agentTmpDir)
 }
 
 // IsLocalURI returns true if the uri has "file" scheme or no scheme and URI is
@@ -373,7 +373,7 @@ func IsLocalURI(uri string) (bool, error) {
 		return true, nil
 	}
 	if u.Scheme == "" {
-		// Check first part of the path is not a domain (e.g. registry.suse.com/elemental)
+		// Check first part of the path is not a domain (e.g. registry.suse.com/something)
 		// reference.ParsedNamed expects a <domain>[:<port>]/<path>[:<tag>] form.
 		if _, err = reference.ParseNamed(uri); err != nil {
 			return true, nil
@@ -706,4 +706,73 @@ func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogge
 		return "", nil
 	}
 	return re.FindStringSubmatch(currentfile[0])[1], nil
+}
+
+// CheckActiveDeployment returns true if at least one of the provided filesystem labels is found within the system
+func CheckActiveDeployment(config *agentConfig.Config, labels []string) bool {
+	config.Logger.Infof("Checking for active deployment")
+
+	for _, label := range labels {
+		found, _ := GetDeviceByLabel(config, label, 1)
+		if found != "" {
+			config.Logger.Debug("there is already an active deployment in the system")
+			return true
+		}
+	}
+	return false
+}
+
+// CopyCloudConfig will check if there is a cloud init in the config and store it on the target
+func CopyCloudConfig(config *agentConfig.Config, cloudInit []string) (err error) {
+	config.Logger.Infof("List of cloud inits to copy: %+v\n", cloudInit)
+	for i, ci := range cloudInit {
+		customConfig := filepath.Join(cnst.OEMDir, fmt.Sprintf("9%d_custom.yaml", i))
+		config.Logger.Infof("Starting copying cloud config file %s to %s", ci, customConfig)
+		err = GetSource(config, ci, customConfig)
+		if err != nil {
+			return err
+		}
+		if err = config.Fs.Chmod(customConfig, cnst.ConfigPerm); err != nil {
+			config.Logger.Debugf("Error on chmod %s: %s\n", customConfig, err.Error())
+			return err
+		}
+		config.Logger.Infof("Finished copying cloud config file %s to %s", ci, customConfig)
+	}
+	return nil
+}
+
+// SelinuxRelabel will relabel the system if it finds the binary and the context
+func SelinuxRelabel(config *agentConfig.Config, rootDir string, raiseError bool) error {
+	policyFile, err := FindFileWithPrefix(config.Fs, filepath.Join(rootDir, cnst.SELinuxTargetedPolicyPath), "policy.")
+	contextFile := filepath.Join(rootDir, cnst.SELinuxTargetedContextFile)
+	contextExists, _ := fsutils.Exists(config.Fs, contextFile)
+
+	if err == nil && contextExists && CommandExists("setfiles") {
+		var out []byte
+		var err error
+		if rootDir == "/" || rootDir == "" {
+			out, err = config.Runner.Run("setfiles", "-c", policyFile, "-e", "/dev", "-e", "/proc", "-e", "/sys", "-F", contextFile, "/")
+		} else {
+			out, err = config.Runner.Run("setfiles", "-c", policyFile, "-F", "-r", rootDir, contextFile, rootDir)
+		}
+		config.Logger.Debugf("SELinux setfiles output: %s", string(out))
+		if err != nil && raiseError {
+			return err
+		}
+	} else {
+		config.Logger.Debugf("No files relabelling as SELinux utilities are not found")
+	}
+
+	return nil
+}
+
+// DeactivateDevices deactivates unmounted the block devices present within the system.
+// Useful to deactivate LVM volumes, if any, related to the target device.
+func DeactivateDevices(config *agentConfig.Config) error {
+	out, err := config.Runner.Run(
+		"blkdeactivate", "--lvmoptions", "retry,wholevg",
+		"--dmoptions", "force,retry", "--errors",
+	)
+	config.Logger.Debugf("blkdeactivate command output: %s", string(out))
+	return err
 }

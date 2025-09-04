@@ -26,7 +26,7 @@ import (
 )
 
 // cloudInitConsole represents a yip's Console implementations using
-// the elemental v1.Runner interface.
+// the v1.Runner interface.
 type cloudInitConsole struct {
 	runner v1.Runner
 	logger sdkTypes.KairosLogger
