@@ -810,6 +810,8 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		Expect(sizeBefore).ToNot(BeZero())
 
 		Expect(os.Mkdir(filepath.Join(tempDir, "host"), os.ModePerm)).ToNot(HaveOccurred())
+		Expect(os.Mkdir(filepath.Join(tempDir, "host", "one"), os.ModePerm)).ToNot(HaveOccurred())
+		Expect(os.Mkdir(filepath.Join(tempDir, "host", "two"), os.ModePerm)).ToNot(HaveOccurred())
 		Expect(createFileOfSizeInMB(filepath.Join(tempDir, "host", "what.txt"), 200)).ToNot(HaveOccurred())
 		// Set env var like the suc upgrade and k8s does to trigger the skip
 		Expect(os.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")).ToNot(HaveOccurred())
@@ -818,6 +820,12 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		sizeAfter, err := config.GetSourceSize(conf, imageSource)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sizeAfter).To(Equal(sizeBefore))
+		// We log that we are skipping the host dir
+		Expect(memLog.String()).To(ContainSubstring("Skipping dir as it is a host directory"))
+		Expect(memLog.String()).To(ContainSubstring(filepath.Join(tempDir, "host")))
+		// We also log the dirs we are skipping inside the host dir, we expect those to NOT shown up as we skipped the full dir
+		Expect(memLog.String()).ToNot(ContainSubstring(filepath.Join(tempDir, "host", "one")))
+		Expect(memLog.String()).ToNot(ContainSubstring(filepath.Join(tempDir, "host", "two")))
 	})
 	It("Counts the kubernetes host dir when calculating the sizes if not set", func() {
 		sizeBefore, err := config.GetSourceSize(conf, imageSource)

@@ -889,7 +889,7 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 		err = fsutils.WalkDirFs(config.Fs, source.Value(), func(path string, d fs.DirEntry, err error) error {
 			// If its empty we are just not setting it, so probably out of the k8s upgrade path
 			if hostDir != "" && strings.HasPrefix(path, hostDir) {
-				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping file as it is a host directory")
+				config.Logger.Logger.Debug().Str("path", path).Str("hostDir", hostDir).Msg("Skipping dir as it is a host directory")
 				return fs.SkipDir
 			} else if underKubernetes && (strings.HasPrefix(path, "/proc") || strings.HasPrefix(path, "/dev") || strings.HasPrefix(path, "/run")) {
 				// If under kubernetes, the upgrade will check the size of / which includes the host dir mounted under /host
