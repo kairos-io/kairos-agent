@@ -17,7 +17,7 @@ limitations under the License.
 package action
 
 import (
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -58,4 +58,31 @@ func createExtraDirsInRootfs(cfg *config.Config, extradirs []string, target stri
 			}
 		}
 	}
+}
+
+// SetDefaultGrubEntry Sets the default_menu_entry value in Config.GrubOEMEnv file at in
+// State partition mountpoint. If there is not a custom value in the kairos-release file, we do nothing
+// As the grub config already has a sane default
+func SetDefaultGrubEntry(config *config.Config, partMountPoint string, imgMountPoint string, defaultEntry string) error {
+	if defaultEntry == "" {
+		var osRelease map[string]string
+		osRelease, err := utils.LoadEnvFile(config.Fs, filepath.Join(imgMountPoint, "etc", "kairos-release"))
+		if err != nil {
+			// Fallback to os-release
+			osRelease, err = utils.LoadEnvFile(config.Fs, filepath.Join(imgMountPoint, "etc", "os-release"))
+			config.Logger.Warnf("Could not load os-release file: %v", err)
+			return nil
+		}
+		defaultEntry = osRelease["GRUB_ENTRY_NAME"]
+		// If its still empty then do nothing
+		if defaultEntry == "" {
+			return nil
+		}
+	}
+	config.Logger.Infof("Setting default grub entry to %s", defaultEntry)
+	return utils.SetPersistentVariables(
+		filepath.Join(partMountPoint, cnst.GrubOEMEnv),
+		map[string]string{"default_menu_entry": defaultEntry},
+		config,
+	)
 }

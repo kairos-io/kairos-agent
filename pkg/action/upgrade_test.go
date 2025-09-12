@@ -310,7 +310,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("Successfully upgrades from directory", Label("directory"), func() {
-				dirSrc, _ := fsutils.TempDir(fs, "", "elementalupgrade")
+				dirSrc, _ := fsutils.TempDir(fs, "", "kairosupgrade")
 				// Create the dir on real os as rsync works on the real os
 				defer fs.RemoveAll(dirSrc)
 				spec.Active.Source = v1.NewDirSrc(dirSrc)
@@ -508,7 +508,7 @@ var _ = Describe("Upgrade Actions test", func() {
 
 				})
 				It("Successfully upgrades recovery from directory", Label("directory"), func() {
-					srcDir, _ := fsutils.TempDir(fs, "", "elemental")
+					srcDir, _ := fsutils.TempDir(fs, "", "upgrade")
 					// create a random file on it
 					_ = fs.WriteFile(fmt.Sprintf("%s/file.file", srcDir), []byte("something"), constants.FilePerm)
 
@@ -599,7 +599,7 @@ var _ = Describe("Upgrade Actions test", func() {
 					}
 				})
 				It("Successfully upgrades recovery from directory", Label("directory"), func() {
-					srcDir, _ := fsutils.TempDir(fs, "", "elemental")
+					srcDir, _ := fsutils.TempDir(fs, "", "upgrade")
 					// create a random file on it
 					_ = fs.WriteFile(fmt.Sprintf("%s/file.file", srcDir), []byte("something"), constants.FilePerm)
 
