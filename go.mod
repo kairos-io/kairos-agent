@@ -13,12 +13,12 @@ require (
 	github.com/jaypipes/ghw v0.19.1
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.10.0
+	github.com/kairos-io/kairos-sdk v0.10.1
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
-	github.com/mudler/yip v1.17.0
+	github.com/mudler/yip v1.18.0
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
