@@ -866,7 +866,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				Expect(readVars["key2"]).To(Equal("value2"))
 				Expect(readVars["key3"]).To(Equal("value4"))
 			})
-			It("Should work with extra cmdline", func() {
+			It("Should work with multiple extra cmdline", func() {
 				temp, err := os.CreateTemp("", "grub-*")
 				Expect(err).ShouldNot(HaveOccurred())
 				defer os.Remove(temp.Name())

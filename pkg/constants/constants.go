@@ -27,6 +27,7 @@ import (
 const (
 	GrubConf                     = "/etc/cos/grub.cfg"
 	GrubOEMEnv                   = "grub_oem_env"
+	GrubEnv                      = "grubenv" // grubenv is a file used by grub to store environment variables. Goes into OEM so its runtime modifiable
 	GrubDefEntry                 = "Kairos"
 	DefaultTty                   = "tty1"
 	BiosPartName                 = "bios"
