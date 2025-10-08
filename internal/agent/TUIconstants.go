@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/joho/godotenv"
+	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 )
 
 var (
@@ -30,6 +32,35 @@ func init() {
 		kairosBorder = lipgloss.Color("9")     // Bright Red (matches highlight)
 		checkMark = "*"                        // Use a check mark that works in most terminals
 	}
+	// Check to see if there is a custom color scheme defined in a file
+	brandingFile := kairos.BrandingFile("interactive_install_colors")
+	if _, err := os.Stat(brandingFile); err == nil {
+		f, err := godotenv.Read(brandingFile)
+		if err == nil {
+			if v, ok := f["KAIROS_BG"]; ok {
+				kairosBg = lipgloss.Color(v)
+			}
+			if v, ok := f["KAIROS_TEXT"]; ok {
+				kairosText = lipgloss.Color(v)
+			}
+			if v, ok := f["KAIROS_HIGHLIGHT"]; ok {
+				kairosHighlight = lipgloss.Color(v)
+			}
+			if v, ok := f["KAIROS_HIGHLIGHT2"]; ok {
+				kairosHighlight2 = lipgloss.Color(v)
+			}
+			if v, ok := f["KAIROS_ACCENT"]; ok {
+				kairosAccent = lipgloss.Color(v)
+			}
+			if v, ok := f["KAIROS_BORDER"]; ok {
+				kairosBorder = lipgloss.Color(v)
+			}
+			if v, ok := f["CHECK_MARK"]; ok {
+				checkMark = v
+			}
+		}
+	}
+
 }
 
 const (
