@@ -501,7 +501,7 @@ func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[str
 	if err != nil {
 		return vars, err
 	}
-	for _, a := range strings.Split(string(f), "\n") {
+	for a := range strings.SplitSeq(string(f), "\n") {
 		// comment or fillup, so skip
 		if strings.HasPrefix(a, "#") {
 			continue
@@ -510,8 +510,8 @@ func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[str
 			continue
 		}
 		splitted := strings.Split(a, "=")
-		if len(splitted) == 2 {
-			vars[splitted[0]] = splitted[1]
+		if len(splitted) >= 2 {
+			vars[splitted[0]] = strings.Join(splitted[1:], "=")
 		} else {
 			return vars, fmt.Errorf("invalid format for %s", a)
 		}
