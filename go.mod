@@ -27,7 +27,7 @@ require (
 	github.com/sanity-io/litter v1.5.8
 	github.com/sirupsen/logrus v1.9.4-0.20250804143300-cb253f3080f1
 	github.com/spf13/viper v1.19.0
-	golang.org/x/net v0.44.0
+	golang.org/x/net v0.45.0
 	golang.org/x/oauth2 v0.31.0
 	golang.org/x/sys v0.36.0
 	gopkg.in/yaml.v3 v3.0.1
