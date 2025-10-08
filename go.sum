@@ -299,6 +299,8 @@ github.com/kairos-io/go-nodepair v0.3.0 h1:JIMBAtbNhIAsx89aP61mQDGMuGFoIQH/woK2t
 github.com/kairos-io/go-nodepair v0.3.0/go.mod h1:7i905W/KmR9DAcMSVJr/Wdb84E5Yyu9YLgj7chwX1xs=
 github.com/kairos-io/kairos-sdk v0.12.1 h1:gqAvBgXCSvf44VgoM5n+0ezVglcgqgdOhwSo1WbBAnA=
 github.com/kairos-io/kairos-sdk v0.12.1/go.mod h1:IA8+4pheh0sCcfev6jjGOXTJ/AZ3pPJz2xeanD9pjFI=
+github.com/kairos-io/kairos-sdk v0.11.1-0.20251008090749-88add6dd1d85 h1:WH9WA6DwuYwlCi4mMrRbt/S7EWcefVHbwlUj0uMrSEU=
+github.com/kairos-io/kairos-sdk v0.11.1-0.20251008090749-88add6dd1d85/go.mod h1:pBFunQyiMHkwhIj5H4i4fKEuRsS6Kf4bzKhVe0GwGIU=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 h1:YOp8St+CM/AQ9Vp4XYm4272E77MptJDHkwypQHIRl9Q=

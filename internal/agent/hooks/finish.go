@@ -77,10 +77,16 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 // Encrypt is a hook that encrypts partitions using kcrypt for non uki.
 // It will unmount OEM and PERSISTENT and return with them unmounted
 func Encrypt(c config.Config, _ v1.Spec) error {
+	fmt.Println("will now unmount")
 	// Start with unmounted partitions
-	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
-	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	if err := machine.Umount(constants.OEMDir); err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.OEMDir, err.Error())
+	}
+	if err := machine.Umount(constants.PersistentDir); err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.PersistentDir, err.Error())
+	}
 
+	fmt.Println("mounting COS_OEM")
 	// Config passed during install ends up here, so we need to read it, try to mount it
 	_ = machine.Mount("COS_OEM", "/oem")
 	defer func() {
@@ -91,6 +97,7 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 	}()
 
 	for _, p := range c.Install.Encrypt {
+		fmt.Println("calling encrypt")
 		_, err := kcrypt.Encrypt(p, c.Logger)
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
@@ -98,6 +105,7 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 		}
 	}
 
+	fmt.Println("unlocking all")
 	_ = kcrypt.UnlockAll(false, c.Logger)
 
 	for _, p := range c.Install.Encrypt {
@@ -172,8 +180,14 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 
 	// We always encrypt OEM and PERSISTENT under UKI
 	// If mounted, unmount it
-	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
-	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	err = machine.Umount(constants.OEMDir) //nolint:errcheck
+	if err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.OEMDir, err.Error())
+	}
+	err = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	if err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.PersistentDir, err.Error())
+	}
 
 	// Backup oem as we already copied files on there and on luksify it will be wiped
 	err = machine.Mount(constants.OEMLabel, constants.OEMDir)
