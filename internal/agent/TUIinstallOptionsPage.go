@@ -2,9 +2,11 @@ package agent
 
 import (
 	"fmt"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 )
 
 // Install Options Page
@@ -14,12 +16,18 @@ type installOptionsPage struct {
 }
 
 func newInstallOptionsPage() *installOptionsPage {
+	baseOptions := []string{
+		"Start Install",
+	}
+	// Check if advanced customization is disabled via branding file
+	// If the file exists, we do NOT show the "Customize Further" option
+	// If the file does not exist, we show the option
+	if _, ok := os.Stat(kairos.BrandingFile("interactive_install_advanced_disabled")); ok != nil {
+		baseOptions = append(baseOptions, "Customize Further (User, SSH Keys, etc.)")
+	}
 	return &installOptionsPage{
-		options: []string{
-			"Start Install",
-			"Customize Further (User, SSH Keys, etc.)",
-		},
-		cursor: 0,
+		options: baseOptions,
+		cursor:  0,
 	}
 }
 
