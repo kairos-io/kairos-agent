@@ -866,6 +866,22 @@ var _ = Describe("Utils", Label("utils"), func() {
 				Expect(readVars["key2"]).To(Equal("value2"))
 				Expect(readVars["key3"]).To(Equal("value4"))
 			})
+			It("Should work with multiple extra cmdline", func() {
+				temp, err := os.CreateTemp("", "grub-*")
+				Expect(err).ShouldNot(HaveOccurred())
+				defer os.Remove(temp.Name())
+				data := `# GRUB Environment Block
+extra_cmdline=fips=1 selinux=0
+########################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################`
+				Expect(fs.WriteFile(temp.Name(), []byte(data), constants.FilePerm)).To(BeNil())
+				Expect(utils.SetPersistentVariables(
+					temp.Name(), map[string]string{"next_entry": "statereset"}, config,
+				)).To(BeNil())
+				readVars, err := utils.ReadPersistentVariables(temp.Name(), config)
+				Expect(err).To(BeNil())
+				Expect(readVars["next_entry"]).To(Equal("statereset"))
+				Expect(readVars["extra_cmdline"]).To(Equal("fips=1 selinux=0"))
+			})
 		})
 	})
 	Describe("CreateSquashFS", Label("CreateSquashFS"), func() {
