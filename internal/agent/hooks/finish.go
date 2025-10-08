@@ -1,7 +1,16 @@
 package hook
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
@@ -10,12 +19,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
-	"os"
-	"regexp"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
 )
 
 // Finish is a hook that runs after the install process.
@@ -25,6 +28,10 @@ type Finish struct{}
 func (k Finish) Run(c config.Config, spec v1.Spec) error {
 	var err error
 	if len(c.Install.Encrypt) != 0 || internalutils.IsUki() {
+		c.Logger.Logger.Info().Msg("Calling udevadm settle")
+		if err := udevAdmSettle("/dev/vda2", 15*time.Second); err != nil {
+			return fmt.Errorf("ERROR settling udev: %w\n", err)
+		}
 		c.Logger.Logger.Info().Msg("Running encrypt hook")
 
 		if internalutils.IsUki() {
@@ -70,10 +77,16 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 // Encrypt is a hook that encrypts partitions using kcrypt for non uki.
 // It will unmount OEM and PERSISTENT and return with them unmounted
 func Encrypt(c config.Config, _ v1.Spec) error {
+	fmt.Println("will now unmount")
 	// Start with unmounted partitions
-	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
-	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	if err := machine.Umount(constants.OEMDir); err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.OEMDir, err.Error())
+	}
+	if err := machine.Umount(constants.PersistentDir); err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.PersistentDir, err.Error())
+	}
 
+	fmt.Println("mounting COS_OEM")
 	// Config passed during install ends up here, so we need to read it, try to mount it
 	_ = machine.Mount("COS_OEM", "/oem")
 	defer func() {
@@ -84,6 +97,7 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 	}()
 
 	for _, p := range c.Install.Encrypt {
+		fmt.Println("calling encrypt")
 		_, err := kcrypt.Encrypt(p, c.Logger)
 		if err != nil {
 			c.Logger.Errorf("could not encrypt partition: %s", err)
@@ -91,6 +105,7 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 		}
 	}
 
+	fmt.Println("unlocking all")
 	_ = kcrypt.UnlockAll(false, c.Logger)
 
 	for _, p := range c.Install.Encrypt {
@@ -165,8 +180,14 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 
 	// We always encrypt OEM and PERSISTENT under UKI
 	// If mounted, unmount it
-	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
-	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	err = machine.Umount(constants.OEMDir) //nolint:errcheck
+	if err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.OEMDir, err.Error())
+	}
+	err = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	if err != nil {
+		fmt.Printf("error unmounting %s: %s", constants.PersistentDir, err.Error())
+	}
 
 	// Backup oem as we already copied files on there and on luksify it will be wiped
 	err = machine.Mount(constants.OEMLabel, constants.OEMDir)
@@ -257,6 +278,64 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 	err = machine.Umount(constants.OEMDir)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// udevAdmSettle triggers udev events, waits for them to complete,
+// and adds basic debugging / diagnostics around the device state.
+func udevAdmSettle(device string, timeout time.Duration) error {
+	fmt.Printf("INF Triggering udev events...\n")
+
+	// Trigger subsystems and devices (this replays all udev rules)
+	triggerCmds := [][]string{
+		{"udevadm", "trigger", "--action=add", "--type=subsystems"},
+		{"udevadm", "trigger", "--action=add", "--type=devices"},
+	}
+
+	for _, args := range triggerCmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s failed: %v (output: %s)", args, err, string(output))
+		}
+	}
+
+	fmt.Printf("INF Flushing filesystem buffers (sync)\n")
+	if err := exec.Command("sync").Run(); err != nil {
+		fmt.Printf("WARN sync failed: %v\n", err)
+	}
+
+	fmt.Printf("INF Waiting for udev to settle (timeout: %s)\n", timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "udevadm", "settle")
+	output, err := cmd.CombinedOutput()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("udevadm settle timed out after %s", timeout)
+	}
+	if err != nil {
+		return fmt.Errorf("udevadm settle failed: %v (output: %s)", err, string(output))
+	}
+
+	fmt.Printf("INF udevadm settle completed successfully\n")
+
+	// Optional: give the kernel a moment to release device locks.
+	time.Sleep(2 * time.Second)
+
+	// Debug: check if the target device is still busy.
+	if device != "" {
+		fmt.Printf("DBG Checking if %s is in use...\n", device)
+		checkCmd := exec.Command("fuser", device)
+		checkOut, checkErr := checkCmd.CombinedOutput()
+		if checkErr == nil && len(checkOut) > 0 {
+			fmt.Printf("WARN Device %s appears to be in use by: %s\n", device, string(checkOut))
+		} else {
+			fmt.Printf("DBG No active users detected for %s\n", device)
+		}
 	}
 
 	return nil
