@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/kairos-io/kairos-sdk/types"
 
@@ -78,6 +79,20 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 		return err
 	}
 
+	// Try to make the kernel re-read the partition table a couple of times
+	for i := 0; i < 5; i++ {
+		err = disk.ReReadPartitionTable()
+		if err == nil {
+			break
+		}
+		e.config.Logger.Debugf("Reread table attempt %d failed: %s", i+1, err)
+		if i < 5-1 {
+			e.config.Logger.Debugf("Waiting %d seconds before next attempt", 5)
+		}
+		// Wait a bit before retrying
+		time.Sleep(time.Duration(i) * time.Second)
+
+	}
 	err = disk.ReReadPartitionTable()
 	if err != nil {
 		e.config.Logger.Errorf("Reread table: %s", err)
