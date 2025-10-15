@@ -96,6 +96,9 @@ func Install(sourceImgURL string, dir ...string) error {
 	})
 
 	bus.Manager.Response(events.EventInstall, func(p *pluggable.Plugin, resp *pluggable.EventResponse) {
+		if resp.Data == "" {
+			return
+		}
 		err := json.Unmarshal([]byte(resp.Data), &r)
 		if err != nil {
 			fmt.Println(err)

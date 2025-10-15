@@ -139,6 +139,9 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Co
 	// This gets the options from an event that can be sent by anyone.
 	// This should override the default config as it's much more dynamic
 	bus.Manager.Response(sdk.EventBeforeReset, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
+		if r.Data == "" {
+			return
+		}
 		err := json.Unmarshal([]byte(r.Data), &optionsFromEvent)
 		if err != nil {
 			fmt.Println(err)
