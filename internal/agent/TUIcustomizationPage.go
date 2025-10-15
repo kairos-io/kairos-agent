@@ -35,8 +35,10 @@ func runCustomizationPlugins() ([]YAMLPrompt, error) {
 	var r []YAMLPrompt
 
 	bus.Manager.Response(sdk.EventInteractiveInstall, func(p *pluggable.Plugin, resp *pluggable.EventResponse) {
-		err := json.Unmarshal([]byte(resp.Data), &r)
-		if err != nil {
+		if resp.Data == "" {
+			return
+		}
+		if err := json.Unmarshal([]byte(resp.Data), &r); err != nil {
 			fmt.Println(err)
 		}
 	})
