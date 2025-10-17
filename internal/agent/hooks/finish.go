@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -75,38 +74,63 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 }
 
 // Encrypt is a hook that encrypts partitions using kcrypt for non uki.
-// It will unmount OEM and PERSISTENT and return with them unmounted
+// It will unmount each partition right before encrypting it
 func Encrypt(c config.Config, _ v1.Spec) error {
-	fmt.Println("will now unmount")
-	// Start with unmounted partitions
-	if err := machine.Umount(constants.OEMDir); err != nil {
-		fmt.Printf("error unmounting %s: %s", constants.OEMDir, err.Error())
-	}
-	if err := machine.Umount(constants.PersistentDir); err != nil {
-		fmt.Printf("error unmounting %s: %s", constants.PersistentDir, err.Error())
-	}
+	c.Logger.Logger.Info().Msg("Starting partition encryption")
 
-	fmt.Println("mounting COS_OEM")
-	// Config passed during install ends up here, so we need to read it, try to mount it
-	_ = machine.Mount("COS_OEM", "/oem")
-	defer func() {
-		err := syscall.Unmount(constants.OEMPath, 0)
-		if err != nil {
-			c.Logger.Warnf("could not unmount Oem partition: %s", err)
-		}
-	}()
+	// Note: We don't mount OEM here anymore since we'll read config from cmdline
+	// Each partition will be properly unmounted right before encryption in the loop below
+
+	kcryptConfig := kcrypt.ExtractKcryptConfigFromCollector(c.Config, c.Logger)
+	if kcryptConfig != nil {
+		c.Logger.Logger.Info().
+			Str("challenger_server", kcryptConfig.ChallengerServer).
+			Bool("mdns", kcryptConfig.MDNS).
+			Msg("Using kcrypt config for multi-partition encryption")
+	} else {
+		c.Logger.Logger.Warn().Msg("No kcrypt config found - partitions will use local encryption")
+	}
 
 	for _, p := range c.Install.Encrypt {
-		fmt.Println("calling encrypt")
-		_, err := kcrypt.Encrypt(p, c.Logger)
+		c.Logger.Logger.Info().Str("partition", p).Msg("Preparing to encrypt partition")
+
+		// Unmount the partition before encrypting it
+		// Find the device path for this partition label
+		devPath, err := utils.SH(fmt.Sprintf("blkid -L %s", p))
 		if err != nil {
-			c.Logger.Errorf("could not encrypt partition: %s", err)
+			c.Logger.Logger.Warn().Str("label", p).Err(err).Msg("Could not find device for label")
+		} else {
+			devPath = strings.TrimSpace(devPath)
+			c.Logger.Logger.Info().Str("device", devPath).Str("label", p).Msg("Found device for label")
+
+			// Find all mount points for this device and unmount them
+			mountPoints, _ := utils.SH(fmt.Sprintf("findmnt -n -o TARGET -S %s", devPath))
+			if mountPoints != "" {
+				for _, mp := range strings.Split(strings.TrimSpace(mountPoints), "\n") {
+					if mp != "" {
+						c.Logger.Logger.Info().Str("device", devPath).Str("mountpoint", mp).Msg("Unmounting partition")
+						if err := machine.Umount(mp); err != nil {
+							c.Logger.Logger.Warn().Str("mountpoint", mp).Err(err).Msg("Could not unmount")
+						}
+					}
+				}
+			}
+		}
+
+		// Wait for device to be released
+		_, _ = utils.SH("sync")
+		time.Sleep(1 * time.Second)
+
+		c.Logger.Logger.Info().Str("partition", p).Msg("Encrypting partition " + p)
+		_, err = kcrypt.EncryptWithConfig(p, c.Logger, kcryptConfig)
+		if err != nil {
+			c.Logger.Logger.Error().Str("partition", p).Err(err).Msg("Could not encrypt partition")
 			return err
 		}
 	}
 
 	fmt.Println("unlocking all")
-	_ = kcrypt.UnlockAll(false, c.Logger)
+	_ = kcrypt.UnlockAllWithConfig(false, c.Logger, kcryptConfig)
 
 	for _, p := range c.Install.Encrypt {
 		for i := 0; i < 10; i++ {

@@ -297,8 +297,8 @@ github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 h1:G+9t9cEtnC
 github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004/go.mod h1:KmHnJWQrgEvbuy0vcvj00gtMqbvNn1L+3YUZLK/B92c=
 github.com/kairos-io/go-nodepair v0.3.0 h1:JIMBAtbNhIAsx89aP61mQDGMuGFoIQH/woK2tMDYD6k=
 github.com/kairos-io/go-nodepair v0.3.0/go.mod h1:7i905W/KmR9DAcMSVJr/Wdb84E5Yyu9YLgj7chwX1xs=
-github.com/kairos-io/kairos-sdk v0.11.1-0.20251008090749-88add6dd1d85 h1:WH9WA6DwuYwlCi4mMrRbt/S7EWcefVHbwlUj0uMrSEU=
-github.com/kairos-io/kairos-sdk v0.11.1-0.20251008090749-88add6dd1d85/go.mod h1:pBFunQyiMHkwhIj5H4i4fKEuRsS6Kf4bzKhVe0GwGIU=
+github.com/kairos-io/kairos-sdk v0.11.1-0.20251017131805-77d51189e0b0 h1:WWYy/3srBM79Gg3iWkQmZE7MHYwGzMGXcZ85x2kmySI=
+github.com/kairos-io/kairos-sdk v0.11.1-0.20251017131805-77d51189e0b0/go.mod h1:pBFunQyiMHkwhIj5H4i4fKEuRsS6Kf4bzKhVe0GwGIU=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 h1:YOp8St+CM/AQ9Vp4XYm4272E77MptJDHkwypQHIRl9Q=
