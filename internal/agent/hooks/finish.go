@@ -12,6 +12,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -49,6 +50,38 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 		c.Logger.Logger.Info().Msg("Finished encrypt hook")
 	}
 
+	// Copy cloud-config to OEM after any encryption operations
+	// This ensures cloud-config is preserved regardless of whether OEM was encrypted
+	c.Logger.Logger.Info().Msg("Copying cloud-config to OEM partition")
+
+	// Check if OEM is already mounted (it might be if no encryption was done)
+	// Use findmnt to check if the directory is a mount point
+	_, err = utils.SH(fmt.Sprintf("findmnt %s", constants.OEMDir))
+	oemAlreadyMounted := (err == nil)
+
+	if !oemAlreadyMounted {
+		c.Logger.Logger.Info().Msg("Mounting OEM partition")
+		err = machine.Mount(constants.OEMLabel, constants.OEMDir)
+		if err != nil {
+			c.Logger.Logger.Error().Err(err).Msg("Failed to mount OEM for cloud-config copy")
+			return fmt.Errorf("failed to mount OEM: %w", err)
+		}
+		defer func() {
+			c.Logger.Logger.Info().Msg("Unmounting OEM after cloud-config copy")
+			_ = machine.Umount(constants.OEMDir)
+		}()
+	} else {
+		c.Logger.Logger.Info().Msg("OEM already mounted, skipping mount")
+	}
+
+	e := elemental.NewElemental(&c)
+	err = e.CopyCloudConfig(c.CloudInitPaths)
+	if err != nil {
+		c.Logger.Logger.Error().Err(err).Msg("Failed to copy cloud-config to OEM")
+		return fmt.Errorf("failed to copy cloud-config to OEM: %w", err)
+	}
+	c.Logger.Logger.Info().Msg("Successfully copied cloud-config to OEM")
+
 	// Now that we have everything encrypted and ready to mount if needed
 	err = GrubPostInstallOptions{}.Run(c, spec)
 	if err != nil {
@@ -77,9 +110,6 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 // It will unmount each partition right before encrypting it
 func Encrypt(c config.Config, _ v1.Spec) error {
 	c.Logger.Logger.Info().Msg("Starting partition encryption")
-
-	// Note: We don't mount OEM here anymore since we'll read config from cmdline
-	// Each partition will be properly unmounted right before encryption in the loop below
 
 	kcryptConfig := kcrypt.ExtractKcryptConfigFromCollector(c.Config, c.Logger)
 	if kcryptConfig != nil {
@@ -156,8 +186,8 @@ func Encrypt(c config.Config, _ v1.Spec) error {
 			break
 		}
 	}
-	return nil
 
+	return nil
 }
 
 // EncryptUKI encrypts the partitions using kcrypt in uki mode
