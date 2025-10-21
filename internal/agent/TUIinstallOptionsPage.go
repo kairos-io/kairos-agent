@@ -11,8 +11,10 @@ import (
 
 // Install Options Page
 type installOptionsPage struct {
-	cursor  int
-	options []string
+	cursor           int
+	options          []string
+	afterInstallOpts []string
+	afterInstallIdx  int
 }
 
 func newInstallOptionsPage() *installOptionsPage {
@@ -26,8 +28,10 @@ func newInstallOptionsPage() *installOptionsPage {
 		baseOptions = append(baseOptions, "Customize Further (User, SSH Keys, etc.)")
 	}
 	return &installOptionsPage{
-		options: baseOptions,
-		cursor:  0,
+		options:          baseOptions,
+		cursor:           0,
+		afterInstallOpts: []string{"nothing", "reboot", "poweroff"},
+		afterInstallIdx:  0,
 	}
 }
 
@@ -47,10 +51,22 @@ func (p *installOptionsPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 			if p.cursor < len(p.options)-1 {
 				p.cursor++
 			}
+		case "left", "h":
+			if p.cursor == 0 && p.afterInstallIdx > 0 {
+				p.afterInstallIdx--
+			}
+		case "right", "l":
+			if p.cursor == 0 && p.afterInstallIdx < len(p.afterInstallOpts)-1 {
+				p.afterInstallIdx++
+			}
 		case "enter":
 			if p.cursor == 0 {
-				// Start Install - go to install process
-				return p, func() tea.Msg { return GoToPageMsg{PageID: "summary"} }
+				// Start Install - store after install action in Model.extraFields
+				return p, func() tea.Msg {
+					// Set the finish action in the main model
+					mainModel.finishAction = p.afterInstallOpts[p.afterInstallIdx]
+					return GoToPageMsg{PageID: "summary"}
+				}
 			} else {
 				// Customize Further - go to customization page
 				return p, func() tea.Msg { return GoToPageMsg{PageID: "customization"} }
@@ -69,7 +85,24 @@ func (p *installOptionsPage) View() string {
 		if p.cursor == i {
 			cursor = lipgloss.NewStyle().Foreground(kairosAccent).Render(">")
 		}
-		s += fmt.Sprintf("%s %s\n", cursor, option)
+		if i == 0 {
+			// Inline selector for Start Install
+			selector := "["
+			for j, val := range p.afterInstallOpts {
+				if j == p.afterInstallIdx {
+					selector += lipgloss.NewStyle().Bold(true).Foreground(kairosAccent).Render(val)
+				} else {
+					selector += val
+				}
+				if j < len(p.afterInstallOpts)-1 {
+					selector += ", "
+				}
+			}
+			selector += "]"
+			s += fmt.Sprintf("%s Start Install and on finish %s\n", cursor, selector)
+		} else {
+			s += fmt.Sprintf("%s %s\n", cursor, option)
+		}
 	}
 
 	return s

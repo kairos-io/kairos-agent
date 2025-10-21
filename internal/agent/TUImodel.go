@@ -43,6 +43,7 @@ type Model struct {
 	username        string
 	sshKeys         []string // Store SSH keys
 	password        string
+	finishAction    string         // Action after installation: reboot, poweroff, none
 	extraFields     map[string]any // Dynamic fields for customization
 	log             *types.KairosLogger
 	source          string // cli flags to interactive installer? what??
