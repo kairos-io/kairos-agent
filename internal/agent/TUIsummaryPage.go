@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"gopkg.in/yaml.v3"
@@ -39,6 +40,7 @@ func (p *summaryPage) View() string {
 
 	s := "Installation Summary\n\n"
 	s += "Selected Disk: " + mainModel.disk + "\n\n"
+	s += "Action to take when installation is complete: " + mainModel.finishAction + "\n\n"
 	s += "Configuration Summary:\n"
 	if mainModel.username != "" {
 		s += fmt.Sprintf("  - Username: %s\n", mainModel.username)

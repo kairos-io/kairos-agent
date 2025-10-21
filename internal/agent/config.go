@@ -1,12 +1,13 @@
 package agent
 
 import (
+	"os"
+	"strings"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/mudler/yip/pkg/schema"
-	"os"
-	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 	"gopkg.in/yaml.v3"
@@ -98,6 +99,14 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 		cc.Install.Source = m.source
 	}
 
+	// Set finish action if user choose one. Its then overwritten by any cloud config provided action
+	switch m.finishAction {
+	case "reboot":
+		cc.Install.Reboot = true
+	case "poweroff":
+		cc.Install.Poweroff = true
+	}
+
 	var cloudConfig schema.YipConfig
 
 	// Only add the user stage if we have any users
@@ -129,6 +138,7 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 	}
 
 	// Merge all yamls into one
+	m.log.Logger.Debug().Interface("extras", extras).Msg("configuring interactive install")
 	dat, err := config.MergeYAML(cloudConfig, cc, extras)
 	if err != nil {
 		return nil
