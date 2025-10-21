@@ -99,7 +99,7 @@ func (p *installOptionsPage) View() string {
 				}
 			}
 			selector += "]"
-			s += fmt.Sprintf("%s Start Install and on finish %s\n", cursor, selector)
+			s += fmt.Sprintf("%s Start Install and on finish do %s\n", cursor, selector)
 		} else {
 			s += fmt.Sprintf("%s %s\n", cursor, option)
 		}
@@ -113,7 +113,7 @@ func (p *installOptionsPage) Title() string {
 }
 
 func (p *installOptionsPage) Help() string {
-	return genericNavigationHelp
+	return "↑/k: up • ↓/j: down • enter: select • To select action after install (←/h: left • →/l: right)"
 }
 
 func (p *installOptionsPage) ID() string { return "install_options" }
