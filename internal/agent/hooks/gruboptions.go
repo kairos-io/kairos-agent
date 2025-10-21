@@ -18,6 +18,11 @@ import (
 type GrubPostInstallOptions struct{}
 
 func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
+	if utils.IsUki() {
+		c.Logger.Logger.Info().Msg("Skipping GrubPostInstallOptions hook in uki mode")
+		return nil
+	}
+
 	// Combine regular grub options with extracted kcrypt options
 	grubOpts := make(map[string]string)
 
@@ -39,7 +44,10 @@ func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 
 	// Extract and add kcrypt.challenger settings to cmdline if COS_OEM is encrypted
 	// This solves the chicken-egg problem where kcrypt config is on the encrypted OEM partition
-	if oemEncrypted {
+	// Only works in non-UKI case. For UKI, it's up to the user to add the challenger
+	// server url in the cmdline when creating the signed artifact (cmdline is also signed)
+	// TODO: This whole function will have no effect in UKI. Skip it earlier?
+	if oemEncrypted && !utils.IsUki() {
 		c.Logger.Logger.Info().Msg("COS_OEM is encrypted, extracting kcrypt.challenger config to cmdline")
 		kcryptCmdline := extractKcryptCmdline(&c)
 		if kcryptCmdline != "" {
