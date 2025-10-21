@@ -72,54 +72,21 @@ func (p *installProcessPage) Init() tea.Cmd {
 				time.Sleep(100 * time.Millisecond)
 				buf := logBuffer.Bytes()
 				if len(buf) > lastLen {
-					newLogs := buf[lastLen:]
-					lines := bytes.Split(newLogs, []byte("\n"))
-					for _, line := range lines {
-						strLine := string(line)
-						if len(strLine) == 0 {
-							continue
-						}
-						oldLog.Print(strLine)
-						var logEntry map[string]interface{}
-						msg := strLine
-						if err := json.Unmarshal([]byte(strLine), &logEntry); err == nil {
-							if m, ok := logEntry["message"].(string); ok {
-								msg = m
-							}
-							if level, ok := logEntry["level"].(string); ok && (level == "error" || level == "fatal") {
-								if !errorSent {
-									p.errorMsg = msg
-									errorSent = true
-								}
-								continue
-							}
-						}
-						if strings.Contains(msg, AgentPartitionLog) {
-							p.output <- StepPrefix + InstallPartitionStep
-						} else if strings.Contains(msg, AgentBeforeInstallLog) {
-							p.output <- StepPrefix + InstallBeforeInstallStep
-						} else if strings.Contains(msg, AgentActiveLog) {
-							p.output <- StepPrefix + InstallActiveStep
-						} else if strings.Contains(msg, AgentBootloaderLog) {
-							p.output <- StepPrefix + InstallBootloaderStep
-						} else if strings.Contains(msg, AgentRecoveryLog) {
-							p.output <- StepPrefix + InstallRecoveryStep
-						} else if strings.Contains(msg, AgentPassiveLog) {
-							p.output <- StepPrefix + InstallPassiveStep
-						} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
-							p.output <- StepPrefix + InstallAfterInstallStep
-						} else if strings.Contains(msg, AgentCompleteLog) {
-							p.output <- StepPrefix + InstallCompleteStep
-						}
-					}
-					lastLen = len(buf)
+					lastLen = p.processLogLines(buf, lastLen, &errorSent, oldLog)
 				}
 				// Wait for installerDone before exiting
 				select {
 				case <-p.installerDone:
-					if len(buf) == lastLen {
-						break logLoop
+					// Installer is done, but there may be unprocessed logs
+					for {
+						buf := logBuffer.Bytes()
+						if len(buf) > lastLen {
+							lastLen = p.processLogLines(buf, lastLen, &errorSent, oldLog)
+						} else {
+							break
+						}
 					}
+					break logLoop
 				default:
 				}
 			}
@@ -266,4 +233,49 @@ func (p *installProcessPage) Abort() {
 		// already closed
 	default:
 	}
+}
+
+// processLogLines processes new log lines from the buffer and updates the UI steps.
+func (p *installProcessPage) processLogLines(buf []byte, lastLen int, errorSent *bool, oldLog *types.KairosLogger) int {
+	newLogs := buf[lastLen:]
+	lines := bytes.Split(newLogs, []byte("\n"))
+	for _, line := range lines {
+		strLine := string(line)
+		if len(strLine) == 0 {
+			continue
+		}
+		oldLog.Print(strLine)
+		var logEntry map[string]interface{}
+		msg := strLine
+		if err := json.Unmarshal([]byte(strLine), &logEntry); err == nil {
+			if m, ok := logEntry["message"].(string); ok {
+				msg = m
+			}
+			if level, ok := logEntry["level"].(string); ok && (level == "error" || level == "fatal") {
+				if !*errorSent {
+					p.errorMsg = msg
+					*errorSent = true
+				}
+				continue
+			}
+		}
+		if strings.Contains(msg, AgentPartitionLog) {
+			p.output <- StepPrefix + InstallPartitionStep
+		} else if strings.Contains(msg, AgentBeforeInstallLog) {
+			p.output <- StepPrefix + InstallBeforeInstallStep
+		} else if strings.Contains(msg, AgentActiveLog) {
+			p.output <- StepPrefix + InstallActiveStep
+		} else if strings.Contains(msg, AgentBootloaderLog) {
+			p.output <- StepPrefix + InstallBootloaderStep
+		} else if strings.Contains(msg, AgentRecoveryLog) {
+			p.output <- StepPrefix + InstallRecoveryStep
+		} else if strings.Contains(msg, AgentPassiveLog) {
+			p.output <- StepPrefix + InstallPassiveStep
+		} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
+			p.output <- StepPrefix + InstallAfterInstallStep
+		} else if strings.Contains(msg, AgentCompleteLog) {
+			p.output <- StepPrefix + InstallCompleteStep
+		}
+	}
+	return len(buf)
 }
