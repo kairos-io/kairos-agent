@@ -20,7 +20,7 @@ require (
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/mudler/yip v1.18.1
 	github.com/nxadm/tail v1.4.11
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 	github.com/pterm/pterm v0.12.82
 	github.com/rs/zerolog v1.34.0
