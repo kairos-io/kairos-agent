@@ -1,6 +1,115 @@
 # Partition Encryption Refactoring Plan
 
-## Executive Summary
+## ✅ REFACTORING STATUS (Updated: 2025-10-22)
+
+### Implementation Complete - Interface-Based Approach
+
+We implemented a cleaner architecture using the **Strategy Pattern** with a `PartitionEncryptor` interface:
+
+#### Completed Work:
+
+**1. kairos-sdk/kcrypt/encryptor.go (NEW FILE)**
+- `PartitionEncryptor` interface with methods:
+  - `Encrypt(partition string) error` - Encrypts a partition
+  - `Unlock() error` - Unlocks encrypted partitions (handles decryption)
+  - `Name() string` - Returns encryption method name for logging
+  - `Validate() error` - Validates prerequisites (systemd version, TPM device, etc.)
+
+- Three concrete implementations:
+  - `RemoteKMSEncryptor`: Uses kcrypt-challenger plugin for remote KMS
+  - `TPMWithPCREncryptor`: Uses systemd-cryptenroll with PCR policy (UKI mode)
+  - `LocalTPMNVEncryptor`: Uses local TPM NV memory for passphrase storage
+
+- `GetEncryptor(cfg EncryptorConfig) (PartitionEncryptor, error)`: Factory function
+  - Scans kcrypt config ONCE and stores it in encryptor
+  - Implements decision logic (remote KMS → TPM+PCR → local TPM NV)
+  - Validates prerequisites before returning encryptor
+
+- Helper functions moved from kairos-agent:
+  - `validateSystemdVersion()` - Checks systemd >= required version
+  - `validateTPMDevice()` - Checks TPM 2.0 device exists
+
+**2. kairos-sdk/kcrypt/tpm_passphrase.go (NEW FILE)**
+- `GetOrCreateLocalTPMPassphrase()` - Retrieves or generates TPM NV passphrase
+- `generateAndStoreLocalTPMPassphrase()` - Stores passphrase in TPM NV memory
+- Logic moved from kcrypt-challenger to centralize local TPM operations
+
+**3. kairos-sdk/kcrypt/lock.go (MODIFIED)**
+- `EncryptWithLocalTPMPassphrase()` - Encrypts using local TPM NV passphrase
+- `luksifyWithPassphrase()` - Low-level LUKS encryption with explicit passphrase
+
+**4. kairos-agent/internal/agent/hooks/finish.go (MAJOR REFACTOR)**
+- Unified `Encrypt()` method replaces separate UKI/non-UKI paths
+- Uses `kcrypt.GetEncryptor()` to get appropriate encryptor
+- Calls `encryptor.Encrypt()` for each partition
+- Calls `encryptor.Unlock()` for decryption (no more manual type detection)
+
+- Extracted helper methods from old code:
+  - `determinePartitionsToEncrypt()` - Respects user config, defaults by mode
+  - `preparePartitionsForEncryption()` - Finds devices, unmounts partitions
+  - `backupOEMIfNeeded()` - Backs up OEM BEFORE unmounting (improved timing)
+  - `restoreOEMIfNeeded()` - Restores OEM after encryption
+  - `unlockEncryptedPartitions()` - Uses encryptor's Unlock() method
+  - `waitForUnlockedPartitions()` - Waits for devices with retry logic
+
+- Code quality improvements:
+  - Removed custom `containsString()`, using `slices.Contains()`
+  - Removed redundant function parameters
+  - Config scanning centralized in `GetEncryptor()`
+
+**5. kairos-agent/go.mod (MODIFIED)**
+- Added `replace github.com/kairos-io/kairos-sdk => ../kairos-sdk` for local development
+
+#### Decision Logic (Implemented in GetEncryptor):
+```
+1. If kcrypt config has challenger_server OR mdns configured
+   → RemoteKMSEncryptor (both UKI & non-UKI)
+   
+2. Else if UKI mode
+   → TPMWithPCREncryptor (validates systemd ≥ 252, TPM 2.0)
+   
+3. Else (non-UKI, no remote KMS)
+   → LocalTPMNVEncryptor (validates TPM 2.0)
+```
+
+#### Architecture Benefits Achieved:
+✅ **Single Responsibility**: Each encryptor handles both encryption AND decryption
+✅ **No Config Duplication**: Config scanned once in GetEncryptor, stored in encryptor
+✅ **Clean Interface**: Easy to add new encryption methods (just implement interface)
+✅ **Reusable**: Other projects (immucore) can use the same interface
+✅ **Testable**: Each encryptor can be unit tested independently
+✅ **Maintainable**: Clear separation of concerns, no type detection in agent code
+
+#### Files Changed:
+- ✅ `kairos-sdk/kcrypt/encryptor.go` (NEW)
+- ✅ `kairos-sdk/kcrypt/tpm_passphrase.go` (NEW)
+- ✅ `kairos-sdk/kcrypt/lock.go` (MODIFIED)
+- ✅ `kairos-agent/internal/agent/hooks/finish.go` (MAJOR REFACTOR)
+- ✅ `kairos-agent/go.mod` (MODIFIED)
+
+#### Remaining Work:
+- ⏳ **kcrypt-challenger cleanup**: Remove local TPM NV logic
+  - Files: `cmd/discovery/client/client.go`, `cmd/discovery/client/enc.go`
+  - Remove `localPass()` function and local passphrase fallback
+  - Keep only remote KMS attestation logic
+  
+- ⏳ **Testing**: End-to-end testing of all three encryption methods
+  - Remote KMS encryption + unlock
+  - TPM+PCR encryption + unlock (UKI)
+  - Local TPM NV encryption + unlock (non-UKI)
+  
+- ⏳ **immucore integration** (OPTIONAL): Update to use new PartitionEncryptor interface
+
+#### Notes for Next Session:
+- All code compiles successfully
+- The interface-based approach is cleaner than the original plan's function-based approach
+- Config scanning happens once in GetEncryptor, avoiding redundant filesystem/cmdline scans
+- Each encryptor knows how to unlock itself (no need for caller to detect encryption type)
+- Remove `replace` directive from go.mod before merging to production
+
+---
+
+## Executive Summary (ORIGINAL PLAN)
 
 ### Problem
 UKI and non-UKI installation paths have completely separate encryption code, even though they perform similar operations. The main issues are:

@@ -234,3 +234,5 @@ require (
 	pault.ag/go/modprobe v0.2.0 // indirect
 	pault.ag/go/topsort v0.1.1 // indirect
 )
+
+replace github.com/kairos-io/kairos-sdk => ../kairos-sdk
