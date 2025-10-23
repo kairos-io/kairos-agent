@@ -90,6 +90,6 @@ const (
 	AgentBootloaderLog    = "Installing GRUB"
 	AgentRecoveryLog      = "Copying /run/cos/state/cOS/active.img source to /run/cos/recovery/cOS/recovery.img"
 	AgentPassiveLog       = "Copying /run/cos/state/cOS/active.img source to /run/cos/state/cOS/passive.img"
-	AgentAfterInstallLog  = "Running stage: after-install"
-	AgentCompleteLog      = "Installation complete" // This is not reported by the agent, we should add it.
+	AgentAfterInstallLog  = "Running after-install hook"
+	AgentCompleteLog      = "Finish Lifecycle hook" // This is the last step before completion so can make it the complete part
 )
