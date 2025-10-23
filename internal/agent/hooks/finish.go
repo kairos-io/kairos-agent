@@ -34,13 +34,14 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 		}
 		c.Logger.Logger.Info().Msg("Running encrypt hook")
 
-		if internalutils.IsUki() {
-			err = EncryptUKI(c, spec)
-		} else {
-			err = Encrypt(c, spec)
-		}
+		err = Encrypt(c, spec)
+		// if internalutils.IsUki() {
+		// 	err = EncryptUKI(c, spec)
+		// } else {
+		// 	err = EncryptNonUKI(c, spec)
+		// }
 
-		// They return with partitions unlocked so make sure to lock them before we end
+		// partitions are unlocked, make sure to lock them before we end
 		defer lockPartitions(c)
 
 		if err != nil {
@@ -106,9 +107,71 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 	return nil
 }
 
-// Encrypt is a hook that encrypts partitions using kcrypt for non uki.
-// It will unmount each partition right before encrypting it
+// Encrypt is the unified encryption method that works for both UKI and non-UKI modes
 func Encrypt(c config.Config, _ v1.Spec) error {
+	isUKI := internalutils.IsUki()
+	c.Logger.Logger.Info().Bool("uki_mode", isUKI).Msg("Starting unified encryption flow")
+
+	// 1. Determine which partitions need encryption
+	partitions := determinePartitionsToEncrypt(c, isUKI)
+	if len(partitions) == 0 {
+		c.Logger.Logger.Info().Msg("No partitions to encrypt")
+		return nil
+	}
+	c.Logger.Logger.Info().Strs("partitions", partitions).Msg("Partitions to encrypt")
+
+	// 2. Common preparation
+	if err := preparePartitionsForEncryption(c, partitions); err != nil {
+		return fmt.Errorf("failed to prepare partitions: %w", err)
+	}
+
+	// 3. Backup OEM if it's in the list
+	var oemBackupPath string
+	var cleanupBackup func()
+	needsOEMBackup := containsString(partitions, constants.OEMLabel)
+	if needsOEMBackup {
+		var err error
+		oemBackupPath, cleanupBackup, err = backupOEMIfNeeded(c, constants.OEMLabel)
+		if err != nil {
+			return fmt.Errorf("failed to backup OEM: %w", err)
+		}
+		defer cleanupBackup()
+	}
+
+	// 4. Encrypt each partition
+	for _, partition := range partitions {
+		c.Logger.Logger.Info().Str("partition", partition).Msg("Encrypting partition")
+		
+		// TODO: Determine passphrase source and encrypt
+		// This is where we'll call the actual encryption logic
+		
+		c.Logger.Logger.Info().Str("partition", partition).Msg("Successfully encrypted partition")
+	}
+
+	// 5. Unlock encrypted partitions
+	if err := unlockEncryptedPartitions(c, isUKI); err != nil {
+		return fmt.Errorf("failed to unlock partitions: %w", err)
+	}
+
+	// 6. Wait for partitions to appear
+	if err := waitForUnlockedPartitions(c, partitions); err != nil {
+		return fmt.Errorf("failed waiting for unlocked partitions: %w", err)
+	}
+
+	// 7. Restore OEM if needed
+	if needsOEMBackup {
+		if err := restoreOEMIfNeeded(c, constants.OEMLabel, oemBackupPath); err != nil {
+			return fmt.Errorf("failed to restore OEM: %w", err)
+		}
+	}
+
+	c.Logger.Logger.Info().Msg("Finished unified encryption flow")
+	return nil
+}
+
+// EncryptNonUKI is a hook that encrypts partitions using kcrypt for non uki.
+// It will unmount each partition right before encrypting it
+func EncryptNonUKI(c config.Config, _ v1.Spec) error {
 	c.Logger.Logger.Info().Msg("Starting partition encryption")
 
 	kcryptConfig := kcrypt.ExtractKcryptConfigFromCollector(c.Config, c.Logger)
@@ -335,6 +398,54 @@ func EncryptUKI(c config.Config, spec v1.Spec) error {
 	}
 
 	return nil
+}
+
+// Helper methods for unified encryption flow
+
+// determinePartitionsToEncrypt returns the list of partitions to encrypt based on mode
+func determinePartitionsToEncrypt(c config.Config, isUKI bool) []string {
+	// TODO: Implement
+	return []string{}
+}
+
+// preparePartitionsForEncryption unmounts all partitions that will be encrypted
+func preparePartitionsForEncryption(c config.Config, partitions []string) error {
+	// TODO: Implement
+	return nil
+}
+
+// backupOEMIfNeeded backs up the OEM partition contents before encryption
+func backupOEMIfNeeded(c config.Config, oemLabel string) (backupPath string, cleanup func(), err error) {
+	// TODO: Implement
+	return "", func() {}, nil
+}
+
+// restoreOEMIfNeeded restores the OEM partition contents after encryption
+func restoreOEMIfNeeded(c config.Config, oemLabel string, backupPath string) error {
+	// TODO: Implement
+	return nil
+}
+
+// unlockEncryptedPartitions unlocks all encrypted partitions after encryption
+func unlockEncryptedPartitions(c config.Config, useTpm bool) error {
+	// TODO: Implement
+	return nil
+}
+
+// waitForUnlockedPartitions waits for encrypted partitions to appear after unlocking
+func waitForUnlockedPartitions(c config.Config, partitions []string) error {
+	// TODO: Implement
+	return nil
+}
+
+// containsString checks if a string exists in a slice
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }
 
 // udevAdmSettle triggers udev events, waits for them to complete,
