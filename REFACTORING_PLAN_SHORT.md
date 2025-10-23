@@ -1,6 +1,57 @@
 # Partition Encryption Refactoring - Summary
 
-## Proposed Architecture
+## ✅ REFACTORING STATUS (Updated: 2025-10-22)
+
+### Completed:
+- ✅ **kairos-sdk/kcrypt/encryptor.go** (NEW): Interface-based encryption system
+  - `PartitionEncryptor` interface with `Encrypt()`, `Unlock()`, `Name()`, `Validate()` methods
+  - Three implementations: `RemoteKMSEncryptor`, `TPMWithPCREncryptor`, `LocalTPMNVEncryptor`
+  - `GetEncryptor()` factory with decision logic and validation
+  - Config scanning done once in `GetEncryptor()`, stored in encryptor instances
+  
+- ✅ **kairos-sdk/kcrypt/tpm_passphrase.go** (NEW): Local TPM NV passphrase management
+  - `GetOrCreateLocalTPMPassphrase()` - Moved from kcrypt-challenger
+  - `generateAndStoreLocalTPMPassphrase()` - Helper function
+  
+- ✅ **kairos-sdk/kcrypt/lock.go**: New encryption functions
+  - `EncryptWithLocalTPMPassphrase()` - Encrypts without plugin
+  - `luksifyWithPassphrase()` - Low-level encryption with explicit passphrase
+  
+- ✅ **kairos-agent/internal/agent/hooks/finish.go**: Unified `Encrypt()` method
+  - Single code path for UKI and non-UKI modes
+  - Uses `PartitionEncryptor` interface for clean separation
+  - Helper methods: `determinePartitionsToEncrypt()`, `preparePartitionsForEncryption()`, 
+    `backupOEMIfNeeded()`, `restoreOEMIfNeeded()`, `unlockEncryptedPartitions()`, 
+    `waitForUnlockedPartitions()`
+  - OEM backup now happens BEFORE unmounting (more efficient)
+  - Removed custom `containsString()`, using `slices.Contains()`
+  - Simplified function signatures (removed redundant parameters)
+  
+- ✅ **kairos-agent/go.mod**: Added `replace` directive for local kairos-sdk development
+
+### Decision Logic (Implemented):
+1. If `challenger_server` or `mdns` configured → **Remote KMS** (both UKI & non-UKI)
+2. Else if UKI mode → **TPM + PCR policy** (validates systemd ≥ 252, TPM 2.0)
+3. Else (non-UKI, no remote) → **Local TPM NV passphrase**
+
+### Pending:
+- ⏳ **kcrypt-challenger**: Remove local TPM NV logic (now in kairos-sdk)
+  - Files to update: `cmd/discovery/client/client.go`, `cmd/discovery/client/enc.go`
+  - Remove `localPass()` function and local passphrase fallback logic
+- ⏳ **Testing**: End-to-end testing of all three encryption methods
+- ⏳ **immucore**: Consider updating to use new `PartitionEncryptor` interface (optional)
+
+### Architecture Benefits Achieved:
+✅ Single Responsibility: Each encryptor handles both encryption AND decryption
+✅ No Config Duplication: Config scanned once, stored in encryptor
+✅ Clean Interface: Easy to add new encryption methods
+✅ Reusable: Other projects (immucore) can use the same interface
+✅ Testable: Each encryptor can be tested independently
+✅ Maintainable: Clear separation of concerns
+
+---
+
+## Proposed Architecture (ORIGINAL PLAN)
 
 ### Component Responsibilities
 
