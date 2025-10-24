@@ -1,6 +1,6 @@
 # Partition Encryption Refactoring - Summary
 
-## ✅ REFACTORING STATUS (Updated: 2025-10-22)
+## ✅ REFACTORING STATUS (Updated: 2025-10-24)
 
 ### Completed:
 - ✅ **kairos-sdk/kcrypt/encryptor.go** (NEW): Interface-based encryption system
@@ -17,15 +17,22 @@
   - `EncryptWithLocalTPMPassphrase()` - Encrypts without plugin
   - `luksifyWithPassphrase()` - Low-level encryption with explicit passphrase
   
-- ✅ **kairos-agent/internal/agent/hooks/finish.go**: Unified `Encrypt()` method
-  - Single code path for UKI and non-UKI modes
+- ✅ **kairos-agent/internal/agent/hooks/encrypt.go** (NEW - 564 lines): All encryption logic
+  - Unified `Encrypt()` method for UKI and non-UKI modes
   - Uses `PartitionEncryptor` interface for clean separation
   - Helper methods: `determinePartitionsToEncrypt()`, `preparePartitionsForEncryption()`, 
-    `backupOEMIfNeeded()`, `restoreOEMIfNeeded()`, `unlockEncryptedPartitions()`, 
-    `waitForUnlockedPartitions()`
-  - OEM backup now happens BEFORE unmounting (more efficient)
+    `backupOEMIfNeeded()`, `restoreOEMIfNeeded()`, `copyCloudConfigToOEM()`, `udevAdmSettle()`
+  - Legacy methods: `EncryptNonUKI()`, `EncryptUKI()` (kept for backward compatibility)
+  - OEM backup happens BEFORE unmounting (more efficient)
+  - Cloud-config copied BEFORE encryption (preserved in OEM backup)
+  - udevadm settle now settles actual partition devices (not hardcoded)
   - Removed custom `containsString()`, using `slices.Contains()`
   - Simplified function signatures (removed redundant parameters)
+  
+- ✅ **kairos-agent/internal/agent/hooks/finish.go** (SIMPLIFIED - 51 lines): Clean orchestration
+  - Only contains `Finish` hook and its `Run()` method
+  - Minimal imports (config and v1 types only)
+  - Calls `Encrypt()` directly without redundant checks
   
 - ✅ **kairos-agent/go.mod**: Added `replace` directive for local kairos-sdk development
 
@@ -33,6 +40,14 @@
 1. If `challenger_server` or `mdns` configured → **Remote KMS** (both UKI & non-UKI)
 2. Else if UKI mode → **TPM + PCR policy** (validates systemd ≥ 252, TPM 2.0)
 3. Else (non-UKI, no remote) → **Local TPM NV passphrase**
+
+### Recent Improvements (2025-10-24):
+- **File Organization**: Moved all encryption logic to dedicated `encrypt.go` (564 lines)
+  - `finish.go` simplified from ~600 lines to 51 lines
+  - Better separation of concerns and maintainability
+- **Cloud-Config**: Extracted to function, happens before encryption
+- **udevadm Settle**: Moved inside Encrypt(), settles actual partition devices
+- **Simplified Flow**: Removed redundant condition checks
 
 ### Pending:
 - ⏳ **kcrypt-challenger**: Remove local TPM NV logic (now in kairos-sdk)
