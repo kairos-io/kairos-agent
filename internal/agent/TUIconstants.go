@@ -91,5 +91,6 @@ const (
 	AgentRecoveryLog      = "Copying /run/cos/state/cOS/active.img source to /run/cos/recovery/cOS/recovery.img"
 	AgentPassiveLog       = "Copying /run/cos/state/cOS/active.img source to /run/cos/state/cOS/passive.img"
 	AgentAfterInstallLog  = "Running after-install hook"
+	AgentStartLifecycle   = "Running Lifecycle hook"
 	AgentCompleteLog      = "Finish Lifecycle hook" // This is the last step before completion so can make it the complete part
 )
