@@ -118,11 +118,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Hijack all keys if on install process page
 	if installPage, ok := mainModel.pages[currentIdx].(*installProcessPage); ok {
 		// If install failed or finished, any key exits, no abort modal
-		if installPage.errorMsg != "" || installPage.progress >= len(installPage.steps)-1 {
+		if installPage.errorMsg != "" || installPage.progress >= len(installPage.steps)-1 && mainModel.finishAction == "nothing" {
 			mainModel.showAbortConfirm = false // Ensure abort modal is closed
 			if _, isKey := msg.(tea.KeyMsg); isKey {
 				return mainModel, tea.Quit
 			}
+		}
+		// If install finished with no errors and reboot/poweroff selected, block all keys so we dont block the action
+		if installPage.errorMsg == "" && installPage.progress >= len(installPage.steps)-1 && (mainModel.finishAction == "reboot" || mainModel.finishAction == "poweroff") {
+			return mainModel, nil
 		}
 		if mainModel.showAbortConfirm {
 			// Allow CheckInstallerMsg to update progress even when popup is open
