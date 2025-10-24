@@ -201,7 +201,11 @@ func (p *installProcessPage) View() string {
 		s += "\n" + warning
 	} else {
 		// Make the completion message green
-		complete := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true).Render("Installation completed successfully!\nYou can now reboot your system.")
+		text := "Installation completed successfully!\n"
+		if mainModel.finishAction == "nothing" {
+			text += "You can now reboot or shut down your system."
+		}
+		complete := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true).Render(text)
 		s += "\n" + complete
 	}
 
@@ -214,7 +218,12 @@ func (p *installProcessPage) Title() string {
 
 func (p *installProcessPage) Help() string {
 	if p.progress >= len(p.steps)-1 || p.errorMsg != "" {
-		return "Press any key to exit"
+		if mainModel.finishAction == "nothing" {
+			return "Press any key to exit"
+		} else {
+			return "System will " + mainModel.finishAction + " shortly"
+		}
+
 	}
 	return "Installation in progress - Use ctrl+c to abort"
 }
