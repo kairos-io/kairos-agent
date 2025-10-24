@@ -1,6 +1,6 @@
 # Partition Encryption Refactoring Plan
 
-## ✅ REFACTORING STATUS (Updated: 2025-10-22)
+## ✅ REFACTORING STATUS (Updated: 2025-10-24)
 
 ### Implementation Complete - Interface-Based Approach
 
@@ -38,7 +38,13 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
 - `EncryptWithLocalTPMPassphrase()` - Encrypts using local TPM NV passphrase
 - `luksifyWithPassphrase()` - Low-level LUKS encryption with explicit passphrase
 
-**4. kairos-agent/internal/agent/hooks/finish.go (MAJOR REFACTOR)**
+**4. kairos-agent/internal/agent/hooks/finish.go (SIMPLIFIED)**
+- Now contains only the `Finish` hook and its `Run()` method
+- Clean, focused orchestration of the finish process
+- Minimal imports (only config and v1 types)
+
+**5. kairos-agent/internal/agent/hooks/encrypt.go (NEW FILE - 564 LINES)**
+- Contains all encryption logic extracted from finish.go
 - Unified `Encrypt()` method replaces separate UKI/non-UKI paths
 - Uses `kcrypt.GetEncryptor()` to get appropriate encryptor
 - Calls `encryptor.Encrypt()` for each partition
@@ -49,15 +55,21 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
   - `preparePartitionsForEncryption()` - Finds devices, unmounts partitions
   - `backupOEMIfNeeded()` - Backs up OEM BEFORE unmounting (improved timing)
   - `restoreOEMIfNeeded()` - Restores OEM after encryption
-  - `unlockEncryptedPartitions()` - Uses encryptor's Unlock() method
-  - `waitForUnlockedPartitions()` - Waits for devices with retry logic
+  - `copyCloudConfigToOEM()` - Copies cloud-config before encryption (NEW)
+  - `udevAdmSettle()` - Settles udev for partition devices (MOVED from finish.go)
+
+- Legacy methods kept for backward compatibility:
+  - `EncryptNonUKI()` - Old non-UKI encryption path
+  - `EncryptUKI()` - Old UKI encryption path
 
 - Code quality improvements:
   - Removed custom `containsString()`, using `slices.Contains()`
   - Removed redundant function parameters
   - Config scanning centralized in `GetEncryptor()`
+  - Cloud-config copying happens BEFORE encryption (preserved in OEM backup)
+  - udevadm settle now settles actual partition devices (not hardcoded /dev/vda2)
 
-**5. kairos-agent/go.mod (MODIFIED)**
+**6. kairos-agent/go.mod (MODIFIED)**
 - Added `replace github.com/kairos-io/kairos-sdk => ../kairos-sdk` for local development
 
 #### Decision Logic (Implemented in GetEncryptor):
@@ -84,7 +96,8 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
 - ✅ `kairos-sdk/kcrypt/encryptor.go` (NEW)
 - ✅ `kairos-sdk/kcrypt/tpm_passphrase.go` (NEW)
 - ✅ `kairos-sdk/kcrypt/lock.go` (MODIFIED)
-- ✅ `kairos-agent/internal/agent/hooks/finish.go` (MAJOR REFACTOR)
+- ✅ `kairos-agent/internal/agent/hooks/encrypt.go` (NEW - 564 lines)
+- ✅ `kairos-agent/internal/agent/hooks/finish.go` (SIMPLIFIED - 51 lines)
 - ✅ `kairos-agent/go.mod` (MODIFIED)
 
 #### Remaining Work:
@@ -100,11 +113,34 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
   
 - ⏳ **immucore integration** (OPTIONAL): Update to use new PartitionEncryptor interface
 
+#### Recent Improvements (2025-10-24):
+- **File Organization**: Encryption logic moved to dedicated `encrypt.go` file (564 lines)
+  - `finish.go` simplified to 51 lines (down from ~600 lines)
+  - Better separation of concerns
+  - Easier to maintain and navigate
+  
+- **Cloud-Config Handling**: 
+  - Extracted to `copyCloudConfigToOEM()` function
+  - Now happens BEFORE encryption (preserved in OEM backup automatically)
+  - Removed redundant mount/unmount logic after encryption
+  
+- **udevadm Settle Improvements**:
+  - Moved inside `Encrypt()` method
+  - Now settles actual partition devices being encrypted
+  - Removed hardcoded `/dev/vda2` reference
+  - Happens after determining which partitions to encrypt
+  
+- **Simplified Encryption Check**:
+  - Removed redundant condition checking in `Finish.Run()`
+  - Now just calls `Encrypt()` which handles the check internally
+  - Returns early if no partitions to encrypt
+
 #### Notes for Next Session:
 - All code compiles successfully
 - The interface-based approach is cleaner than the original plan's function-based approach
 - Config scanning happens once in GetEncryptor, avoiding redundant filesystem/cmdline scans
 - Each encryptor knows how to unlock itself (no need for caller to detect encryption type)
+- Encryption logic is now well-organized in dedicated file
 - Remove `replace` directive from go.mod before merging to production
 
 ---
