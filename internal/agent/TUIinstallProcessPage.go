@@ -273,6 +273,10 @@ func (p *installProcessPage) processLogLines(buf []byte, lastLen int, errorSent 
 			p.output <- StepPrefix + InstallPassiveStep
 		} else if strings.Contains(msg, AgentAfterInstallLog) && !strings.Contains(msg, "chroot") {
 			p.output <- StepPrefix + InstallAfterInstallStep
+		} else if strings.Contains(msg, AgentStartLifecycle) && mainModel.finishAction != "nothing" {
+			// Lifecycle start can be considered as finished if we are rebooting or shutting down as that hook
+			// will reboot/shutdown the system and not return any log after that
+			p.output <- StepPrefix + InstallCompleteStep
 		} else if strings.Contains(msg, AgentCompleteLog) {
 			p.output <- StepPrefix + InstallCompleteStep
 		}
