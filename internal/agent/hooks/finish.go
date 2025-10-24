@@ -20,7 +20,7 @@ func (k Finish) Run(c config.Config, spec v1.Spec) error {
 
 	// Run encryption (handles both UKI and non-UKI, returns early if nothing to encrypt)
 	err = Encrypt(c)
-	defer lockPartitions(c) // partitions are unlocked, make sure to lock them before we end
+	defer lockPartitions(c.Logger) // partitions are unlocked, make sure to lock them before we end
 	if err != nil {
 		c.Logger.Logger.Error().Err(err).Msg("could not encrypt partitions")
 		return err

@@ -31,7 +31,16 @@ func Encrypt(c config.Config) error {
 	}
 	c.Logger.Logger.Info().Strs("partitions", partitions).Msg("Partitions to encrypt")
 
-	// 1.5. Settle udev for the partitions we're about to encrypt
+	// 1.5. Get the appropriate encryptor based on configuration
+	// IMPORTANT: Do this BEFORE unmounting partitions so the encryptor can scan
+	// for kcrypt configuration in /run/cos/oem
+	encryptor, err := kcrypt.GetEncryptor(c.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to get encryptor: %w", err)
+	}
+	c.Logger.Logger.Info().Str("method", encryptor.Name()).Msg("Using encryption method")
+
+	// 2. Settle udev for the partitions we're about to encrypt
 	for _, partition := range partitions {
 		// Find the device path for this partition label
 		devPath, err := utils.SH(fmt.Sprintf("blkid -L %s", partition))
@@ -46,7 +55,7 @@ func Encrypt(c config.Config) error {
 		}
 	}
 
-	// 2. Backup OEM if it's in the list (before unmounting!)
+	// 3. Backup OEM if it's in the list (before unmounting!)
 	var oemBackupPath string
 	var cleanupBackup func()
 	needsOEMBackup := slices.Contains(partitions, constants.OEMLabel)
@@ -59,19 +68,10 @@ func Encrypt(c config.Config) error {
 		defer cleanupBackup()
 	}
 
-	// 3. Prepare partitions (unmount them)
+	// 4. Prepare partitions (unmount them)
 	if err := preparePartitionsForEncryption(c, partitions); err != nil {
 		return fmt.Errorf("failed to prepare partitions: %w", err)
 	}
-
-	// 4. Get the appropriate encryptor based on configuration
-	// The encryptor automatically scans for config, detects UKI mode, and selects the right method
-	encryptor, err := kcrypt.GetEncryptor(c.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to get encryptor: %w", err)
-	}
-
-	c.Logger.Logger.Info().Str("method", encryptor.Name()).Msg("Using encryption method")
 
 	// 5. Encrypt all partitions using the encryptor
 	if err := encryptor.Encrypt(partitions); err != nil {
@@ -82,13 +82,13 @@ func Encrypt(c config.Config) error {
 	// The Unlock method will wait for partitions to be ready before returning
 	if err := encryptor.Unlock(partitions); err != nil {
 		// Lock partitions on failure (cleanup)
-		lockPartitions(c)
+		lockPartitions(c.Logger)
 		return fmt.Errorf("failed to unlock partitions: %w", err)
 	}
 
-	// 8. Restore OEM if needed
+	// 7. Restore OEM if needed
 	if needsOEMBackup {
-		if err := restoreOEMIfNeeded(c, oemBackupPath); err != nil {
+		if err := restoreOEM(c, oemBackupPath); err != nil {
 			return fmt.Errorf("failed to restore OEM: %w", err)
 		}
 	}
@@ -205,15 +205,101 @@ func backupOEMIfNeeded(c config.Config) (backupPath string, cleanup func(), err 
 	return tmpDir, cleanup, nil
 }
 
-// restoreOEMIfNeeded restores the OEM partition contents after encryption
-// Logic extracted from EncryptUKI (lines 384-398)
-func restoreOEMIfNeeded(c config.Config, backupPath string) error {
+// findMapperDeviceForPartition finds an unlocked dm-crypt mapper device for a partition label.
+// It first finds the underlying partition device using the label, then checks if a mapper
+// device exists for that partition in dmsetup.
+// Returns the full path to the mapper device (e.g., /dev/mapper/vda2).
+func findMapperDeviceForPartition(c config.Config, label string) (string, error) {
+	// First, find the underlying encrypted partition device by its label
+	// This will return the LUKS container device (e.g., /dev/vda2)
+	partitionPath, err := utils.SH(fmt.Sprintf("blkid -L %s", label))
+	if err != nil {
+		return "", fmt.Errorf("failed to find partition with label %s: %w", label, err)
+	}
+	partitionPath = strings.TrimSpace(partitionPath)
+	c.Logger.Logger.Debug().Str("partition", partitionPath).Str("label", label).Msg("Found encrypted partition")
+
+	// Extract the base device name (e.g., "vda2" from "/dev/vda2")
+	baseName := strings.TrimPrefix(partitionPath, "/dev/")
+	mapperPath := fmt.Sprintf("/dev/mapper/%s", baseName)
+
+	// Get list of active encrypted mapper devices to verify it's unlocked
+	dmOutput, err := utils.SH("dmsetup ls --target crypt")
+	if err != nil {
+		return "", fmt.Errorf("failed to list dm-crypt devices: %w", err)
+	}
+
+	c.Logger.Logger.Debug().Str("dmsetup_output", strings.TrimSpace(dmOutput)).Msg("Active dm-crypt devices")
+
+	// Check if our mapper device is in the list of active devices
+	mapperExists := false
+	lines := strings.Split(strings.TrimSpace(dmOutput), "\n")
+	for _, line := range lines {
+		if line == "" || strings.Contains(line, "No devices found") {
+			continue
+		}
+
+		// Extract mapper name (first field before whitespace)
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		mapperName := fields[0]
+
+		if mapperName == baseName {
+			mapperExists = true
+			c.Logger.Logger.Info().Str("mapper", mapperPath).Str("partition", baseName).Msg("Found unlocked mapper device")
+			break
+		}
+	}
+
+	if !mapperExists {
+		return "", fmt.Errorf("partition %s (label: %s) is not unlocked - mapper device %s not found in dmsetup", partitionPath, label, baseName)
+	}
+
+	return mapperPath, nil
+}
+
+// restoreOEM restores the OEM partition contents after encryption.
+// This function assumes:
+// - COS_OEM partition is encrypted
+// - COS_OEM has been unlocked (mapper device exists in dmsetup)
+// - We need to find the mapper device path to mount and restore data
+func restoreOEM(c config.Config, backupPath string) error {
 	c.Logger.Logger.Info().Str("backup_path", backupPath).Msg("Restoring OEM partition from backup")
 
-	// Mount the unlocked OEM partition
-	err := machine.Mount(constants.OEMLabel, constants.OEMDir)
+	// Find the unlocked mapper device for COS_OEM
+	// We find the underlying partition by label, then check if it's unlocked in dmsetup
+	devicePath, err := findMapperDeviceForPartition(c, constants.OEMLabel)
 	if err != nil {
-		return fmt.Errorf("failed to mount OEM for restore: %w", err)
+		return fmt.Errorf("failed to find unlocked OEM mapper device: %w", err)
+	}
+
+	c.Logger.Logger.Info().Str("device", devicePath).Msg("Found unlocked OEM mapper device")
+
+	// Wait for udev to create the device node in /dev/mapper/
+	// dmsetup shows the mapping exists, but udev needs time to create the device node
+	c.Logger.Logger.Info().Str("device", devicePath).Msg("Waiting for udev to create device node")
+	if err := udevAdmSettle(c.Logger, devicePath, 15*time.Second); err != nil {
+		return fmt.Errorf("failed waiting for device node %s: %w", devicePath, err)
+	}
+
+	// Create mount point if it doesn't exist
+	if err := fsutils.MkdirAll(c.Fs, constants.OEMDir, 0755); err != nil {
+		return fmt.Errorf("failed to create mount point: %w", err)
+	}
+
+	// Mount the unlocked device
+	c.Logger.Logger.Info().Str("device", devicePath).Str("mountpoint", constants.OEMDir).Msg("Mounting OEM partition")
+
+	// First check what filesystem is on the device
+	fsType, _ := utils.SH(fmt.Sprintf("blkid -s TYPE -o value %s", devicePath))
+	c.Logger.Logger.Info().Str("device", devicePath).Str("fs_type", strings.TrimSpace(fsType)).Msg("Filesystem type on mapper device")
+
+	mountOut, err := utils.SH(fmt.Sprintf("mount %s %s", devicePath, constants.OEMDir))
+	if err != nil {
+		c.Logger.Logger.Error().Str("mount_output", mountOut).Str("device", devicePath).Msg("Mount failed")
+		return fmt.Errorf("failed to mount OEM for restore: %w (output: %s)", err, mountOut)
 	}
 
 	// Copy back the contents of the OEM partition that we saved before encrypting

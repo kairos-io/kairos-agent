@@ -2,67 +2,78 @@
 
 ## ✅ REFACTORING STATUS (Updated: 2025-10-24)
 
-### Completed:
-- ✅ **kairos-sdk/kcrypt/encryptor.go** (NEW): Interface-based encryption system
-  - `PartitionEncryptor` interface with `Encrypt()`, `Unlock()`, `Name()`, `Validate()` methods
-  - Three implementations: `RemoteKMSEncryptor`, `TPMWithPCREncryptor`, `LocalTPMNVEncryptor`
-  - `GetEncryptor()` factory with decision logic and validation
-  - Config scanning done once in `GetEncryptor()`, stored in encryptor instances
-  
-- ✅ **kairos-sdk/kcrypt/tpm_passphrase.go** (NEW): Local TPM NV passphrase management
-  - `GetOrCreateLocalTPMPassphrase()` - Moved from kcrypt-challenger
-  - `generateAndStoreLocalTPMPassphrase()` - Helper function
-  
-- ✅ **kairos-sdk/kcrypt/lock.go**: New encryption functions
-  - `EncryptWithLocalTPMPassphrase()` - Encrypts without plugin
-  - `luksifyWithPassphrase()` - Low-level encryption with explicit passphrase
-  
-- ✅ **kairos-agent/internal/agent/hooks/encrypt.go** (NEW - 564 lines): All encryption logic
-  - Unified `Encrypt()` method for UKI and non-UKI modes
-  - Uses `PartitionEncryptor` interface for clean separation
-  - Helper methods: `determinePartitionsToEncrypt()`, `preparePartitionsForEncryption()`, 
-    `backupOEMIfNeeded()`, `restoreOEMIfNeeded()`, `copyCloudConfigToOEM()`, `udevAdmSettle()`
-  - Legacy methods: `EncryptNonUKI()`, `EncryptUKI()` (kept for backward compatibility)
-  - OEM backup happens BEFORE unmounting (more efficient)
-  - Cloud-config copied BEFORE encryption (preserved in OEM backup)
-  - udevadm settle now settles actual partition devices (not hardcoded)
-  - Removed custom `containsString()`, using `slices.Contains()`
-  - Simplified function signatures (removed redundant parameters)
-  
-- ✅ **kairos-agent/internal/agent/hooks/finish.go** (SIMPLIFIED - 51 lines): Clean orchestration
-  - Only contains `Finish` hook and its `Run()` method
-  - Minimal imports (config and v1 types only)
-  - Calls `Encrypt()` directly without redundant checks
-  
-- ✅ **kairos-agent/go.mod**: Added `replace` directive for local kairos-sdk development
+### Implementation Complete - Interface-Based Approach ✅
 
-### Decision Logic (Implemented):
-1. If `challenger_server` or `mdns` configured → **Remote KMS** (both UKI & non-UKI)
-2. Else if UKI mode → **TPM + PCR policy** (validates systemd ≥ 252, TPM 2.0)
-3. Else (non-UKI, no remote) → **Local TPM NV passphrase**
+We implemented a cleaner architecture using the **Strategy Pattern** with a `PartitionEncryptor` interface.
 
-### Recent Improvements (2025-10-24):
-- **File Organization**: Moved all encryption logic to dedicated `encrypt.go` (564 lines)
-  - `finish.go` simplified from ~600 lines to 51 lines
-  - Better separation of concerns and maintainability
-- **Cloud-Config**: Extracted to function, happens before encryption
-- **udevadm Settle**: Moved inside Encrypt(), settles actual partition devices
-- **Simplified Flow**: Removed redundant condition checks
+#### Completed Work:
 
-### Pending:
-- ⏳ **kcrypt-challenger**: Remove local TPM NV logic (now in kairos-sdk)
-  - Files to update: `cmd/discovery/client/client.go`, `cmd/discovery/client/enc.go`
-  - Remove `localPass()` function and local passphrase fallback logic
-- ⏳ **Testing**: End-to-end testing of all three encryption methods
-- ⏳ **immucore**: Consider updating to use new `PartitionEncryptor` interface (optional)
+**1. kairos-sdk/kcrypt/encryptor.go (NEW FILE)**
+- `PartitionEncryptor` interface with `Encrypt()`, `Unlock()`, `Name()`, `Validate()` methods
+- Three implementations: `RemoteKMSEncryptor`, `TPMWithPCREncryptor`, `LocalTPMNVEncryptor`
+- `GetEncryptor(logger)` factory with automatic config scanning and validation
 
-### Architecture Benefits Achieved:
-✅ Single Responsibility: Each encryptor handles both encryption AND decryption
-✅ No Config Duplication: Config scanned once, stored in encryptor
-✅ Clean Interface: Easy to add new encryption methods
-✅ Reusable: Other projects (immucore) can use the same interface
-✅ Testable: Each encryptor can be tested independently
-✅ Maintainable: Clear separation of concerns
+**2. kairos-sdk/kcrypt/tpm_passphrase.go (NEW FILE)**
+- Local TPM NV passphrase management (moved from kcrypt-challenger)
+
+**3. kairos-sdk/kcrypt/lock.go + unlock.go (MODIFIED)**
+- New encryption functions for local TPM NV passphrase
+- **SECURITY FIX** ✅: Removed passphrase logging (only log length)
+
+**4. kairos-agent/internal/agent/hooks/encrypt.go (NEW - ~350 LINES)**
+- Unified `Encrypt()` method for both UKI and non-UKI modes
+- Helper methods: `determinePartitionsToEncrypt()`, `preparePartitionsForEncryption()`,
+  `backupOEMIfNeeded()`, `restoreOEMIfNeeded()`, `copyCloudConfigToOEM()`, `udevAdmSettle()`
+- **BUG FIX** ✅: `GetEncryptor` called BEFORE unmounting OEM (so it can read kcrypt config)
+- **BUG FIX** ✅: `restoreOEMIfNeeded` uses dmsetup to find mapper device + udev settle
+- Legacy methods: `EncryptNonUKI()`, `EncryptUKI()` (backward compatibility)
+
+**5. kairos-agent/internal/agent/hooks/finish.go (SIMPLIFIED - 51 LINES)**
+- Clean orchestration, minimal imports
+
+**6. kairos-agent/internal/agent/hooks/hook.go (MODIFIED)**
+- **BUG FIX** ✅: `lockPartitions()` uses `dmsetup ls` to properly close mapper devices
+
+#### Critical Bug Fixes (2025-10-24):
+
+**Issue 1: Challenger Config Ignored** ✅
+- Root cause: `GetEncryptor` called after OEM unmounted
+- Fix: Call `GetEncryptor` at step 1.5 (before unmounting)
+- Result: Challenger server now properly detected and used
+
+**Issue 2: OEM Restore Failed** ✅
+- Root cause: `blkid -L` returned LUKS container, not mapper device; device node not ready
+- Fix: Use `dmsetup ls` to verify mapper exists + `udevAdmSettle()` to wait for device node
+- Result: OEM successfully restored after encryption
+
+**Issue 3: Passphrase Logging** ✅
+- Root cause: Passphrases logged in plaintext
+- Fix: Removed from all log messages, only log length
+- Result: No sensitive data in logs
+
+**Issue 4: Partition Locking Failed** ✅
+- Root cause: Tried to close by label path instead of mapper name
+- Fix: Use `dmsetup ls --target crypt` to find active mappers
+- Result: All encrypted devices properly closed
+
+#### Decision Logic:
+1. If `challenger_server` or `mdns` → **Remote KMS** (both UKI & non-UKI)
+2. Else if UKI mode → **TPM + PCR policy**
+3. Else → **Local TPM NV passphrase**
+
+#### Production Status:
+- ✅ All code compiles successfully
+- ✅ Challenger-based encryption tested and working
+- ✅ OEM backup/restore working
+- ✅ Encrypted devices properly locked
+- ✅ No security issues
+- ⚠️ Remove `replace` directive from go.mod before production merge
+
+### Remaining Work:
+- ⏳ **kcrypt-challenger cleanup**: Remove local TPM NV logic (now in kairos-sdk)
+- ⏳ **Testing**: Full end-to-end testing of all three encryption methods
+- ⏳ **Cloud-init path bug**: Fix mkdir on file paths in `pkg/utils/runstage.go:83`
+- ⏳ **immucore integration** (optional)
 
 ---
 
@@ -85,19 +96,19 @@ func encryptPartitions(config Config, isUKI bool) error {
     preparePartitionsForEncryption(partitions)  // unmount all
     oemBackup := backupOEMIfNeeded(partitions)  // backup OEM data
     defer restoreOEMIfNeeded(oemBackup)
-    
+
     // 2. For each partition
     for _, partition := range partitions {
         // 2a. Determine passphrase source
         source := determinePassphraseSource(config, isUKI)
         // Options: "remote" (KMS), "local_tpm" (NV memory), "ephemeral" (random)
-        
+
         // 2b. Get passphrase when needed
         passphrase := getPassphrase(partition, config, source)
-        
+
         // 2c. Encrypt with unified logic (kairos-sdk)
         kcrypt.Encrypt(
-            partition, 
+            partition,
             passphrase,
             pcrBinding: isUKI ? config.BindPCRs : nil,
             keepPasswordSlot: source != "ephemeral",
@@ -107,12 +118,12 @@ func encryptPartitions(config Config, isUKI bool) error {
         // - If pcrBinding: adds TPM PCR policy keyslot
         // - If !keepPasswordSlot: wipes password keyslot (TPM-only unlock)
     }
-    
+
     // 3. Common cleanup (extracted methods)
     unlockEncryptedPartitions(partitions)
     waitForUnlockedPartitions(partitions)
     lockPartitions(partitions)
-    
+
     return nil
 }
 ```
@@ -131,7 +142,7 @@ func encryptPartitions(config Config, isUKI bool) error {
 
 ## Benefits
 
-✅ UKI gains remote KMS support  
-✅ Single code path eliminates duplication  
-✅ Clear separation: remote=plugin, local=sdk  
-✅ Backwards compatible  
+✅ UKI gains remote KMS support
+✅ Single code path eliminates duplication
+✅ Clear separation: remote=plugin, local=sdk
+✅ Backwards compatible
