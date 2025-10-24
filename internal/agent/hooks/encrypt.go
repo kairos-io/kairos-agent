@@ -15,6 +15,7 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
+	"github.com/kairos-io/kairos-sdk/types"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -40,7 +41,7 @@ func Encrypt(c config.Config) error {
 		}
 		devPath = strings.TrimSpace(devPath)
 		c.Logger.Logger.Info().Str("device", devPath).Str("partition", partition).Msg("Settling udev for partition")
-		if err := udevAdmSettle(devPath, 15*time.Second); err != nil {
+		if err := udevAdmSettle(c.Logger, devPath, 15*time.Second); err != nil {
 			return fmt.Errorf("ERROR settling udev for %s: %w", devPath, err)
 		}
 	}
@@ -144,10 +145,6 @@ func preparePartitionsForEncryption(c config.Config, partitions []string) error 
 				}
 			}
 		}
-
-		// Wait for device to be released
-		_, _ = utils.SH("sync")
-		time.Sleep(1 * time.Second)
 	}
 	return nil
 }
@@ -272,8 +269,8 @@ func copyCloudConfigToOEM(c config.Config) error {
 
 // udevAdmSettle triggers udev events, waits for them to complete,
 // and adds basic debugging / diagnostics around the device state.
-func udevAdmSettle(device string, timeout time.Duration) error {
-	fmt.Printf("INF Triggering udev events...\n")
+func udevAdmSettle(logger types.KairosLogger, device string, timeout time.Duration) error {
+	logger.Logger.Info().Msg("Triggering udev events")
 
 	// Trigger subsystems and devices (this replays all udev rules)
 	triggerCmds := [][]string{
@@ -289,12 +286,12 @@ func udevAdmSettle(device string, timeout time.Duration) error {
 		}
 	}
 
-	fmt.Printf("INF Flushing filesystem buffers (sync)\n")
+	logger.Logger.Info().Msg("Flushing filesystem buffers (sync)")
 	if err := exec.Command("sync").Run(); err != nil {
-		fmt.Printf("WARN sync failed: %v\n", err)
+		logger.Logger.Warn().Err(err).Msg("sync failed")
 	}
 
-	fmt.Printf("INF Waiting for udev to settle (timeout: %s)\n", timeout)
+	logger.Logger.Info().Dur("timeout", timeout).Msg("Waiting for udev to settle")
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -308,20 +305,20 @@ func udevAdmSettle(device string, timeout time.Duration) error {
 		return fmt.Errorf("udevadm settle failed: %v (output: %s)", err, string(output))
 	}
 
-	fmt.Printf("INF udevadm settle completed successfully\n")
+	logger.Logger.Info().Msg("udevadm settle completed successfully")
 
 	// Optional: give the kernel a moment to release device locks.
 	time.Sleep(2 * time.Second)
 
 	// Debug: check if the target device is still busy.
 	if device != "" {
-		fmt.Printf("DBG Checking if %s is in use...\n", device)
+		logger.Logger.Debug().Str("device", device).Msg("Checking if device is in use")
 		checkCmd := exec.Command("fuser", device)
 		checkOut, checkErr := checkCmd.CombinedOutput()
 		if checkErr == nil && len(checkOut) > 0 {
-			fmt.Printf("WARN Device %s appears to be in use by: %s\n", device, string(checkOut))
+			logger.Logger.Warn().Str("device", device).Str("users", string(checkOut)).Msg("Device appears to be in use")
 		} else {
-			fmt.Printf("DBG No active users detected for %s\n", device)
+			logger.Logger.Debug().Str("device", device).Msg("No active users detected for device")
 		}
 	}
 
