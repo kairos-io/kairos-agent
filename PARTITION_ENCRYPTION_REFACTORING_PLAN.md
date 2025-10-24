@@ -2,7 +2,7 @@
 
 ## ✅ REFACTORING STATUS (Updated: 2025-10-24)
 
-### Implementation Complete - Interface-Based Approach
+### Implementation Complete - Interface-Based Approach ✅
 
 We implemented a cleaner architecture using the **Strategy Pattern** with a `PartitionEncryptor` interface:
 
@@ -10,8 +10,8 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
 
 **1. kairos-sdk/kcrypt/encryptor.go (NEW FILE)**
 - `PartitionEncryptor` interface with methods:
-  - `Encrypt(partition string) error` - Encrypts a partition
-  - `Unlock() error` - Unlocks encrypted partitions (handles decryption)
+  - `Encrypt(partitions []string) error` - Encrypts partitions
+  - `Unlock(partitions []string) error` - Unlocks encrypted partitions
   - `Name() string` - Returns encryption method name for logging
   - `Validate() error` - Validates prerequisites (systemd version, TPM device, etc.)
 
@@ -20,14 +20,10 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
   - `TPMWithPCREncryptor`: Uses systemd-cryptenroll with PCR policy (UKI mode)
   - `LocalTPMNVEncryptor`: Uses local TPM NV memory for passphrase storage
 
-- `GetEncryptor(cfg EncryptorConfig) (PartitionEncryptor, error)`: Factory function
-  - Scans kcrypt config ONCE and stores it in encryptor
+- `GetEncryptor(logger) (PartitionEncryptor, error)`: Factory function
+  - Scans kcrypt config from `/oem`, `/sysroot/oem`, `/run/cos/oem`
   - Implements decision logic (remote KMS → TPM+PCR → local TPM NV)
   - Validates prerequisites before returning encryptor
-
-- Helper functions moved from kairos-agent:
-  - `validateSystemdVersion()` - Checks systemd >= required version
-  - `validateTPMDevice()` - Checks TPM 2.0 device exists
 
 **2. kairos-sdk/kcrypt/tpm_passphrase.go (NEW FILE)**
 - `GetOrCreateLocalTPMPassphrase()` - Retrieves or generates TPM NV passphrase
@@ -37,52 +33,78 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
 **3. kairos-sdk/kcrypt/lock.go (MODIFIED)**
 - `EncryptWithLocalTPMPassphrase()` - Encrypts using local TPM NV passphrase
 - `luksifyWithPassphrase()` - Low-level LUKS encryption with explicit passphrase
+- **SECURITY FIX**: Removed passphrase from log messages (only logs length)
 
-**4. kairos-agent/internal/agent/hooks/finish.go (SIMPLIFIED)**
+**4. kairos-sdk/kcrypt/unlock.go (MODIFIED)**
+- **SECURITY FIX**: Removed passphrase from log messages (only logs length)
+
+**5. kairos-agent/internal/agent/hooks/finish.go (SIMPLIFIED - 51 LINES)**
 - Now contains only the `Finish` hook and its `Run()` method
 - Clean, focused orchestration of the finish process
 - Minimal imports (only config and v1 types)
 
-**5. kairos-agent/internal/agent/hooks/encrypt.go (NEW FILE - 564 LINES)**
+**6. kairos-agent/internal/agent/hooks/encrypt.go (NEW FILE - ~350 LINES)**
 - Contains all encryption logic extracted from finish.go
 - Unified `Encrypt()` method replaces separate UKI/non-UKI paths
 - Uses `kcrypt.GetEncryptor()` to get appropriate encryptor
-- Calls `encryptor.Encrypt()` for each partition
-- Calls `encryptor.Unlock()` for decryption (no more manual type detection)
+- Calls `encryptor.Encrypt()` for all partitions
+- Calls `encryptor.Unlock()` for decryption
 
-- Extracted helper methods from old code:
+- Extracted helper methods:
   - `determinePartitionsToEncrypt()` - Respects user config, defaults by mode
   - `preparePartitionsForEncryption()` - Finds devices, unmounts partitions
-  - `backupOEMIfNeeded()` - Backs up OEM BEFORE unmounting (improved timing)
-  - `restoreOEMIfNeeded()` - Restores OEM after encryption
-  - `copyCloudConfigToOEM()` - Copies cloud-config before encryption (NEW)
-  - `udevAdmSettle()` - Settles udev for partition devices (MOVED from finish.go)
+  - `backupOEMIfNeeded()` - Backs up OEM before unmounting
+  - `restoreOEMIfNeeded()` - Restores OEM after encryption (with udev settle)
+  - `copyCloudConfigToOEM()` - Copies cloud-config before encryption
+  - `udevAdmSettle()` - Settles udev for partition devices
 
 - Legacy methods kept for backward compatibility:
   - `EncryptNonUKI()` - Old non-UKI encryption path
   - `EncryptUKI()` - Old UKI encryption path
 
-- Code quality improvements:
-  - Removed custom `containsString()`, using `slices.Contains()`
-  - Removed redundant function parameters
-  - Config scanning centralized in `GetEncryptor()`
-  - Cloud-config copying happens BEFORE encryption (preserved in OEM backup)
-  - udevadm settle now settles actual partition devices (not hardcoded /dev/vda2)
+**7. kairos-agent/internal/agent/hooks/hook.go (MODIFIED)**
+- **Fixed `lockPartitions()`**: Now uses `dmsetup ls --target crypt` to find active mapper devices
+- Properly closes encrypted devices with `cryptsetup close {mapper_name}`
 
-**6. kairos-agent/go.mod (MODIFIED)**
+**8. kairos-agent/go.mod (MODIFIED)**
 - Added `replace github.com/kairos-io/kairos-sdk => ../kairos-sdk` for local development
 
 #### Decision Logic (Implemented in GetEncryptor):
 ```
 1. If kcrypt config has challenger_server OR mdns configured
    → RemoteKMSEncryptor (both UKI & non-UKI)
-   
+
 2. Else if UKI mode
    → TPMWithPCREncryptor (validates systemd ≥ 252, TPM 2.0)
-   
+
 3. Else (non-UKI, no remote KMS)
    → LocalTPMNVEncryptor (validates TPM 2.0)
 ```
+
+#### Critical Fixes Applied (2025-10-24):
+
+**1. Challenger Server Configuration Was Ignored** ✅
+- **Issue**: `GetEncryptor` was called after OEM partition was unmounted, so kcrypt config wasn't found
+- **Fix**: Moved `GetEncryptor` call to step 1.5 (before unmounting partitions)
+- **File**: `internal/agent/hooks/encrypt.go` lines 34-41
+
+**2. OEM Restore Failed After Encryption** ✅
+- **Issue**: After unlock, `blkid -L COS_OEM` returned LUKS container instead of mapper device
+- **Fix**: Use `dmsetup ls` to verify mapper exists, then construct mapper path
+- **Fix**: Added `udevAdmSettle()` call before mounting to wait for device node creation
+- **File**: `internal/agent/hooks/encrypt.go` lines 210-280
+
+**3. Passphrase Logging Security Issue** ✅
+- **Issue**: Passphrases were logged in plaintext during encryption and decryption
+- **Fix**: Removed passphrase from logs, only log length for debugging
+- **Files**:
+  - `kairos-sdk/kcrypt/lock.go` lines 213-217
+  - `kairos-sdk/kcrypt/unlock.go` lines 123-126
+
+**4. Partition Locking Failed** ✅
+- **Issue**: `lockPartitions` tried to close devices by label path, which doesn't work for mapper devices
+- **Fix**: Use `dmsetup ls --target crypt` to find active mappers, close by mapper name
+- **File**: `internal/agent/hooks/hook.go` lines 63-93
 
 #### Architecture Benefits Achieved:
 ✅ **Single Responsibility**: Each encryptor handles both encryption AND decryption
@@ -91,13 +113,17 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
 ✅ **Reusable**: Other projects (immucore) can use the same interface
 ✅ **Testable**: Each encryptor can be unit tested independently
 ✅ **Maintainable**: Clear separation of concerns, no type detection in agent code
+✅ **Secure**: No sensitive data logged
+✅ **Reliable**: Proper device mapper handling with udev settle
 
 #### Files Changed:
 - ✅ `kairos-sdk/kcrypt/encryptor.go` (NEW)
 - ✅ `kairos-sdk/kcrypt/tpm_passphrase.go` (NEW)
-- ✅ `kairos-sdk/kcrypt/lock.go` (MODIFIED)
-- ✅ `kairos-agent/internal/agent/hooks/encrypt.go` (NEW - 564 lines)
+- ✅ `kairos-sdk/kcrypt/lock.go` (MODIFIED - security fix)
+- ✅ `kairos-sdk/kcrypt/unlock.go` (MODIFIED - security fix)
+- ✅ `kairos-agent/internal/agent/hooks/encrypt.go` (NEW - ~350 lines)
 - ✅ `kairos-agent/internal/agent/hooks/finish.go` (SIMPLIFIED - 51 lines)
+- ✅ `kairos-agent/internal/agent/hooks/hook.go` (MODIFIED - lockPartitions fix)
 - ✅ `kairos-agent/go.mod` (MODIFIED)
 
 #### Remaining Work:
@@ -105,43 +131,26 @@ We implemented a cleaner architecture using the **Strategy Pattern** with a `Par
   - Files: `cmd/discovery/client/client.go`, `cmd/discovery/client/enc.go`
   - Remove `localPass()` function and local passphrase fallback
   - Keep only remote KMS attestation logic
-  
+
 - ⏳ **Testing**: End-to-end testing of all three encryption methods
-  - Remote KMS encryption + unlock
-  - TPM+PCR encryption + unlock (UKI)
-  - Local TPM NV encryption + unlock (non-UKI)
-  
+  - ✅ Remote KMS encryption + unlock (TESTED - working)
+  - ⏳ TPM+PCR encryption + unlock (UKI)
+  - ⏳ Local TPM NV encryption + unlock (non-UKI)
+
 - ⏳ **immucore integration** (OPTIONAL): Update to use new PartitionEncryptor interface
 
-#### Recent Improvements (2025-10-24):
-- **File Organization**: Encryption logic moved to dedicated `encrypt.go` file (564 lines)
-  - `finish.go` simplified to 51 lines (down from ~600 lines)
-  - Better separation of concerns
-  - Easier to maintain and navigate
-  
-- **Cloud-Config Handling**: 
-  - Extracted to `copyCloudConfigToOEM()` function
-  - Now happens BEFORE encryption (preserved in OEM backup automatically)
-  - Removed redundant mount/unmount logic after encryption
-  
-- **udevadm Settle Improvements**:
-  - Moved inside `Encrypt()` method
-  - Now settles actual partition devices being encrypted
-  - Removed hardcoded `/dev/vda2` reference
-  - Happens after determining which partitions to encrypt
-  
-- **Simplified Encryption Check**:
-  - Removed redundant condition checking in `Finish.Run()`
-  - Now just calls `Encrypt()` which handles the check internally
-  - Returns early if no partitions to encrypt
+- ⏳ **Cloud-init path bug**: Fix `mkdir` on file paths in `pkg/utils/runstage.go:83`
+  - Issue: Code tries to mkdir file paths like `/tmp/kairos-install-config-xxx.yaml`
+  - Should skip files or only mkdir parent directory
 
-#### Notes for Next Session:
-- All code compiles successfully
-- The interface-based approach is cleaner than the original plan's function-based approach
-- Config scanning happens once in GetEncryptor, avoiding redundant filesystem/cmdline scans
-- Each encryptor knows how to unlock itself (no need for caller to detect encryption type)
-- Encryption logic is now well-organized in dedicated file
-- Remove `replace` directive from go.mod before merging to production
+#### Production Readiness:
+- ✅ All code compiles successfully
+- ✅ Challenger-based encryption works reliably
+- ✅ OEM backup/restore works correctly
+- ✅ Encrypted devices properly locked after installation
+- ✅ No security issues (passphrases not logged)
+- ⚠️ Remove `replace` directive from go.mod before merging to production
+- ⚠️ Need comprehensive testing of all three encryption methods
 
 ---
 
@@ -168,7 +177,7 @@ Analysis of the codebase reveals that:
 1. **kcrypt-challenger plugin** → Only for remote KMS (server-based attestation)
    - Implements TPM attestation protocol with remote server
    - Returns passphrase from remote KMS
-   
+
 2. **kairos-sdk** → All local encryption methods
    - Local with PCR policy (systemd-cryptenroll) - current UKI
    - Local with TPM NV storage (tpm-helpers) - current non-UKI local
@@ -354,14 +363,14 @@ The actual LUKS encryption is always performed by `kairos-sdk/kcrypt` using `cry
    - Password is wiped after TPM enrollment
 
 2. **Two distinct unlock models:**
-   
+
    **Model A: Passphrase-based (current non-UKI)**
    - Plugin provides passphrase (from remote KMS OR local TPM-NV storage)
    - kairos-sdk encrypts with that passphrase
    - Passphrase persists in LUKS keyslot
    - **Unlock:** Retrieve same passphrase again, feed to `cryptsetup luksOpen`
    - Can unlock via passphrase OR via plugin
-   
+
    **Model B: TPM Policy-based (current UKI)**
    - **Encryption:** Ephemeral random password used to create LUKS
    - `systemd-cryptenroll` stores TPM2 policy in LUKS keyslot (not a password!)
@@ -397,18 +406,18 @@ All encryption flows need a passphrase at some point. The rest of the encryption
 **Changes to kairos-sdk/kcrypt:**
 
 1. **Create unified passphrase acquisition function:**
-   
+
    **Location:** `kairos-sdk/kcrypt/passphrase.go` (new file)
-   
+
    ```go
    type PassphraseSource string
-   
+
    const (
        PassphraseSourceRemote    PassphraseSource = "remote"     // From KMS via plugin
        PassphraseSourceLocalTPM  PassphraseSource = "local_tpm"  // From TPM NV memory
        PassphraseSourceEphemeral PassphraseSource = "ephemeral"  // Generated, to be discarded
    )
-   
+
    // GetPassphrase returns a passphrase for encryption based on config
    func GetPassphrase(
        partition *block.Partition,
@@ -421,18 +430,18 @@ All encryption flows need a passphrase at some point. The rest of the encryption
            // Call kcrypt-challenger plugin
            pass, err := getPasswordFromPlugin(partition, kcryptConfig)
            return pass, true, err  // Keep keyslot for remote KMS
-           
+
        case PassphraseSourceLocalTPM:
            // Read/generate from TPM NV memory
            pass, err := getLocalTPMPassphrase(kcryptConfig)
            return pass, true, err  // Keep keyslot for local TPM
-           
+
        case PassphraseSourceEphemeral:
            // Generate random passphrase
            return getRandomString(32), false, nil  // Don't keep keyslot
        }
    }
-   
+
    // Helper: Get passphrase from local TPM NV memory
    func getLocalTPMPassphrase(config *bus.DiscoveryPasswordPayload) (string, error) {
        // Move logic from kcrypt-challenger/cmd/discovery/client/enc.go::localPass()
@@ -441,9 +450,9 @@ All encryption flows need a passphrase at some point. The rest of the encryption
    ```
 
 2. **Refactor encryption function to use unified passphrase acquisition:**
-   
+
    **Location:** `kairos-sdk/kcrypt/lock.go`
-   
+
    ```go
    // Encrypt creates an encrypted LUKS partition
    // If bindPCRs is provided, also enrolls TPM PCR policy
@@ -457,36 +466,36 @@ All encryption flows need a passphrase at some point. The rest of the encryption
    ) error {
        // 1. Find partition
        part, b, err := findPartition(label)
-       
+
        // 2. Get passphrase based on source
        passphrase, keepKeyslot, err := GetPassphrase(b, kcryptConfig, passphraseSource, logger)
-       
+
        // 3. Create LUKS with passphrase
        device := fmt.Sprintf("/dev/%s", part)
        err = createLuks(device, passphrase, ...)
-       
+
        // 4. If PCR binding requested, enroll TPM policy
        if len(bindPCRs) > 0 || len(bindPublicPCRs) > 0 {
            err = enrollPCRPolicy(device, passphrase, bindPublicPCRs, bindPCRs, logger)
        }
-       
+
        // 5. Format partition
        err = formatLuks(device, b.Name, mapper, label, passphrase, logger)
-       
+
        // 6. If ephemeral passphrase, wipe password keyslot
        if !keepKeyslot {
            err = wipePasswordKeyslot(device)
        }
-       
+
        return nil
    }
    ```
 
 3. **kairos-agent decides passphrase source:**
-   
+
    ```go
    // In kairos-agent/internal/agent/hooks/finish.go
-   
+
    func encryptPartition(partition string, c config.Config, isUKI bool) error {
        // Determine passphrase source
        var source kcrypt.PassphraseSource
@@ -497,14 +506,14 @@ All encryption flows need a passphrase at some point. The rest of the encryption
        } else {
            source = kcrypt.PassphraseSourceLocalTPM
        }
-       
+
        // Determine PCR binding
        var bindPCRs, bindPublicPCRs []string
        if isUKI {
            bindPCRs = c.BindPCRs
            bindPublicPCRs = c.BindPublicPCRs
        }
-       
+
        // Single encryption call!
        return kcrypt.Encrypt(partition, c.KcryptConfig, source, bindPublicPCRs, bindPCRs, c.Logger)
    }
@@ -756,21 +765,21 @@ This phase consolidates ALL encryption logic into the kcrypt-challenger plugin.
 ```go
 type DiscoveryPasswordPayload struct {
     Partition *block.Partition `json:"partition"`
-    
+
     // Remote KMS configuration
     ChallengerServer string `json:"challenger_server,omitempty"`
     MDNS             bool   `json:"mdns,omitempty"`
     Certificate      string `json:"certificate,omitempty"`
-    
+
     // Local TPM configuration (NV memory method)
     NVIndex          string `json:"nv_index,omitempty"`
     CIndex           string `json:"c_index,omitempty"`
     TPMDevice        string `json:"tpm_device,omitempty"`
-    
+
     // PCR binding configuration (systemd-cryptenroll method)
     BindPCRs         []string `json:"bind_pcrs,omitempty"`
     BindPublicPCRs   []string `json:"bind_public_pcrs,omitempty"`
-    
+
     // Encryption mode selection
     // If ChallengerServer is set: use remote KMS
     // Else if BindPCRs/BindPublicPCRs set: use systemd-cryptenroll
@@ -803,7 +812,7 @@ func (c *Client) EncryptPartition(payload *bus.DiscoveryPasswordPayload) error {
     // 1. If ChallengerServer set -> use remote KMS for passphrase
     // 2. Else if BindPCRs set -> use systemd-cryptenroll with PCR binding
     // 3. Else -> use local TPM NV memory
-    
+
     if payload.ChallengerServer != "" {
         return c.encryptWithRemoteKMS(payload)
     } else if len(payload.BindPCRs) > 0 || len(payload.BindPublicPCRs) > 0 {
@@ -825,7 +834,7 @@ func (c *Client) encryptWithRemoteKMS(payload *bus.DiscoveryPasswordPayload) err
     if err != nil {
         return err
     }
-    
+
     // Call kairos-sdk to do the actual LUKS encryption
     return kcrypt.EncryptWithPassphrase(payload.Partition.FilesystemLabel, passphrase, c.Logger)
 }
@@ -835,14 +844,14 @@ func (c *Client) encryptWithRemoteKMS(payload *bus.DiscoveryPasswordPayload) err
 func (c *Client) encryptWithSystemdPolicy(payload *bus.DiscoveryPasswordPayload) error {
     // This replicates the logic from luksifyMeasurements()
     // See kairos-sdk/kcrypt/lock.go:198-277
-    
+
     // 1. Find partition
     // 2. Generate random ephemeral password
     // 3. Create LUKS with password
     // 4. Enroll TPM2 policy with systemd-cryptenroll
     // 5. Format partition
     // 6. Wipe password slot
-    
+
     return kcrypt.EncryptWithPcrs(
         payload.Partition.FilesystemLabel,
         payload.BindPublicPCRs,
@@ -858,7 +867,7 @@ func (c *Client) encryptWithLocalTPM(payload *bus.DiscoveryPasswordPayload) erro
     if err != nil {
         return err
     }
-    
+
     // Call kairos-sdk to do the actual LUKS encryption
     return kcrypt.EncryptWithPassphrase(payload.Partition.FilesystemLabel, passphrase, c.Logger)
 }
@@ -874,29 +883,29 @@ func (c *Client) encryptWithLocalTPM(payload *bus.DiscoveryPasswordPayload) erro
 func EncryptWithPassphrase(label string, passphrase string, logger types.KairosLogger, argsCreate ...string) error {
     // This is basically luksifyWithConfig but with passphrase already provided
     // Extracts the common LUKS creation logic
-    
+
     part, b, err := findPartition(label)
     if err != nil {
         return err
     }
-    
+
     device := fmt.Sprintf("/dev/%s", part)
     mapper := fmt.Sprintf("/dev/mapper/%s", b.Name)
-    
+
     // Unmount if needed
     if err := unmountIfMounted(device, logger); err != nil {
         return err
     }
-    
+
     // Create LUKS
     extraArgs := []string{"--uuid", uuid.NewV5(uuid.NamespaceURL, label).String()}
     extraArgs = append(extraArgs, "--label", label)
     extraArgs = append(extraArgs, argsCreate...)
-    
+
     if err := createLuks(device, passphrase, extraArgs...); err != nil {
         return err
     }
-    
+
     // Format and close
     return formatLuks(device, b.Name, mapper, label, passphrase, logger)
 }
@@ -1063,22 +1072,22 @@ With Phase 0 completed, kairos-agent no longer needs strategy classes. It just n
 // encryptViaPlugin encrypts a single partition by delegating to kcrypt-challenger plugin
 func encryptViaPlugin(c config.Config, partition string, kcryptConfig *kcrypt.DiscoveryPasswordPayload) error {
     c.Logger.Logger.Info().Str("partition", partition).Msg("Encrypting partition via plugin")
-    
+
     // Build payload with all available configuration
     payload := kcryptConfig
     if payload == nil {
         payload = &kcrypt.DiscoveryPasswordPayload{}
     }
-    
+
     // Add partition info (will be resolved by plugin)
     // We pass the label, plugin will find the actual partition
-    
+
     // Add PCR config if in UKI mode
     if internalutils.IsUki() {
         payload.BindPCRs = c.BindPCRs
         payload.BindPublicPCRs = c.BindPublicPCRs
     }
-    
+
     // Marshal payload and call plugin via bus
     // The plugin will decide: remote KMS vs local PCR vs local TPM-NV
     _, err := kcrypt.EncryptWithConfig(partition, c.Logger, payload)
@@ -1103,28 +1112,28 @@ func encryptPartitions(c config.Config, isUKI bool) error {
     if len(partitions) == 0 {
         return nil
     }
-    
+
     // 2. Select encryption strategy
     strategy, err := selectEncryptionStrategy(c, isUKI)
     if err != nil {
         return fmt.Errorf("failed to select encryption strategy: %w", err)
     }
-    
+
     c.Logger.Logger.Info().
         Str("strategy", fmt.Sprintf("%T", strategy)).
         Strs("partitions", partitions).
         Msg("Starting partition encryption")
-    
+
     // 3. Validate strategy can be used
     if err := strategy.Validate(c); err != nil {
         return fmt.Errorf("encryption strategy validation failed: %w", err)
     }
-    
+
     // 4. Check if OEM needs backup
     needsOEMBackup := containsString(partitions, constants.OEMLabel)
     var oemBackupPath string
     var cleanupBackup func()
-    
+
     if needsOEMBackup {
         oemBackupPath, cleanupBackup, err = backupOEMPartition(c, constants.OEMLabel)
         if err != nil {
@@ -1132,12 +1141,12 @@ func encryptPartitions(c config.Config, isUKI bool) error {
         }
         defer cleanupBackup()
     }
-    
+
     // 5. Unmount partitions
     if err := preparePartitionsForEncryption(c, partitions); err != nil {
         return fmt.Errorf("failed to prepare partitions: %w", err)
     }
-    
+
     // 6. Encrypt each partition
     for _, partition := range partitions {
         c.Logger.Logger.Info().Str("partition", partition).Msg("Encrypting partition")
@@ -1146,24 +1155,24 @@ func encryptPartitions(c config.Config, isUKI bool) error {
         }
         c.Logger.Logger.Info().Str("partition", partition).Msg("Successfully encrypted")
     }
-    
+
     // 7. Unlock partitions
     if err := unlockEncryptedPartitions(c, strategy.RequiresTPM(), strategy.GetKcryptConfig()); err != nil {
         return fmt.Errorf("failed to unlock partitions: %w", err)
     }
-    
+
     // 8. Wait for partitions to appear
     if err := waitForUnlockedPartitions(c, partitions); err != nil {
         return fmt.Errorf("failed waiting for unlocked partitions: %w", err)
     }
-    
+
     // 9. Restore OEM if needed
     if needsOEMBackup {
         if err := restoreOEMPartition(c, constants.OEMLabel, oemBackupPath); err != nil {
             return fmt.Errorf("failed to restore OEM: %w", err)
         }
     }
-    
+
     return nil
 }
 ```
@@ -1317,17 +1326,17 @@ bind-public-pcrs: ["11"]
 **Changes:**
 1. **kairos-sdk/kcrypt/bus/payload.go**
    - Add PCR fields to `DiscoveryPasswordPayload`
-   
+
 2. **kairos-sdk/kcrypt/bus/bus.go**
    - Add `EventEncryptPartition` event type
-   
+
 3. **kairos-sdk/kcrypt/lock.go**
    - Add `EncryptWithPassphrase()` helper function
-   
+
 4. **kcrypt-challenger/cmd/discovery/client/client.go**
    - Add `EncryptPartition()` method
    - Handle new event type
-   
+
 5. **kcrypt-challenger/cmd/discovery/client/encrypt.go** (NEW FILE)
    - `encryptWithRemoteKMS()`
    - `encryptWithSystemdPolicy()`
@@ -1508,17 +1517,17 @@ func (c *Client) encryptWithSystemdPolicy(payload *bus.DiscoveryPasswordPayload)
 ```go
 func (c *Client) EncryptPartition(payload *bus.DiscoveryPasswordPayload) error {
     // Priority order:
-    
+
     // 1. Remote KMS if configured (highest priority)
     if payload.ChallengerServer != "" || payload.MDNS {
         return c.encryptWithRemoteKMS(payload)
     }
-    
+
     // 2. PCR binding if requested (UKI mode)
     if len(payload.BindPCRs) > 0 || len(payload.BindPublicPCRs) > 0 {
         return c.encryptWithSystemdPolicy(payload)
     }
-    
+
     // 3. Default to local TPM NV
     return c.encryptWithLocalTPM(payload)
 }
