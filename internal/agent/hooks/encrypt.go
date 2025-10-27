@@ -219,8 +219,10 @@ func findMapperDeviceForPartition(c config.Config, label string) (string, error)
 	partitionPath = strings.TrimSpace(partitionPath)
 	c.Logger.Logger.Debug().Str("partition", partitionPath).Str("label", label).Msg("Found encrypted partition")
 
-	// Extract the base device name (e.g., "vda2" from "/dev/vda2")
-	baseName := strings.TrimPrefix(partitionPath, "/dev/")
+	// Extract the base device name (e.g., "vda2" from "/dev/vda2" or "/dev/mapper/vda2")
+	// After encryption, blkid might return the mapper device instead of the underlying device
+	baseName := strings.TrimPrefix(partitionPath, "/dev/mapper/")
+	baseName = strings.TrimPrefix(baseName, "/dev/")
 	mapperPath := fmt.Sprintf("/dev/mapper/%s", baseName)
 
 	// Get list of active encrypted mapper devices to verify it's unlocked
@@ -229,7 +231,12 @@ func findMapperDeviceForPartition(c config.Config, label string) (string, error)
 		return "", fmt.Errorf("failed to list dm-crypt devices: %w", err)
 	}
 
-	c.Logger.Logger.Debug().Str("dmsetup_output", strings.TrimSpace(dmOutput)).Msg("Active dm-crypt devices")
+	c.Logger.Logger.Info().
+		Str("dmsetup_output", strings.TrimSpace(dmOutput)).
+		Str("looking_for", baseName).
+		Str("partition_path", partitionPath).
+		Str("label", label).
+		Msg("Checking dmsetup for mapper device")
 
 	// Check if our mapper device is in the list of active devices
 	mapperExists := false
@@ -245,6 +252,13 @@ func findMapperDeviceForPartition(c config.Config, label string) (string, error)
 			continue
 		}
 		mapperName := fields[0]
+
+		c.Logger.Logger.Info().
+			Str("line", line).
+			Str("mapper_name", mapperName).
+			Str("looking_for", baseName).
+			Bool("matches", mapperName == baseName).
+			Msg("Comparing mapper names")
 
 		if mapperName == baseName {
 			mapperExists = true

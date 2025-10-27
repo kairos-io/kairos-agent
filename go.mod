@@ -235,4 +235,7 @@ require (
 	pault.ag/go/topsort v0.1.1 // indirect
 )
 
-replace github.com/kairos-io/kairos-sdk => ../kairos-sdk
+replace (
+	github.com/kairos-io/kairos-sdk => ../kairos-sdk
+	github.com/kairos-io/tpm-helpers => /home/dimitris/workspace/kairos/tpm-helpers
+)
