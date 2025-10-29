@@ -867,4 +867,33 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		Expect(sizeAfter).ToNot(BeZero())
 		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
 	})
+
+	It("calculates size for ocifile sources with 2x multiplier", func() {
+		// Create a test OCI tar file
+		ociTarFile := filepath.Join(tempDir, "test-image.tar")
+		err := createFileOfSizeInMB(ociTarFile, 100) // 100MB tar file
+		Expect(err).To(BeNil())
+
+		// Create ocifile source
+		ociSource := v1.NewOCIFileSrc(ociTarFile)
+
+		// Calculate size
+		size, err := config.GetSourceSize(conf, ociSource)
+		Expect(err).To(BeNil())
+		Expect(size).ToNot(BeZero())
+
+		// Expected: (100MB * 2.0 multiplier) + 100MB normalization = 300MB
+		expectedSize := int64((100 * 2.0) + 100)
+		Expect(size).To(Equal(expectedSize))
+	})
+
+	It("handles missing ocifile gracefully", func() {
+		// Create ocifile source pointing to non-existent file
+		ociSource := v1.NewOCIFileSrc("/non/existent/file.tar")
+
+		// Should return error
+		size, err := config.GetSourceSize(conf, ociSource)
+		Expect(err).ToNot(BeNil())
+		Expect(size).To(Equal(int64(0)))
+	})
 })
