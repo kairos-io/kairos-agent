@@ -230,13 +230,37 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(kairosBorder).
-		Background(kairosBg).
-		Padding(1).
-		Width(mainModel.width - 4).
-		Height(mainModel.height - 4)
+	var borderStyle lipgloss.Style
+	var borderCustomStyle lipgloss.Border
+	switch border {
+	case "ascii":
+		borderCustomStyle = lipgloss.ASCIIBorder()
+	case "rounded":
+		borderCustomStyle = lipgloss.RoundedBorder()
+	case "double":
+		borderCustomStyle = lipgloss.DoubleBorder()
+	case "thick":
+		borderCustomStyle = lipgloss.ThickBorder()
+	default:
+		borderCustomStyle = lipgloss.NormalBorder()
+	}
+
+	// Check if its disabled
+	if border == "none" || border == "disabled" || border == "off" || border == "false" {
+		borderStyle = lipgloss.NewStyle().
+			Background(kairosBg).
+			Padding(2).
+			Width(mainModel.width).
+			Height(mainModel.height)
+	} else {
+		borderStyle = lipgloss.NewStyle().
+			Border(borderCustomStyle).
+			BorderForeground(kairosBorder, kairosBorder, kairosBorder, kairosBorder).
+			Background(kairosBg).
+			Padding(1).
+			Width(mainModel.width - 4).
+			Height(mainModel.height - 4)
+	}
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).

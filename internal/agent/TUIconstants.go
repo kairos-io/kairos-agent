@@ -17,7 +17,8 @@ var (
 	kairosAccent     = lipgloss.Color("#ee5007") // Accent orange
 	kairosBorder     = lipgloss.Color("#e56a44") // Use highlight for border
 	kairosText       = lipgloss.Color("#ffffff") // White text for contrast
-	checkMark        = "✓"
+	checkMark        = "\u2713"
+	border           = "normal"
 )
 
 func init() {
@@ -31,6 +32,7 @@ func init() {
 		kairosAccent = lipgloss.Color("5")     // Magenta (or "13" if brighter is OK)
 		kairosBorder = lipgloss.Color("9")     // Bright Red (matches highlight)
 		checkMark = "*"                        // Use a check mark that works in most terminals
+		border = "ascii"
 	}
 	// Check to see if there is a custom color scheme defined in a file
 	brandingFile := kairos.BrandingFile("interactive_install_colors")
@@ -57,6 +59,9 @@ func init() {
 			}
 			if v, ok := f["CHECK_MARK"]; ok {
 				checkMark = v
+			}
+			if v, ok := f["BORDER_STYLE"]; ok {
+				border = v
 			}
 		}
 	}
