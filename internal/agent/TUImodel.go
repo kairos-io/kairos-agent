@@ -230,9 +230,23 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
+	var borderCustomStyle lipgloss.Border
+	switch border {
+	case "ascii":
+		borderCustomStyle = lipgloss.ASCIIBorder()
+	case "rounded":
+		borderCustomStyle = lipgloss.RoundedBorder()
+	case "double":
+		borderCustomStyle = lipgloss.DoubleBorder()
+	case "thick":
+		borderCustomStyle = lipgloss.ThickBorder()
+	default:
+		borderCustomStyle = lipgloss.NormalBorder()
+	}
+
 	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(kairosBorder).
+		Border(borderCustomStyle).
+		BorderForeground(kairosBorder, kairosBorder, kairosBorder, kairosBorder).
 		Background(kairosBg).
 		Padding(1).
 		Width(mainModel.width - 4).
