@@ -2,9 +2,11 @@ package agent
 
 import (
 	"fmt"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,28 +43,30 @@ func (p *summaryPage) View() string {
 	s := "Installation Summary\n\n"
 	s += "Selected Disk: " + mainModel.disk + "\n\n"
 	s += "Action to take when installation is complete: " + mainModel.finishAction + "\n\n"
-	s += "Configuration Summary:\n"
-	if mainModel.username != "" {
-		s += fmt.Sprintf("  - Username: %s\n", mainModel.username)
-	} else {
-		s += "  - " + warningStyle.Render("Username: Not set, login to the system wont be possible") + "\n"
-	}
-	if len(mainModel.sshKeys) > 0 {
-		s += fmt.Sprintf("  - SSH Keys: %s\n", mainModel.sshKeys)
-	} else {
-		s += "  - SSH Keys: Not set\n"
-	}
-
-	if len(mainModel.extraFields) > 0 {
-		s += "\nExtra Options:\n"
-		yamlStr, err := yaml.Marshal(mainModel.extraFields)
-		if err == nil {
-			s += "\n" + string(yamlStr) + "\n"
+	if _, ok := os.Stat(kairos.BrandingFile("interactive_install_advanced_disabled")); ok != nil {
+		s += "Configuration Summary:\n"
+		if mainModel.username != "" {
+			s += fmt.Sprintf("  - Username: %s\n", mainModel.username)
 		} else {
-			s += "    (error displaying extra options)\n"
+			s += "  - " + warningStyle.Render("Username: Not set, login to the system wont be possible") + "\n"
 		}
-	} else {
-		s += "  - Extra Options: Not set\n"
+		if len(mainModel.sshKeys) > 0 {
+			s += fmt.Sprintf("  - SSH Keys: %s\n", mainModel.sshKeys)
+		} else {
+			s += "  - SSH Keys: Not set\n"
+		}
+
+		if len(mainModel.extraFields) > 0 {
+			s += "\nExtra Options:\n"
+			yamlStr, err := yaml.Marshal(mainModel.extraFields)
+			if err == nil {
+				s += "\n" + string(yamlStr) + "\n"
+			} else {
+				s += "    (error displaying extra options)\n"
+			}
+		} else {
+			s += "  - Extra Options: Not set\n"
+		}
 	}
 
 	return s
