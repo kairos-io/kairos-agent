@@ -41,7 +41,7 @@ require (
 	github.com/containerd/containerd v1.7.28
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/google/go-github/v74 v74.0.0
+	github.com/google/go-github/v76 v76.0.0
 	github.com/google/go-github/v76 v76.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.5
 	github.com/urfave/cli/v2 v2.27.7
