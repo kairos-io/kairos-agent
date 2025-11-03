@@ -17,6 +17,7 @@ limitations under the License.
 package elemental
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
@@ -427,7 +428,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 				return nil, err
 			}
 		}
-		err = e.config.ImageExtractor.ExtractImage(imgSrc.Value(), target, e.config.Platform.String())
+		err = e.config.ImageExtractor.ExtractImage(imgSrc.Value(), target, e.config.Platform.String(), excludes...)
 		if err != nil {
 			return nil, err
 		}
@@ -471,7 +472,6 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 
 				// Copy the extracted contents to the target
 				e.config.Logger.Infof("Copying extracted contents to target: %s", target)
-				excludes := []string{}
 				if err := utils.SyncData(e.config.Logger, e.config.Runner, e.config.Fs, tmpDir, target, excludes...); err != nil {
 					e.config.Logger.Errorf("Failed to copy extracted contents: %v", err)
 					return nil, fmt.Errorf("failed to copy extracted contents: %w", err)
@@ -487,9 +487,28 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 			return nil, fmt.Errorf("failed to load image from tar file: %w", err)
 		}
 
+		var options archive.ApplyOpt
+		if len(excludes) > 0 {
+			//Create a Filter option to exclude files during extraction
+			options = archive.WithFilter(func(hdr *tar.Header) (bool, error) {
+				for _, exclude := range excludes {
+					matched, matchErr := filepath.Match(exclude, hdr.Name)
+					if matchErr != nil {
+						e.config.Logger.Errorf("Failed to match exclude pattern %s: %v", exclude, matchErr)
+						return false, matchErr
+					}
+					if matched {
+						e.config.Logger.Infof("Excluding file from extraction: %s", hdr.Name)
+						return false, nil
+					}
+				}
+				return true, nil
+			})
+		}
+
 		// Extract the image contents to the target
 		reader := mutate.Extract(img)
-		_, err = archive.Apply(context.Background(), target, reader)
+		_, err = archive.Apply(context.Background(), target, reader, options)
 		if err != nil {
 			e.config.Logger.Errorf("Failed to extract image contents: %v", err)
 			return nil, fmt.Errorf("failed to extract image contents: %w", err)
