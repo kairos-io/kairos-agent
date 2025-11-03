@@ -13,7 +13,7 @@ require (
 	github.com/jaypipes/ghw v0.20.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.11.0
+	github.com/kairos-io/kairos-sdk v0.11.1-0.20251103125558-734914b4c57b
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
@@ -41,7 +41,6 @@ require (
 	github.com/containerd/containerd v1.7.28
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/google/go-github/v74 v74.0.0
 	github.com/google/go-github/v76 v76.0.0
 	github.com/twpayne/go-vfs/v5 v5.0.5
 	github.com/urfave/cli/v2 v2.27.7
