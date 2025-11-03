@@ -174,31 +174,31 @@ func extractKcryptCmdline(c *config.Config) string {
 	}
 
 	// Extract individual settings and add as cmdline parameters
-	// Using kairos.kcrypt.challenger.* prefix to match the expected config structure
+	// Using kcrypt.challenger.* prefix to match the expected config structure
 
 	if server, ok := challengerMap["challenger_server"].(string); ok && server != "" {
 		// URL encode any special characters in the server URL
-		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kairos.kcrypt.challenger.challenger_server=%s", server))
+		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kcrypt.challenger.challenger_server=%s", server))
 	}
 
 	if mdns, ok := challengerMap["mdns"].(bool); ok && mdns {
-		cmdlineArgs = append(cmdlineArgs, "kairos.kcrypt.challenger.mdns=true")
+		cmdlineArgs = append(cmdlineArgs, "kcrypt.challenger.mdns=true")
 	}
 
 	if cert, ok := challengerMap["certificate"].(string); ok && cert != "" {
-		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kairos.kcrypt.challenger.certificate=%s", cert))
+		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kcrypt.challenger.certificate=%s", cert))
 	}
 
 	if nvIndex, ok := challengerMap["nv_index"].(string); ok && nvIndex != "" {
-		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kairos.kcrypt.challenger.nv_index=%s", nvIndex))
+		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kcrypt.challenger.nv_index=%s", nvIndex))
 	}
 
 	if cIndex, ok := challengerMap["c_index"].(string); ok && cIndex != "" {
-		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kairos.kcrypt.challenger.c_index=%s", cIndex))
+		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kcrypt.challenger.c_index=%s", cIndex))
 	}
 
 	if tpmDevice, ok := challengerMap["tpm_device"].(string); ok && tpmDevice != "" {
-		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kairos.kcrypt.challenger.tpm_device=%s", tpmDevice))
+		cmdlineArgs = append(cmdlineArgs, fmt.Sprintf("kcrypt.challenger.tpm_device=%s", tpmDevice))
 	}
 
 	return strings.Join(cmdlineArgs, " ")
