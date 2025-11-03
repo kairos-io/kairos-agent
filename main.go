@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -63,18 +64,14 @@ var cmds = []*cli.Command{
 		// TODO: Fix the implicit upgrade
 		Name: "upgrade",
 		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:  "force",
-				Usage: "Force an upgrade",
-			},
 			&cli.StringFlag{
 				Name:  "image",
 				Usage: "[DEPRECATED] Specify a full image reference, e.g.: quay.io/some/image:tag",
 			},
 			&sourceFlag,
 			&cli.StringFlag{Name: "boot-entry", Usage: "Specify a systemd-boot entry to upgrade (other than active/passive/recovery). The value should match the name of the '.efi' file."},
-			&cli.BoolFlag{Name: "pre", Usage: "Include pre-releases (rc, beta, alpha)"},
 			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
+			&cli.StringSliceFlag{Name: "exclude-path", Usage: "Paths to exclude from the upgrade process. Can be specified multiple times."},
 		},
 		Description: `
 Manually upgrade a kairos node Active image. Does not upgrade the passive image. It upgrades the recovery image when the --recovery flag is passed.
@@ -181,6 +178,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			}
 
 			return checkRoot()
+			return nil
 		},
 		Action: func(c *cli.Context) error {
 			var source string
@@ -211,9 +209,8 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 				upgradeEntry = c.String("boot-entry")
 			}
 
-			return agent.Upgrade(source, c.Bool("force"),
-				c.Bool("strict-validation"), constants.GetUserConfigDirs(),
-				upgradeEntry, c.Bool("pre"),
+			return agent.Upgrade(source, c.Bool("strict-validation"), constants.GetUserConfigDirs(),
+				upgradeEntry, c.StringSlice("exclude-path")...,
 			)
 		},
 	},
