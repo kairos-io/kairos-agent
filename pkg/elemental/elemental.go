@@ -504,6 +504,11 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 				}
 				return true, nil
 			})
+		} else {
+			// Allow all
+			options = archive.WithFilter(func(_ *tar.Header) (bool, error) {
+				return true, nil
+			})
 		}
 
 		// Extract the image contents to the target
