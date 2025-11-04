@@ -178,7 +178,6 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			}
 
 			return checkRoot()
-			return nil
 		},
 		Action: func(c *cli.Context) error {
 			var source string
