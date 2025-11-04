@@ -204,6 +204,11 @@ func (i InstallAction) Run() (err error) {
 	// Create extra dirs in rootfs as afterwards this will be impossible due to RO system
 	createExtraDirsInRootfs(i.cfg, i.spec.ExtraDirsRootfs, i.spec.Active.MountPoint)
 
+	// Copy cloud-config if any
+	if err = e.CopyCloudConfig(i.spec.CloudInit); err != nil {
+		return err
+	}
+
 	// Install grub
 	grub := utils.NewGrub(i.cfg)
 	err = grub.Install(

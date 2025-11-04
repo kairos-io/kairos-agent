@@ -12,12 +12,6 @@ type Finish struct{}
 func (k Finish) Run(c config.Config, spec v1.Spec) error {
 	var err error
 
-	// Copy cloud-config to OEM before encryption
-	// The encryption process will backup and restore OEM, preserving the cloud-config
-	if err := copyCloudConfigToOEM(c); err != nil {
-		return err
-	}
-
 	// Run encryption (handles both UKI and non-UKI, returns early if nothing to encrypt)
 	err = Encrypt(c)
 	defer lockPartitions(c.Logger) // partitions are unlocked, make sure to lock them before we end
