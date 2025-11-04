@@ -489,18 +489,17 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 
 		var options archive.ApplyOpt
 		if len(excludes) > 0 {
+			// Create a map to hold exclude patterns for faster lookup
+			excludeMap := make(map[string]struct{})
+			for _, exclude := range excludes {
+				excludeMap[exclude] = struct{}{}
+			}
+
 			//Create a Filter option to exclude files during extraction
 			options = archive.WithFilter(func(hdr *tar.Header) (bool, error) {
-				for _, exclude := range excludes {
-					matched, matchErr := filepath.Match(exclude, hdr.Name)
-					if matchErr != nil {
-						e.config.Logger.Errorf("Failed to match exclude pattern %s: %v", exclude, matchErr)
-						return false, matchErr
-					}
-					if matched {
-						e.config.Logger.Infof("Excluding file from extraction: %s", hdr.Name)
-						return false, nil
-					}
+				if _, found := excludeMap[hdr.Name]; found {
+					e.config.Logger.Infof("Excluding file from extraction: %s", hdr.Name)
+					return false, nil
 				}
 				return true, nil
 			})
