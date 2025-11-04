@@ -487,6 +487,9 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 			return nil, fmt.Errorf("failed to load image from tar file: %w", err)
 		}
 
+		// Extract the image contents to the target
+		reader := mutate.Extract(img)
+
 		var options archive.ApplyOpt
 		if len(excludes) > 0 {
 			// Create a map to hold exclude patterns for faster lookup
@@ -495,7 +498,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 				excludeMap[exclude] = struct{}{}
 			}
 
-			//Create a Filter option to exclude files during extraction
+			// Create a Filter option to exclude files during extraction
 			options = archive.WithFilter(func(hdr *tar.Header) (bool, error) {
 				if _, found := excludeMap[hdr.Name]; found {
 					e.config.Logger.Infof("Excluding file from extraction: %s", hdr.Name)
@@ -503,16 +506,13 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes .
 				}
 				return true, nil
 			})
+			// Extract with filter
+			_, err = archive.Apply(context.Background(), target, reader, options)
 		} else {
-			// Allow all
-			options = archive.WithFilter(func(_ *tar.Header) (bool, error) {
-				return true, nil
-			})
+			// No filter
+			_, err = archive.Apply(context.Background(), target, reader)
 		}
 
-		// Extract the image contents to the target
-		reader := mutate.Extract(img)
-		_, err = archive.Apply(context.Background(), target, reader, options)
 		if err != nil {
 			e.config.Logger.Errorf("Failed to extract image contents: %v", err)
 			return nil, fmt.Errorf("failed to extract image contents: %w", err)
