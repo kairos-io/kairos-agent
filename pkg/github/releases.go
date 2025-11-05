@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/google/go-github/v76/github"
+	"github.com/google/go-github/v77/github"
 	"golang.org/x/oauth2"
 )
 
