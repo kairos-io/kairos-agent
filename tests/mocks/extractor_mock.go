@@ -49,7 +49,7 @@ func NewFakeImageExtractor(logger sdkTypes.KairosLogger) *FakeImageExtractor {
 	}
 }
 
-func (f *FakeImageExtractor) ExtractImage(imageRef, destination, platformRef string) error {
+func (f *FakeImageExtractor) ExtractImage(imageRef, destination, platformRef string, excludes ...string) error {
 	f.Logger.Debugf("extracting %s to %s in platform %s", imageRef, destination, platformRef)
 	f.ClientCalls = append(f.ClientCalls, ExtractCall{ImageRef: imageRef, Destination: destination, PlatformRef: platformRef})
 	if f.SideEffect != nil {

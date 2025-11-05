@@ -17,6 +17,7 @@ limitations under the License.
 package elemental
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
@@ -330,22 +331,22 @@ func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
 // DeployImage will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
 // Creates the default system dirs by default (/sys,/proc,/dev, etc...)
-func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool) (info interface{}, err error) {
-	return e.deployImage(img, leaveMounted, true)
+func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool, excludes ...string) (info interface{}, err error) {
+	return e.deployImage(img, leaveMounted, true, excludes...)
 }
 
 // DeployImageNodirs will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
 // Does not create the default system dirs so it can be used to create generic images from any source
-func (e *Elemental) DeployImageNodirs(img *v1.Image, leaveMounted bool) (info interface{}, err error) {
-	return e.deployImage(img, leaveMounted, false)
+func (e *Elemental) DeployImageNodirs(img *v1.Image, leaveMounted bool, excludes ...string) (info interface{}, err error) {
+	return e.deployImage(img, leaveMounted, false, excludes...)
 }
 
 // deployImage is the real function that does the actual work
 // Set leaveMounted to leave the image mounted, otherwise it unmounts before returning
 // Set createDirStructure to create the directory structure in the target, which creates the expected dirs
 // for a running system. This is so we can reuse this method for creating random images, not only system ones
-func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure bool) (info interface{}, err error) {
+func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure bool, excludes ...string) (info interface{}, err error) {
 	target := img.MountPoint
 	if !img.Source.IsFile() {
 		if img.FS != cnst.SquashFs {
@@ -369,7 +370,7 @@ func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure 
 	} else {
 		target = img.File
 	}
-	info, err = e.DumpSource(target, img.Source)
+	info, err = e.DumpSource(target, img.Source, excludes...)
 	if err != nil {
 		_ = e.UnmountImage(img)
 		return nil, err
@@ -412,7 +413,7 @@ func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure 
 }
 
 // DumpSource sets the image data according to the image source type
-func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info interface{}, err error) { // nolint:gocyclo
+func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes ...string) (info interface{}, err error) { // nolint:gocyclo
 	e.config.Logger.Infof("Copying %s source to %s", imgSrc.Value(), target)
 
 	if imgSrc.IsDocker() {
@@ -427,7 +428,7 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 				return nil, err
 			}
 		}
-		err = e.config.ImageExtractor.ExtractImage(imgSrc.Value(), target, e.config.Platform.String())
+		err = e.config.ImageExtractor.ExtractImage(imgSrc.Value(), target, e.config.Platform.String(), excludes...)
 		if err != nil {
 			return nil, err
 		}
@@ -471,7 +472,6 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 
 				// Copy the extracted contents to the target
 				e.config.Logger.Infof("Copying extracted contents to target: %s", target)
-				excludes := []string{}
 				if err := utils.SyncData(e.config.Logger, e.config.Runner, e.config.Fs, tmpDir, target, excludes...); err != nil {
 					e.config.Logger.Errorf("Failed to copy extracted contents: %v", err)
 					return nil, fmt.Errorf("failed to copy extracted contents: %w", err)
@@ -489,14 +489,37 @@ func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource) (info inte
 
 		// Extract the image contents to the target
 		reader := mutate.Extract(img)
-		_, err = archive.Apply(context.Background(), target, reader)
+
+		var options archive.ApplyOpt
+		if len(excludes) > 0 {
+			// Create a map to hold exclude patterns for faster lookup
+			excludeMap := make(map[string]struct{})
+			for _, exclude := range excludes {
+				excludeMap[exclude] = struct{}{}
+			}
+
+			// Create a Filter option to exclude files during extraction
+			options = archive.WithFilter(func(hdr *tar.Header) (bool, error) {
+				if _, found := excludeMap[hdr.Name]; found {
+					e.config.Logger.Infof("Excluding file from extraction: %s", hdr.Name)
+					return false, nil
+				}
+				return true, nil
+			})
+			// Extract with filter
+			_, err = archive.Apply(context.Background(), target, reader, options)
+		} else {
+			// No filter
+			_, err = archive.Apply(context.Background(), target, reader)
+		}
+
 		if err != nil {
 			e.config.Logger.Errorf("Failed to extract image contents: %v", err)
 			return nil, fmt.Errorf("failed to extract image contents: %w", err)
 		}
 	} else if imgSrc.IsDir() {
-		excludes := []string{"/mnt", "/proc", "/sys", "/dev", "/tmp", "/host", "/run"}
-		err = utils.SyncData(e.config.Logger, e.config.Runner, e.config.Fs, imgSrc.Value(), target, excludes...)
+		mergedExcludes := append(excludes, "/mnt", "/proc", "/sys", "/dev", "/tmp", "/host", "/run")
+		err = utils.SyncData(e.config.Logger, e.config.Runner, e.config.Fs, imgSrc.Value(), target, mergedExcludes...)
 		if err != nil {
 			return nil, err
 		}

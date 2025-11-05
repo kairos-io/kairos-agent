@@ -179,6 +179,7 @@ type UpgradeSpec struct {
 	Passive         Image
 	Partitions      ElementalPartitions
 	State           *InstallState
+	ExcludedPaths   []string `yaml:"excluded-paths,omitempty" mapstructure:"excluded-paths"`
 }
 
 func (u *UpgradeSpec) RecoveryUpgrade() bool {

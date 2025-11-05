@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
-	"github.com/mudler/go-pluggable"
-
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -19,6 +17,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-sdk/versioneer"
+	"github.com/mudler/go-pluggable"
 )
 
 func CurrentImage(registry string) (string, error) {
@@ -60,9 +59,8 @@ func ListNewerReleases(includePrereleases bool, registry string) ([]string, erro
 	return tagList.FullImages()
 }
 
-// TODO: Check where force and preReleases is being used? They dont seem to be used anywhere?
 func Upgrade(
-	source string, force, strictValidations bool, dirs []string, upgradeEntry string, preReleases bool) error {
+	source string, strictValidations bool, dirs []string, upgradeEntry string, excludes ...string) error {
 	bus.Manager.Initialize()
 
 	fixedDirs := make([]string, len(dirs))
@@ -77,12 +75,12 @@ func Upgrade(
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
 		return upgradeUki(source, fixedDirs, upgradeEntry, strictValidations)
 	} else {
-		return upgrade(source, fixedDirs, upgradeEntry, strictValidations)
+		return upgrade(source, fixedDirs, upgradeEntry, strictValidations, excludes...)
 	}
 }
 
-func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool) error {
-	c, err := getConfig(sourceImageURL, dirs, upgradeEntry, strictValidations)
+func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, excludes ...string) error {
+	c, err := getConfig(sourceImageURL, dirs, upgradeEntry, strictValidations, excludes...)
 	if err != nil {
 		return err
 	}
@@ -146,8 +144,8 @@ func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, stric
 	return hook.Run(*c, upgradeSpec, hook.FinishUpgrade...)
 }
 
-func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool) (*config.Config, error) {
-	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeEntry)
+func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, excludes ...string) (*config.Config, error) {
+	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeEntry, excludes...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,9 +187,9 @@ func newerReleases(registry string) (versioneer.TagList, error) {
 	return tagList.NewerAnyVersion().RSorted(), nil
 }
 
-// generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery`
+// generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery` and `--excluded-paths`
 // command line arguments. It will be added to the rest of the configurations.
-func generateUpgradeConfForCLIArgs(source, upgradeEntry string) (string, error) {
+func generateUpgradeConfForCLIArgs(source, upgradeEntry string, excludes ...string) (string, error) {
 	upgradeConfig := ExtraConfigUpgrade{}
 
 	upgradeConfig.Upgrade.Entry = upgradeEntry
@@ -205,9 +203,11 @@ func generateUpgradeConfForCLIArgs(source, upgradeEntry string) (string, error) 
 		upgradeConfig.Upgrade.RecoverySystem.Source = source
 		upgradeConfig.Upgrade.System.Source = source
 	}
+	if len(excludes) > 0 {
+		upgradeConfig.Upgrade.ExcludedPaths = excludes
+	}
 
 	d, err := json.Marshal(upgradeConfig)
-
 	return string(d), err
 }
 
@@ -241,5 +241,6 @@ type ExtraConfigUpgrade struct {
 		System struct {
 			Source string `json:"source,omitempty"`
 		} `json:"system,omitempty"`
+		ExcludedPaths []string `json:"excluded-paths,omitempty"`
 	} `json:"upgrade,omitempty"`
 }
