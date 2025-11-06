@@ -46,8 +46,10 @@ func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 	// This solves the chicken-egg problem where kcrypt config is on the encrypted OEM partition
 	// Only works in non-UKI case. For UKI, it's up to the user to add the challenger
 	// server url in the cmdline when creating the signed artifact (cmdline is also signed)
-	// TODO: This whole function will have no effect in UKI. Skip it earlier?
-	if oemEncrypted && !utils.IsUki() {
+	// TODO: There are more things written in the OEM partition to make boot assessment
+	// and next-boot selection work. These are not handled at all right now. We should
+	// fix those before we officially support OEM encryption.
+	if oemEncrypted {
 		c.Logger.Logger.Info().Msg("COS_OEM is encrypted, extracting kcrypt.challenger config to cmdline")
 		kcryptCmdline := extractKcryptCmdline(&c)
 		if kcryptCmdline != "" {

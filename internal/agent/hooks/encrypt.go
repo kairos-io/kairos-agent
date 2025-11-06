@@ -86,7 +86,6 @@ func Encrypt(c config.Config) error {
 // Helper methods for unified encryption flow
 
 // determinePartitionsToEncrypt returns the list of partitions to encrypt based on mode
-// Logic extracted from EncryptNonUKI (line 187) and EncryptUKI (line 331)
 func determinePartitionsToEncrypt(c config.Config) []string {
 	// If user has specified partitions, respect their preference
 	if len(c.Install.Encrypt) > 0 {
@@ -104,7 +103,6 @@ func determinePartitionsToEncrypt(c config.Config) []string {
 }
 
 // preparePartitionsForEncryption unmounts all partitions that will be encrypted
-// Logic extracted from EncryptNonUKI (lines 190-217)
 func preparePartitionsForEncryption(c config.Config, partitions []string) error {
 	for _, p := range partitions {
 		c.Logger.Logger.Info().Str("partition", p).Msg("Preparing to encrypt partition")
@@ -136,7 +134,6 @@ func preparePartitionsForEncryption(c config.Config, partitions []string) error 
 }
 
 // backupOEMIfNeeded backs up the OEM partition contents before encryption
-// Logic extracted from EncryptUKI (lines 309-328)
 func backupOEMIfNeeded(c config.Config) (backupPath string, cleanup func(), err error) {
 	c.Logger.Logger.Info().Msg("Backing up OEM partition before encryption")
 
