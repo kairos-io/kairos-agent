@@ -13,7 +13,7 @@ require (
 	github.com/jaypipes/ghw v0.20.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.12.1
+	github.com/kairos-io/kairos-sdk v0.12.1-0.20251106060709-87c4533e1d90
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
@@ -109,12 +109,18 @@ require (
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/google/certificate-transparency-go v1.1.4 // indirect
+	github.com/google/go-attestation v0.5.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/go-tpm v0.9.6 // indirect
+	github.com/google/go-tpm-tools v0.4.4 // indirect
+	github.com/google/go-tspi v0.3.0 // indirect
 	github.com/google/pprof v0.0.0-20250820193118-f64d9cf942d6 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
@@ -124,6 +130,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jezek/xgb v1.1.0 // indirect
 	github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 // indirect
+	github.com/kairos-io/tpm-helpers v0.0.0-20251103104631-9d4298b86881 // indirect
 	github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 // indirect
 	github.com/kendru/darwin/go/depgraph v0.0.0-20230809052043-4d1c7e9d1767 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
