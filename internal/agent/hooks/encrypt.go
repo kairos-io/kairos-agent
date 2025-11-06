@@ -22,7 +22,6 @@ import (
 func Encrypt(c config.Config) error {
 	c.Logger.Logger.Info().Msg("Starting unified encryption flow")
 
-	// 1. Determine which partitions need encryption
 	partitions := determinePartitionsToEncrypt(c)
 	if len(partitions) == 0 {
 		c.Logger.Logger.Info().Msg("No partitions to encrypt")
@@ -30,7 +29,7 @@ func Encrypt(c config.Config) error {
 	}
 	c.Logger.Logger.Info().Strs("partitions", partitions).Msg("Partitions to encrypt")
 
-	// 1.5. Get the appropriate encryptor based on configuration
+	// Get the appropriate encryptor based on configuration
 	// IMPORTANT: Do this BEFORE unmounting partitions so the encryptor can scan
 	// for kcrypt configuration in /run/cos/oem
 	encryptor, err := kcrypt.GetEncryptor(c.Logger)
@@ -39,22 +38,12 @@ func Encrypt(c config.Config) error {
 	}
 	c.Logger.Logger.Info().Str("method", encryptor.Name()).Msg("Using encryption method")
 
-	// 2. Settle udev for the partitions we're about to encrypt
-	for _, partition := range partitions {
-		// Find the device path for this partition label
-		devPath, err := utils.SH(fmt.Sprintf("blkid -L %s", partition))
-		if err != nil {
-			c.Logger.Logger.Warn().Str("label", partition).Err(err).Msg("Could not find device for label, skipping udevadm settle")
-			continue
-		}
-		devPath = strings.TrimSpace(devPath)
-		c.Logger.Logger.Info().Str("device", devPath).Str("partition", partition).Msg("Settling udev for partition")
-		if err := udevAdmSettle(c.Logger, devPath, 15*time.Second); err != nil {
-			return fmt.Errorf("ERROR settling udev for %s: %w", devPath, err)
-		}
+	c.Logger.Logger.Info().Msg("Settling udev")
+	if err := udevAdmSettle(c.Logger, 15*time.Second); err != nil {
+		return fmt.Errorf("ERROR settling udev: %w", err)
 	}
 
-	// 3. Backup OEM if it's in the list (before unmounting!)
+	// Backup OEM if it's in the list (before unmounting!)
 	var oemBackupPath string
 	var cleanupBackup func()
 	needsOEMBackup := slices.Contains(partitions, constants.OEMLabel)
@@ -67,17 +56,15 @@ func Encrypt(c config.Config) error {
 		defer cleanupBackup()
 	}
 
-	// 4. Prepare partitions (unmount them)
+	// Prepare partitions (unmount them)
 	if err := preparePartitionsForEncryption(c, partitions); err != nil {
 		return fmt.Errorf("failed to prepare partitions: %w", err)
 	}
 
-	// 5. Encrypt all partitions using the encryptor
 	if err := encryptor.Encrypt(partitions); err != nil {
 		return fmt.Errorf("failed to encrypt partitions: %w", err)
 	}
 
-	// 6. Unlock encrypted partitions using the encryptor
 	// The Unlock method will wait for partitions to be ready before returning
 	if err := encryptor.Unlock(partitions); err != nil {
 		// Lock partitions on failure (cleanup)
@@ -85,7 +72,7 @@ func Encrypt(c config.Config) error {
 		return fmt.Errorf("failed to unlock partitions: %w", err)
 	}
 
-	// 7. Restore OEM if needed
+	// Restore OEM if needed
 	if needsOEMBackup {
 		if err := restoreOEM(c, oemBackupPath); err != nil {
 			return fmt.Errorf("failed to restore OEM: %w", err)
@@ -290,11 +277,9 @@ func restoreOEM(c config.Config, backupPath string) error {
 
 	c.Logger.Logger.Info().Str("device", devicePath).Msg("Found unlocked OEM mapper device")
 
-	// Wait for udev to create the device node in /dev/mapper/
-	// dmsetup shows the mapping exists, but udev needs time to create the device node
 	c.Logger.Logger.Info().Str("device", devicePath).Msg("Waiting for udev to create device node")
-	if err := udevAdmSettle(c.Logger, devicePath, 15*time.Second); err != nil {
-		return fmt.Errorf("failed waiting for device node %s: %w", devicePath, err)
+	if err := udevAdmSettle(c.Logger, 15*time.Second); err != nil {
+		return fmt.Errorf("failed settling udev: %w", err)
 	}
 
 	// Create mount point if it doesn't exist
@@ -368,7 +353,7 @@ func restoreOEM(c config.Config, backupPath string) error {
 
 // udevAdmSettle triggers udev events, waits for them to complete,
 // and adds basic debugging / diagnostics around the device state.
-func udevAdmSettle(logger types.KairosLogger, device string, timeout time.Duration) error {
+func udevAdmSettle(logger types.KairosLogger, timeout time.Duration) error {
 	logger.Logger.Info().Msg("Triggering udev events")
 
 	// Trigger subsystems and devices (this replays all udev rules)
@@ -406,20 +391,8 @@ func udevAdmSettle(logger types.KairosLogger, device string, timeout time.Durati
 
 	logger.Logger.Info().Msg("udevadm settle completed successfully")
 
-	// Optional: give the kernel a moment to release device locks.
+	// give the kernel a moment to release device locks.
 	time.Sleep(2 * time.Second)
-
-	// Debug: check if the target device is still busy.
-	if device != "" {
-		logger.Logger.Debug().Str("device", device).Msg("Checking if device is in use")
-		checkCmd := exec.Command("fuser", device)
-		checkOut, checkErr := checkCmd.CombinedOutput()
-		if checkErr == nil && len(checkOut) > 0 {
-			logger.Logger.Warn().Str("device", device).Str("users", string(checkOut)).Msg("Device appears to be in use")
-		} else {
-			logger.Logger.Debug().Str("device", device).Msg("No active users detected for device")
-		}
-	}
 
 	return nil
 }
