@@ -317,40 +317,6 @@ func restoreOEM(c config.Config, backupPath string) error {
 	return nil
 }
 
-// // copyCloudConfigToOEM copies cloud-config files to the OEM partition
-// // This should be called before encryption, as the encryption process will preserve OEM contents
-// func copyCloudConfigToOEM(c config.Config) error {
-// 	c.Logger.Logger.Info().Msg("Copying cloud-config to OEM partition")
-
-// 	// Check if OEM is already mounted
-// 	_, err := utils.SH(fmt.Sprintf("findmnt %s", constants.OEMDir))
-// 	oemAlreadyMounted := (err == nil)
-
-// 	if !oemAlreadyMounted {
-// 		c.Logger.Logger.Info().Msg("Mounting OEM partition")
-// 		err = machine.Mount(constants.OEMLabel, constants.OEMDir)
-// 		if err != nil {
-// 			c.Logger.Logger.Error().Err(err).Msg("Failed to mount OEM for cloud-config copy")
-// 			return fmt.Errorf("failed to mount OEM: %w", err)
-// 		}
-// 		defer func() {
-// 			c.Logger.Logger.Info().Msg("Unmounting OEM after cloud-config copy")
-// 			_ = machine.Umount(constants.OEMDir)
-// 		}()
-// 	} else {
-// 		c.Logger.Logger.Info().Msg("OEM already mounted, skipping mount")
-// 	}
-
-// 	e := elemental.NewElemental(&c)
-// 	err = e.CopyCloudConfig(c.CloudInitPaths)
-// 	if err != nil {
-// 		c.Logger.Logger.Error().Err(err).Msg("Failed to copy cloud-config to OEM")
-// 		return fmt.Errorf("failed to copy cloud-config to OEM: %w", err)
-// 	}
-// 	c.Logger.Logger.Info().Msg("Successfully copied cloud-config to OEM")
-// 	return nil
-// }
-
 // udevAdmSettle triggers udev events, waits for them to complete,
 // and adds basic debugging / diagnostics around the device state.
 func udevAdmSettle(logger types.KairosLogger, timeout time.Duration) error {
