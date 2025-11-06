@@ -254,8 +254,6 @@ github.com/google/go-containerregistry v0.20.6 h1:cvWX87UxxLgaH76b4hIvya6Dzz9qHB
 github.com/google/go-containerregistry v0.20.6/go.mod h1:T0x8MuoAoKX/873bkeSfLD2FAkwCDf9/HZgsFJ02E2Y=
 github.com/google/go-github/v77 v77.0.0 h1:9DsKKbZqil5y/4Z9mNpZDQnpli6PJbqipSuuNdcbjwI=
 github.com/google/go-github/v77 v77.0.0/go.mod h1:c8VmGXRUmaZUqbctUcGEDWYnMrtzZfJhDSylEf1wfmA=
-github.com/google/go-github/v74 v74.0.0 h1:yZcddTUn8DPbj11GxnMrNiAnXH14gNs559AsUpNpPgM=
-github.com/google/go-github/v74 v74.0.0/go.mod h1:ubn/YdyftV80VPSI26nSJvaEsTOnsjrxG3o9kJhcyak=
 github.com/google/go-querystring v1.1.0 h1:AnCroh3fv4ZBgVIf1Iwtovgjaw/GiKJo8M8yD/fhyJ8=
 github.com/google/go-querystring v1.1.0/go.mod h1:Kcdr2DB4koayq7X8pmAG4sNG59So17icRSOU623lUBU=
 github.com/google/go-sev-guest v0.9.3 h1:GOJ+EipURdeWFl/YYdgcCxyPeMgQUWlI056iFkBD8UU=
@@ -321,14 +319,8 @@ github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 h1:G+9t9cEtnC
 github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004/go.mod h1:KmHnJWQrgEvbuy0vcvj00gtMqbvNn1L+3YUZLK/B92c=
 github.com/kairos-io/go-nodepair v0.3.0 h1:JIMBAtbNhIAsx89aP61mQDGMuGFoIQH/woK2tMDYD6k=
 github.com/kairos-io/go-nodepair v0.3.0/go.mod h1:7i905W/KmR9DAcMSVJr/Wdb84E5Yyu9YLgj7chwX1xs=
-github.com/kairos-io/kairos-sdk v0.12.1 h1:gqAvBgXCSvf44VgoM5n+0ezVglcgqgdOhwSo1WbBAnA=
-github.com/kairos-io/kairos-sdk v0.12.1/go.mod h1:IA8+4pheh0sCcfev6jjGOXTJ/AZ3pPJz2xeanD9pjFI=
-github.com/kairos-io/kairos-sdk v0.11.1-0.20251008090749-88add6dd1d85 h1:WH9WA6DwuYwlCi4mMrRbt/S7EWcefVHbwlUj0uMrSEU=
-github.com/kairos-io/kairos-sdk v0.11.1-0.20251008090749-88add6dd1d85/go.mod h1:pBFunQyiMHkwhIj5H4i4fKEuRsS6Kf4bzKhVe0GwGIU=
-github.com/kairos-io/kairos-sdk v0.11.1-0.20251017131805-77d51189e0b0 h1:WWYy/3srBM79Gg3iWkQmZE7MHYwGzMGXcZ85x2kmySI=
-github.com/kairos-io/kairos-sdk v0.11.1-0.20251017131805-77d51189e0b0/go.mod h1:pBFunQyiMHkwhIj5H4i4fKEuRsS6Kf4bzKhVe0GwGIU=
-github.com/kairos-io/kairos-sdk v0.12.1-0.20251103152832-82bc7cc6481b h1:daoHz1g/ZRWl4nbODGkco+RAXkoh7wltFnOx5SBWPok=
-github.com/kairos-io/kairos-sdk v0.12.1-0.20251103152832-82bc7cc6481b/go.mod h1:39AhCp9dUQBfdkOQMTCegTo2Q5GUJR1//gPXo3r+9AA=
+github.com/kairos-io/kairos-sdk v0.12.1-0.20251106060709-87c4533e1d90 h1:J6N3v51GMO4dUJXHuJlGQWHByGI7ZJZws8eIOIgqDkI=
+github.com/kairos-io/kairos-sdk v0.12.1-0.20251106060709-87c4533e1d90/go.mod h1:39AhCp9dUQBfdkOQMTCegTo2Q5GUJR1//gPXo3r+9AA=
 github.com/kairos-io/tpm-helpers v0.0.0-20251103104631-9d4298b86881 h1:teAOOtMYhlPz7Q0DXTih8ZOVgPctyUz86PplTi1K29g=
 github.com/kairos-io/tpm-helpers v0.0.0-20251103104631-9d4298b86881/go.mod h1:zOtMRZ4zGpy+qL6W1N0LrczM/9T0sdoaJ1K5PgfchAs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
