@@ -28,7 +28,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4-0.20251023124752-b61f268f75b6
 	github.com/spf13/viper v1.19.0
 	golang.org/x/net v0.46.0
-	golang.org/x/oauth2 v0.32.0
+	golang.org/x/oauth2 v0.33.0
 	golang.org/x/sys v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/mount-utils v0.34.1
