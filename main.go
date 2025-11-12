@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/kairos-io/kairos-sdk/kcrypt"
 	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
@@ -57,6 +58,22 @@ func ReleasesToOutput(rels []string, output string) []string {
 var sourceFlag = cli.StringFlag{
 	Name:  "source",
 	Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` `oci:`,or `ocifile:` for the type of source.\nFor example `ocifile:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
+}
+
+var kcryptNVIndexFlag = cli.StringFlag{
+	Name:  "nv-index",
+	Value: kcrypt.DefaultLocalPassphraseNVIndex,
+	Usage: "NV index to operate on (defaults to configured index or 0x1500000)",
+}
+
+var kcryptTPMDeviceFlag = cli.StringFlag{
+	Name:  "tpm-device",
+	Usage: "TPM device path (defaults to configured device or system default)",
+}
+
+var kcryptCIndexFlag = cli.StringFlag{
+	Name:  "c-index",
+	Usage: "C index (certificate index) for decryption (defaults to configured index)",
 }
 
 var cmds = []*cli.Command{
@@ -1226,6 +1243,110 @@ The output will be a tarball with logs organized by type (journal/, files/).`,
 			}
 
 			return agent.ExecuteLogsCommand(cfg.Fs, cfg.Logger, cfg.Runner, outputPath)
+		},
+	},
+	{
+		Name:        "kcrypt",
+		Usage:       "kcrypt subcommands",
+		Description: "kcrypt subcommands for managing encryption-related operations",
+		Subcommands: []*cli.Command{
+			{
+				Name:  "checknv",
+				Usage: "Check if data exists in TPM NV memory",
+				Description: `Check if data exists in a TPM NV index.
+
+This command checks whether the specified NV index contains data.
+It will return an error if the index doesn't exist or is empty.
+
+Default behavior:
+- Uses NV index from config or defaults to 0x1500000 (legacy local passphrase index)
+- Uses the same TPM device as configured (or system default if none specified)`,
+				Flags: []cli.Flag{
+					&kcryptNVIndexFlag,
+					&kcryptTPMDeviceFlag,
+				},
+				Before: func(c *cli.Context) error {
+					return checkRoot()
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return fmt.Errorf("failed to scan config: %w", err)
+					}
+					return action.KcryptCheckNV(cfg, c.String("nv-index"), c.String("tpm-device"))
+				},
+			},
+			{
+				Name:  "readnv",
+				Usage: "Read and decrypt value from TPM NV memory",
+				Description: `Read and decrypt the value stored in a TPM NV index.
+
+This command reads the value from the specified TPM NV index. If the value
+is encrypted (as is the case for local passphrases), it will be automatically
+decrypted using the C index from flags or config before outputting.
+
+For encrypted passphrases stored by kairos-agent, this will output the
+decrypted passphrase. For other NV indices, it will output the raw value.
+
+Default behavior:
+- Uses NV index from config or defaults to 0x1500000 (legacy local passphrase index)
+- Uses the same TPM device as configured (or system default if none specified)
+- Uses C index from config if available (or can be specified via --c-index flag)
+- Automatically decrypts if C index is available`,
+				Flags: []cli.Flag{
+					&kcryptNVIndexFlag,
+					&kcryptTPMDeviceFlag,
+					&kcryptCIndexFlag,
+				},
+				Before: func(c *cli.Context) error {
+					return checkRoot()
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return fmt.Errorf("failed to scan config: %w", err)
+					}
+					return action.KcryptReadNV(cfg, c.String("nv-index"), c.String("tpm-device"), c.String("c-index"))
+				},
+			},
+			{
+				Name:  "cleanupnv",
+				Usage: "Clean up TPM NV memory",
+				Description: `Clean up TPM NV memory by undefining specific NV indices.
+
+⚠️  DANGER: This command removes data from TPM memory!
+⚠️  If you delete the wrong index, your encrypted disk may become UNBOOTABLE!
+
+This command helps clean up TPM NV memory. It can be used to clean up
+legacy local passphrase storage (now handled by kairos-sdk) or any other
+TPM NV indices that need to be removed.
+
+The command will prompt for confirmation before deletion unless you use
+the --i-know-what-i-am-doing flag to skip the safety prompt.
+
+Default behavior:
+- Uses NV index from config or defaults to 0x1500000 (legacy local passphrase index)
+- Uses the same TPM device as configured (or system default if none specified)
+- Prompts for confirmation with safety warnings`,
+				Flags: []cli.Flag{
+					&kcryptNVIndexFlag,
+					&kcryptTPMDeviceFlag,
+					&cli.BoolFlag{
+						Name:  "i-know-what-i-am-doing",
+						Usage: "Skip confirmation prompt (DANGEROUS: may make encrypted disks unbootable)",
+					},
+				},
+				Before: func(c *cli.Context) error {
+					return checkRoot()
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return fmt.Errorf("failed to scan config: %w", err)
+					}
+					return action.KcryptCleanup(cfg, c.String("nv-index"), c.String("tpm-device"), c.Bool("i-know-what-i-am-doing"))
+				},
+			},
 		},
 	},
 }
