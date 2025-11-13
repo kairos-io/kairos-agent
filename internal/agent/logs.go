@@ -18,8 +18,9 @@ import (
 
 // LogsResult represents the collected logs
 type LogsResult struct {
-	Journal map[string][]byte `yaml:"-"`
-	Files   map[string][]byte `yaml:"-"`
+	Journal     map[string][]byte `yaml:"-"`
+	Files       map[string][]byte `yaml:"-"`
+	Diagnostics map[string][]byte `yaml:"-"`
 }
 
 // LogsCollector handles the collection of logs from various sources
@@ -73,8 +74,9 @@ func (lc *LogsCollector) isSystemdAvailable() bool {
 // Collect gathers logs based on the configuration stored in the LogsCollector
 func (lc *LogsCollector) Collect() (*LogsResult, error) {
 	result := &LogsResult{
-		Journal: make(map[string][]byte),
-		Files:   make(map[string][]byte),
+		Journal:     make(map[string][]byte),
+		Files:       make(map[string][]byte),
+		Diagnostics: make(map[string][]byte),
 	}
 
 	// Define default configuration
@@ -126,7 +128,45 @@ func (lc *LogsCollector) Collect() (*LogsResult, error) {
 		}
 	}
 
+	// Collect diagnostic information
+	lc.collectDiagnostics(result)
+
 	return result, nil
+}
+
+// collectDiagnostics collects system-wide diagnostic information
+func (lc *LogsCollector) collectDiagnostics(result *LogsResult) {
+	// Define diagnostic commands to execute
+	diagnosticCommands := map[string][]string{
+		"hostname":      {"hostname"},
+		"uname":         {"uname", "-a"},
+		"lsblk":         {"lsblk", "-a"},
+		"mount":         {"mount"},
+		"ip-addr":       {"ip", "addr", "show"},
+		"ps":            {"ps", "aux"},
+	}
+
+	// Execute each diagnostic command
+	for name, cmdArgs := range diagnosticCommands {
+		output, err := lc.config.Runner.Run(cmdArgs[0], cmdArgs[1:]...)
+		if err != nil {
+			lc.config.Logger.Warnf("Failed to run diagnostic command %s: %v", name, err)
+			// Store error message instead of skipping
+			result.Diagnostics[name] = []byte(fmt.Sprintf("Error running command: %v", err))
+			continue
+		}
+
+		result.Diagnostics[name] = output
+	}
+
+	// Collect /etc/resolv.conf as a special case (it's a file, not a command)
+	resolvConf, err := lc.config.Fs.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		lc.config.Logger.Warnf("Failed to read /etc/resolv.conf: %v", err)
+		result.Diagnostics["resolv.conf"] = []byte(fmt.Sprintf("Error reading file: %v", err))
+	} else {
+		result.Diagnostics["resolv.conf"] = resolvConf
+	}
 }
 
 // CreateTarball creates a compressed tarball from the collected logs
@@ -181,6 +221,21 @@ func (lc *LogsCollector) CreateTarball(result *LogsResult, outputPath string) er
 		}
 		if _, err := tw.Write(content); err != nil {
 			return fmt.Errorf("failed to write file content: %w", err)
+		}
+	}
+
+	// Add diagnostics to tarball
+	for name, content := range result.Diagnostics {
+		header := &tar.Header{
+			Name: fmt.Sprintf("diagnostics/%s.txt", name),
+			Mode: constants.FilePerm,
+			Size: int64(len(content)),
+		}
+		if err := tw.WriteHeader(header); err != nil {
+			return fmt.Errorf("failed to write diagnostic header: %w", err)
+		}
+		if _, err := tw.Write(content); err != nil {
+			return fmt.Errorf("failed to write diagnostic content: %w", err)
 		}
 	}
 

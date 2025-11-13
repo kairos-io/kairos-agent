@@ -1,0 +1,1 @@
+Received agent.bootstrap with {"name":"agent.bootstrap","data":"{\"api\":\"\",\"config\":\"#cloud-config\\n\\n# Sources:\\n# - /tmp/tests2585825886/test.config.yaml\\n\\ndoo: bar\\n\",\"logfile\":\"/var/log/kairos/agent-provider.log\"}","file":""}
