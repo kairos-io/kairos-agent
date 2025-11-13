@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -334,9 +335,7 @@ func udevAdmSettle(logger types.KairosLogger, timeout time.Duration) error {
 	}
 
 	logger.Logger.Info().Msg("Flushing filesystem buffers (sync)")
-	if err := exec.Command("sync").Run(); err != nil {
-		logger.Logger.Warn().Err(err).Msg("sync failed")
-	}
+	syscall.Sync()
 
 	logger.Logger.Info().Dur("timeout", timeout).Msg("Waiting for udev to settle")
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
