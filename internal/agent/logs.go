@@ -138,12 +138,12 @@ func (lc *LogsCollector) Collect() (*LogsResult, error) {
 func (lc *LogsCollector) collectDiagnostics(result *LogsResult) {
 	// Define diagnostic commands to execute
 	diagnosticCommands := map[string][]string{
-		"hostname":      {"hostname"},
-		"uname":         {"uname", "-a"},
-		"lsblk":         {"lsblk", "-a"},
-		"mount":         {"mount"},
-		"ip-addr":       {"ip", "addr", "show"},
-		"ps":            {"ps", "aux"},
+		"hostname": {"hostname"},
+		"uname":    {"uname", "-a"},
+		"lsblk":    {"lsblk", "-a"},
+		"mount":    {"mount"},
+		"ip-addr":  {"ip", "addr", "show"},
+		"ps":       {"ps", "aux"},
 	}
 
 	// Execute each diagnostic command
