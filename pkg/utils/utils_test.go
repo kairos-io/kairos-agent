@@ -28,14 +28,16 @@ import (
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/runner"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-agent/v2/tests/matchers"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -52,9 +54,9 @@ func getNamesFromListFiles(list []fs.DirEntry) []string {
 }
 
 var _ = Describe("Utils", Label("utils"), func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
@@ -67,7 +69,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 		syscall = &v1mock.FakeSyscall{}
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
-		logger = sdkTypes.NewNullLogger()
+		logger = sdkLogger.NewNullLogger()
 		realRunner = &v1.RealRunner{Logger: &logger}
 		// Ensure /tmp exists in the VFS
 		fs, cleanup, _ = vfst.NewTestFS(nil)
@@ -191,7 +193,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 		})
 		It("returns found device", func() {
 			ghwTest := ghwMock.GhwMock{}
-			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			disk := sdkPartitions.Disk{Name: "device", Partitions: []*sdkPartitions.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "FAKE",
@@ -215,9 +217,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 		var ghwTest ghwMock.GhwMock
 		BeforeEach(func() {
 			ghwTest = ghwMock.GhwMock{}
-			disk1 := sdkTypes.Disk{
+			disk1 := sdkPartitions.Disk{
 				Name: "sda",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name: "sda1Test",
 					},
@@ -226,9 +228,9 @@ var _ = Describe("Utils", Label("utils"), func() {
 					},
 				},
 			}
-			disk2 := sdkTypes.Disk{
+			disk2 := sdkPartitions.Disk{
 				Name: "sdb",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name: "sdb1Test",
 					},
@@ -679,7 +681,7 @@ var _ = Describe("Utils", Label("utils"), func() {
 				rootDir = constants.ActiveDir
 				bootDir = constants.StateDir
 				buf = &bytes.Buffer{}
-				logger = sdkTypes.NewBufferLogger(buf)
+				logger = sdkLogger.NewBufferLogger(buf)
 				logger.SetLevel("debug")
 				config.Logger = logger
 
@@ -947,7 +949,7 @@ extra_cmdline=fips=1 selinux=0
 	})
 	Describe("IsMounted", Label("ismounted"), func() {
 		It("checks a mounted partition", func() {
-			part := &sdkTypes.Partition{
+			part := &sdkPartitions.Partition{
 				MountPoint: "/some/mountpoint",
 			}
 			err := mounter.Mount("/some/device", "/some/mountpoint", "auto", []string{})
@@ -957,7 +959,7 @@ extra_cmdline=fips=1 selinux=0
 			Expect(mnt).To(BeTrue())
 		})
 		It("checks a not mounted partition", func() {
-			part := &sdkTypes.Partition{
+			part := &sdkPartitions.Partition{
 				MountPoint: "/some/mountpoint",
 			}
 			mnt, err := utils.IsMounted(config, part)
@@ -965,7 +967,7 @@ extra_cmdline=fips=1 selinux=0
 			Expect(mnt).To(BeFalse())
 		})
 		It("checks a partition without mountpoint", func() {
-			part := &sdkTypes.Partition{}
+			part := &sdkPartitions.Partition{}
 			mnt, err := utils.IsMounted(config, part)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(mnt).To(BeFalse())
@@ -1054,9 +1056,9 @@ extra_cmdline=fips=1 selinux=0
 		var ghwTest ghwMock.GhwMock
 
 		BeforeEach(func() {
-			mainDisk := sdkTypes.Disk{
+			mainDisk := sdkPartitions.Disk{
 				Name: "device",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
@@ -1182,9 +1184,9 @@ extra_cmdline=fips=1 selinux=0
 		var ghwTest ghwMock.GhwMock
 		BeforeEach(func() {
 			Expect(fsutils.MkdirAll(fs, "/efi/loader/entries", os.ModePerm)).ToNot(HaveOccurred())
-			mainDisk := sdkTypes.Disk{
+			mainDisk := sdkPartitions.Disk{
 				Name: "device",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",

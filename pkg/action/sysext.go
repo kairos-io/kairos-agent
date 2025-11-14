@@ -2,14 +2,15 @@ package action
 
 import (
 	"fmt"
-	"github.com/distribution/reference"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-sdk/types"
-	"github.com/twpayne/go-vfs/v5"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/distribution/reference"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	"github.com/twpayne/go-vfs/v5"
 )
 
 // Implementation details for not trusted boot
@@ -46,7 +47,6 @@ func (s *SysExtension) String() string {
 	return s.Name
 }
 
-
 func dirFromBootState(bootState string) string {
 	switch bootState {
 	case "active":
@@ -61,14 +61,15 @@ func dirFromBootState(bootState string) string {
 		return sysextDir
 	}
 }
+
 // ListSystemExtensions lists the system extensions in the given directory
 // If none is passed then it shows the generic ones
-func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension, error) {
+func ListSystemExtensions(cfg *sdkConfig.Config, bootState string) ([]SysExtension, error) {
 	return getDirExtensions(cfg, dirFromBootState(bootState))
 }
 
 // getDirExtensions lists the system extensions in the given directory
-func getDirExtensions(cfg *config.Config, dir string) ([]SysExtension, error) {
+func getDirExtensions(cfg *sdkConfig.Config, dir string) ([]SysExtension, error) {
 	var out []SysExtension
 	// get all the extensions in the sysextDir
 	// Try to create the dir if it does not exist
@@ -91,7 +92,7 @@ func getDirExtensions(cfg *config.Config, dir string) ([]SysExtension, error) {
 }
 
 // GetSystemExtension returns the system extension for a given name
-func GetSystemExtension(cfg *config.Config, name, bootState string) (SysExtension, error) {
+func GetSystemExtension(cfg *sdkConfig.Config, name, bootState string) (SysExtension, error) {
 	// Get a list of all installed system extensions
 	installed, err := ListSystemExtensions(cfg, bootState)
 	if err != nil {
@@ -118,7 +119,7 @@ func GetSystemExtension(cfg *config.Config, name, bootState string) (SysExtensio
 // It will check if the extension is already enabled but not fail if it is
 // It will check if the extension is installed
 // If now is true, it will enable the extension immediately by linking it to /run/extensions and refreshing systemd-sysext
-func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) error {
+func EnableSystemExtension(cfg *sdkConfig.Config, ext, bootState string, now bool) error {
 	// first check if the extension is installed
 	extension, err := GetSystemExtension(cfg, ext, "")
 	if err != nil {
@@ -180,7 +181,7 @@ func EnableSystemExtension(cfg *config.Config, ext, bootState string, now bool) 
 
 // DisableSystemExtension disables a system extension that is already in the system for a given bootstate
 // It removes the symlink from the target dir according to the bootstate given
-func DisableSystemExtension(cfg *config.Config, ext string, bootState string, now bool) error {
+func DisableSystemExtension(cfg *sdkConfig.Config, ext string, bootState string, now bool) error {
 	targetDir := dirFromBootState(bootState)
 
 	// Check if the target dir exists
@@ -235,7 +236,7 @@ func DisableSystemExtension(cfg *config.Config, ext string, bootState string, no
 // InstallSystemExtension installs a system extension from a given URI
 // It will download the extension and extract it to the target dir
 // It will check if the extension is already installed before doing anything
-func InstallSystemExtension(cfg *config.Config, uri string) error {
+func InstallSystemExtension(cfg *sdkConfig.Config, uri string) error {
 	// Parse the URI
 	download, err := parseURI(cfg, uri)
 	if err != nil {
@@ -259,7 +260,7 @@ func InstallSystemExtension(cfg *config.Config, uri string) error {
 // It will remove any symlinks to the extension
 // Then it will remove the extension
 // It will check if the extension is installed before doing anything
-func RemoveSystemExtension(cfg *config.Config, extension string, now bool) error {
+func RemoveSystemExtension(cfg *sdkConfig.Config, extension string, now bool) error {
 	// Check if the extension is installed
 	installed, err := GetSystemExtension(cfg, extension, "")
 	if err != nil {
@@ -313,7 +314,7 @@ func RemoveSystemExtension(cfg *config.Config, extension string, now bool) error
 
 // ParseURI parses a URI and returns a SourceDownload
 // implementation based on the scheme of the URI
-func parseURI(cfg *config.Config, uri string) (SourceDownload, error) {
+func parseURI(cfg *sdkConfig.Config, uri string) (SourceDownload, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -358,7 +359,7 @@ type SourceDownload interface {
 // download fails.
 type fileSource struct {
 	uri string
-	cfg *config.Config
+	cfg *sdkConfig.Config
 }
 
 // Download just copies the file to the destination
@@ -382,19 +383,19 @@ func (f *fileSource) Download(dst string) error {
 
 type httpSource struct {
 	uri string
-	cfg *config.Config
+	cfg *sdkConfig.Config
 }
 
 func (h httpSource) Download(s string) error {
 	// Download the file from the URI
 	// and save it to the destination path
 	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", filepath.Join(s, filepath.Base(h.uri))).Msg("Downloading system extension")
-	return h.cfg.Client.GetURL(types.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
+	return h.cfg.Client.GetURL(sdkLogger.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
 }
 
 type dockerSource struct {
 	uri string
-	cfg *config.Config
+	cfg *sdkConfig.Config
 }
 
 func (d dockerSource) Download(s string) error {

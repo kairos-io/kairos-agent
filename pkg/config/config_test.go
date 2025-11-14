@@ -17,26 +17,20 @@ package config_test
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"strings"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
 	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs/v5"
-	"github.com/twpayne/go-vfs/v5/vfst"
-	"gopkg.in/yaml.v3"
-
-	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/collector"
-	. "github.com/kairos-io/kairos-sdk/schema"
+	"github.com/kairos-io/kairos-sdk/schema"
+	sdkbundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 func getTagName(s string) string {
@@ -71,7 +65,7 @@ func structContainsField(f, t string, str interface{}) bool {
 			if types.Field(j).Type.Kind() == reflect.Struct {
 				if types.Field(j).Type.Name() != "" {
 					model := reflect.New(types.Field(j).Type)
-					if instance, ok := model.Interface().(OneOfModel); ok {
+					if instance, ok := model.Interface().(schema.OneOfModel); ok {
 						for _, childSchema := range instance.JSONSchemaOneOf() {
 							if structContainsField(f, t, childSchema) {
 								return true
@@ -109,13 +103,13 @@ func structFieldsContainedInOtherStruct(left, right interface{}) {
 var _ = Describe("Schema", func() {
 	Context("NewConfigFromYAML", func() {
 		Context("While the new Schema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(Config{}, RootSchema{})
+			structFieldsContainedInOtherStruct(sdkConfig.Config{}, schema.RootSchema{})
 		})
 		Context("While the new InstallSchema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(Install{}, InstallSchema{})
+			structFieldsContainedInOtherStruct(sdkInstall.Install{}, schema.InstallSchema{})
 		})
 		Context("While the new BundleSchema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(Bundle{}, BundleSchema{})
+			structFieldsContainedInOtherStruct(sdkbundles.Bundle{}, schema.BundleSchema{})
 		})
 	})
 
@@ -137,24 +131,24 @@ var _ = Describe("Schema", func() {
     passive:
         size: 8192
 `
-			config := Config{
-				Install: &Install{
+			config := sdkConfig.Config{
+				Install: &sdkInstall.Install{
 					Poweroff: true,
 					BindMounts: []string{
 						"/var/lib/ceph",
 						"/var/lib/osd",
 					},
-					Active: v1.Image{
+					Active: sdkImages.Image{
 						Size: 8192,
 					},
-					Passive: v1.Image{
+					Passive: sdkImages.Image{
 						Size: 8192,
 					},
-					Recovery: v1.Image{
+					Recovery: sdkImages.Image{
 						Size: 10000,
 					},
-					Partitions: v1.ElementalPartitions{
-						OEM: &sdkTypes.Partition{
+					Partitions: sdkPartitions.ElementalPartitions{
+						OEM: &sdkPartitions.Partition{
 							Size: 5120,
 							FS:   "ext4",
 						},
@@ -166,105 +160,6 @@ var _ = Describe("Schema", func() {
 			Expect(Expect(err).NotTo(HaveOccurred()))
 
 			Expect(string(got)).To(Equal(wants))
-		})
-	})
-
-	Describe("Write and load installation state", func() {
-		var config *Config
-		var runner *v1mocks.FakeRunner
-		var fs vfs.FS
-		var mounter *v1mocks.ErrorMounter
-		var cleanup func()
-		var err error
-		var dockerState, channelState *v1.ImageState
-		var installState *v1.InstallState
-		var statePath, recoveryPath string
-
-		BeforeEach(func() {
-			runner = v1mocks.NewFakeRunner()
-			mounter = v1mocks.NewErrorMounter()
-			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
-			Expect(err).Should(BeNil())
-
-			config = NewConfig(
-				WithFs(fs),
-				WithRunner(runner),
-				WithMounter(mounter),
-			)
-			dockerState = &v1.ImageState{
-				Source: v1.NewDockerSrc("registry.org/my/image:tag"),
-				Label:  "active_label",
-				FS:     "ext2",
-				SourceMetadata: &v1.DockerImageMeta{
-					Digest: "adadgadg",
-					Size:   23452345,
-				},
-			}
-			installState = &v1.InstallState{
-				Date: "somedate",
-				Partitions: map[string]*v1.PartitionState{
-					"state": {
-						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
-							"active": dockerState,
-						},
-					},
-					"recovery": {
-						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
-							"recovery": channelState,
-						},
-					},
-				},
-			}
-
-			statePath = filepath.Join(constants.RunningStateDir, constants.InstallStateFile)
-			recoveryPath = "/recoverypart/state.yaml"
-			err = fsutils.MkdirAll(fs, filepath.Dir(recoveryPath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = fsutils.MkdirAll(fs, filepath.Dir(statePath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-		AfterEach(func() {
-			cleanup()
-		})
-		It("Scan can override options", func() {
-			c, err := ScanNoLogs(collector.Readers(strings.NewReader(`uki-max-entries: 34`)))
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(c.UkiMaxEntries).To(Equal(34))
-		})
-		It("Writes and loads an installation data", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			loadedInstallState, err := config.LoadInstallState()
-			Expect(err).ShouldNot(HaveOccurred())
-			stat, err := fs.Stat(statePath)
-			Expect(err).To(BeNil())
-			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
-			stat, err = fs.Stat(recoveryPath)
-			Expect(err).To(BeNil())
-			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
-
-			Expect(*loadedInstallState).To(Equal(*installState))
-		})
-		It("Fails writing to state partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails writing to recovery partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails loading state file", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			_, err = config.LoadInstallState()
-			Expect(err).Should(HaveOccurred())
 		})
 	})
 
@@ -280,14 +175,14 @@ stages:
           groups:
             - "admin"
 `
-			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
+			c, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.CheckForUsers()).ToNot(HaveOccurred())
+			Expect(pkgConfig.CheckConfigForUsers(c)).ToNot(HaveOccurred())
 		})
 		It("Fails if there is no user", func() {
-			config, err := pkgConfig.ScanNoLogs(collector.NoLogs)
+			c, err := pkgConfig.ScanNoLogs(collector.NoLogs)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.CheckForUsers()).To(HaveOccurred())
+			Expect(pkgConfig.CheckConfigForUsers(c)).To(HaveOccurred())
 		})
 		It("Fails if there is user but its not admin", func() {
 			cc := `#cloud-config
@@ -298,9 +193,9 @@ stages:
         kairos:
           passwd: "kairos"
 `
-			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
+			c, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.CheckForUsers()).To(HaveOccurred())
+			Expect(pkgConfig.CheckConfigForUsers(c)).To(HaveOccurred())
 		})
 	})
 })

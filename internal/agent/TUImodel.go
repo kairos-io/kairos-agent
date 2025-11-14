@@ -2,14 +2,12 @@ package agent
 
 import (
 	"fmt"
-
-	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
-
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 )
 
 // Page interface that all pages must implement
@@ -45,7 +43,7 @@ type Model struct {
 	password        string
 	finishAction    string         // Action after installation: reboot, poweroff, none
 	extraFields     map[string]any // Dynamic fields for customization
-	log             *types.KairosLogger
+	log             *sdkLogger.KairosLogger
 	source          string // cli flags to interactive installer? what??
 
 	showAbortConfirm bool // Show abort confirmation popup
@@ -54,7 +52,7 @@ type Model struct {
 var mainModel Model
 
 // InitialModel Initialize the application
-func InitialModel(l *types.KairosLogger, source string) Model {
+func InitialModel(l *sdkLogger.KairosLogger, source string) Model {
 	// First create the model with the logger in case any page needs to log something
 	mainModel = Model{
 		navigationStack: []string{},

@@ -40,7 +40,7 @@ func (p *userdataPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 func (p *userdataPage) View() string {
 	s := "Userdata Generated (plain text):\n"
 	cc := NewInteractiveInstallConfig(&mainModel)
-	ccString, err := cc.String()
+	ccString, err := cc.Collector.String()
 	if err == nil {
 		s += "\n" + string(ccString) + "\n"
 	} else {

@@ -20,14 +20,19 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
+
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,10 +42,10 @@ import (
 )
 
 var _ = Describe("Reset action tests", func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
@@ -56,7 +61,7 @@ var _ = Describe("Reset action tests", func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(memLog)
+		logger = sdkLogger.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
 		fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{
@@ -94,9 +99,9 @@ var _ = Describe("Reset action tests", func() {
 			_, err = fs.Create(recoveryImg)
 			Expect(err).To(BeNil())
 
-			mainDisk := sdkTypes.Disk{
+			mainDisk := sdkPartitions.Disk{
 				Name: "device",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
@@ -192,7 +197,7 @@ var _ = Describe("Reset action tests", func() {
 			It("Successfully resets from a squashfs recovery image", Label("channel"), func() {
 				err := fsutils.MkdirAll(config.Fs, constants.IsoBaseTree, constants.DirPerm)
 				Expect(err).ShouldNot(HaveOccurred())
-				spec.Active.Source = v1.NewDirSrc(constants.IsoBaseTree)
+				spec.Active.Source = sdkImages.NewDirSrc(constants.IsoBaseTree)
 				Expect(reset.Run()).To(BeNil())
 			})
 			It("Successfully resets despite having errors on hooks", func() {
@@ -200,7 +205,7 @@ var _ = Describe("Reset action tests", func() {
 				Expect(reset.Run()).To(BeNil())
 			})
 			It("Successfully resets from a docker image", Label("docker"), func() {
-				spec.Active.Source = v1.NewDockerSrc("my/image:latest")
+				spec.Active.Source = sdkImages.NewDockerSrc("my/image:latest")
 				Expect(reset.Run()).To(BeNil())
 
 			})
@@ -227,7 +232,7 @@ var _ = Describe("Reset action tests", func() {
 				Expect(reset.Run()).NotTo(BeNil())
 			})
 			It("Fails unpacking docker image ", func() {
-				spec.Active.Source = v1.NewDockerSrc("my/image:latest")
+				spec.Active.Source = sdkImages.NewDockerSrc("my/image:latest")
 				extractor.SideEffect = func(imageRef, destination, platformRef string) error {
 					return fmt.Errorf("error")
 				}

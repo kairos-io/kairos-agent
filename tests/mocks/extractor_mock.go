@@ -17,12 +17,12 @@ limitations under the License.
 package mocks
 
 import (
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 )
 
 type FakeImageExtractor struct {
-	Logger      sdkTypes.KairosLogger
+	Logger      sdkLogger.KairosLogger
 	SideEffect  func(imageRef, destination, platformRef string) error
 	ClientCalls []ExtractCall
 }
@@ -37,12 +37,12 @@ func (f *FakeImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int6
 	return 0, nil
 }
 
-var _ v1.ImageExtractor = &FakeImageExtractor{}
+var _ sdkImages.ImageExtractor = &FakeImageExtractor{}
 
-func NewFakeImageExtractor(logger sdkTypes.KairosLogger) *FakeImageExtractor {
+func NewFakeImageExtractor(logger sdkLogger.KairosLogger) *FakeImageExtractor {
 	l := logger
 	if &l == nil {
-		logger = sdkTypes.NewNullLogger()
+		logger = sdkLogger.NewNullLogger()
 	}
 	return &FakeImageExtractor{
 		Logger: logger,

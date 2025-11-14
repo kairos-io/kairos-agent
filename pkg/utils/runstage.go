@@ -18,12 +18,12 @@ package utils
 
 import (
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/mudler/yip/pkg/schema"
 	"gopkg.in/yaml.v3"
 )
@@ -44,7 +44,7 @@ func onlyYAMLPartialErrors(er error) bool {
 	return true
 }
 
-func checkYAMLError(cfg *agentConfig.Config, allErrors, err error) error {
+func checkYAMLError(cfg *sdkConfig.Config, allErrors, err error) error {
 	if !onlyYAMLPartialErrors(err) {
 		// here we absorb errors only if are related to YAML unmarshalling
 		// As cmdline is parsed out as a yaml file
@@ -58,16 +58,16 @@ func checkYAMLError(cfg *agentConfig.Config, allErrors, err error) error {
 }
 
 // RunstageAnalyze
-func RunStageAnalyze(cfg *agentConfig.Config, stage string) error {
+func RunStageAnalyze(cfg *sdkConfig.Config, stage string) error {
 	return runstage(cfg, stage, true)
 }
 
 // RunStage will run yip
-func RunStage(cfg *agentConfig.Config, stage string) error {
+func RunStage(cfg *sdkConfig.Config, stage string) error {
 	return runstage(cfg, stage, false)
 }
 
-func runstage(cfg *agentConfig.Config, stage string, analyze bool) error {
+func runstage(cfg *sdkConfig.Config, stage string, analyze bool) error {
 	var cmdLineYipURI string
 	var allErrors error
 	var cloudInitPaths []string

@@ -9,12 +9,13 @@ import (
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-sdk/versioneer"
 	"github.com/mudler/go-pluggable"
@@ -86,7 +87,7 @@ func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictVa
 	}
 	utils.SetEnv(c.Env)
 
-	err = c.CheckForUsers()
+	err = config.CheckConfigForUsers(c)
 	if err != nil {
 		return err
 	}
@@ -118,7 +119,7 @@ func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, stric
 	}
 	utils.SetEnv(c.Env)
 
-	err = c.CheckForUsers()
+	err = config.CheckConfigForUsers(c)
 	if err != nil {
 		return err
 	}
@@ -144,7 +145,7 @@ func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, stric
 	return hook.Run(*c, upgradeSpec, hook.FinishUpgrade...)
 }
 
-func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, excludes ...string) (*config.Config, error) {
+func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, excludes ...string) (*sdkConfig.Config, error) {
 	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeEntry, excludes...)
 	if err != nil {
 		return nil, err

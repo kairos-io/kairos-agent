@@ -18,7 +18,8 @@ package mocks
 
 import (
 	"errors"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 )
 
 // FakeHTTPClient is an implementation of HTTPClient interface used for testing
@@ -29,7 +30,7 @@ type FakeHTTPClient struct {
 }
 
 // GetURL will return a FakeHttpBody and store the url call into ClientCalls
-func (m *FakeHTTPClient) GetURL(log sdkTypes.KairosLogger, url string, destination string) error {
+func (m *FakeHTTPClient) GetURL(_ sdkLogger.KairosLogger, url string, destination string) error {
 	// Store calls to the mock client, so we can verify that we didnt mangled them or anything
 	m.ClientCalls = append(m.ClientCalls, url)
 	if m.Error {

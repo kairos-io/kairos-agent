@@ -2,10 +2,10 @@ package agent
 
 import (
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kairos-io/kairos-sdk/types"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -14,7 +14,7 @@ import (
 // - `spawnShell`: If true, spawns a shell after the installation process.
 // - `source`: The source of the installation. (Consider reviewing its necessity as noted in the TODO comment.)
 // - `l`: A logger instance for logging messages during the installation process.
-func InteractiveInstall(spawnShell bool, source string, logger types.KairosLogger) error {
+func InteractiveInstall(spawnShell bool, source string, logger sdkLogger.KairosLogger) error {
 	var err error
 	// Set a default window size
 	p := tea.NewProgram(InitialModel(&logger, source), tea.WithAltScreen())

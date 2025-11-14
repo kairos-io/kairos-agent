@@ -9,10 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kairos-io/kairos-sdk/types"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 )
 
 // Install Process Page
@@ -60,7 +59,7 @@ func (p *installProcessPage) Init() tea.Cmd {
 			return
 		}
 		logBuffer := bytes.Buffer{}
-		bufferLog := types.NewBufferLogger(&logBuffer)
+		bufferLog := sdkLogger.NewBufferLogger(&logBuffer)
 		cc.Logger = bufferLog
 
 		// Start log goroutine (only one!)
@@ -245,7 +244,7 @@ func (p *installProcessPage) Abort() {
 }
 
 // processLogLines processes new log lines from the buffer and updates the UI steps.
-func (p *installProcessPage) processLogLines(buf []byte, lastLen int, errorSent *bool, oldLog *types.KairosLogger) int {
+func (p *installProcessPage) processLogLines(buf []byte, lastLen int, errorSent *bool, oldLog *sdkLogger.KairosLogger) int {
 	newLogs := buf[lastLen:]
 	lines := bytes.Split(newLogs, []byte("\n"))
 	for _, line := range lines {

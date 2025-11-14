@@ -2,7 +2,6 @@ package hook_test
 
 import (
 	"bytes"
-	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,8 +13,10 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5"
@@ -28,9 +29,9 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = Describe("Hooks", func() {
-	var cfg *config.Config
+	var cfg *sdkConfig.Config
 	var fs vfs.FS
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var runner *v1mock.FakeRunner
 	var mounter *v1mock.ErrorMounter
 	var syscallMock *v1mock.FakeSyscall
@@ -49,7 +50,7 @@ var _ = Describe("Hooks", func() {
 			mounter = v1mock.NewErrorMounter()
 			client = &v1mock.FakeHTTPClient{}
 			memLog = &bytes.Buffer{}
-			logger = sdkTypes.NewBufferLogger(memLog)
+			logger = sdkLogger.NewBufferLogger(memLog)
 			extractor = v1mock.NewFakeImageExtractor(logger)
 			logger.SetLevel("debug")
 			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
@@ -79,11 +80,11 @@ var _ = Describe("Hooks", func() {
 				config.WithCloudInitRunner(cloudInit),
 				config.WithImageExtractor(extractor),
 			)
-			cfg.Config = collector.Config{}
+			cfg.Collector = collector.Config{}
 
-			mainDisk := sdkTypes.Disk{
+			mainDisk := sdkPartitions.Disk{
 				Name: "device",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",

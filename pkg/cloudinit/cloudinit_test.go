@@ -26,11 +26,12 @@ import (
 
 	. "github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/runner"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,7 +48,7 @@ const printOutput = `BYT;
 var _ = Describe("CloudRunner", Label("CloudRunner", "types", "cloud-init"), func() {
 	// unit test stolen from yip
 	Describe("loading yaml files", func() {
-		logger := sdkTypes.NewNullLogger()
+		logger := sdkLogger.NewNullLogger()
 
 		It("executes commands", func() {
 
@@ -104,10 +105,10 @@ stages:
 		var partNum int
 		var cleanup func()
 		var logs *bytes.Buffer
-		var logger sdkTypes.KairosLogger
+		var logger sdkLogger.KairosLogger
 		BeforeEach(func() {
 			logs = &bytes.Buffer{}
-			logger = sdkTypes.NewBufferLogger(logs)
+			logger = sdkLogger.NewBufferLogger(logs)
 
 			afs, cleanup, _ = vfst.NewTestFS(nil)
 			err := fsutils.MkdirAll(afs, "/some/yip", constants.DirPerm)
@@ -159,7 +160,7 @@ stages:
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
 			ghwTest := ghwMock.GhwMock{}
-			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			disk := sdkPartitions.Disk{Name: "device", Partitions: []*sdkPartitions.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "DEV_LABEL",
@@ -187,7 +188,7 @@ stages:
 `, device)), constants.FilePerm)
 			Expect(err).To(BeNil())
 			ghwTest := ghwMock.GhwMock{}
-			disk := sdkTypes.Disk{Name: "device", Partitions: []*sdkTypes.Partition{
+			disk := sdkPartitions.Disk{Name: "device", Partitions: []*sdkPartitions.Partition{
 				{
 					Name: fmt.Sprintf("device%d", partNum),
 					FS:   "ext4",

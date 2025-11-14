@@ -8,18 +8,27 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kairos-io/kairos-sdk/state"
-
 	"github.com/joho/godotenv"
 	version "github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/http"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-sdk/bundles"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/http"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
+	runner2 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/runner"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/syscall"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/schema"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-sdk/state"
+	"github.com/kairos-io/kairos-sdk/types/cloudinitrunner"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkHttp "github.com/kairos-io/kairos-sdk/types/http"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	"github.com/kairos-io/kairos-sdk/types/install"
+	"github.com/kairos-io/kairos-sdk/types/logger"
+	"github.com/kairos-io/kairos-sdk/types/platform"
+	"github.com/kairos-io/kairos-sdk/types/runner"
+	sdkSyscall "github.com/kairos-io/kairos-sdk/types/syscall"
 	yip "github.com/mudler/yip/pkg/schema"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
@@ -30,48 +39,16 @@ import (
 
 const (
 	DefaultWebUIListenAddress = ":8080"
-	FilePrefix                = "file://"
 )
 
-// LogsConfig represents the configuration for log collection
-type LogsConfig struct {
-	Journal []string `yaml:"journal,omitempty"`
-	Files   []string `yaml:"files,omitempty"`
-}
-
-type Install struct {
-	Auto                   bool                   `yaml:"auto,omitempty"`
-	Reboot                 bool                   `yaml:"reboot,omitempty"`
-	NoFormat               bool                   `yaml:"no-format,omitempty"`
-	Device                 string                 `yaml:"device,omitempty"`
-	Poweroff               bool                   `yaml:"poweroff,omitempty"`
-	GrubOptions            map[string]string      `yaml:"grub_options,omitempty"`
-	Bundles                Bundles                `yaml:"bundles,omitempty"`
-	Encrypt                []string               `yaml:"encrypted_partitions,omitempty"`
-	SkipEncryptCopyPlugins bool                   `yaml:"skip_copy_kcrypt_plugin,omitempty"`
-	Env                    []string               `yaml:"env,omitempty"`
-	Source                 string                 `yaml:"source,omitempty"`
-	EphemeralMounts        []string               `yaml:"ephemeral_mounts,omitempty"`
-	BindMounts             []string               `yaml:"bind_mounts,omitempty"`
-	Partitions             v1.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	Active                 v1.Image               `yaml:"system,omitempty" mapstructure:"system"`
-	Recovery               v1.Image               `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
-	Passive                v1.Image               `yaml:"passive,omitempty" mapstructure:"recovery-system"`
-	GrubDefEntry           string                 `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	ExtraPartitions        sdkTypes.PartitionList `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
-	ExtraDirsRootfs        []string               `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
-	Force                  bool                   `yaml:"force,omitempty" mapstructure:"force"`
-	NoUsers                bool                   `yaml:"nousers,omitempty" mapstructure:"nousers"`
-}
-
-func NewConfig(opts ...GenericOptions) *Config {
-	log := sdkTypes.NewKairosLogger("agent", "info", false)
+func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
+	log := logger.NewKairosLogger("agent", "info", false)
 	// Get the viper config in case something in command line or env var has set it and set the level asap
 	if viper.GetBool("debug") {
 		log.SetLevel("debug")
 	}
 
-	hostPlatform, err := v1.NewPlatformFromArch(runtime.GOARCH)
+	hostPlatform, err := platform.NewPlatformFromArch(runtime.GOARCH)
 	if err != nil {
 		log.Errorf("error parsing default platform (%s): %s", runtime.GOARCH, err.Error())
 		return nil
@@ -83,17 +60,17 @@ func NewConfig(opts ...GenericOptions) *Config {
 		return nil
 	}
 
-	c := &Config{
+	c := &sdkConfig.Config{
 		Fs:                        vfs.OSFS,
 		Logger:                    log,
-		Syscall:                   &v1.RealSyscall{},
+		Syscall:                   &syscall.RealSyscall{},
 		Client:                    http.NewClient(),
 		Arch:                      arch,
 		Platform:                  hostPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
-		ImageExtractor:            v1.OCIImageExtractor{},
+		ImageExtractor:            imageextractor.OCIImageExtractor{},
 		SquashFsNoCompression:     true,
-		Install:                   &Install{},
+		Install:                   &install.Install{},
 		UkiMaxEntries:             constants.UkiMaxEntries,
 	}
 	for _, o := range opts {
@@ -102,7 +79,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 
 	// delay runner creation after we have run over the options in case we use WithRunner
 	if c.Runner == nil {
-		c.Runner = &v1.RealRunner{Logger: &c.Logger}
+		c.Runner = &runner2.RealRunner{Logger: &c.Logger}
 	}
 
 	// Now check if the runner has a logger inside, otherwise point our logger into it
@@ -123,83 +100,13 @@ func NewConfig(opts ...GenericOptions) *Config {
 		c.Mounter = mount.New(constants.MountBinary)
 	}
 
-	err = c.Sanitize()
+	err = sanitizeConfig(c)
 	// This should never happen
 	if err != nil {
 		c.Logger.Warnf("Error sanitizing the config: %s", err)
 	}
 
 	return c
-}
-
-type Config struct {
-	Install                   *Install `yaml:"install,omitempty"`
-	collector.Config          `yaml:"-"`
-	ConfigURL                 string                `yaml:"config_url,omitempty"`
-	Options                   map[string]string     `yaml:"options,omitempty"`
-	FailOnBundleErrors        bool                  `yaml:"fail_on_bundles_errors,omitempty"`
-	Bundles                   Bundles               `yaml:"bundles,omitempty"`
-	GrubOptions               map[string]string     `yaml:"grub_options,omitempty"`
-	Env                       []string              `yaml:"env,omitempty"`
-	Debug                     bool                  `yaml:"debug,omitempty" mapstructure:"debug"`
-	Strict                    bool                  `yaml:"strict,omitempty" mapstructure:"strict"`
-	CloudInitPaths            []string              `yaml:"cloud-init-paths,omitempty" mapstructure:"cloud-init-paths"`
-	EjectCD                   bool                  `yaml:"eject-cd,omitempty" mapstructure:"eject-cd"`
-	Logger                    sdkTypes.KairosLogger `yaml:"-"`
-	Fs                        v1.FS                 `yaml:"-"`
-	Mounter                   mount.Interface       `yaml:"-"`
-	Runner                    v1.Runner             `yaml:"-"`
-	Syscall                   v1.SyscallInterface   `yaml:"-"`
-	CloudInitRunner           v1.CloudInitRunner    `yaml:"-"`
-	ImageExtractor            v1.ImageExtractor     `yaml:"-"`
-	Client                    v1.HTTPClient         `yaml:"-"`
-	Platform                  *v1.Platform          `yaml:"-"`
-	Cosign                    bool                  `yaml:"cosign,omitempty" mapstructure:"cosign"`
-	Verify                    bool                  `yaml:"verify,omitempty" mapstructure:"verify"`
-	CosignPubKey              string                `yaml:"cosign-key,omitempty" mapstructure:"cosign-key"`
-	Arch                      string                `yaml:"arch,omitempty" mapstructure:"arch"`
-	SquashFsCompressionConfig []string              `yaml:"squash-compression,omitempty" mapstructure:"squash-compression"`
-	SquashFsNoCompression     bool                  `yaml:"squash-no-compression,omitempty" mapstructure:"squash-no-compression"`
-	UkiMaxEntries             int                   `yaml:"uki-max-entries,omitempty" mapstructure:"uki-max-entries"`
-	BindPCRs                  []string              `yaml:"bind-pcrs,omitempty" mapstructure:"bind-pcrs"`
-	BindPublicPCRs            []string              `yaml:"bind-public-pcrs,omitempty" mapstructure:"bind-public-pcrs"`
-	Logs                      *LogsConfig           `yaml:"logs,omitempty"`
-}
-
-// WriteInstallState writes the state.yaml file to the given state and recovery paths
-func (c Config) WriteInstallState(i *v1.InstallState, statePath, recoveryPath string) error {
-	data, err := yaml.Marshal(i)
-	if err != nil {
-		return err
-	}
-
-	data = append([]byte("# Autogenerated file by elemental client, do not edit\n\n"), data...)
-
-	err = c.Fs.WriteFile(statePath, data, constants.ConfigPerm)
-	if err != nil {
-		return err
-	}
-
-	err = c.Fs.WriteFile(recoveryPath, data, constants.ConfigPerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// LoadInstallState loads the state.yaml file and unmarshals it to an InstallState object
-func (c Config) LoadInstallState() (*v1.InstallState, error) {
-	installState := &v1.InstallState{}
-	data, err := c.Fs.ReadFile(filepath.Join(constants.RunningStateDir, constants.InstallStateFile))
-	if err != nil {
-		return nil, err
-	}
-	err = yaml.Unmarshal(data, installState)
-	if err != nil {
-		return nil, err
-	}
-	return installState, nil
 }
 
 func contains(s []string, str string) bool {
@@ -211,13 +118,13 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-// CheckForUsers will check the config for any users and validate that at least we have 1 admin.
+// CheckConfigForUsers will check the config for any users and validate that at least we have 1 admin.
 // Since Kairos 3.3.x we don't ship a default user with the system, so before a system with no specific users
 // was relying in our default cloud-configs which created a kairos user ALWAYS (with SUDO!)
 // But now we don't ship it anymore. So a user upgrading from 3.2.x to 3.3.x that created no users, will end up with a blocked
 // system.
 // So we need to see if they are setting a user in their config and if not refuse to continue
-func (c Config) CheckForUsers() (err error) {
+func CheckConfigForUsers(c *sdkConfig.Config) (err error) {
 	// If nousers is enabled we do not check for the validity of the users and such
 	// At this point, the config should be fully parsed and the yip stages ready
 
@@ -229,7 +136,7 @@ func (c Config) CheckForUsers() (err error) {
 	}
 	if !c.Install.NoUsers {
 		anyAdmin := false
-		cc, _ := c.Config.String()
+		cc, _ := c.Collector.String()
 		yamlConfig, err := yip.Load(cc, vfs.OSFS, nil, nil)
 		if err != nil {
 			return err
@@ -257,9 +164,9 @@ func (c Config) CheckForUsers() (err error) {
 	return err
 }
 
-// Sanitize checks the consistency of the struct, returns error
+// sanitizeConfig checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
-func (c *Config) Sanitize() error {
+func sanitizeConfig(c *sdkConfig.Config) error {
 	// If no squashcompression is set, zero the compression parameters
 	// By default on NewConfig the SquashFsCompressionConfig is set to the default values, and then override
 	// on config unmarshall.
@@ -267,7 +174,7 @@ func (c *Config) Sanitize() error {
 		c.SquashFsCompressionConfig = []string{}
 	}
 	if c.Arch != "" && c.Platform == nil {
-		p, err := v1.NewPlatformFromArch(c.Arch)
+		p, err := platform.NewPlatformFromArch(c.Arch)
 		if err != nil {
 			return err
 		}
@@ -275,7 +182,7 @@ func (c *Config) Sanitize() error {
 	}
 
 	if c.Platform == nil {
-		p, err := v1.NewPlatformFromArch(runtime.GOARCH)
+		p, err := platform.NewPlatformFromArch(runtime.GOARCH)
 		if err != nil {
 			return err
 		}
@@ -284,73 +191,63 @@ func (c *Config) Sanitize() error {
 	return nil
 }
 
-type GenericOptions func(a *Config)
+type GenericOptions func(a *sdkConfig.Config)
 
-func WithFs(fs v1.FS) func(r *Config) {
-	return func(r *Config) {
+func WithFs(fs sdkFs.KairosFS) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Fs = fs
 	}
 }
 
-func WithLogger(logger sdkTypes.KairosLogger) func(r *Config) {
-	return func(r *Config) {
+func WithLogger(logger logger.KairosLogger) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Logger = logger
 	}
 }
 
-func WithSyscall(syscall v1.SyscallInterface) func(r *Config) {
-	return func(r *Config) {
+func WithSyscall(syscall sdkSyscall.Interface) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Syscall = syscall
 	}
 }
 
-func WithMounter(mounter mount.Interface) func(r *Config) {
-	return func(r *Config) {
+func WithMounter(mounter mount.Interface) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Mounter = mounter
 	}
 }
 
-func WithRunner(runner v1.Runner) func(r *Config) {
-	return func(r *Config) {
+func WithRunner(runner runner.Runner) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Runner = runner
 	}
 }
 
-func WithClient(client v1.HTTPClient) func(r *Config) {
-	return func(r *Config) {
+func WithClient(client sdkHttp.Client) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Client = client
 	}
 }
 
-func WithCloudInitRunner(ci v1.CloudInitRunner) func(r *Config) {
-	return func(r *Config) {
+func WithCloudInitRunner(ci cloudinitrunner.CloudInitRunner) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.CloudInitRunner = ci
 	}
 }
 
-func WithPlatform(platform string) func(r *Config) {
-	return func(r *Config) {
-		p, err := v1.ParsePlatform(platform)
+func WithPlatform(plat string) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
+		p, err := platform.ParsePlatform(plat)
 		if err == nil {
 			r.Platform = p
 		}
 	}
 }
 
-func WithImageExtractor(extractor v1.ImageExtractor) func(r *Config) {
-	return func(r *Config) {
+func WithImageExtractor(extractor sdkImages.ImageExtractor) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.ImageExtractor = extractor
 	}
-}
-
-type Bundles []Bundle
-
-type Bundle struct {
-	Repository string   `yaml:"repository,omitempty"`
-	Rootfs     string   `yaml:"rootfs_path,omitempty"`
-	DB         string   `yaml:"db_path,omitempty"`
-	LocalFile  bool     `yaml:"local_file,omitempty"`
-	Targets    []string `yaml:"targets,omitempty"`
 }
 
 const DefaultHeader = "#cloud-config"
@@ -367,33 +264,14 @@ func HasHeader(userdata, head string) (bool, string) {
 	return (header == DefaultHeader) || (header == "#kairos-config") || (header == "#node-config"), header
 }
 
-func (b Bundles) Options() (res [][]bundles.BundleOption) {
-	for _, bundle := range b {
-		for _, t := range bundle.Targets {
-			opts := []bundles.BundleOption{bundles.WithRepository(bundle.Repository), bundles.WithTarget(t)}
-			if bundle.Rootfs != "" {
-				opts = append(opts, bundles.WithRootFS(bundle.Rootfs))
-			}
-			if bundle.DB != "" {
-				opts = append(opts, bundles.WithDBPath(bundle.DB))
-			}
-			if bundle.LocalFile {
-				opts = append(opts, bundles.WithLocalFile(true))
-			}
-			res = append(res, opts)
-		}
-	}
-	return
-}
-
 // HasConfigURL returns true if ConfigURL has been set and false if it's empty.
-func (c Config) HasConfigURL() bool {
+func HasConfigURL(c *sdkConfig.Config) bool {
 	return c.ConfigURL != ""
 }
 
 // FilterKeys is used to pass to any other pkg which might want to see which part of the config matches the Kairos config.
 func FilterKeys(d []byte) ([]byte, error) {
-	cmdLineFilter := Config{}
+	cmdLineFilter := sdkConfig.Config{}
 	err := yaml.Unmarshal(d, &cmdLineFilter)
 	if err != nil {
 		return []byte{}, err
@@ -409,20 +287,20 @@ func FilterKeys(d []byte) ([]byte, error) {
 
 // ScanNoLogs is a wrapper around Scan that sets the logger to null
 // Also sets the NoLogs option to true by default
-func ScanNoLogs(opts ...collector.Option) (c *Config, err error) {
-	log := sdkTypes.NewNullLogger()
+func ScanNoLogs(opts ...collector.Option) (c *sdkConfig.Config, err error) {
+	log := logger.NewNullLogger()
 	result := NewConfig(WithLogger(log))
 	return scan(result, append(opts, collector.NoLogs)...)
 }
 
 // Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger
-func Scan(opts ...collector.Option) (c *Config, err error) {
+func Scan(opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	result := NewConfig()
 	return scan(result, opts...)
 }
 
 // scan is the internal function that does the actual scanning of the configs
-func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
+func scan(result *sdkConfig.Config, opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	// Init new config with some default options
 	o := &collector.Options{}
 	if err := o.Apply(opts...); err != nil {
@@ -434,7 +312,7 @@ func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
 		return result, err
 	}
 
-	result.Config = *genericConfig
+	result.Collector = *genericConfig
 	configStr, err := genericConfig.String()
 	if err != nil {
 		return result, err

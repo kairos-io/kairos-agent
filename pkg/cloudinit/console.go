@@ -18,28 +18,28 @@ package cloudinit
 
 import (
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 
 	"github.com/hashicorp/go-multierror"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 )
 
 // cloudInitConsole represents a yip's Console implementations using
 // the elemental v1.Runner interface.
 type cloudInitConsole struct {
-	runner v1.Runner
-	logger sdkTypes.KairosLogger
+	runner sdkRunner.Runner
+	logger sdkLogger.KairosLogger
 }
 
 // newCloudInitConsole returns an instance of the cloudInitConsole based on the
 // given v1.Runner and v1.Logger.
-func newCloudInitConsole(l sdkTypes.KairosLogger, r v1.Runner) *cloudInitConsole {
+func newCloudInitConsole(l sdkLogger.KairosLogger, r sdkRunner.Runner) *cloudInitConsole {
 	return &cloudInitConsole{logger: l, runner: r}
 }
 
 // getRunner returns the internal runner used within this Console
-func (c cloudInitConsole) getRunner() v1.Runner {
+func (c cloudInitConsole) getRunner() sdkRunner.Runner {
 	return c.runner
 }
 

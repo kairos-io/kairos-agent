@@ -1,16 +1,17 @@
 package agent
 
 import (
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	"github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	"github.com/twpayne/go-vfs/v5/vfst"
 	"gopkg.in/yaml.v3"
 
@@ -26,9 +27,9 @@ var _ = Describe("prepareConfiguration", func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(temp)
 
-		content, err := yaml.Marshal(config.Config{
+		content, err := yaml.Marshal(sdkConfig.Config{
 			Debug: true,
-			Install: &config.Install{
+			Install: &sdkInstall.Install{
 				Device: "fake",
 			},
 		})
@@ -39,7 +40,7 @@ var _ = Describe("prepareConfiguration", func() {
 		source, err := prepareConfiguration(filepath.Join(temp, "config.yaml"))
 		Expect(err).ToNot(HaveOccurred())
 
-		var cfg config.Config
+		var cfg sdkConfig.Config
 		err = yaml.NewDecoder(source).Decode(&cfg)
 		Expect(cfg.ConfigURL).To(BeEmpty())
 		Expect(cfg.Debug).To(BeTrue())
@@ -50,7 +51,7 @@ var _ = Describe("prepareConfiguration", func() {
 		source, err := prepareConfiguration(url)
 		Expect(err).ToNot(HaveOccurred())
 
-		var cfg config.Config
+		var cfg sdkConfig.Config
 		err = yaml.NewDecoder(source).Decode(&cfg)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -59,9 +60,9 @@ var _ = Describe("prepareConfiguration", func() {
 })
 
 var _ = Describe("RunInstall", func() {
-	var options *config.Config
+	var options *sdkConfig.Config
 	var err error
-	var fs v1.FS
+	var fs sdkFS.KairosFS
 	var cleanup func()
 	var ghwTest ghwMock.GhwMock
 	var cmdline func() ([]byte, error)
@@ -118,16 +119,16 @@ var _ = Describe("RunInstall", func() {
 		_, err = fs.Create(device)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		options = &config.Config{
-			Install: &config.Install{
+		options = &sdkConfig.Config{
+			Install: &sdkInstall.Install{
 				Device: "/some/device",
 				Source: "test",
 			},
 		}
 
-		mainDisk := types.Disk{
+		mainDisk := sdkPartitions.Disk{
 			Name: "device",
-			Partitions: []*types.Partition{
+			Partitions: []*sdkPartitions.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "COS_GRUB",

@@ -6,12 +6,12 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"gopkg.in/yaml.v3"
 )
 
-func RenderTemplate(path string, config *config.Config, runtime state.Runtime) ([]byte, error) {
+func RenderTemplate(path string, config *sdkConfig.Config, runtime state.Runtime) ([]byte, error) {
 	// Marshal runtime to YAML then to Map so that it is consistent with the output of 'kairos-agent state'
 	var runtimeMap map[string]interface{}
 	err := yaml.Unmarshal([]byte(runtime.String()), &runtimeMap)
@@ -26,7 +26,7 @@ func RenderTemplate(path string, config *config.Config, runtime state.Runtime) (
 
 	result := new(bytes.Buffer)
 	err = tpl.Execute(result, map[string]interface{}{
-		"Config": config.Config.Values,
+		"Config": config.Collector.Values,
 		"State":  runtimeMap,
 	})
 	if err != nil {

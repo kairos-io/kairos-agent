@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1_test
+package runner_test
 
 import (
 	"bytes"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/runner"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -39,14 +40,14 @@ var _ = Describe("Runner", Label("types", "runner"), func() {
 	It("Sets and gets the logger on the fake runner", func() {
 		r := v1mock.NewFakeRunner()
 		Expect(r.GetLogger()).To(BeNil())
-		logger := sdkTypes.NewNullLogger()
+		logger := logger.NewNullLogger()
 		r.SetLogger(&logger)
 		Expect(r.GetLogger()).ToNot(BeNil())
 	})
 	It("Sets and gets the logger on the real runner", func() {
 		r := v1.RealRunner{}
 		Expect(r.GetLogger()).To(BeNil())
-		logger := sdkTypes.NewNullLogger()
+		logger := logger.NewNullLogger()
 		r.SetLogger(&logger)
 		Expect(r.GetLogger()).ToNot(BeNil())
 	})
@@ -54,7 +55,7 @@ var _ = Describe("Runner", Label("types", "runner"), func() {
 	It("logs the command when on debug", func() {
 
 		memLog := &bytes.Buffer{}
-		logger := sdkTypes.NewBufferLogger(memLog)
+		logger := logger.NewBufferLogger(memLog)
 		logger.SetLevel("debug")
 		r := v1.RealRunner{Logger: &logger}
 		_, err := r.Run("command", "with", "args")

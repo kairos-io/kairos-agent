@@ -14,21 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package imageextractor
 
 import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/kairos-io/kairos-sdk/types/images"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
-type ImageExtractor interface {
-	ExtractImage(imageRef, destination, platformRef string, excludes ...string) error
-	GetOCIImageSize(imageRef, platformRef string) (int64, error)
-}
-
 type OCIImageExtractor struct{}
 
-var _ ImageExtractor = OCIImageExtractor{}
+var _ images.ImageExtractor = OCIImageExtractor{}
 
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string, excludes ...string) error {
 	// If we pass a platform

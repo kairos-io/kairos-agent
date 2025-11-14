@@ -18,22 +18,29 @@ package config_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
+	sdkBundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog"
+	"github.com/sanity-io/litter"
 	"github.com/twpayne/go-vfs/v5/vfst"
 	"k8s.io/mount-utils"
 )
@@ -47,14 +54,14 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		var runner *v1mock.FakeRunner
 		var client *v1mock.FakeHTTPClient
 		var sysc *v1mock.FakeSyscall
-		var logger sdkTypes.KairosLogger
+		var logger sdkLogger.KairosLogger
 		var ci *v1mock.FakeCloudInitRunner
-		var c *config.Config
+		var c *sdkConfig.Config
 		var memLog bytes.Buffer
 
 		BeforeEach(func() {
 			memLog = bytes.Buffer{}
-			logger = sdkTypes.NewBufferLogger(&memLog)
+			logger = sdkLogger.NewBufferLogger(&memLog)
 			logger.SetLevel("debug")
 
 			fs, cleanup, err = vfst.NewTestFS(nil)
@@ -74,9 +81,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				config.WithClient(client),
 				config.WithPlatform("linux/arm64"),
 			)
-			c.Install = &config.Install{}
-			c.Bundles = config.Bundles{}
-			c.Config = collector.Config{}
+			c.Install = &sdkInstall.Install{}
+			c.Bundles = sdkBundles.Bundles{}
+			c.Collector = collector.Config{}
 		})
 		AfterEach(func() {
 			cleanup()
@@ -126,7 +133,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			It("should use the default mounter", Label("systemctl"), func() {
 				runner := v1mock.NewFakeRunner()
 				sysc := &v1mock.FakeSyscall{}
-				logger := sdkTypes.NewNullLogger()
+				logger := sdkLogger.NewNullLogger()
 				c := config.NewConfig(
 					config.WithRunner(runner),
 					config.WithSyscall(sysc),
@@ -159,10 +166,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(spec.Firmware).To(Equal(v1.EFI))
+				Expect(spec.Firmware).To(Equal(sdkConstants.EFI))
 				Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 				Expect(spec.Recovery.Source.Value()).To(Equal(recoveryImgFile))
-				Expect(spec.PartTable).To(Equal(v1.GPT))
+				Expect(spec.PartTable).To(Equal(sdkConstants.GPT))
 
 				// No firmware partitions added yet
 				Expect(spec.Partitions.EFI).To(BeNil())
@@ -177,10 +184,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(spec.Firmware).To(Equal(v1.BIOS))
+				Expect(spec.Firmware).To(Equal(sdkConstants.BIOS))
 				Expect(spec.Active.Source.Value()).To(Equal(constants.IsoBaseTree))
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
-				Expect(spec.PartTable).To(Equal(v1.GPT))
+				Expect(spec.PartTable).To(Equal(sdkConstants.GPT))
 
 				// No firmware partitions added yet
 				Expect(spec.Partitions.BIOS).To(BeNil())
@@ -201,19 +208,19 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				c.Install.Source = "oci:test:latest"
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(spec.Firmware).To(Equal(v1.BIOS))
+				Expect(spec.Firmware).To(Equal(sdkConstants.BIOS))
 				Expect(spec.Active.Source.IsEmpty()).To(BeFalse())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
-				Expect(spec.PartTable).To(Equal(v1.GPT))
+				Expect(spec.PartTable).To(Equal(sdkConstants.GPT))
 				Expect(spec.Sanitize()).ToNot(HaveOccurred())
 			})
 			It("sets installation defaults without being on installation media and no source, fails sanitize", Label("install"), func() {
 				spec, err := config.NewInstallSpec(c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(spec.Firmware).To(Equal(v1.BIOS))
+				Expect(spec.Firmware).To(Equal(sdkConstants.BIOS))
 				Expect(spec.Active.Source.IsEmpty()).To(BeTrue())
 				Expect(spec.Recovery.Source.Value()).To(Equal(spec.Active.File))
-				Expect(spec.PartTable).To(Equal(v1.GPT))
+				Expect(spec.PartTable).To(Equal(sdkConstants.GPT))
 				Expect(spec.Sanitize()).To(HaveOccurred())
 			})
 			It("copies reboot flag from config to spec", Label("install", "reboot"), func() {
@@ -277,9 +284,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Describe("Successful executions", func() {
 				var ghwTest ghwMock.GhwMock
 				BeforeEach(func() {
-					mainDisk := sdkTypes.Disk{
+					mainDisk := sdkPartitions.Disk{
 						Name: "device",
-						Partitions: []*sdkTypes.Partition{
+						Partitions: []*sdkPartitions.Partition{
 							{
 								Name:            "device1",
 								FilesystemLabel: constants.EfiLabel,
@@ -370,9 +377,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					}
 
 					// Set an empty disk for tests, otherwise reads the hosts hardware
-					mainDisk := sdkTypes.Disk{
+					mainDisk := sdkPartitions.Disk{
 						Name: "device",
-						Partitions: []*sdkTypes.Partition{
+						Partitions: []*sdkPartitions.Partition{
 							{
 								Name:            "device4",
 								FilesystemLabel: constants.StateLabel,
@@ -399,9 +406,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err.Error()).To(ContainSubstring("recovery partition not found"))
 				})
 				It("fails to set defaults if no state partition detected", func() {
-					mainDisk := sdkTypes.Disk{
+					mainDisk := sdkPartitions.Disk{
 						Name:       "device",
-						Partitions: []*sdkTypes.Partition{},
+						Partitions: []*sdkPartitions.Partition{},
 					}
 					ghwTest = ghwMock.GhwMock{}
 					ghwTest.AddDisk(mainDisk)
@@ -431,9 +438,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Describe("Successful executions", func() {
 				var ghwTest ghwMock.GhwMock
 				BeforeEach(func() {
-					mainDisk := sdkTypes.Disk{
+					mainDisk := sdkPartitions.Disk{
 						Name: "device",
-						Partitions: []*sdkTypes.Partition{
+						Partitions: []*sdkPartitions.Partition{
 							{
 								Name:            "device1",
 								FilesystemLabel: constants.EfiLabel,
@@ -498,13 +505,13 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("sets image size to default value if not set", func() {
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
-					Expect(spec.Active.Size).To(Equal(constants.ImgSize))
+					Expect(spec.Active.Size).To(Equal(sdkConstants.ImgSize))
 				})
 
 				It("sets image size to provided value if set in the config and image is smaller", func() {
 					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    size: 666\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Size).To(Equal(uint(666)))
@@ -512,16 +519,16 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("sets image size to default value if not set in the config and image is smaller", func() {
 					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: dir:/\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
-					Expect(spec.Active.Size).To(Equal(constants.ImgSize))
+					Expect(spec.Active.Size).To(Equal(sdkConstants.ImgSize))
 				})
 
 				It("sets image size to the source if default is smaller", func() {
 					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: file:/tmp/waka\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					Expect(c.Fs.Mkdir("/tmp", 0777)).ShouldNot(HaveOccurred())
 					Expect(c.Fs.WriteFile("/tmp/waka", []byte("waka"), 0777)).ShouldNot(HaveOccurred())
 					Expect(c.Fs.Truncate("/tmp/waka", 5120*1024*1024)).ShouldNot(HaveOccurred())
@@ -546,7 +553,7 @@ upgrade:
 `)))
 					Expect(err).ToNot(HaveOccurred())
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(spec.Active.Source).ToNot(BeNil())
@@ -598,9 +605,9 @@ cloud-init-paths:
 				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
-				mainDisk := sdkTypes.Disk{
+				mainDisk := sdkPartitions.Disk{
 					Name: "device",
-					Partitions: []*sdkTypes.Partition{
+					Partitions: []*sdkPartitions.Partition{
 						{
 							Name:            "device1",
 							FilesystemLabel: constants.EfiLabel,
@@ -708,8 +715,9 @@ debug: true
 `)
 				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.Scan(collector.Directories([]string{dir}...))
 				Expect(err).ToNot(HaveOccurred())
+				fmt.Println(litter.Sdump(cfg))
 				Expect(cfg.Logger.GetLevel()).To(Equal(zerolog.DebugLevel))
 
 			})
@@ -764,9 +772,9 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 	var tempDir string
 	var tempFilePath string
 	var err error
-	var logger sdkTypes.KairosLogger
-	var conf *config.Config
-	var imageSource *v1.ImageSource
+	var logger sdkLogger.KairosLogger
+	var conf *sdkConfig.Config
+	var imageSource *sdkImages.ImageSource
 	var memLog bytes.Buffer
 
 	BeforeEach(func() {
@@ -775,7 +783,7 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 
 		//logger = sdkTypes.NewNullLogger()
 		memLog = bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(&memLog)
+		logger = sdkLogger.NewBufferLogger(&memLog)
 		logger.SetLevel("debug")
 		conf = config.NewConfig(
 			config.WithLogger(logger),
@@ -785,7 +793,7 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		err := createFileOfSizeInMB(tempFilePath, 200)
 		Expect(err).To(BeNil())
 
-		imageSource = v1.NewDirSrc(tempDir)
+		imageSource = sdkImages.NewDirSrc(tempDir)
 	})
 
 	AfterEach(func() {

@@ -17,16 +17,17 @@ limitations under the License.
 package action
 
 import (
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"path/filepath"
+
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"path/filepath"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
 // in case v1.Config.Strict is set to false
-func Hook(config *config.Config, hook string) error {
+func Hook(config *sdkConfig.Config, hook string) error {
 	config.Logger.Infof("Running %s hook", hook)
 	err := utils.RunStage(config, hook)
 	if !config.Strict {
@@ -36,14 +37,14 @@ func Hook(config *config.Config, hook string) error {
 }
 
 // ChrootHook executes Hook inside a chroot environment
-func ChrootHook(config *config.Config, hook string, chrootDir string, bindMounts map[string]string) (err error) {
+func ChrootHook(config *sdkConfig.Config, hook string, chrootDir string, bindMounts map[string]string) (err error) {
 	callback := func() error {
 		return Hook(config, hook)
 	}
 	return utils.ChrootedCallback(config, chrootDir, bindMounts, callback)
 }
 
-func createExtraDirsInRootfs(cfg *config.Config, extradirs []string, target string) {
+func createExtraDirsInRootfs(cfg *sdkConfig.Config, extradirs []string, target string) {
 	if target == "" {
 		cfg.Logger.Warn("Empty target for extra rootfs dirs, not doing anything")
 		return

@@ -27,12 +27,17 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkBundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,10 +46,10 @@ import (
 )
 
 var _ = Describe("Install action tests", func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
 	var cl *v1mock.FakeHTTPClient
@@ -60,7 +65,7 @@ var _ = Describe("Install action tests", func() {
 		mounter = v1mock.NewErrorMounter()
 		cl = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(memLog)
+		logger = sdkLogger.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		logger.SetLevel("debug")
 		var err error
@@ -82,9 +87,9 @@ var _ = Describe("Install action tests", func() {
 			agentConfig.WithCloudInitRunner(cloudInit),
 			agentConfig.WithImageExtractor(extractor),
 		)
-		config.Install = &agentConfig.Install{}
-		config.Bundles = agentConfig.Bundles{}
-		config.Config = collector.Config{}
+		config.Install = &sdkInstall.Install{}
+		config.Bundles = sdkBundles.Bundles{}
+		config.Collector = collector.Config{}
 	})
 
 	AfterEach(func() {
@@ -160,9 +165,9 @@ var _ = Describe("Install action tests", func() {
 			_, err = fs.Create(filepath.Join(spec.Active.MountPoint, "usr", "lib", "grub", "i386-pc", "modinfo.sh"))
 			Expect(err).To(BeNil())
 
-			mainDisk := sdkTypes.Disk{
+			mainDisk := sdkPartitions.Disk{
 				Name: "device",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
@@ -264,7 +269,7 @@ var _ = Describe("Install action tests", func() {
 
 		It("Successfully installs a docker image", Label("docker"), func() {
 			spec.Target = device
-			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
+			spec.Active.Source = sdkImages.NewDockerSrc("my/image:latest")
 			Expect(installer.Run()).To(BeNil())
 		})
 
@@ -346,7 +351,7 @@ var _ = Describe("Install action tests", func() {
 			extractor.SideEffect = func(imageRef, destination, platformRef string) error {
 				return fmt.Errorf("error")
 			}
-			spec.Active.Source = v1.NewDockerSrc("my/image:latest")
+			spec.Active.Source = sdkImages.NewDockerSrc("my/image:latest")
 			Expect(installer.Run()).NotTo(BeNil())
 		})
 

@@ -2,10 +2,11 @@ package matchers
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
 	"github.com/twpayne/go-vfs/v5"
-	"os"
 )
 
 // BeAnExistingFileFs returns a matcher that checks if a file exists in the given vfs.

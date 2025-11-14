@@ -2,27 +2,29 @@ package partitioner
 
 import (
 	"fmt"
+
 	"github.com/diskfs/go-diskfs"
 	"github.com/diskfs/go-diskfs/disk"
 	"github.com/diskfs/go-diskfs/partition"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	"github.com/gofrs/uuid"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
+	"github.com/kairos-io/kairos-sdk/types/logger"
+	"github.com/kairos-io/kairos-sdk/types/partitions"
 	"github.com/sanity-io/litter"
 )
 
 type Disk struct {
 	*disk.Disk
-	logger sdkTypes.KairosLogger
+	logger logger.KairosLogger
 }
 
-func (d *Disk) NewPartitionTable(partType string, parts sdkTypes.PartitionList) error {
+func (d *Disk) NewPartitionTable(partType string, parts partitions.PartitionList) error {
 	d.logger.Infof("Creating partition table for partition type %s", partType)
 	var table partition.Table
 	switch partType {
-	case v1.GPT:
+	case sdkConstants.GPT:
 		table = &gpt.Table{
 			ProtectiveMBR:      true,
 			GUID:               cnst.DiskUUID, // Set know predictable UUID
@@ -45,7 +47,7 @@ func getSectorEndFromSize(start, size uint64, sectorSize int64) uint64 {
 	return (size / uint64(sectorSize)) + start - 1
 }
 
-func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64, sectorSize int64) []*gpt.Partition {
+func kairosPartsToDiskfsGPTParts(parts partitions.PartitionList, diskSize int64, sectorSize int64) []*gpt.Partition {
 	var partitions []*gpt.Partition
 	for index, part := range parts {
 		var start uint64
@@ -82,7 +84,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64, s
 
 		end = getSectorEndFromSize(start, size, sectorSize)
 
-		if part.Name == cnst.EfiPartName && part.FS == cnst.EfiFs {
+		if part.Name == sdkConstants.EfiPartName && part.FS == sdkConstants.EfiFs {
 			// EFI boot partition
 			partitions = append(partitions, &gpt.Partition{
 				Start:      start,
@@ -93,7 +95,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64, s
 				Name:       part.Name,
 				Attributes: 0x1, // system partition flag
 			})
-		} else if part.Name == cnst.BiosPartName {
+		} else if part.Name == sdkConstants.BiosPartName {
 			// Non-EFI boot partition
 			partitions = append(partitions, &gpt.Partition{
 				Start:      start,
@@ -121,7 +123,7 @@ func kairosPartsToDiskfsGPTParts(parts sdkTypes.PartitionList, diskSize int64, s
 
 type DiskOptions func(d *Disk) error
 
-func WithLogger(logger sdkTypes.KairosLogger) func(d *Disk) error {
+func WithLogger(logger logger.KairosLogger) func(d *Disk) error {
 	return func(d *Disk) error {
 		d.logger = logger
 		return nil
@@ -133,7 +135,7 @@ func NewDisk(device string, opts ...DiskOptions) (*Disk, error) {
 	if err != nil {
 		return nil, err
 	}
-	dev := &Disk{d, sdkTypes.NewKairosLogger("partitioner", "info", false)}
+	dev := &Disk{d, logger.NewKairosLogger("partitioner", "info", false)}
 
 	for _, opt := range opts {
 		if err := opt(dev); err != nil {

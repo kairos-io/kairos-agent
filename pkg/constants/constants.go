@@ -47,15 +47,8 @@ const (
 	OEMPartName                  = "oem"
 	MountBinary                  = "/usr/bin/mount"
 	EfiDevice                    = "/sys/firmware/efi"
-	LinuxFs                      = "ext4"
 	LinuxImgFs                   = "ext2"
 	SquashFs                     = "squashfs"
-	EfiFs                        = "vfat"
-	EfiSize                      = uint(64)
-	OEMSize                      = uint(64)
-	PersistentSize               = uint(0)
-	BiosSize                     = uint(1)
-	ImgSize                      = uint(3072)
 	HTTPTimeout                  = 60
 	LiveDir                      = "/run/initramfs/live"
 	RecoveryDir                  = "/run/cos/recovery"
@@ -88,7 +81,6 @@ const (
 	PassiveImgName               = "passive"
 	RecoveryImgName              = "recovery"
 	StateResetImgName            = "statereset"
-	GPT                          = "gpt"
 	UsrLocalPath                 = "/usr/local"
 	OEMPath                      = "/oem"
 	BootEntryRecovery            = "recovery"

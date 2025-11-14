@@ -6,22 +6,22 @@ import (
 	"path/filepath"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/signatures"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 type UpgradeAction struct {
-	cfg  *config.Config
+	cfg  *sdkConfig.Config
 	spec *v1.UpgradeUkiSpec
 }
 
-func NewUpgradeAction(cfg *config.Config, spec *v1.UpgradeUkiSpec) *UpgradeAction {
+func NewUpgradeAction(cfg *sdkConfig.Config, spec *v1.UpgradeUkiSpec) *UpgradeAction {
 	return &UpgradeAction{cfg: cfg, spec: spec}
 }
 

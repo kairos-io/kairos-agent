@@ -3,8 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
-	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"strings"
 	"sync"
 	"time"
@@ -14,9 +12,12 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdk "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/utils"
 
 	"github.com/mudler/go-pluggable"
@@ -38,7 +39,8 @@ func reset(reboot, unattended, resetOem bool, dir ...string) error {
 	if err != nil {
 		return err
 	}
-	err = cfg.CheckForUsers()
+	err = config.CheckConfigForUsers(cfg)
+
 	if err != nil {
 		return err
 	}
@@ -69,7 +71,7 @@ func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
 	if err != nil {
 		return err
 	}
-	err = cfg.CheckForUsers()
+	err = config.CheckConfigForUsers(cfg)
 	if err != nil {
 		return err
 	}
@@ -97,7 +99,7 @@ func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
 
 // sharedReset is the common reset code for both uki and non-uki
 // sets the config, runs the event handler, publish the envent and gets the config
-func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *config.Config, err error) {
+func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *sdkConfig.Config, err error) {
 	bus.Manager.Initialize()
 	var optionsFromEvent map[string]string
 
