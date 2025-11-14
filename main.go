@@ -1207,12 +1207,20 @@ The validate command expects a configuration file as its only argument. Local fi
 	},
 	{
 		Name:  "logs",
-		Usage: "Collect logs from the system",
-		Description: `Collect logs from various sources on the Kairos system and create a compressed tarball.
+		Usage: "Collect logs and system diagnostics",
+		Description: `Collect logs and diagnostic information from the Kairos system and create a compressed tarball.
 
-The command will collect logs from:
+The command will collect:
 - Journal logs from specified services (default: kairos-agent, systemd, k3s)
 - Log files from specified paths with globbing support
+- System diagnostics including:
+  - Hostname (hostname)
+  - System information (uname -a)
+  - DNS configuration (/etc/resolv.conf)
+  - Block devices (lsblk -a)
+  - Mount information (mount)
+  - Network interfaces (ip addr show)
+  - System processes (ps aux)
 
 Configuration can be provided in the Kairos config file under the 'logs' section:
 
@@ -1224,7 +1232,7 @@ logs:
   - /var/log/mybinary/*
   - /var/log/something.log
 
-The output will be a tarball with logs organized by type (journal/, files/).`,
+The output will be a tarball with logs organized by type (journal/, files/, diagnostics/).`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "output",

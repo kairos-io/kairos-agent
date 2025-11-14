@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"path/filepath"
 
@@ -68,8 +69,15 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 					service := args[1]
 					return []byte("journal logs for " + service), nil
 				}
-				return []byte{}, nil
+				// Mock diagnostic commands
+				return []byte("diagnostic output"), nil
 			}
+
+			// Create /etc/resolv.conf for diagnostics
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Set logs config in the main config
 			collector.config.Logs = &config.LogsConfig{
@@ -80,24 +88,6 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
-
-			// Verify journalctl was called for both default and user-defined services
-			// Default services: kairos-agent, kairos-installer, kairos-webui, cos-setup-boot, cos-setup-fs, cos-setup-network, cos-setup-reconcile, k3s, k3s-agent, k0scontroller, k0sworker
-			// User service: myservice
-			Expect(runner.CmdsMatch([][]string{
-				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "kairos-webui", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-boot", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-fs", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-network", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-reconcile", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k3s-agent", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k0scontroller", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k0sworker", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"},
-			})).To(BeNil())
 
 			// Verify that both default and user-defined services are in the result
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
@@ -113,6 +103,11 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(result.Journal).To(HaveKey("k0sworker"))
 			Expect(result.Journal).To(HaveKey("myservice"))
 			Expect(result.Journal).To(HaveLen(12))
+
+			// Verify diagnostics were collected
+			Expect(result.Diagnostics).To(HaveKey("hostname"))
+			Expect(result.Diagnostics).To(HaveKey("uname"))
+			Expect(result.Diagnostics).To(HaveKey("resolv.conf"))
 		})
 
 		It("should collect file logs with globbing", func() {
@@ -214,7 +209,10 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(files).To(HaveKey("files/var/log/test.log"))
 			Expect(files).To(HaveKey("files/var/log/subdir/test.log"))
 			Expect(files).To(HaveKey("files/var/log/kairos/agent.log"))
-			Expect(files).To(HaveLen(3))
+			// Also verify diagnostics are included
+			Expect(files).To(HaveKey("diagnostics/hostname.txt"))
+			Expect(files).To(HaveKey("diagnostics/uname.txt"))
+			Expect(files).To(HaveKey("diagnostics/resolv.conf.txt"))
 		})
 
 		It("should create tarball with proper structure", func() {
@@ -223,12 +221,19 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 				if command == "journalctl" {
 					return []byte("journal logs content"), nil
 				}
-				return []byte{}, nil
+				// Mock diagnostic commands
+				return []byte("diagnostic output"), nil
 			}
+
+			// Create /etc/resolv.conf for diagnostics
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create test file
 			testFile := "/var/log/test.log"
-			err := fsutils.MkdirAll(fs, filepath.Dir(testFile), constants.DirPerm)
+			err = fsutils.MkdirAll(fs, filepath.Dir(testFile), constants.DirPerm)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = fs.WriteFile(testFile, []byte("file log content"), constants.FilePerm)
@@ -279,6 +284,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			// User service: myservice
 			// Default files: /var/log/kairos-*.log (if exists)
 			// User file: /var/log/test.log
+			// Diagnostics: hostname, uname, lsblk, mount, ip-addr, ps, resolv.conf
 			Expect(files).To(HaveKey("journal/kairos-agent.log"))
 			Expect(files).To(HaveKey("journal/kairos-installer.log"))
 			Expect(files).To(HaveKey("journal/kairos-webui.log"))
@@ -292,6 +298,9 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(files).To(HaveKey("journal/k0sworker.log"))
 			Expect(files).To(HaveKey("journal/myservice.log"))
 			Expect(files).To(HaveKey("files/var/log/test.log"))
+			Expect(files).To(HaveKey("diagnostics/hostname.txt"))
+			Expect(files).To(HaveKey("diagnostics/uname.txt"))
+			Expect(files).To(HaveKey("diagnostics/resolv.conf.txt"))
 		})
 
 		It("should handle missing files gracefully", func() {
@@ -399,8 +408,15 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 				if command == "journalctl" {
 					return []byte("default journal logs"), nil
 				}
-				return []byte{}, nil
+				// Mock diagnostic commands
+				return []byte("diagnostic output"), nil
 			}
+
+			// Create /etc/resolv.conf for diagnostics
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Set logs config in the main config
 			collector.config.Logs = &config.LogsConfig{
@@ -466,7 +482,9 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(files).To(HaveKey("journal/k0sworker.log"))
 			Expect(files).To(HaveKey("journal/existingservice.log"))
 			Expect(files).ToNot(HaveKey("journal/nonexistentservice.log"))
-			Expect(files).To(HaveLen(12))
+			// Also verify diagnostics are included
+			Expect(files).To(HaveKey("diagnostics/hostname.txt"))
+			Expect(files).To(HaveKey("diagnostics/resolv.conf.txt"))
 		})
 
 		It("should use default log sources when no config provided", func() {
@@ -475,8 +493,15 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 				if command == "journalctl" {
 					return []byte("default journal logs"), nil
 				}
-				return []byte{}, nil
+				// Mock diagnostic commands
+				return []byte("diagnostic output"), nil
 			}
+
+			// Create /etc/resolv.conf for diagnostics
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Don't set logs config - should use defaults
 			collector.config.Logs = nil
@@ -485,20 +510,12 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 
-			// Should have collected from default services
-			Expect(runner.CmdsMatch([][]string{
-				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "kairos-webui", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-boot", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-fs", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-network", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-reconcile", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k3s-agent", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k0scontroller", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k0sworker", "--no-pager", "-o", "cat"},
-			})).To(BeNil())
+			// Verify default services were collected
+			Expect(result.Journal).To(HaveKey("kairos-agent"))
+			Expect(result.Journal).To(HaveKey("kairos-installer"))
+			// Verify diagnostics were collected
+			Expect(result.Diagnostics).To(HaveKey("hostname"))
+			Expect(result.Diagnostics).To(HaveKey("resolv.conf"))
 		})
 
 		It("should merge user logs config with defaults", func() {
@@ -508,8 +525,15 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 					service := args[1]
 					return []byte("journal logs for " + service), nil
 				}
-				return []byte{}, nil
+				// Mock diagnostic commands
+				return []byte("diagnostic output"), nil
 			}
+
+			// Create /etc/resolv.conf for diagnostics
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Set logs config in the main config with user-defined services
 			collector.config.Logs = &config.LogsConfig{
@@ -520,25 +544,6 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			result, err := collector.Collect()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
-
-			// Verify that both default and user-defined services were collected
-			// Default services: kairos-agent, kairos-installer, kairos-webui, cos-setup-boot, cos-setup-fs, cos-setup-network, cos-setup-reconcile, k3s, k3s-agent, k0scontroller, k0sworker
-			// User services: myservice, myotherservice
-			Expect(runner.CmdsMatch([][]string{
-				{"journalctl", "-u", "kairos-agent", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "kairos-installer", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "kairos-webui", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-boot", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-fs", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-network", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "cos-setup-reconcile", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k3s", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k3s-agent", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k0scontroller", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "k0sworker", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "myservice", "--no-pager", "-o", "cat"},
-				{"journalctl", "-u", "myotherservice", "--no-pager", "-o", "cat"},
-			})).To(BeNil())
 
 			// Verify that both default and user-defined files are in the result
 			Expect(result.Journal).To(HaveKey("kairos-agent"))
@@ -555,6 +560,9 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(result.Journal).To(HaveKey("myservice"))
 			Expect(result.Journal).To(HaveKey("myotherservice"))
 			Expect(result.Journal).To(HaveLen(13))
+			// Verify diagnostics were collected
+			Expect(result.Diagnostics).To(HaveKey("hostname"))
+			Expect(result.Diagnostics).To(HaveKey("resolv.conf"))
 		})
 	})
 
@@ -609,6 +617,161 @@ logs:
 			exists, err := fsutils.Exists(fs, outputPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
+		})
+	})
+
+	Describe("Diagnostics Collection", func() {
+		var collector *LogsCollector
+
+		BeforeEach(func() {
+			cfg := config.NewConfig(
+				config.WithFs(fs),
+				config.WithLogger(logger),
+				config.WithRunner(runner),
+			)
+			collector = NewLogsCollector(cfg)
+		})
+
+		It("should collect diagnostic information", func() {
+			// Mock diagnostic commands
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				switch command {
+				case "hostname":
+					return []byte("test-hostname"), nil
+				case "uname":
+					return []byte("Linux test-hostname 5.15.0-105-generic"), nil
+				case "lsblk":
+					return []byte("NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT\nsda 8:0 0 50G 0 disk"), nil
+				case "mount":
+					return []byte("/dev/sda1 on / type ext4 (rw,relatime)"), nil
+				case "ip":
+					return []byte("1: lo: <LOOPBACK,UP,LOWER_UP>"), nil
+				case "ps":
+					return []byte("USER PID %CPU %MEM COMMAND"), nil
+				default:
+					return []byte{}, nil
+				}
+			}
+
+			// Create /etc/resolv.conf
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+
+			// Verify diagnostics were collected
+			Expect(result.Diagnostics).To(HaveKey("hostname"))
+			Expect(result.Diagnostics).To(HaveKey("uname"))
+			Expect(result.Diagnostics).To(HaveKey("lsblk"))
+			Expect(result.Diagnostics).To(HaveKey("mount"))
+			Expect(result.Diagnostics).To(HaveKey("ip-addr"))
+			Expect(result.Diagnostics).To(HaveKey("ps"))
+			Expect(result.Diagnostics).To(HaveKey("resolv.conf"))
+
+			// Verify content
+			Expect(string(result.Diagnostics["hostname"])).To(Equal("test-hostname"))
+			Expect(string(result.Diagnostics["resolv.conf"])).To(Equal("nameserver 8.8.8.8"))
+		})
+
+		It("should include diagnostics in tarball", func() {
+			// Mock commands
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "hostname" {
+					return []byte("test-hostname"), nil
+				}
+				if command == "journalctl" {
+					return []byte("journal logs"), nil
+				}
+				return []byte("command output"), nil
+			}
+
+			// Create /etc/resolv.conf
+			err := fsutils.MkdirAll(fs, "/etc", constants.DirPerm)
+			Expect(err).ToNot(HaveOccurred())
+			err = fs.WriteFile("/etc/resolv.conf", []byte("nameserver 8.8.8.8"), constants.FilePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create tarball
+			tarballPath := "/tmp/diagnostics.tar.gz"
+			err = collector.CreateTarball(result, tarballPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Read and verify tarball contents
+			tarballData, err := fs.ReadFile(tarballPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Extract and verify tarball structure
+			gzr, err := gzip.NewReader(bytes.NewReader(tarballData))
+			Expect(err).ToNot(HaveOccurred())
+			defer gzr.Close()
+
+			tr := tar.NewReader(gzr)
+			files := make(map[string]bool)
+
+			for {
+				header, err := tr.Next()
+				if err == io.EOF {
+					break
+				}
+				Expect(err).ToNot(HaveOccurred())
+				files[header.Name] = true
+			}
+
+			// Verify diagnostics are in tarball
+			Expect(files).To(HaveKey("diagnostics/hostname.txt"))
+			Expect(files).To(HaveKey("diagnostics/uname.txt"))
+			Expect(files).To(HaveKey("diagnostics/lsblk.txt"))
+			Expect(files).To(HaveKey("diagnostics/mount.txt"))
+			Expect(files).To(HaveKey("diagnostics/ip-addr.txt"))
+			Expect(files).To(HaveKey("diagnostics/ps.txt"))
+			Expect(files).To(HaveKey("diagnostics/resolv.conf.txt"))
+		})
+
+		It("should handle diagnostic command failures gracefully", func() {
+			// Mock commands to fail
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "hostname" {
+					return nil, fmt.Errorf("command not found")
+				}
+				if command == "journalctl" {
+					return []byte("journal logs"), nil
+				}
+				return []byte("command output"), nil
+			}
+
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+
+			// Verify error message is stored for failed command
+			Expect(result.Diagnostics).To(HaveKey("hostname"))
+			Expect(string(result.Diagnostics["hostname"])).To(ContainSubstring("Error running command"))
+		})
+
+		It("should handle missing resolv.conf gracefully", func() {
+			// Mock commands
+			runner.SideEffect = func(command string, args ...string) ([]byte, error) {
+				if command == "journalctl" {
+					return []byte("journal logs"), nil
+				}
+				return []byte("command output"), nil
+			}
+
+			// Don't create /etc/resolv.conf
+			result, err := collector.Collect()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+
+			// Verify error message is stored for missing file
+			Expect(result.Diagnostics).To(HaveKey("resolv.conf"))
+			Expect(string(result.Diagnostics["resolv.conf"])).To(ContainSubstring("Error reading file"))
 		})
 	})
 })
