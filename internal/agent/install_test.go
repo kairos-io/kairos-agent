@@ -1,12 +1,6 @@
 package agent
 
 import (
-	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
-	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
-	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
-	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
-
 	"os"
 	"path/filepath"
 
@@ -14,6 +8,11 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	"github.com/twpayne/go-vfs/v5/vfst"
 	"gopkg.in/yaml.v3"
 
@@ -56,7 +55,7 @@ var _ = Describe("prepareConfiguration", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		var cfg config.Config
-		err = yaml.NewDecoder(source).Decode(&cfg)
+		err = yaml.NewDecoder(source).Decode(&cfg.Config)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(cfg.ConfigURL).To(Equal(url))
