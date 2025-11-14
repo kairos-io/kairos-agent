@@ -43,6 +43,7 @@ require (
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v77 v77.0.0
 	github.com/google/go-github/v78 v78.0.0
+	github.com/google/go-github/v79 v79.0.0
 	github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185
 	github.com/twpayne/go-vfs/v5 v5.0.5
 	github.com/urfave/cli/v2 v2.27.7
