@@ -2,14 +2,15 @@ package action
 
 import (
 	"fmt"
-	"github.com/distribution/reference"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-sdk/types"
-	"github.com/twpayne/go-vfs/v5"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/distribution/reference"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	"github.com/twpayne/go-vfs/v5"
 )
 
 // Implementation details for not trusted boot
@@ -46,7 +47,6 @@ func (s *SysExtension) String() string {
 	return s.Name
 }
 
-
 func dirFromBootState(bootState string) string {
 	switch bootState {
 	case "active":
@@ -61,6 +61,7 @@ func dirFromBootState(bootState string) string {
 		return sysextDir
 	}
 }
+
 // ListSystemExtensions lists the system extensions in the given directory
 // If none is passed then it shows the generic ones
 func ListSystemExtensions(cfg *config.Config, bootState string) ([]SysExtension, error) {
@@ -389,7 +390,7 @@ func (h httpSource) Download(s string) error {
 	// Download the file from the URI
 	// and save it to the destination path
 	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", filepath.Join(s, filepath.Base(h.uri))).Msg("Downloading system extension")
-	return h.cfg.Client.GetURL(types.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
+	return h.cfg.Client.GetURL(sdkLogger.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
 }
 
 type dockerSource struct {

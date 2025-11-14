@@ -26,7 +26,7 @@ func RenderTemplate(path string, config *config.Config, runtime state.Runtime) (
 
 	result := new(bytes.Buffer)
 	err = tpl.Execute(result, map[string]interface{}{
-		"Config": config.Config.Values,
+		"Config": config.Collector.Values,
 		"State":  runtimeMap,
 	})
 	if err != nil {

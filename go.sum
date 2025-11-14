@@ -322,6 +322,8 @@ github.com/kairos-io/go-nodepair v0.3.0 h1:JIMBAtbNhIAsx89aP61mQDGMuGFoIQH/woK2t
 github.com/kairos-io/go-nodepair v0.3.0/go.mod h1:7i905W/KmR9DAcMSVJr/Wdb84E5Yyu9YLgj7chwX1xs=
 github.com/kairos-io/kairos-sdk v0.13.0 h1:aZnEE99qdehrsIDFVa8N499ItDgYLIMZV57tBg3eAho=
 github.com/kairos-io/kairos-sdk v0.13.0/go.mod h1:9L0chORRxQdVCrTCrC1ufFvWAR3OP+lsCseTI+xO6MY=
+github.com/kairos-io/kairos-sdk v0.13.1-0.20251114090855-9d65394a12db/go.mod h1:9L0chORRxQdVCrTCrC1ufFvWAR3OP+lsCseTI+xO6MY=
+github.com/kairos-io/kairos-sdk v0.13.1-0.20251114142327-a950a6135e49/go.mod h1:wSlEmLSGn0G83M2h7zBi7a2unyMjErJ6yV+RDWBBUeM=
 github.com/kairos-io/tpm-helpers v0.0.0-20251103104631-9d4298b86881 h1:teAOOtMYhlPz7Q0DXTih8ZOVgPctyUz86PplTi1K29g=
 github.com/kairos-io/tpm-helpers v0.0.0-20251103104631-9d4298b86881/go.mod h1:zOtMRZ4zGpy+qL6W1N0LrczM/9T0sdoaJ1K5PgfchAs=
 github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185 h1:XSUSjYFkIFdZhFEc3Z6xcqggbgPOclKz+9hntaA+q8o=

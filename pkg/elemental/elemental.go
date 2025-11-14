@@ -26,8 +26,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kairos-io/kairos-sdk/types"
-
 	"github.com/containerd/containerd/archive"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -36,10 +34,13 @@ import (
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
+	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 )
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
@@ -54,7 +55,7 @@ func NewElemental(config *agentConfig.Config) *Elemental {
 }
 
 // FormatPartition will format an already existing partition
-func (e *Elemental) FormatPartition(part *types.Partition, opts ...string) error {
+func (e *Elemental) FormatPartition(part *sdkPartitions.Partition, opts ...string) error {
 	e.config.Logger.Infof("Formatting '%s' partition", part.FilesystemLabel)
 	return partitioner.FormatDevice(e.config.Logger, e.config.Runner, part.Path, part.FS, part.FilesystemLabel, opts...)
 }
@@ -62,7 +63,7 @@ func (e *Elemental) FormatPartition(part *types.Partition, opts ...string) error
 // PartitionAndFormatDevice creates a new empty partition table on target disk
 // and applies the configured disk layout by creating and formatting all
 // required partitions
-func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
+func (e *Elemental) PartitionAndFormatDevice(i sdkSpec.SharedInstallSpec) error {
 	if _, err := os.Stat(i.GetTarget()); os.IsNotExist(err) {
 		e.config.Logger.Errorf("Disk %s does not exist", i.GetTarget())
 		return fmt.Errorf("disk %s does not exist", i.GetTarget())
@@ -74,7 +75,8 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 	}
 
 	e.config.Logger.Infof("Partitioning device...")
-	err = disk.NewPartitionTable(i.GetPartTable(), i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()))
+	parts := i.GetPartitions()
+	err = disk.NewPartitionTable(i.GetPartTable(), parts.PartitionsByInstallOrder(i.GetExtraPartitions()))
 	if err != nil {
 		e.config.Logger.Errorf("Failed creating new partition table: %s", err)
 		return err
@@ -121,8 +123,9 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 		e.config.Logger.Errorf("Udevadm settle failed: %s", err)
 	}
 	// Partitions are in order so we can format them via that
+	parts = i.GetPartitions()
 	for _, p := range table.GetPartitions() {
-		for _, configPart := range i.GetPartitions().PartitionsByInstallOrder(i.GetExtraPartitions()) {
+		for _, configPart := range parts.PartitionsByInstallOrder(i.GetExtraPartitions()) {
 			if configPart.Name == cnst.BiosPartName {
 				// Grub partition on non-EFI is not formatted. Grub is directly installed on it
 				continue
@@ -153,7 +156,7 @@ func (e *Elemental) PartitionAndFormatDevice(i v1.SharedInstallSpec) error {
 
 // MountPartitions mounts configured partitions. Partitions with an unset mountpoint are not mounted.
 // Note umounts must be handled by caller logic.
-func (e Elemental) MountPartitions(parts types.PartitionList) error {
+func (e Elemental) MountPartitions(parts sdkPartitions.PartitionList) error {
 	e.config.Logger.Infof("Mounting disk partitions")
 	var err error
 
@@ -171,7 +174,7 @@ func (e Elemental) MountPartitions(parts types.PartitionList) error {
 }
 
 // UnmountPartitions unmounts configured partitiosn. Partitions with an unset mountpoint are not unmounted.
-func (e Elemental) UnmountPartitions(parts types.PartitionList) error {
+func (e Elemental) UnmountPartitions(parts sdkPartitions.PartitionList) error {
 	e.config.Logger.Infof("Unmounting disk partitions")
 	var err error
 	errMsg := ""
@@ -194,7 +197,7 @@ func (e Elemental) UnmountPartitions(parts types.PartitionList) error {
 }
 
 // MountRWPartition mounts, or remounts if needed, a partition with RW permissions
-func (e Elemental) MountRWPartition(part *types.Partition) (umount func() error, err error) {
+func (e Elemental) MountRWPartition(part *sdkPartitions.Partition) (umount func() error, err error) {
 	if mnt, _ := utils.IsMounted(e.config, part); mnt {
 		err = e.MountPartition(part, "remount", "rw")
 		if err != nil {
@@ -218,7 +221,7 @@ func (e Elemental) MountRWPartition(part *types.Partition) (umount func() error,
 }
 
 // MountPartition mounts a partition with the given mount options
-func (e Elemental) MountPartition(part *types.Partition, opts ...string) error {
+func (e Elemental) MountPartition(part *sdkPartitions.Partition, opts ...string) error {
 	e.config.Logger.Debugf("Mounting partition %s", part.FilesystemLabel)
 	err := fsutils.MkdirAll(e.config.Fs, part.MountPoint, cnst.DirPerm)
 	if err != nil {
@@ -242,7 +245,7 @@ func (e Elemental) MountPartition(part *types.Partition, opts ...string) error {
 }
 
 // UnmountPartition unmounts the given partition or does nothing if not mounted
-func (e Elemental) UnmountPartition(part *types.Partition) error {
+func (e Elemental) UnmountPartition(part *sdkPartitions.Partition) error {
 	if mnt, _ := utils.IsMounted(e.config, part); !mnt {
 		e.config.Logger.Debugf("Not unmounting partition, %s doesn't look like mountpoint", part.MountPoint)
 		return nil
@@ -252,7 +255,7 @@ func (e Elemental) UnmountPartition(part *types.Partition) error {
 }
 
 // MountImage mounts an image with the given mount options
-func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
+func (e Elemental) MountImage(img *sdkImages.Image, opts ...string) error {
 	e.config.Logger.Debugf("Mounting image %s", img.Label)
 	err := fsutils.MkdirAll(e.config.Fs, img.MountPoint, cnst.DirPerm)
 	if err != nil {
@@ -274,7 +277,7 @@ func (e Elemental) MountImage(img *v1.Image, opts ...string) error {
 }
 
 // UnmountImage unmounts the given image or does nothing if not mounted
-func (e Elemental) UnmountImage(img *v1.Image) error {
+func (e Elemental) UnmountImage(img *sdkImages.Image) error {
 	// Using IsLikelyNotMountPoint seams to be safe as we are not checking
 	// for bind mounts here
 	if notMnt, _ := e.config.Mounter.IsLikelyNotMountPoint(img.MountPoint); notMnt {
@@ -296,7 +299,7 @@ func (e Elemental) UnmountImage(img *v1.Image) error {
 }
 
 // CreateFileSystemImage creates the image file for config.target
-func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
+func (e Elemental) CreateFileSystemImage(img *sdkImages.Image) error {
 	e.config.Logger.Infof("Creating file system image %s with size %dMb", img.File, img.Size)
 	err := fsutils.MkdirAll(e.config.Fs, filepath.Dir(img.File), cnst.DirPerm)
 	if err != nil {
@@ -331,14 +334,14 @@ func (e Elemental) CreateFileSystemImage(img *v1.Image) error {
 // DeployImage will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
 // Creates the default system dirs by default (/sys,/proc,/dev, etc...)
-func (e *Elemental) DeployImage(img *v1.Image, leaveMounted bool, excludes ...string) (info interface{}, err error) {
+func (e *Elemental) DeployImage(img *sdkImages.Image, leaveMounted bool, excludes ...string) (info interface{}, err error) {
 	return e.deployImage(img, leaveMounted, true, excludes...)
 }
 
 // DeployImageNodirs will deploy the given image into the target. This method
 // creates the filesystem image file, mounts it and unmounts it as needed.
 // Does not create the default system dirs so it can be used to create generic images from any source
-func (e *Elemental) DeployImageNodirs(img *v1.Image, leaveMounted bool, excludes ...string) (info interface{}, err error) {
+func (e *Elemental) DeployImageNodirs(img *sdkImages.Image, leaveMounted bool, excludes ...string) (info interface{}, err error) {
 	return e.deployImage(img, leaveMounted, false, excludes...)
 }
 
@@ -346,7 +349,7 @@ func (e *Elemental) DeployImageNodirs(img *v1.Image, leaveMounted bool, excludes
 // Set leaveMounted to leave the image mounted, otherwise it unmounts before returning
 // Set createDirStructure to create the directory structure in the target, which creates the expected dirs
 // for a running system. This is so we can reuse this method for creating random images, not only system ones
-func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure bool, excludes ...string) (info interface{}, err error) {
+func (e *Elemental) deployImage(img *sdkImages.Image, leaveMounted, createDirStructure bool, excludes ...string) (info interface{}, err error) {
 	target := img.MountPoint
 	if !img.Source.IsFile() {
 		if img.FS != cnst.SquashFs {
@@ -413,7 +416,7 @@ func (e *Elemental) deployImage(img *v1.Image, leaveMounted, createDirStructure 
 }
 
 // DumpSource sets the image data according to the image source type
-func (e *Elemental) DumpSource(target string, imgSrc *v1.ImageSource, excludes ...string) (info interface{}, err error) { // nolint:gocyclo
+func (e *Elemental) DumpSource(target string, imgSrc *sdkImages.ImageSource, excludes ...string) (info interface{}, err error) { // nolint:gocyclo
 	e.config.Logger.Infof("Copying %s source to %s", imgSrc.Value(), target)
 
 	if imgSrc.IsDocker() {
@@ -646,24 +649,24 @@ func (e *Elemental) GetIso(iso string) (tmpDir string, err error) {
 
 // UpdateSourcesFormDownloadedISO checks a downaloaded and mounted ISO in workDir and updates the active and recovery image
 // descriptions to use the squashed rootfs from the downloaded ISO.
-func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *v1.Image, recoveryImg *v1.Image) error {
+func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *sdkImages.Image, recoveryImg *sdkImages.Image) error {
 	rootfsMnt := filepath.Join(workDir, "rootfs")
 	isoMnt := filepath.Join(workDir, "iso")
 
 	if activeImg != nil {
-		activeImg.Source = v1.NewDirSrc(rootfsMnt)
+		activeImg.Source = sdkImages.NewDirSrc(rootfsMnt)
 	}
 	if recoveryImg != nil {
 		squashedImgSource := filepath.Join(isoMnt, cnst.RecoverySquashFile)
 		if exists, _ := fsutils.Exists(e.config.Fs, squashedImgSource); exists {
-			recoveryImg.Source = v1.NewFileSrc(squashedImgSource)
+			recoveryImg.Source = sdkImages.NewFileSrc(squashedImgSource)
 			recoveryImg.FS = cnst.SquashFs
 		} else if activeImg != nil {
-			recoveryImg.Source = v1.NewFileSrc(activeImg.File)
-			recoveryImg.FS = cnst.LinuxImgFs
+			recoveryImg.Source = sdkImages.NewFileSrc(activeImg.File)
+			recoveryImg.FS = sdkConstants.LinuxImgFs
 			// Only update label if unset, it could happen if the host is running form another ISO.
 			if recoveryImg.Label == "" {
-				recoveryImg.Label = cnst.SystemLabel
+				recoveryImg.Label = sdkConstants.SystemLabel
 			}
 		} else {
 			return fmt.Errorf("can't set recovery image from ISO, source image is missing")

@@ -7,6 +7,8 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
 	"github.com/mudler/yip/pkg/schema"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
@@ -90,8 +92,10 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 
 	// This is temporal to generate a valid cc file, no need to properly initialize everything
 	cc := &config.Config{
-		Install: &config.Install{
-			Device: m.disk,
+		Config: sdkConfig.Config{
+			Install: &sdkInstall.Install{
+				Device: m.disk,
+			},
 		},
 	}
 
@@ -154,7 +158,7 @@ func NewInteractiveInstallConfig(m *Model) *config.Config {
 	)
 
 	// Generate final config
-	ccString, _ := cc.String()
+	ccString, _ := cc.Collector.String()
 	m.log.Logger.Debug().Msgf("Generated cloud config: %s", ccString)
 
 	return cc

@@ -18,12 +18,12 @@ package utils
 
 import (
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/mudler/yip/pkg/schema"
 	"gopkg.in/yaml.v3"
 )

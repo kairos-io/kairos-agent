@@ -17,18 +17,17 @@ limitations under the License.
 package action
 
 import (
-	"fmt"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 )
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish
@@ -73,54 +72,8 @@ func (u UpgradeAction) upgradeHook(hook string, chroot bool) error {
 	return Hook(u.config, hook)
 }
 
-func (u *UpgradeAction) upgradeInstallStateYaml(meta interface{}, img v1.Image) error {
-	if u.spec.Partitions.Recovery == nil || u.spec.Partitions.State == nil {
-		return fmt.Errorf("undefined state or recovery partition")
-	}
-
-	if u.spec.State == nil {
-		u.spec.State = &v1.InstallState{
-			Partitions: map[string]*v1.PartitionState{},
-		}
-	}
-
-	u.spec.State.Date = time.Now().Format(time.RFC3339)
-	imgState := &v1.ImageState{
-		Source:         img.Source,
-		SourceMetadata: meta,
-		Label:          img.Label,
-		FS:             img.FS,
-	}
-	if u.spec.RecoveryUpgrade() {
-		recoveryPart := u.spec.State.Partitions[constants.RecoveryPartName]
-		if recoveryPart == nil {
-			recoveryPart = &v1.PartitionState{
-				Images: map[string]*v1.ImageState{},
-			}
-			u.spec.State.Partitions[constants.RecoveryPartName] = recoveryPart
-		}
-		recoveryPart.Images[constants.RecoveryImgName] = imgState
-	} else {
-		statePart := u.spec.State.Partitions[constants.StatePartName]
-		if statePart == nil {
-			statePart = &v1.PartitionState{
-				Images: map[string]*v1.ImageState{},
-			}
-			u.spec.State.Partitions[constants.StatePartName] = statePart
-		}
-		statePart.Images[constants.PassiveImgName] = statePart.Images[constants.ActiveImgName]
-		statePart.Images[constants.ActiveImgName] = imgState
-	}
-
-	return u.config.WriteInstallState(
-		u.spec.State,
-		filepath.Join(u.spec.Partitions.State.MountPoint, constants.InstallStateFile),
-		filepath.Join(u.spec.Partitions.Recovery.MountPoint, constants.InstallStateFile),
-	)
-}
-
 func (u *UpgradeAction) Run() (err error) {
-	var upgradeImg v1.Image
+	var upgradeImg sdkImages.Image
 	var finalImageFile string
 
 	// Track where we booted from to have a different workflow
@@ -190,7 +143,7 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 
 	u.Info("deploying image %s to %s", upgradeImg.Source.Value(), upgradeImg.File)
-	upgradeMeta, err := e.DeployImage(&upgradeImg, true, u.spec.ExcludedPaths...)
+	_, err = e.DeployImage(&upgradeImg, true, u.spec.ExcludedPaths...)
 	if err != nil {
 		u.Error("Failed deploying image to file '%s': %s", upgradeImg.File, err)
 		return err
@@ -280,13 +233,6 @@ func (u *UpgradeAction) Run() (err error) {
 	err = u.upgradeHook(constants.AfterUpgradeHook, false)
 	if err != nil {
 		u.Error("Error running hook after-upgrade: %s", err)
-		return err
-	}
-
-	// Update state.yaml file on recovery and state partitions
-	err = u.upgradeInstallStateYaml(upgradeMeta, upgradeImg)
-	if err != nil {
-		u.Error("failed upgrading installation metadata")
 		return err
 	}
 

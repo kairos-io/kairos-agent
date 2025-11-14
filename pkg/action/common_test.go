@@ -3,23 +3,26 @@ package action
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkBundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5"
 	"github.com/twpayne/go-vfs/v5/vfst"
-	"os"
-	"path/filepath"
 )
 
 var _ = Describe("Common action tests", func() {
 	Describe("createExtraDirsInRootfs", func() {
 		var config *agentConfig.Config
 		var fs vfs.FS
-		var logger sdkTypes.KairosLogger
+		var logger sdkLogger.KairosLogger
 		var runner *v1mock.FakeRunner
 		var mounter *v1mock.ErrorMounter
 		var syscall *v1mock.FakeSyscall
@@ -35,7 +38,7 @@ var _ = Describe("Common action tests", func() {
 			mounter = v1mock.NewErrorMounter()
 			client = &v1mock.FakeHTTPClient{}
 			memLog = &bytes.Buffer{}
-			logger = sdkTypes.NewBufferLogger(memLog)
+			logger = sdkLogger.NewBufferLogger(memLog)
 			extractor = v1mock.NewFakeImageExtractor(logger)
 			logger.SetLevel("debug")
 			var err error
@@ -53,9 +56,9 @@ var _ = Describe("Common action tests", func() {
 				agentConfig.WithCloudInitRunner(cloudInit),
 				agentConfig.WithImageExtractor(extractor),
 			)
-			config.Install = &agentConfig.Install{}
-			config.Bundles = agentConfig.Bundles{}
-			config.Config = collector.Config{}
+			config.Install = &sdkInstall.Install{}
+			config.Bundles = sdkBundles.Bundles{}
+			config.Collector = collector.Config{}
 		})
 
 		AfterEach(func() {

@@ -3,10 +3,11 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5"
@@ -17,7 +18,7 @@ var _ = Describe("Sysext Actions test", Label("sysext"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
 	var httpClient *v1mock.FakeHTTPClient
@@ -33,7 +34,7 @@ var _ = Describe("Sysext Actions test", Label("sysext"), func() {
 		mounter = v1mock.NewErrorMounter()
 		httpClient = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(memLog)
+		logger = sdkLogger.NewBufferLogger(memLog)
 		logger.SetLevel("debug")
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		cloudInit = &v1mock.FakeCloudInitRunner{}

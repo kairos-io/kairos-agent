@@ -6,7 +6,7 @@ import (
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,13 +19,13 @@ var _ = Describe("Common functions tests", func() {
 		var fs vfs.FS
 		var err error
 		var memLog *bytes.Buffer
-		var logger sdkTypes.KairosLogger
+		var logger sdkLogger.KairosLogger
 
 		BeforeEach(func() {
 			fs, _, err = vfst.NewTestFS(map[string]interface{}{})
 			Expect(err).ToNot(HaveOccurred())
 
-			logger = sdkTypes.NewBufferLogger(memLog)
+			logger = sdkLogger.NewBufferLogger(memLog)
 			logger.SetLevel("debug")
 
 			Expect(fsutils.MkdirAll(fs, "/active", cnst.DirPerm)).ToNot(HaveOccurred())

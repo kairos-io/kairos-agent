@@ -8,16 +8,16 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 )
 
 // GrubPostInstallOptions is a hook that runs after the install process to add grub options.
 type GrubPostInstallOptions struct{}
 
-func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
+func (b GrubPostInstallOptions) Run(c config.Config, _ sdkSpec.Spec) error {
 	if utils.IsUki() {
 		c.Logger.Logger.Info().Msg("Skipping GrubPostInstallOptions hook in uki mode")
 		return nil
@@ -80,7 +80,7 @@ func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 // GrubFirstBootOptions is a hook that runs on the first boot to add grub options.
 type GrubFirstBootOptions struct{}
 
-func (b GrubFirstBootOptions) Run(c config.Config, _ v1.Spec) error {
+func (b GrubFirstBootOptions) Run(c config.Config, _ sdkSpec.Spec) error {
 	if len(c.GrubOptions) == 0 {
 		return nil
 	}
@@ -148,11 +148,11 @@ func extractKcryptCmdline(c *config.Config) string {
 	var cmdlineArgs []string
 
 	// Access the generic config values map to get kcrypt settings
-	if c.Config.Values == nil {
+	if c.Collector.Values == nil {
 		return ""
 	}
 
-	kcryptVal, hasKcrypt := c.Config.Values["kcrypt"]
+	kcryptVal, hasKcrypt := c.Collector.Values["kcrypt"]
 	if !hasKcrypt {
 		return ""
 	}

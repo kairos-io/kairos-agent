@@ -21,11 +21,15 @@ import (
 	"reflect"
 	"strings"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	sdkbundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 
 	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/twpayne/go-vfs/v5"
@@ -112,10 +116,10 @@ var _ = Describe("Schema", func() {
 			structFieldsContainedInOtherStruct(Config{}, RootSchema{})
 		})
 		Context("While the new InstallSchema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(Install{}, InstallSchema{})
+			structFieldsContainedInOtherStruct(sdkInstall.Install{}, InstallSchema{})
 		})
 		Context("While the new BundleSchema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(Bundle{}, BundleSchema{})
+			structFieldsContainedInOtherStruct(sdkbundles.Bundle{}, BundleSchema{})
 		})
 	})
 
@@ -138,25 +142,27 @@ var _ = Describe("Schema", func() {
         size: 8192
 `
 			config := Config{
-				Install: &Install{
-					Poweroff: true,
-					BindMounts: []string{
-						"/var/lib/ceph",
-						"/var/lib/osd",
-					},
-					Active: v1.Image{
-						Size: 8192,
-					},
-					Passive: v1.Image{
-						Size: 8192,
-					},
-					Recovery: v1.Image{
-						Size: 10000,
-					},
-					Partitions: v1.ElementalPartitions{
-						OEM: &sdkTypes.Partition{
-							Size: 5120,
-							FS:   "ext4",
+				Config: sdkConfig.Config{
+					Install: &sdkInstall.Install{
+						Poweroff: true,
+						BindMounts: []string{
+							"/var/lib/ceph",
+							"/var/lib/osd",
+						},
+						Active: sdkImages.Image{
+							Size: 8192,
+						},
+						Passive: sdkImages.Image{
+							Size: 8192,
+						},
+						Recovery: sdkImages.Image{
+							Size: 10000,
+						},
+						Partitions: sdkPartitions.ElementalPartitions{
+							OEM: &sdkPartitions.Partition{
+								Size: 5120,
+								FS:   "ext4",
+							},
 						},
 					},
 				},
@@ -176,8 +182,8 @@ var _ = Describe("Schema", func() {
 		var mounter *v1mocks.ErrorMounter
 		var cleanup func()
 		var err error
-		var dockerState, channelState *v1.ImageState
-		var installState *v1.InstallState
+		var dockerState, channelState *spec.ImageState
+		var installState *spec.InstallState
 		var statePath, recoveryPath string
 
 		BeforeEach(func() {
@@ -191,27 +197,27 @@ var _ = Describe("Schema", func() {
 				WithRunner(runner),
 				WithMounter(mounter),
 			)
-			dockerState = &v1.ImageState{
-				Source: v1.NewDockerSrc("registry.org/my/image:tag"),
+			dockerState = &spec.ImageState{
+				Source: sdkImages.NewDockerSrc("registry.org/my/image:tag"),
 				Label:  "active_label",
 				FS:     "ext2",
-				SourceMetadata: &v1.DockerImageMeta{
+				SourceMetadata: &spec.DockerImageMeta{
 					Digest: "adadgadg",
 					Size:   23452345,
 				},
 			}
-			installState = &v1.InstallState{
+			installState = &spec.InstallState{
 				Date: "somedate",
-				Partitions: map[string]*v1.PartitionState{
+				Partitions: map[string]*spec.PartitionState{
 					"state": {
 						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
+						Images: map[string]*spec.ImageState{
 							"active": dockerState,
 						},
 					},
 					"recovery": {
 						FSLabel: "state_label",
-						Images: map[string]*v1.ImageState{
+						Images: map[string]*spec.ImageState{
 							"recovery": channelState,
 						},
 					},

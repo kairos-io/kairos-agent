@@ -28,9 +28,9 @@ import (
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -314,7 +314,7 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 
 // findGrubDir will find the grub dir under the dir given if possible by searching for the modinfo.sh
 // And it will return the full dir path where the modinfo.sh is contained
-func findGrubDir(vfs v1.FS, dir string) string {
+func findGrubDir(vfs sdkFS.KairosFS, dir string) string {
 	var foundPath string
 	_ = fsutils.WalkDirFs(vfs, dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

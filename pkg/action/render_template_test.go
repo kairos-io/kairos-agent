@@ -13,7 +13,7 @@ var _ = Describe("RenderTemplate action test", func() {
 
 	It("renders the template with config and state", func() {
 		config := agentConfig.NewConfig()
-		config.Config = collector.Config{
+		config.Collector = collector.Config{
 			Values: collector.ConfigValues{
 				"testKey": "testValue",
 			},

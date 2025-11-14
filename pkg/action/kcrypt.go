@@ -21,7 +21,7 @@ func resolveNVIndexAndDevice(cfg *config.Config, nvIndex, tpmDevice string) (tar
 		// Get kcrypt config from the embedded collector.Config
 		var ok bool
 		var kcryptConfig map[string]interface{}
-		if kcryptConfig, ok = cfg.Config.Values["kcrypt"].(map[string]interface{}); ok {
+		if kcryptConfig, ok = cfg.Collector.Values["kcrypt"].(map[string]interface{}); ok {
 			targetIndex, _ = kcryptConfig["nv_index"].(string)
 		}
 	}
@@ -36,7 +36,7 @@ func resolveNVIndexAndDevice(cfg *config.Config, nvIndex, tpmDevice string) (tar
 		// Get kcrypt config from the embedded collector.Config
 		var ok bool
 		var kcryptConfig map[string]interface{}
-		if kcryptConfig, ok = cfg.Config.Values["kcrypt"].(map[string]interface{}); ok {
+		if kcryptConfig, ok = cfg.Collector.Values["kcrypt"].(map[string]interface{}); ok {
 			targetTPMDevice, _ = kcryptConfig["tpm_device"].(string)
 		}
 	}
@@ -55,7 +55,7 @@ func resolveCIndex(cfg *config.Config, cIndex string) string {
 	// Otherwise, try to get from config
 	var kcryptConfig map[string]interface{}
 	var ok bool
-	if kcryptConfig, ok = cfg.Config.Values["kcrypt"].(map[string]interface{}); !ok {
+	if kcryptConfig, ok = cfg.Collector.Values["kcrypt"].(map[string]interface{}); !ok {
 		return ""
 	}
 

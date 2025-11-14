@@ -13,23 +13,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
-	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
-
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/sanity-io/litter"
-
 	qr "github.com/kairos-io/go-nodepair/qrcode"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
+	"github.com/sanity-io/litter"
 )
 
 func displayInfo(agentConfig *Config) {
@@ -155,7 +153,7 @@ func Install(sourceImgURL string, dir ...string) error {
 		return utils.Shell().Run()
 	}
 
-	configStr, err := cc.String()
+	configStr, err := cc.Collector.String()
 	if err != nil {
 		return err
 	}
@@ -302,7 +300,7 @@ func dumpCCStringToFile(c *config.Config) (string, error) {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
-	ccstring, err := c.String()
+	ccstring, err := c.Collector.String()
 	if err != nil {
 		return "", err
 	}

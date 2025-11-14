@@ -17,11 +17,12 @@ limitations under the License.
 package http_test
 
 import (
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/http"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/http"
+	"github.com/kairos-io/kairos-sdk/types/logger"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -30,11 +31,11 @@ const source = "https://github.com/kairos-io/kairos/releases/download/v2.0.0/cor
 
 var _ = Describe("HTTPClient", Label("http"), func() {
 	var client *http.Client
-	var log sdkTypes.KairosLogger
+	var log logger.KairosLogger
 	var destDir string
 	BeforeEach(func() {
 		client = http.NewClient()
-		log = sdkTypes.NewNullLogger()
+		log = logger.NewNullLogger()
 		destDir, _ = os.MkdirTemp("", "elemental-test")
 	})
 	AfterEach(func() {

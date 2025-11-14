@@ -11,7 +11,8 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5"
@@ -21,7 +22,7 @@ import (
 var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 	var config *agentConfig.Config
 	var fs vfs.FS
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var runner *v1mock.FakeRunner
 	var mounter *v1mock.ErrorMounter
 	var syscallMock *v1mock.FakeSyscall
@@ -38,7 +39,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(memLog)
+		logger = sdkLogger.NewBufferLogger(memLog)
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		logger.SetLevel("debug")
 		var err error
@@ -69,11 +70,11 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			agentConfig.WithCloudInitRunner(cloudInit),
 			agentConfig.WithImageExtractor(extractor),
 		)
-		config.Config = collector.Config{}
+		config.Collector = collector.Config{}
 
-		mainDisk := sdkTypes.Disk{
+		mainDisk := sdkPartitions.Disk{
 			Name: "device",
-			Partitions: []*sdkTypes.Partition{
+			Partitions: []*sdkPartitions.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "COS_GRUB",
@@ -117,7 +118,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = fs.WriteFile("/efi/loader/entries/statereset.conf", []byte("title kairos state reset (auto)\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
 
-				entries, err := listSystemdEntries(config, &sdkTypes.Partition{MountPoint: "/efi"})
+				entries, err := listSystemdEntries(config, &sdkPartitions.Partition{MountPoint: "/efi"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(entries).To(HaveLen(4))
 				Expect(entries).To(ContainElement("cos"))
@@ -127,7 +128,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 
 			})
 			It("list empty boot entries if there is none", func() {
-				entries, err := listSystemdEntries(config, &sdkTypes.Partition{MountPoint: "/efi"})
+				entries, err := listSystemdEntries(config, &sdkPartitions.Partition{MountPoint: "/efi"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(entries).To(HaveLen(0))
 			})

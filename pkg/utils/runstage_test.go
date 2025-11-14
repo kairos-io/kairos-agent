@@ -19,22 +19,22 @@ package utils_test
 import (
 	"bytes"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5"
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
-func writeCmdline(s string, fs v1.FS) error {
+func writeCmdline(s string, fs sdkFs.KairosFS) error {
 	if err := fs.Mkdir("/proc", os.ModePerm); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func writeCmdline(s string, fs v1.FS) error {
 var _ = Describe("run stage", Label("RunStage"), func() {
 	var config *agentConfig.Config
 	var runner *v1mock.FakeRunner
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
 	var mounter *v1mock.ErrorMounter
@@ -58,7 +58,7 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		// Use a different config with a buffer for logger, so we can check the output
 		// We also use the real fs
 		memLog = &bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(memLog)
+		logger = sdkLogger.NewBufferLogger(memLog)
 		logger.SetLevel("debug")
 		fs, cleanup, _ = vfst.NewTestFS(nil)
 

@@ -1,9 +1,12 @@
 package agent
 
 import (
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
+
 	"os"
 	"path/filepath"
 
@@ -27,9 +30,11 @@ var _ = Describe("prepareConfiguration", func() {
 		defer os.RemoveAll(temp)
 
 		content, err := yaml.Marshal(config.Config{
-			Debug: true,
-			Install: &config.Install{
-				Device: "fake",
+			Config: sdkConfig.Config{
+				Debug: true,
+				Install: &sdkInstall.Install{
+					Device: "fake",
+				},
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -61,7 +66,7 @@ var _ = Describe("prepareConfiguration", func() {
 var _ = Describe("RunInstall", func() {
 	var options *config.Config
 	var err error
-	var fs v1.FS
+	var fs sdkFS.KairosFS
 	var cleanup func()
 	var ghwTest ghwMock.GhwMock
 	var cmdline func() ([]byte, error)
@@ -119,15 +124,17 @@ var _ = Describe("RunInstall", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		options = &config.Config{
-			Install: &config.Install{
-				Device: "/some/device",
-				Source: "test",
+			Config: sdkConfig.Config{
+				Install: &sdkInstall.Install{
+					Device: "/some/device",
+					Source: "test",
+				},
 			},
 		}
 
-		mainDisk := types.Disk{
+		mainDisk := sdkPartitions.Disk{
 			Name: "device",
-			Partitions: []*types.Partition{
+			Partitions: []*sdkPartitions.Partition{
 				{
 					Name:            "device1",
 					FilesystemLabel: "COS_GRUB",

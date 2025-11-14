@@ -26,15 +26,16 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-sdk/ghw"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
+	"github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	log "github.com/sirupsen/logrus"
 )
 
 // GetAllPartitions returns all partitions in the system for all disks
-func GetAllPartitions(logger *types.KairosLogger) (types.PartitionList, error) {
-	var parts []*types.Partition
+func GetAllPartitions(logger *logger.KairosLogger) (sdkPartitions.PartitionList, error) {
+	var parts []*sdkPartitions.Partition
 
 	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
 		for _, part := range d.Partitions {
@@ -101,8 +102,8 @@ func parseMountEntry(line string) (string, string) {
 // We only need to get all this info due to the fS that we need to use to format the partition
 // Otherwise we could just format with the label ¯\_(ツ)_/¯
 // TODO: store info about persistent and oem in the state.yaml so we can directly load it
-func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
-	var part *types.Partition
+func GetPartitionViaDM(fs sdkFS.KairosFS, label string) *sdkPartitions.Partition {
+	var part *sdkPartitions.Partition
 	rootPath, _ := fs.RawPath("/")
 	lp := ghw.NewPaths(rootPath)
 
@@ -134,7 +135,7 @@ func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 			partitionFS := udevInfo["ID_FS_TYPE"]
 			partitionName := udevInfo["DM_LV_NAME"]
 
-			part = &types.Partition{
+			part = &sdkPartitions.Partition{
 				Name:            partitionName,
 				FilesystemLabel: label,
 				FS:              partitionFS,
@@ -222,8 +223,8 @@ func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 }
 
 // GetEfiPartition returns the EFI partition by looking for the partition with the label "COS_GRUB"
-func GetEfiPartition(logger *types.KairosLogger) (*types.Partition, error) {
-	var efiPartition *types.Partition
+func GetEfiPartition(logger *logger.KairosLogger) (*sdkPartitions.Partition, error) {
+	var efiPartition *sdkPartitions.Partition
 	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
 		for _, part := range d.Partitions {
 			if part.FilesystemLabel == constants.EfiLabel {

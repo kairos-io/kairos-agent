@@ -3,8 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
-	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +12,8 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
+	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdk "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"

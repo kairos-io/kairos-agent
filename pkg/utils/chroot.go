@@ -19,13 +19,13 @@ package utils
 import (
 	"errors"
 	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"os"
 	"sort"
 	"strings"
 
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 )
 
 // Chroot represents the struct that will allow us to run commands inside a given chroot

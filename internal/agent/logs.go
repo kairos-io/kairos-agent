@@ -10,10 +10,12 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkLogs "github.com/kairos-io/kairos-sdk/types/logs"
+	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 )
 
 // LogsResult represents the collected logs
@@ -34,8 +36,8 @@ func NewLogsCollector(cfg *config.Config) *LogsCollector {
 	}
 }
 
-func defaultLogsConfig() *config.LogsConfig {
-	return &config.LogsConfig{
+func defaultLogsConfig() *sdkLogs.LogsConfig {
+	return &sdkLogs.LogsConfig{
 		Journal: []string{
 			"kairos-agent",
 			"kairos-installer",
@@ -197,7 +199,7 @@ func (lc *LogsCollector) globFiles(pattern string) ([]string, error) {
 }
 
 // ExecuteLogsCommand executes the logs command with the given parameters
-func ExecuteLogsCommand(fs v1.FS, logger types.KairosLogger, runner v1.Runner, outputPath string) error {
+func ExecuteLogsCommand(fs sdkFS.KairosFS, logger sdkLogger.KairosLogger, runner sdkRunner.Runner, outputPath string) error {
 	// Scan for configuration from default locations
 	cfg, err := config.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
 	if err != nil {

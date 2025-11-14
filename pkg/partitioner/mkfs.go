@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"regexp"
 
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-sdk/types"
+	"github.com/kairos-io/kairos-sdk/types/logger"
+	"github.com/kairos-io/kairos-sdk/types/runner"
 )
 
 type MkfsCall struct {
@@ -29,10 +29,10 @@ type MkfsCall struct {
 	label      string
 	customOpts []string
 	dev        string
-	runner     v1.Runner
+	runner     runner.Runner
 }
 
-func NewMkfsCall(dev string, fileSystem string, label string, runner v1.Runner, customOpts ...string) *MkfsCall {
+func NewMkfsCall(dev string, fileSystem string, label string, runner runner.Runner, customOpts ...string) *MkfsCall {
 	return &MkfsCall{dev: dev, fileSystem: fileSystem, label: label, runner: runner, customOpts: customOpts}
 }
 
@@ -78,7 +78,7 @@ func (mkfs MkfsCall) Apply() (string, error) {
 }
 
 // FormatDevice formats a block device with the given parameters
-func FormatDevice(logger types.KairosLogger, runner v1.Runner, device string, fileSystem string, label string, opts ...string) error {
+func FormatDevice(logger logger.KairosLogger, runner runner.Runner, device string, fileSystem string, label string, opts ...string) error {
 	mkfs := MkfsCall{fileSystem: fileSystem, label: label, customOpts: opts, dev: device, runner: runner}
 	out, err := mkfs.Apply()
 	if err != nil {

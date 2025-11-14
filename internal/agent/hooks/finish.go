@@ -2,14 +2,14 @@ package hook
 
 import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 )
 
 // Finish is a hook that runs after the install process.
 // It is used to encrypt partitions and run the BundlePostInstall, CustomMounts and CopyLogs hooks
 type Finish struct{}
 
-func (k Finish) Run(c config.Config, spec v1.Spec) error {
+func (k Finish) Run(c config.Config, spec sdkSpec.Spec) error {
 	var err error
 
 	// Run encryption (handles both UKI and non-UKI, returns early if nothing to encrypt)

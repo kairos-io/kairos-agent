@@ -15,7 +15,7 @@ import (
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -317,7 +317,7 @@ func restoreOEM(c config.Config, backupPath string) error {
 
 // udevAdmSettle triggers udev events, waits for them to complete,
 // and adds basic debugging / diagnostics around the device state.
-func udevAdmSettle(logger types.KairosLogger, timeout time.Duration) error {
+func udevAdmSettle(logger sdkLogger.KairosLogger, timeout time.Duration) error {
 	logger.Logger.Info().Msg("Triggering udev events")
 
 	// Trigger subsystems and devices (this replays all udev rules)

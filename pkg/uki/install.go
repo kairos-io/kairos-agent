@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -68,13 +68,14 @@ func (i *InstallAction) Run() (err error) {
 		}
 	}
 
-	err = e.MountPartitions(i.spec.GetPartitions().PartitionsByMountPoint(false))
+	parts := i.spec.GetPartitions()
+	err = e.MountPartitions(parts.PartitionsByMountPoint(false))
 	if err != nil {
 		i.cfg.Logger.Errorf("mounting partitions: %s", err.Error())
 		return err
 	}
 	cleanup.Push(func() error {
-		return e.UnmountPartitions(i.spec.GetPartitions().PartitionsByMountPoint(true))
+		return e.UnmountPartitions(parts.PartitionsByMountPoint(true))
 	})
 
 	// Before install hook happens after partitioning but before the image OS is applied (this is for compatibility with normal install, so users can reuse their configs)

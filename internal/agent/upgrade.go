@@ -9,7 +9,7 @@ import (
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	config "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"

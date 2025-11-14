@@ -1,19 +1,20 @@
 package hook
 
 import (
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"io/fs"
 	"path/filepath"
 	"strings"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 )
 
 type SysExtPostInstall struct{}
 
-func (b SysExtPostInstall) Run(c config.Config, _ v1.Spec) error {
+func (b SysExtPostInstall) Run(c config.Config, _ sdkSpec.Spec) error {
 	c.Logger.Logger.Debug().Msg("Running SysExtPostInstall hook")
 	// mount efi partition
 	efiPart, err := partitions.GetEfiPartition(&c.Logger)

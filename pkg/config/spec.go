@@ -25,13 +25,19 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
 	"github.com/kairos-io/kairos-sdk/ghw"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
+	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/mitchellh/mapstructure"
@@ -77,9 +83,9 @@ func resolveTarget(target string) (string, error) {
 }
 
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
-func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
+func NewInstallSpec(cfg *Config) (*spec.InstallSpec, error) {
 	var firmware string
-	var recoveryImg, activeImg, passiveImg v1.Image
+	var recoveryImg, activeImg, passiveImg sdkImages.Image
 
 	recoveryImgFile := filepath.Join(constants.LiveDir, constants.RecoverySquashFile)
 
@@ -91,9 +97,9 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	recoveryExists, _ := fsutils.Exists(cfg.Fs, recoveryImgFile)
 
 	if efiExists {
-		firmware = v1.EFI
+		firmware = sdkConstants.EFI
 	} else {
-		firmware = v1.BIOS
+		firmware = sdkConstants.BIOS
 	}
 
 	// Resolve the install target
@@ -104,51 +110,51 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 
 	cfg.Install.Device = dev
 
-	activeImg.Label = constants.ActiveLabel
-	activeImg.Size = constants.ImgSize
+	activeImg.Label = sdkConstants.ActiveLabel
+	activeImg.Size = sdkConstants.ImgSize
 	activeImg.File = filepath.Join(constants.StateDir, "cOS", constants.ActiveImgFile)
-	activeImg.FS = constants.LinuxImgFs
+	activeImg.FS = sdkConstants.LinuxImgFs
 	activeImg.MountPoint = constants.ActiveDir
 
 	// First try to use the install media source
 	if isoRootExists {
-		activeImg.Source = v1.NewDirSrc(constants.IsoBaseTree)
+		activeImg.Source = sdkImages.NewDirSrc(constants.IsoBaseTree)
 	}
 	// Then any user provided source
 	if cfg.Install.Source != "" {
-		activeImg.Source, _ = v1.NewSrcFromURI(cfg.Install.Source)
+		activeImg.Source, _ = sdkImages.NewSrcFromURI(cfg.Install.Source)
 	}
 	// If we dont have any just an empty source so the sanitation fails
 	// TODO: Should we directly fail here if we got no source instead of waiting for the Sanitize() to fail?
 	if !isoRootExists && cfg.Install.Source == "" {
-		activeImg.Source = v1.NewEmptySrc()
+		activeImg.Source = sdkImages.NewEmptySrc()
 	}
 
 	if recoveryExists {
-		recoveryImg.Source = v1.NewFileSrc(recoveryImgFile)
+		recoveryImg.Source = sdkImages.NewFileSrc(recoveryImgFile)
 		recoveryImg.FS = constants.SquashFs
 		recoveryImg.File = filepath.Join(constants.RecoveryDir, "cOS", constants.RecoverySquashFile)
-		recoveryImg.Size = constants.ImgSize
+		recoveryImg.Size = sdkConstants.ImgSize
 	} else {
-		recoveryImg.Source = v1.NewFileSrc(activeImg.File)
-		recoveryImg.FS = constants.LinuxImgFs
-		recoveryImg.Label = constants.SystemLabel
+		recoveryImg.Source = sdkImages.NewFileSrc(activeImg.File)
+		recoveryImg.FS = sdkConstants.LinuxImgFs
+		recoveryImg.Label = sdkConstants.SystemLabel
 		recoveryImg.File = filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)
-		recoveryImg.Size = constants.ImgSize
+		recoveryImg.Size = sdkConstants.ImgSize
 	}
 
-	passiveImg = v1.Image{
+	passiveImg = sdkImages.Image{
 		File:   filepath.Join(constants.StateDir, "cOS", constants.PassiveImgFile),
-		Label:  constants.PassiveLabel,
-		Source: v1.NewFileSrc(activeImg.File),
-		FS:     constants.LinuxImgFs,
-		Size:   constants.ImgSize,
+		Label:  sdkConstants.PassiveLabel,
+		Source: sdkImages.NewFileSrc(activeImg.File),
+		FS:     sdkConstants.LinuxImgFs,
+		Size:   sdkConstants.ImgSize,
 	}
 
-	spec := &v1.InstallSpec{
+	spec := &spec.InstallSpec{
 		Target:    cfg.Install.Device,
 		Firmware:  firmware,
-		PartTable: v1.GPT,
+		PartTable: sdkConstants.GPT,
 		GrubConf:  constants.GrubConf,
 		Tty:       constants.DefaultTty,
 		Active:    activeImg,
@@ -187,19 +193,19 @@ func NewInstallSpec(cfg *Config) (*v1.InstallSpec, error) {
 	return spec, nil
 }
 
-func NewInstallElementalPartitions(log types.KairosLogger, spec *v1.InstallSpec) v1.ElementalPartitions {
-	pt := v1.ElementalPartitions{}
+func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.InstallSpec) sdkPartitions.ElementalPartitions {
+	pt := sdkPartitions.ElementalPartitions{}
 	var oemSize uint
 	if spec.Partitions.OEM != nil && spec.Partitions.OEM.Size != 0 {
 		oemSize = spec.Partitions.OEM.Size
 	} else {
-		oemSize = constants.OEMSize
+		oemSize = sdkConstants.OEMSize
 	}
-	pt.OEM = &types.Partition{
-		FilesystemLabel: constants.OEMLabel,
+	pt.OEM = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.OEMLabel,
 		Size:            oemSize,
-		Name:            constants.OEMPartName,
-		FS:              constants.LinuxFs,
+		Name:            sdkConstants.OEMPartName,
+		FS:              sdkConstants.LinuxFs,
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
@@ -220,11 +226,11 @@ func NewInstallElementalPartitions(log types.KairosLogger, spec *v1.InstallSpec)
 		}
 	}
 	log.Infof("Setting recovery partition size to %dMb", recoverySize)
-	pt.Recovery = &types.Partition{
-		FilesystemLabel: constants.RecoveryLabel,
+	pt.Recovery = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.RecoveryLabel,
 		Size:            recoverySize,
-		Name:            constants.RecoveryPartName,
-		FS:              constants.LinuxFs,
+		Name:            sdkConstants.RecoveryPartName,
+		FS:              sdkConstants.LinuxFs,
 		MountPoint:      constants.RecoveryDir,
 		Flags:           []string{},
 	}
@@ -246,25 +252,25 @@ func NewInstallElementalPartitions(log types.KairosLogger, spec *v1.InstallSpec)
 		}
 	}
 	log.Infof("Setting state partition size to %dMb", stateSize)
-	pt.State = &types.Partition{
-		FilesystemLabel: constants.StateLabel,
+	pt.State = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.StateLabel,
 		Size:            stateSize,
-		Name:            constants.StatePartName,
-		FS:              constants.LinuxFs,
+		Name:            sdkConstants.StatePartName,
+		FS:              sdkConstants.LinuxFs,
 		MountPoint:      constants.StateDir,
 		Flags:           []string{},
 	}
 	var persistentSize uint
 	if spec.Partitions.Persistent == nil { // This means its not configured by user so use the default
-		persistentSize = constants.PersistentSize
+		persistentSize = sdkConstants.PersistentSize
 	} else {
 		persistentSize = spec.Partitions.Persistent.Size
 	}
-	pt.Persistent = &types.Partition{
-		FilesystemLabel: constants.PersistentLabel,
+	pt.Persistent = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.PersistentLabel,
 		Size:            persistentSize,
-		Name:            constants.PersistentPartName,
-		FS:              constants.LinuxFs,
+		Name:            sdkConstants.PersistentPartName,
+		FS:              sdkConstants.LinuxFs,
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
@@ -273,34 +279,29 @@ func NewInstallElementalPartitions(log types.KairosLogger, spec *v1.InstallSpec)
 }
 
 // NewUpgradeSpec returns an UpgradeSpec struct all based on defaults and current host state
-func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
+func NewUpgradeSpec(cfg *Config) (*spec.UpgradeSpec, error) {
 	var recLabel, recFs, recMnt string
-	var active, passive, recovery v1.Image
-
-	installState, err := cfg.LoadInstallState()
-	if err != nil {
-		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
-	}
+	var active, passive, recovery sdkImages.Image
 
 	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
-	ep := v1.NewElementalPartitionsFromList(parts)
+	ep := spec.NewElementalPartitionsFromList(parts)
 
 	if ep.Recovery == nil {
 		// We could have recovery in lvm which won't appear in ghw list
-		ep.Recovery = partitions.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
+		ep.Recovery = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.RecoveryLabel)
 	}
 
 	if ep.OEM == nil {
 		// We could have OEM in lvm which won't appear in ghw list
-		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.OEMLabel)
 	}
 
 	if ep.Persistent == nil {
 		// We could have persistent encrypted or in lvm which won't appear in ghw list
-		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
+		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.PersistentLabel)
 	}
 
 	if ep.Recovery != nil {
@@ -316,18 +317,18 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 		if squashedRec {
 			recFs = constants.SquashFs
 		} else {
-			recLabel = constants.SystemLabel
-			recFs = constants.LinuxImgFs
+			recLabel = sdkConstants.SystemLabel
+			recFs = sdkConstants.LinuxImgFs
 			recMnt = constants.TransitionDir
 		}
 
-		recovery = v1.Image{
+		recovery = sdkImages.Image{
 			File:       filepath.Join(ep.Recovery.MountPoint, "cOS", constants.TransitionImgFile),
-			Size:       constants.ImgSize,
+			Size:       sdkConstants.ImgSize,
 			Label:      recLabel,
 			FS:         recFs,
 			MountPoint: recMnt,
-			Source:     v1.NewEmptySrc(),
+			Source:     sdkImages.NewEmptySrc(),
 		}
 	}
 
@@ -336,20 +337,20 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 			ep.State.MountPoint = constants.StateDir
 		}
 
-		active = v1.Image{
+		active = sdkImages.Image{
 			File:       filepath.Join(ep.State.MountPoint, "cOS", constants.TransitionImgFile),
-			Size:       constants.ImgSize,
-			Label:      constants.ActiveLabel,
-			FS:         constants.LinuxImgFs,
+			Size:       sdkConstants.ImgSize,
+			Label:      sdkConstants.ActiveLabel,
+			FS:         sdkConstants.LinuxImgFs,
 			MountPoint: constants.TransitionDir,
-			Source:     v1.NewEmptySrc(),
+			Source:     sdkImages.NewEmptySrc(),
 		}
 
-		passive = v1.Image{
+		passive = sdkImages.Image{
 			File:   filepath.Join(ep.State.MountPoint, "cOS", constants.PassiveImgFile),
-			Label:  constants.PassiveLabel,
-			Size:   constants.ImgSize,
-			Source: v1.NewFileSrc(active.File),
+			Label:  sdkConstants.PassiveLabel,
+			Size:   sdkConstants.ImgSize,
+			Source: sdkImages.NewFileSrc(active.File),
 			FS:     active.FS,
 		}
 	}
@@ -371,23 +372,22 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	// Deep look to see if upgrade.recovery == true in the config
 	// if yes, we set the upgrade spec "Entry" to "recovery"
 	entry := ""
-	_, ok := cfg.Config.Values["upgrade"]
+	_, ok := cfg.Collector.Values["upgrade"]
 	if ok {
-		_, ok = cfg.Config.Values["upgrade"].(collector.ConfigValues)["recovery"]
+		_, ok = cfg.Collector.Values["upgrade"].(collector.ConfigValues)["recovery"]
 		if ok {
-			if cfg.Config.Values["upgrade"].(collector.ConfigValues)["recovery"].(bool) {
+			if cfg.Collector.Values["upgrade"].(collector.ConfigValues)["recovery"].(bool) {
 				entry = constants.BootEntryRecovery
 			}
 		}
 	}
 
-	spec := &v1.UpgradeSpec{
+	spec := &spec.UpgradeSpec{
 		Entry:      entry,
 		Active:     active,
 		Recovery:   recovery,
 		Passive:    passive,
 		Partitions: ep,
-		State:      installState,
 	}
 
 	// Unmarshall the config into the spec first so the active/recovery gets filled properly from all sources
@@ -414,7 +414,7 @@ func NewUpgradeSpec(cfg *Config) (*v1.UpgradeSpec, error) {
 	return spec, nil
 }
 
-func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
+func setUpgradeSourceSize(cfg *Config, spec *spec.UpgradeSpec) error {
 	var size int64
 	var err error
 	var originalSize uint
@@ -426,7 +426,7 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 		originalSize = spec.Active.Size
 	}
 
-	var targetSpec *v1.Image
+	var targetSpec *sdkImages.Image
 	if spec.RecoveryUpgrade() {
 		targetSpec = &(spec.Recovery)
 	} else {
@@ -458,35 +458,30 @@ func setUpgradeSourceSize(cfg *Config, spec *v1.UpgradeSpec) error {
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
-func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
-	var imgSource *v1.ImageSource
+func NewResetSpec(cfg *Config) (*spec.ResetSpec, error) {
+	var imgSource *sdkImages.ImageSource
 
 	//TODO find a way to pre-load current state values such as labels
 	if !BootedFrom(cfg.Runner, constants.RecoverySquashFile) &&
-		!BootedFrom(cfg.Runner, constants.SystemLabel) {
+		!BootedFrom(cfg.Runner, sdkConstants.SystemLabel) {
 		return nil, fmt.Errorf("reset can only be called from the recovery system")
 	}
 
 	efiExists, _ := fsutils.Exists(cfg.Fs, constants.EfiDevice)
 
-	installState, err := cfg.LoadInstallState()
-	if err != nil {
-		cfg.Logger.Warnf("failed reading installation state: %s", err.Error())
-	}
-
 	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not read host partitions")
 	}
-	ep := v1.NewElementalPartitionsFromList(parts)
+	ep := spec.NewElementalPartitionsFromList(parts)
 	if efiExists {
 		if ep.EFI == nil {
 			return nil, fmt.Errorf("EFI partition not found")
 		}
 		if ep.EFI.MountPoint == "" {
-			ep.EFI.MountPoint = constants.EfiDir
+			ep.EFI.MountPoint = sdkConstants.EfiDirTransient
 		}
-		ep.EFI.Name = constants.EfiPartName
+		ep.EFI.Name = sdkConstants.EfiPartName
 	}
 
 	if ep.State == nil {
@@ -495,11 +490,11 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	if ep.State.MountPoint == "" {
 		ep.State.MountPoint = constants.StateDir
 	}
-	ep.State.Name = constants.StatePartName
+	ep.State.Name = sdkConstants.StatePartName
 
 	if ep.Recovery == nil {
 		// We could have recovery in lvm which won't appear in ghw list
-		ep.Recovery = partitions.GetPartitionViaDM(cfg.Fs, constants.RecoveryLabel)
+		ep.Recovery = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.RecoveryLabel)
 		if ep.Recovery == nil {
 			return nil, fmt.Errorf("recovery partition not found")
 		}
@@ -513,30 +508,30 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	// OEM partition is not a hard requirement for reset unless we have the reset oem flag
 	if ep.OEM == nil {
 		// We could have oem in lvm which won't appear in ghw list
-		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+		ep.OEM = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.OEMLabel)
 	}
 
 	// Persistent partition is not a hard requirement
 	if ep.Persistent == nil {
 		// We could have persistent encrypted or in lvm which won't appear in ghw list
-		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
+		ep.Persistent = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.PersistentLabel)
 	}
 
 	recoveryImg := filepath.Join(constants.RunningStateDir, "cOS", constants.RecoveryImgFile)
 	recoveryImg2 := filepath.Join(constants.RunningRecoveryStateDir, "cOS", constants.RecoveryImgFile)
 
 	if exists, _ := fsutils.Exists(cfg.Fs, recoveryImg); exists {
-		imgSource = v1.NewFileSrc(recoveryImg)
+		imgSource = sdkImages.NewFileSrc(recoveryImg)
 	} else if exists, _ = fsutils.Exists(cfg.Fs, recoveryImg2); exists {
-		imgSource = v1.NewFileSrc(recoveryImg2)
+		imgSource = sdkImages.NewFileSrc(recoveryImg2)
 	} else if exists, _ = fsutils.Exists(cfg.Fs, constants.IsoBaseTree); exists {
-		imgSource = v1.NewDirSrc(constants.IsoBaseTree)
+		imgSource = sdkImages.NewDirSrc(constants.IsoBaseTree)
 	} else {
-		imgSource = v1.NewEmptySrc()
+		imgSource = sdkImages.NewEmptySrc()
 	}
 
 	activeFile := filepath.Join(ep.State.MountPoint, "cOS", constants.ActiveImgFile)
-	spec := &v1.ResetSpec{
+	spec := &spec.ResetSpec{
 		Target:           target,
 		Partitions:       ep,
 		Efi:              efiExists,
@@ -544,22 +539,21 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 		GrubConf:         constants.GrubConf,
 		Tty:              constants.DefaultTty,
 		FormatPersistent: true,
-		Active: v1.Image{
-			Label:      constants.ActiveLabel,
-			Size:       constants.ImgSize,
+		Active: sdkImages.Image{
+			Label:      sdkConstants.ActiveLabel,
+			Size:       sdkConstants.ImgSize,
 			File:       activeFile,
-			FS:         constants.LinuxImgFs,
+			FS:         sdkConstants.LinuxImgFs,
 			Source:     imgSource,
 			MountPoint: constants.ActiveDir,
 		},
-		Passive: v1.Image{
+		Passive: sdkImages.Image{
 			File:   filepath.Join(ep.State.MountPoint, "cOS", constants.PassiveImgFile),
-			Label:  constants.PassiveLabel,
-			Size:   constants.ImgSize,
-			Source: v1.NewFileSrc(activeFile),
-			FS:     constants.LinuxImgFs,
+			Label:  sdkConstants.PassiveLabel,
+			Size:   sdkConstants.ImgSize,
+			Source: sdkImages.NewFileSrc(activeFile),
+			FS:     sdkConstants.LinuxImgFs,
 		},
-		State: installState,
 	}
 
 	// Get the actual source size to calculate the image size and partitions size
@@ -599,65 +593,65 @@ func NewResetSpec(cfg *Config) (*v1.ResetSpec, error) {
 	return spec, nil
 }
 
-// ReadResetSpecFromConfig will return a proper v1.ResetSpec based on an agent Config
-func ReadResetSpecFromConfig(c *Config) (*v1.ResetSpec, error) {
+// ReadResetSpecFromConfig will return a proper ResetSpec based on an agent Config
+func ReadResetSpecFromConfig(c *Config) (*spec.ResetSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "reset")
 	if err != nil {
-		return &v1.ResetSpec{}, err
+		return &spec.ResetSpec{}, err
 	}
-	resetSpec := sp.(*v1.ResetSpec)
+	resetSpec := sp.(*spec.ResetSpec)
 	return resetSpec, nil
 }
 
-func NewUkiResetSpec(cfg *Config) (spec *v1.ResetUkiSpec, err error) {
-	spec = &v1.ResetUkiSpec{
+func NewUkiResetSpec(cfg *Config) (*spec.ResetUkiSpec, error) {
+	sp := &spec.ResetUkiSpec{
 		FormatPersistent: true, // Persistent is formatted by default
-		Partitions:       v1.ElementalPartitions{},
+		Partitions:       sdkPartitions.ElementalPartitions{},
 	}
 
 	_, ukiBootMode := cfg.Fs.Stat("/run/cos/uki_boot_mode")
 	if !BootedFrom(cfg.Runner, "rd.immucore.uki") && ukiBootMode == nil {
-		return spec, fmt.Errorf("uki reset can only be called from the recovery installed system")
+		return sp, fmt.Errorf("uki reset can only be called from the recovery installed system")
 	}
 
 	// Fill persistent partition
-	spec.Partitions.Persistent = partitions.GetPartitionViaDM(cfg.Fs, constants.PersistentLabel)
-	spec.Partitions.OEM = partitions.GetPartitionViaDM(cfg.Fs, constants.OEMLabel)
+	sp.Partitions.Persistent = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.PersistentLabel)
+	sp.Partitions.OEM = partitions.GetPartitionViaDM(cfg.Fs, sdkConstants.OEMLabel)
 
 	// Get EFI partition
 	parts, err := partitions.GetAllPartitions(&cfg.Logger)
 	if err != nil {
-		return spec, fmt.Errorf("could not read host partitions")
+		return sp, fmt.Errorf("could not read host partitions")
 	}
 	for _, p := range parts {
-		if p.FilesystemLabel == constants.EfiLabel {
-			spec.Partitions.EFI = p
+		if p.FilesystemLabel == sdkConstants.EfiLabel {
+			sp.Partitions.EFI = p
 			break
 		}
 	}
 
-	if spec.Partitions.Persistent == nil {
-		return spec, fmt.Errorf("persistent partition not found")
+	if sp.Partitions.Persistent == nil {
+		return sp, fmt.Errorf("persistent partition not found")
 	}
-	if spec.Partitions.OEM == nil {
-		return spec, fmt.Errorf("oem partition not found")
+	if sp.Partitions.OEM == nil {
+		return sp, fmt.Errorf("oem partition not found")
 	}
-	if spec.Partitions.EFI == nil {
-		return spec, fmt.Errorf("efi partition not found")
+	if sp.Partitions.EFI == nil {
+		return sp, fmt.Errorf("efi partition not found")
 	}
 
 	// Fill oem partition
-	err = unmarshallFullSpec(cfg, "reset", spec)
-	return spec, err
+	err = unmarshallFullSpec(cfg, "reset", sp)
+	return sp, err
 }
 
 // ReadInstallSpecFromConfig will return a proper v1.InstallSpec based on an agent Config
-func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
+func ReadInstallSpecFromConfig(c *Config) (*spec.InstallSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "install")
 	if err != nil {
-		return &v1.InstallSpec{}, err
+		return &spec.InstallSpec{}, err
 	}
-	installSpec := sp.(*v1.InstallSpec)
+	installSpec := sp.(*spec.InstallSpec)
 
 	if (installSpec.Target == "" || installSpec.Target == "auto") && !installSpec.NoFormat {
 		installSpec.Target = detectLargestDevice()
@@ -667,61 +661,61 @@ func ReadInstallSpecFromConfig(c *Config) (*v1.InstallSpec, error) {
 }
 
 // ReadUkiResetSpecFromConfig will return a proper v1.ResetUkiSpec based on an agent Config
-func ReadUkiResetSpecFromConfig(c *Config) (*v1.ResetUkiSpec, error) {
+func ReadUkiResetSpecFromConfig(c *Config) (*spec.ResetUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "reset-uki")
 	if err != nil {
-		return &v1.ResetUkiSpec{}, err
+		return &spec.ResetUkiSpec{}, err
 	}
-	resetSpec := sp.(*v1.ResetUkiSpec)
+	resetSpec := sp.(*spec.ResetUkiSpec)
 	return resetSpec, nil
 }
 
-func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
-	var activeImg v1.Image
+func NewUkiInstallSpec(cfg *Config) (*spec.InstallUkiSpec, error) {
+	var activeImg sdkImages.Image
 
 	isoRootExists, _ := fsutils.Exists(cfg.Fs, constants.IsoBaseTree)
 
 	// First try to use the install media source
 	if isoRootExists {
-		activeImg.Source = v1.NewDirSrc(constants.IsoBaseTree)
+		activeImg.Source = sdkImages.NewDirSrc(constants.IsoBaseTree)
 	}
 	// Then any user provided source
 	if cfg.Install.Source != "" {
-		activeImg.Source, _ = v1.NewSrcFromURI(cfg.Install.Source)
+		activeImg.Source, _ = sdkImages.NewSrcFromURI(cfg.Install.Source)
 	}
 	// If we dont have any just an empty source so the sanitation fails
 	// TODO: Should we directly fail here if we got no source instead of waiting for the Sanitize() to fail?
 	if !isoRootExists && cfg.Install.Source == "" {
-		activeImg.Source = v1.NewEmptySrc()
+		activeImg.Source = sdkImages.NewEmptySrc()
 	}
 
-	spec := &v1.InstallUkiSpec{
+	spec := &spec.InstallUkiSpec{
 		Target: cfg.Install.Device,
 		Active: activeImg,
 	}
 
 	// Calculate the partitions afterwards so they use the image sizes for the final partition sizes
-	spec.Partitions.EFI = &types.Partition{
-		FilesystemLabel: constants.EfiLabel,
-		Size:            constants.ImgSize * 5, // 15Gb for the EFI partition as default
-		Name:            constants.EfiPartName,
-		FS:              constants.EfiFs,
-		MountPoint:      constants.EfiDir,
+	spec.Partitions.EFI = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.EfiLabel,
+		Size:            sdkConstants.ImgSize * 5, // 15Gb for the EFI partition as default
+		Name:            sdkConstants.EfiPartName,
+		FS:              sdkConstants.EfiFs,
+		MountPoint:      sdkConstants.EfiDirTransient,
 		Flags:           []string{"esp"},
 	}
-	spec.Partitions.OEM = &types.Partition{
-		FilesystemLabel: constants.OEMLabel,
-		Size:            constants.OEMSize,
-		Name:            constants.OEMPartName,
-		FS:              constants.LinuxFs,
+	spec.Partitions.OEM = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.OEMLabel,
+		Size:            sdkConstants.OEMSize,
+		Name:            sdkConstants.OEMPartName,
+		FS:              sdkConstants.LinuxFs,
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
-	spec.Partitions.Persistent = &types.Partition{
-		FilesystemLabel: constants.PersistentLabel,
-		Size:            constants.PersistentSize,
-		Name:            constants.PersistentPartName,
-		FS:              constants.LinuxFs,
+	spec.Partitions.Persistent = &sdkPartitions.Partition{
+		FilesystemLabel: sdkConstants.PersistentLabel,
+		Size:            sdkConstants.PersistentSize,
+		Name:            sdkConstants.PersistentPartName,
+		FS:              sdkConstants.LinuxFs,
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
@@ -747,12 +741,12 @@ func NewUkiInstallSpec(cfg *Config) (*v1.InstallUkiSpec, error) {
 }
 
 // ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
-func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
+func ReadUkiInstallSpecFromConfig(c *Config) (*spec.InstallUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "install-uki")
 	if err != nil {
-		return &v1.InstallUkiSpec{}, err
+		return &spec.InstallUkiSpec{}, err
 	}
-	installSpec := sp.(*v1.InstallUkiSpec)
+	installSpec := sp.(*spec.InstallUkiSpec)
 
 	if (installSpec.Target == "" || installSpec.Target == "auto") && !installSpec.NoFormat {
 		installSpec.Target = detectLargestDevice()
@@ -761,8 +755,8 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*v1.InstallUkiSpec, error) {
 	return installSpec, nil
 }
 
-func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
-	spec := &v1.UpgradeUkiSpec{}
+func NewUkiUpgradeSpec(cfg *Config) (*spec.UpgradeUkiSpec, error) {
+	spec := &spec.UpgradeUkiSpec{}
 	if err := unmarshallFullSpec(cfg, "upgrade", spec); err != nil {
 		return nil, fmt.Errorf("failed unmarshalling full spec: %w", err)
 	}
@@ -782,7 +776,7 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
-		spec.Active.Size = constants.ImgSize
+		spec.Active.Size = sdkConstants.ImgSize
 	} else {
 		cfg.Logger.Infof("Setting image size to %dMb", size)
 		spec.Active.Size = uint(size)
@@ -808,19 +802,19 @@ func NewUkiUpgradeSpec(cfg *Config) (*v1.UpgradeUkiSpec, error) {
 }
 
 // ReadUkiUpgradeSpecFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
-func ReadUkiUpgradeSpecFromConfig(c *Config) (*v1.UpgradeUkiSpec, error) {
+func ReadUkiUpgradeSpecFromConfig(c *Config) (*spec.UpgradeUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "upgrade-uki")
 	if err != nil {
-		return &v1.UpgradeUkiSpec{}, err
+		return &spec.UpgradeUkiSpec{}, err
 	}
-	upgradeSpec := sp.(*v1.UpgradeUkiSpec)
+	upgradeSpec := sp.(*spec.UpgradeUkiSpec)
 	return upgradeSpec, nil
 }
 
 // getSize will calculate the size of a file or symlink and will do nothing with directories
 // fileList: keeps track of the files visited to avoid counting a file more than once if it's a symlink. It could also be used as a way to filter some files
 // size: will be the memory that adds up all the files sizes. Meaning it could be initialized with a value greater than 0 if needed.
-func getSize(vfs v1.FS, size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
+func getSize(vfs sdkFS.KairosFS, size *int64, fileList map[string]bool, path string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -863,7 +857,7 @@ func getSize(vfs v1.FS, size *int64, fileList map[string]bool, path string, d fs
 // This helps adjust the size to be juuuuust right.
 // It can still be manually override from the cloud config by setting all values manually
 // But by default it should adjust the sizes properly
-func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
+func GetSourceSize(config *Config, source *sdkImages.ImageSource) (int64, error) {
 	var size int64
 	var err error
 	var filesVisited map[string]bool
@@ -918,18 +912,18 @@ func GetSourceSize(config *Config, source *v1.ImageSource) (int64, error) {
 }
 
 // ReadUpgradeSpecFromConfig will return a proper v1.UpgradeSpec based on an agent Config
-func ReadUpgradeSpecFromConfig(c *Config) (*v1.UpgradeSpec, error) {
+func ReadUpgradeSpecFromConfig(c *Config) (*spec.UpgradeSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "upgrade")
 	if err != nil {
-		return &v1.UpgradeSpec{}, err
+		return &spec.UpgradeSpec{}, err
 	}
-	upgradeSpec := sp.(*v1.UpgradeSpec)
+	upgradeSpec := sp.(*spec.UpgradeSpec)
 	return upgradeSpec, nil
 }
 
 // ReadSpecFromCloudConfig returns a v1.Spec for the given spec
-func ReadSpecFromCloudConfig(r *Config, spec string) (v1.Spec, error) {
-	var sp v1.Spec
+func ReadSpecFromCloudConfig(r *Config, spec string) (sdkSpec.Spec, error) {
+	var sp sdkSpec.Spec
 	var err error
 
 	switch spec {
@@ -1008,13 +1002,13 @@ func setDecoder(config *mapstructure.DecoderConfig) {
 }
 
 // BootedFrom will check if we are booting from the given label
-func BootedFrom(runner v1.Runner, label string) bool {
+func BootedFrom(runner sdkRunner.Runner, label string) bool {
 	out, _ := runner.Run("cat", "/proc/cmdline")
 	return strings.Contains(string(out), label)
 }
 
 // HasSquashedRecovery returns true if a squashed recovery image is found in the system
-func hasSquashedRecovery(config *Config, recovery *types.Partition) (squashed bool, err error) {
+func hasSquashedRecovery(config *Config, recovery *sdkPartitions.Partition) (squashed bool, err error) {
 	mountPoint := recovery.MountPoint
 	if mnt, _ := isMounted(config, recovery); !mnt {
 		tmpMountDir, err := fsutils.TempDir(config.Fs, "", "elemental")
@@ -1039,7 +1033,7 @@ func hasSquashedRecovery(config *Config, recovery *types.Partition) (squashed bo
 	return fsutils.Exists(config.Fs, filepath.Join(mountPoint, "cOS", constants.RecoverySquashFile))
 }
 
-func isMounted(config *Config, part *types.Partition) (bool, error) {
+func isMounted(config *Config, part *sdkPartitions.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -1056,9 +1050,9 @@ func isMounted(config *Config, part *types.Partition) (bool, error) {
 	return !notMnt, nil
 }
 
-func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
+func unmarshallFullSpec(r *Config, subkey string, sp sdkSpec.Spec) error {
 	// Load the config into viper from the raw cloud config string
-	ccString, err := r.String()
+	ccString, err := r.Collector.String()
 	if err != nil {
 		return fmt.Errorf("failed initializing spec: %w", err)
 	}
@@ -1082,29 +1076,29 @@ func unmarshallFullSpec(r *Config, subkey string, sp v1.Spec) error {
 
 // checkDeprecatedURIUsage checks if any Image structs in the spec have the deprecated URI field set
 // and logs a warning if found, also converts URI to Source for backwards compatibility
-func checkDeprecatedURIUsage(logger types.KairosLogger, sp v1.Spec) {
+func checkDeprecatedURIUsage(logger sdkLogger.KairosLogger, sp sdkSpec.Spec) {
 	switch s := sp.(type) {
-	case *v1.InstallSpec:
+	case *spec.InstallSpec:
 		checkImageURI(&s.Active, logger, "install.system")
 		checkImageURI(&s.Recovery, logger, "install.recovery-system")
-	case *v1.UpgradeSpec:
+	case *spec.UpgradeSpec:
 		checkImageURI(&s.Active, logger, "upgrade.system")
 		checkImageURI(&s.Recovery, logger, "upgrade.recovery-system")
-	case *v1.ResetSpec:
+	case *spec.ResetSpec:
 		checkImageURI(&s.Active, logger, "reset.system")
-	case *v1.InstallUkiSpec:
+	case *spec.InstallUkiSpec:
 		checkImageURI(&s.Active, logger, "install-uki.system")
-	case *v1.UpgradeUkiSpec:
+	case *spec.UpgradeUkiSpec:
 		checkImageURI(&s.Active, logger, "upgrade-uki.system")
 	}
 }
 
 // checkImageURI checks if an Image has the deprecated URI field set and handles the conversion
-func checkImageURI(img *v1.Image, logger types.KairosLogger, fieldPath string) {
+func checkImageURI(img *sdkImages.Image, logger sdkLogger.KairosLogger, fieldPath string) {
 	if img.URI != "" {
 		logger.Warnf("The 'uri' field in %s is deprecated, please use 'source' instead", fieldPath)
 		if img.Source == nil || img.Source.IsEmpty() {
-			if source, err := v1.NewSrcFromURI(img.URI); err == nil {
+			if source, err := sdkImages.NewSrcFromURI(img.URI); err == nil {
 				img.Source = source
 			}
 		}
@@ -1129,7 +1123,7 @@ func detectLargestDevice() string {
 
 // DetectPreConfiguredDevice returns a disk that has partitions labeled with
 // Kairos labels. It can be used to detect a pre-configured device.
-func DetectPreConfiguredDevice(logger types.KairosLogger) (string, error) {
+func DetectPreConfiguredDevice(logger sdkLogger.KairosLogger) (string, error) {
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), &logger) {
 		for _, p := range disk.Partitions {
 			if p.FilesystemLabel == "COS_STATE" {

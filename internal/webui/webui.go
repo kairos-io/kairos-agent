@@ -12,9 +12,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/labstack/echo/v4"
 	process "github.com/mudler/go-processmanager"
 	"github.com/nxadm/tail"

@@ -2,12 +2,12 @@ package loop
 
 import (
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"os"
 	"syscall"
 	"unsafe"
 
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/types/images"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,7 +22,7 @@ func errnoIsErr(err error) error {
 }
 
 // Loop will setup a /dev/loopX device linked to the image file by using syscalls directly to set it
-func Loop(img *v1.Image, cfg *config.Config) (loopDevice string, err error) {
+func Loop(img *images.Image, cfg *config.Config) (loopDevice string, err error) {
 	log := cfg.Logger
 	log.Debugf("Opening loop control device")
 	fd, err := cfg.Fs.OpenFile("/dev/loop-control", os.O_RDONLY, 0o644)

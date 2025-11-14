@@ -5,13 +5,13 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 type Interface interface {
-	Run(c config.Config, spec v1.Spec) error
+	Run(c config.Config, spec sdkSpec.Spec) error
 }
 
 // FinishInstall is a list of hooks that run when the install process is finished completely.
@@ -52,7 +52,7 @@ var PostInstall = []Interface{
 	&Finish{},
 }
 
-func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {
+func Run(c config.Config, spec sdkSpec.Spec, hooks ...Interface) error {
 	for _, h := range hooks {
 		if err := h.Run(c, spec); err != nil {
 			return err
@@ -62,7 +62,7 @@ func Run(c config.Config, spec v1.Spec, hooks ...Interface) error {
 }
 
 // lockPartitions will try to close all the partitions that are unencrypted.
-func lockPartitions(log types.KairosLogger) {
+func lockPartitions(log sdkLogger.KairosLogger) {
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
 
 	// Get list of active mapper devices
