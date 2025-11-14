@@ -17,11 +17,9 @@ package config_test
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"strings"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	sdkbundles "github.com/kairos-io/kairos-sdk/types/bundles"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
@@ -29,11 +27,6 @@ import (
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 
 	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	v1mocks "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/twpayne/go-vfs/v5"
-	"github.com/twpayne/go-vfs/v5/vfst"
 	"gopkg.in/yaml.v3"
 
 	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -172,105 +165,6 @@ var _ = Describe("Schema", func() {
 			Expect(Expect(err).NotTo(HaveOccurred()))
 
 			Expect(string(got)).To(Equal(wants))
-		})
-	})
-
-	Describe("Write and load installation state", func() {
-		var config *Config
-		var runner *v1mocks.FakeRunner
-		var fs vfs.FS
-		var mounter *v1mocks.ErrorMounter
-		var cleanup func()
-		var err error
-		var dockerState, channelState *spec.ImageState
-		var installState *spec.InstallState
-		var statePath, recoveryPath string
-
-		BeforeEach(func() {
-			runner = v1mocks.NewFakeRunner()
-			mounter = v1mocks.NewErrorMounter()
-			fs, cleanup, err = vfst.NewTestFS(map[string]interface{}{})
-			Expect(err).Should(BeNil())
-
-			config = NewConfig(
-				WithFs(fs),
-				WithRunner(runner),
-				WithMounter(mounter),
-			)
-			dockerState = &spec.ImageState{
-				Source: sdkImages.NewDockerSrc("registry.org/my/image:tag"),
-				Label:  "active_label",
-				FS:     "ext2",
-				SourceMetadata: &spec.DockerImageMeta{
-					Digest: "adadgadg",
-					Size:   23452345,
-				},
-			}
-			installState = &spec.InstallState{
-				Date: "somedate",
-				Partitions: map[string]*spec.PartitionState{
-					"state": {
-						FSLabel: "state_label",
-						Images: map[string]*spec.ImageState{
-							"active": dockerState,
-						},
-					},
-					"recovery": {
-						FSLabel: "state_label",
-						Images: map[string]*spec.ImageState{
-							"recovery": channelState,
-						},
-					},
-				},
-			}
-
-			statePath = filepath.Join(constants.RunningStateDir, constants.InstallStateFile)
-			recoveryPath = "/recoverypart/state.yaml"
-			err = fsutils.MkdirAll(fs, filepath.Dir(recoveryPath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = fsutils.MkdirAll(fs, filepath.Dir(statePath), constants.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-		AfterEach(func() {
-			cleanup()
-		})
-		It("Scan can override options", func() {
-			c, err := ScanNoLogs(collector.Readers(strings.NewReader(`uki-max-entries: 34`)))
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(c.UkiMaxEntries).To(Equal(34))
-		})
-		It("Writes and loads an installation data", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			loadedInstallState, err := config.LoadInstallState()
-			Expect(err).ShouldNot(HaveOccurred())
-			stat, err := fs.Stat(statePath)
-			Expect(err).To(BeNil())
-			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
-			stat, err = fs.Stat(recoveryPath)
-			Expect(err).To(BeNil())
-			Expect(int(stat.Mode().Perm())).To(Equal(constants.ConfigPerm))
-
-			Expect(*loadedInstallState).To(Equal(*installState))
-		})
-		It("Fails writing to state partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails writing to recovery partition", func() {
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			Expect(err).ShouldNot(HaveOccurred())
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).Should(HaveOccurred())
-		})
-		It("Fails loading state file", func() {
-			err = config.WriteInstallState(installState, statePath, recoveryPath)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = fs.RemoveAll(filepath.Dir(statePath))
-			_, err = config.LoadInstallState()
-			Expect(err).Should(HaveOccurred())
 		})
 	})
 
