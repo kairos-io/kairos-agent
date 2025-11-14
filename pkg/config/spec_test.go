@@ -709,7 +709,7 @@ cloud-init-paths:
 				_, err = config.ReadSpecFromCloudConfig(cfg, "nope")
 				Expect(err).To(HaveOccurred())
 			})
-			It("Sets debug level if its on the cloud-config", Focus, func() {
+			It("Sets debug level if its on the cloud-config", func() {
 				ccdata := []byte(`#cloud-config
 debug: true
 `)
