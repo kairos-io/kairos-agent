@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -28,12 +27,10 @@ var _ = Describe("prepareConfiguration", func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(temp)
 
-		content, err := yaml.Marshal(config.Config{
-			Config: sdkConfig.Config{
-				Debug: true,
-				Install: &sdkInstall.Install{
-					Device: "fake",
-				},
+		content, err := yaml.Marshal(sdkConfig.Config{
+			Debug: true,
+			Install: &sdkInstall.Install{
+				Device: "fake",
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -43,7 +40,7 @@ var _ = Describe("prepareConfiguration", func() {
 		source, err := prepareConfiguration(filepath.Join(temp, "config.yaml"))
 		Expect(err).ToNot(HaveOccurred())
 
-		var cfg config.Config
+		var cfg sdkConfig.Config
 		err = yaml.NewDecoder(source).Decode(&cfg)
 		Expect(cfg.ConfigURL).To(BeEmpty())
 		Expect(cfg.Debug).To(BeTrue())
@@ -54,8 +51,8 @@ var _ = Describe("prepareConfiguration", func() {
 		source, err := prepareConfiguration(url)
 		Expect(err).ToNot(HaveOccurred())
 
-		var cfg config.Config
-		err = yaml.NewDecoder(source).Decode(&cfg.Config)
+		var cfg sdkConfig.Config
+		err = yaml.NewDecoder(source).Decode(&cfg)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(cfg.ConfigURL).To(Equal(url))
@@ -63,7 +60,7 @@ var _ = Describe("prepareConfiguration", func() {
 })
 
 var _ = Describe("RunInstall", func() {
-	var options *config.Config
+	var options *sdkConfig.Config
 	var err error
 	var fs sdkFS.KairosFS
 	var cleanup func()
@@ -122,12 +119,10 @@ var _ = Describe("RunInstall", func() {
 		_, err = fs.Create(device)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		options = &config.Config{
-			Config: sdkConfig.Config{
-				Install: &sdkInstall.Install{
-					Device: "/some/device",
-					Source: "test",
-				},
+		options = &sdkConfig.Config{
+			Install: &sdkInstall.Install{
+				Device: "/some/device",
+				Source: "test",
 			},
 		}
 

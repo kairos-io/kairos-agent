@@ -35,12 +35,12 @@ import (
 
 	"github.com/distribution/reference"
 	"github.com/joho/godotenv"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
 	"github.com/kairos-io/kairos-sdk/types/logger"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
@@ -56,7 +56,7 @@ func CommandExists(command string) bool {
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
-func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (string, error) {
+func GetDeviceByLabel(config *sdkConfig.Config, label string, attempts int) (string, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = config.Runner.Run("udevadm", "trigger")
 		_, _ = config.Runner.Run("udevadm", "settle")
@@ -309,7 +309,7 @@ func LoadEnvFile(fs sdkFs.KairosFS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-func IsMounted(config *agentConfig.Config, part *sdkPartitions.Partition) (bool, error) {
+func IsMounted(config *sdkConfig.Config, part *sdkPartitions.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -330,7 +330,7 @@ func IsMounted(config *agentConfig.Config, part *sdkPartitions.Partition) (bool,
 // It will respect TMPDIR and use that if exists, fallback to try the persistent partition if its mounted
 // and finally the default /tmp/ dir
 // suffix is what is appended to the dir name elemental-suffix. If empty it will randomly generate a number
-func GetTempDir(config *agentConfig.Config, suffix string) string {
+func GetTempDir(config *sdkConfig.Config, suffix string) string {
 	// if we got a TMPDIR var, respect and use that
 	if suffix == "" {
 		random.Seed(time.Now().UnixNano())
@@ -396,7 +396,7 @@ func IsHTTPURI(uri string) (bool, error) {
 
 // GetSource copies given source to destination, if source is a local path it simply
 // copies files, if source is a remote URL it tries to download URL to destination.
-func GetSource(config *agentConfig.Config, source string, destination string) error {
+func GetSource(config *sdkConfig.Config, source string, destination string) error {
 	local, err := IsLocalURI(source)
 	if err != nil {
 		config.Logger.Errorf("Not a valid url: %s", source)

@@ -18,6 +18,7 @@ package config_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,14 +32,15 @@ import (
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkBundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog"
+	"github.com/sanity-io/litter"
 	"github.com/twpayne/go-vfs/v5/vfst"
 	"k8s.io/mount-utils"
 )
@@ -54,7 +56,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		var sysc *v1mock.FakeSyscall
 		var logger sdkLogger.KairosLogger
 		var ci *v1mock.FakeCloudInitRunner
-		var c *config.Config
+		var c *sdkConfig.Config
 		var memLog bytes.Buffer
 
 		BeforeEach(func() {
@@ -81,7 +83,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			)
 			c.Install = &sdkInstall.Install{}
 			c.Bundles = sdkBundles.Bundles{}
-			c.Config.Collector = collector.Config{}
+			c.Collector = collector.Config{}
 		})
 		AfterEach(func() {
 			cleanup()
@@ -509,7 +511,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("sets image size to provided value if set in the config and image is smaller", func() {
 					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    size: 666\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Size).To(Equal(uint(666)))
@@ -517,7 +519,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("sets image size to default value if not set in the config and image is smaller", func() {
 					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: dir:/\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(spec.Active.Size).To(Equal(sdkConstants.ImgSize))
@@ -526,7 +528,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				It("sets image size to the source if default is smaller", func() {
 					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: file:/tmp/waka\n")))
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					Expect(c.Fs.Mkdir("/tmp", 0777)).ShouldNot(HaveOccurred())
 					Expect(c.Fs.WriteFile("/tmp/waka", []byte("waka"), 0777)).ShouldNot(HaveOccurred())
 					Expect(c.Fs.Truncate("/tmp/waka", 5120*1024*1024)).ShouldNot(HaveOccurred())
@@ -551,7 +553,7 @@ upgrade:
 `)))
 					Expect(err).ToNot(HaveOccurred())
 					// Set manually the config collector in the cfg file before unmarshalling the spec
-					c.Config = cfg.Config
+					c.Collector = cfg.Collector
 					spec, err := config.NewUpgradeSpec(c)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(spec.Active.Source).ToNot(BeNil())
@@ -707,14 +709,15 @@ cloud-init-paths:
 				_, err = config.ReadSpecFromCloudConfig(cfg, "nope")
 				Expect(err).To(HaveOccurred())
 			})
-			It("Sets debug level if its on the cloud-config", func() {
+			It("Sets debug level if its on the cloud-config", Focus, func() {
 				ccdata := []byte(`#cloud-config
 debug: true
 `)
 				err = os.WriteFile(filepath.Join(dir, "cc.yaml"), ccdata, os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
+				cfg, err := config.Scan(collector.Directories([]string{dir}...))
 				Expect(err).ToNot(HaveOccurred())
+				fmt.Println(litter.Sdump(cfg))
 				Expect(cfg.Logger.GetLevel()).To(Equal(zerolog.DebugLevel))
 
 			})
@@ -770,7 +773,7 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 	var tempFilePath string
 	var err error
 	var logger sdkLogger.KairosLogger
-	var conf *config.Config
+	var conf *sdkConfig.Config
 	var imageSource *sdkImages.ImageSource
 	var memLog bytes.Buffer
 

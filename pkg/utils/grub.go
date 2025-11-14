@@ -25,21 +25,21 @@ import (
 	"sort"
 	"strings"
 
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 // Grub is the struct that will allow us to install grub to the target device
 type Grub struct {
-	config *agentConfig.Config
+	config *sdkConfig.Config
 }
 
-func NewGrub(config *agentConfig.Config) *Grub {
+func NewGrub(config *sdkConfig.Config) *Grub {
 	g := &Grub{
 		config: config,
 	}
@@ -332,7 +332,7 @@ func findGrubDir(vfs sdkFS.KairosFS, dir string) string {
 
 }
 
-func SetPersistentVariables(grubEnvFile string, vars map[string]string, c *agentConfig.Config) error {
+func SetPersistentVariables(grubEnvFile string, vars map[string]string, c *sdkConfig.Config) error {
 	var b bytes.Buffer
 	// Write header
 	b.WriteString("# GRUB Environment Block\n")
@@ -383,7 +383,7 @@ func SetPersistentVariables(grubEnvFile string, vars map[string]string, c *agent
 // copyGrubFonts will try to finds and copy the needed grub fonts into the system
 // rootdir is the dir where to search for the fonts
 // bootdir is the base dir where they will be copied
-func copyGrubFonts(cfg *agentConfig.Config, rootDir, bootDir, systemgrub string) {
+func copyGrubFonts(cfg *sdkConfig.Config, rootDir, bootDir, systemgrub string) {
 	for _, m := range constants.GetGrubFonts() {
 		var foundFont bool
 		_ = fsutils.WalkDirFs(cfg.Fs, rootDir, func(path string, d fs.DirEntry, err error) error {
@@ -494,7 +494,7 @@ func (g Grub) copyGrub() error {
 }
 
 // ReadPersistentVariables will read a grub env file and parse the values
-func ReadPersistentVariables(grubEnvFile string, c *agentConfig.Config) (map[string]string, error) {
+func ReadPersistentVariables(grubEnvFile string, c *sdkConfig.Config) (map[string]string, error) {
 	vars := make(map[string]string)
 
 	f, err := c.Fs.ReadFile(grubEnvFile)

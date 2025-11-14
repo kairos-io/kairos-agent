@@ -10,6 +10,7 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkBundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +21,7 @@ import (
 
 var _ = Describe("Common action tests", func() {
 	Describe("createExtraDirsInRootfs", func() {
-		var config *agentConfig.Config
+		var config *sdkConfig.Config
 		var fs vfs.FS
 		var logger sdkLogger.KairosLogger
 		var runner *v1mock.FakeRunner

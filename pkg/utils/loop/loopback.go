@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/types/images"
 	"golang.org/x/sys/unix"
 )
@@ -22,7 +22,7 @@ func errnoIsErr(err error) error {
 }
 
 // Loop will setup a /dev/loopX device linked to the image file by using syscalls directly to set it
-func Loop(img *images.Image, cfg *config.Config) (loopDevice string, err error) {
+func Loop(img *images.Image, cfg *sdkConfig.Config) (loopDevice string, err error) {
 	log := cfg.Logger
 	log.Debugf("Opening loop control device")
 	fd, err := cfg.Fs.OpenFile("/dev/loop-control", os.O_RDONLY, 0o644)
@@ -91,7 +91,7 @@ func Loop(img *images.Image, cfg *config.Config) (loopDevice string, err error) 
 }
 
 // Unloop will clear a loop device and free the underlying image linked to it
-func Unloop(loopDevice string, cfg *config.Config) error {
+func Unloop(loopDevice string, cfg *sdkConfig.Config) error {
 	log := cfg.Logger
 	log.Logger.Debug().Str("device", loopDevice).Msg("Opening loop device")
 	fd, err := cfg.Fs.OpenFile(loopDevice, os.O_RDONLY, 0o644)

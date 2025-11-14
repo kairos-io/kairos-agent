@@ -9,18 +9,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 // Encrypt is the unified encryption method that works for both UKI and non-UKI modes
-func Encrypt(c config.Config) error {
+func Encrypt(c sdkConfig.Config) error {
 	c.Logger.Logger.Info().Msg("Starting unified encryption flow")
 
 	partitions := determinePartitionsToEncrypt(c)
@@ -87,7 +87,7 @@ func Encrypt(c config.Config) error {
 // Helper methods for unified encryption flow
 
 // determinePartitionsToEncrypt returns the list of partitions to encrypt based on mode
-func determinePartitionsToEncrypt(c config.Config) []string {
+func determinePartitionsToEncrypt(c sdkConfig.Config) []string {
 	// If user has specified partitions, respect their preference
 	if len(c.Install.Encrypt) > 0 {
 		return c.Install.Encrypt
@@ -104,7 +104,7 @@ func determinePartitionsToEncrypt(c config.Config) []string {
 }
 
 // preparePartitionsForEncryption unmounts all partitions that will be encrypted
-func preparePartitionsForEncryption(c config.Config, partitions []string) error {
+func preparePartitionsForEncryption(c sdkConfig.Config, partitions []string) error {
 	for _, p := range partitions {
 		c.Logger.Logger.Info().Str("partition", p).Msg("Preparing to encrypt partition")
 
@@ -135,7 +135,7 @@ func preparePartitionsForEncryption(c config.Config, partitions []string) error 
 }
 
 // backupOEMIfNeeded backs up the OEM partition contents before encryption
-func backupOEMIfNeeded(c config.Config) (backupPath string, cleanup func(), err error) {
+func backupOEMIfNeeded(c sdkConfig.Config) (backupPath string, cleanup func(), err error) {
 	c.Logger.Logger.Info().Msg("Backing up OEM partition before encryption")
 
 	// Check if OEM is already mounted
@@ -193,7 +193,7 @@ func backupOEMIfNeeded(c config.Config) (backupPath string, cleanup func(), err 
 // It first finds the underlying partition device using the label, then checks if a mapper
 // device exists for that partition in dmsetup.
 // Returns the full path to the mapper device (e.g., /dev/mapper/vda2).
-func findMapperDeviceForPartition(c config.Config, label string) (string, error) {
+func findMapperDeviceForPartition(c sdkConfig.Config, label string) (string, error) {
 	// First, find the underlying encrypted partition device by its label
 	// This will return the LUKS container device (e.g., /dev/vda2)
 	partitionPath, err := utils.SH(fmt.Sprintf("blkid -L %s", label))
@@ -263,7 +263,7 @@ func findMapperDeviceForPartition(c config.Config, label string) (string, error)
 // - COS_OEM partition is encrypted
 // - COS_OEM has been unlocked (mapper device exists in dmsetup)
 // - We need to find the mapper device path to mount and restore data
-func restoreOEM(c config.Config, backupPath string) error {
+func restoreOEM(c sdkConfig.Config, backupPath string) error {
 	c.Logger.Logger.Info().Str("backup_path", backupPath).Msg("Restoring OEM partition from backup")
 
 	// Find the unlocked mapper device for COS_OEM

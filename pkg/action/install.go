@@ -28,6 +28,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
 func (i *InstallAction) installHook(hook string, chroot bool) error {
@@ -47,11 +48,11 @@ func (i *InstallAction) installHook(hook string, chroot bool) error {
 }
 
 type InstallAction struct {
-	cfg  *config.Config
+	cfg  *sdkConfig.Config
 	spec *v1.InstallSpec
 }
 
-func NewInstallAction(cfg *config.Config, spec *v1.InstallSpec) *InstallAction {
+func NewInstallAction(cfg *sdkConfig.Config, spec *v1.InstallSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 

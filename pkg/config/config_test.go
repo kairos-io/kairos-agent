@@ -20,20 +20,17 @@ import (
 	"reflect"
 	"strings"
 
+	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/schema"
 	sdkbundles "github.com/kairos-io/kairos-sdk/types/bundles"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
-
-	pkgConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"gopkg.in/yaml.v3"
-
-	. "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-sdk/collector"
-	. "github.com/kairos-io/kairos-sdk/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 func getTagName(s string) string {
@@ -68,7 +65,7 @@ func structContainsField(f, t string, str interface{}) bool {
 			if types.Field(j).Type.Kind() == reflect.Struct {
 				if types.Field(j).Type.Name() != "" {
 					model := reflect.New(types.Field(j).Type)
-					if instance, ok := model.Interface().(OneOfModel); ok {
+					if instance, ok := model.Interface().(schema.OneOfModel); ok {
 						for _, childSchema := range instance.JSONSchemaOneOf() {
 							if structContainsField(f, t, childSchema) {
 								return true
@@ -106,13 +103,13 @@ func structFieldsContainedInOtherStruct(left, right interface{}) {
 var _ = Describe("Schema", func() {
 	Context("NewConfigFromYAML", func() {
 		Context("While the new Schema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(Config{}, RootSchema{})
+			structFieldsContainedInOtherStruct(sdkConfig.Config{}, schema.RootSchema{})
 		})
 		Context("While the new InstallSchema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(sdkInstall.Install{}, InstallSchema{})
+			structFieldsContainedInOtherStruct(sdkInstall.Install{}, schema.InstallSchema{})
 		})
 		Context("While the new BundleSchema is not the single source of truth", func() {
-			structFieldsContainedInOtherStruct(sdkbundles.Bundle{}, BundleSchema{})
+			structFieldsContainedInOtherStruct(sdkbundles.Bundle{}, schema.BundleSchema{})
 		})
 	})
 
@@ -134,28 +131,26 @@ var _ = Describe("Schema", func() {
     passive:
         size: 8192
 `
-			config := Config{
-				Config: sdkConfig.Config{
-					Install: &sdkInstall.Install{
-						Poweroff: true,
-						BindMounts: []string{
-							"/var/lib/ceph",
-							"/var/lib/osd",
-						},
-						Active: sdkImages.Image{
-							Size: 8192,
-						},
-						Passive: sdkImages.Image{
-							Size: 8192,
-						},
-						Recovery: sdkImages.Image{
-							Size: 10000,
-						},
-						Partitions: sdkPartitions.ElementalPartitions{
-							OEM: &sdkPartitions.Partition{
-								Size: 5120,
-								FS:   "ext4",
-							},
+			config := sdkConfig.Config{
+				Install: &sdkInstall.Install{
+					Poweroff: true,
+					BindMounts: []string{
+						"/var/lib/ceph",
+						"/var/lib/osd",
+					},
+					Active: sdkImages.Image{
+						Size: 8192,
+					},
+					Passive: sdkImages.Image{
+						Size: 8192,
+					},
+					Recovery: sdkImages.Image{
+						Size: 10000,
+					},
+					Partitions: sdkPartitions.ElementalPartitions{
+						OEM: &sdkPartitions.Partition{
+							Size: 5120,
+							FS:   "ext4",
 						},
 					},
 				},
@@ -180,14 +175,14 @@ stages:
           groups:
             - "admin"
 `
-			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
+			c, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.CheckForUsers()).ToNot(HaveOccurred())
+			Expect(pkgConfig.CheckConfigForUsers(c)).ToNot(HaveOccurred())
 		})
 		It("Fails if there is no user", func() {
-			config, err := pkgConfig.ScanNoLogs(collector.NoLogs)
+			c, err := pkgConfig.ScanNoLogs(collector.NoLogs)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.CheckForUsers()).To(HaveOccurred())
+			Expect(pkgConfig.CheckConfigForUsers(c)).To(HaveOccurred())
 		})
 		It("Fails if there is user but its not admin", func() {
 			cc := `#cloud-config
@@ -198,9 +193,9 @@ stages:
         kairos:
           passwd: "kairos"
 `
-			config, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
+			c, err := pkgConfig.ScanNoLogs(collector.Readers(strings.NewReader(cc)))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.CheckForUsers()).To(HaveOccurred())
+			Expect(pkgConfig.CheckConfigForUsers(c)).To(HaveOccurred())
 		})
 	})
 })

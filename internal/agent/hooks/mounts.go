@@ -8,6 +8,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 	"github.com/mudler/yip/pkg/schema"
 	yip "github.com/mudler/yip/pkg/schema"
@@ -27,7 +28,7 @@ func saveCloudConfig(name config.Stage, yc yip.YipConfig) error {
 // Run Read the keys sections ephemeral_mounts and bind mounts from install key in the cloud config.
 // If not empty write an environment file to /run/cos/custom-layout.env.
 // That env file is in turn read by /overlay/files/system/oem/11_persistency.yaml in fs.after stage.
-func (cm CustomMounts) Run(c config.Config, _ sdkSpec.Spec) error {
+func (cm CustomMounts) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	if len(c.Install.BindMounts) == 0 && len(c.Install.EphemeralMounts) == 0 {
 		return nil
 	}

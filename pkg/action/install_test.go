@@ -33,6 +33,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkBundles "github.com/kairos-io/kairos-sdk/types/bundles"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	sdkInstall "github.com/kairos-io/kairos-sdk/types/install"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
@@ -45,7 +46,7 @@ import (
 )
 
 var _ = Describe("Install action tests", func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger sdkLogger.KairosLogger

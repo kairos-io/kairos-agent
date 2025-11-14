@@ -23,9 +23,9 @@ import (
 	"sort"
 	"strings"
 
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
 // Chroot represents the struct that will allow us to run commands inside a given chroot
@@ -34,10 +34,10 @@ type Chroot struct {
 	defaultMounts []string
 	extraMounts   map[string]string
 	activeMounts  []string
-	config        *agentConfig.Config
+	config        *sdkConfig.Config
 }
 
-func NewChroot(path string, config *agentConfig.Config) *Chroot {
+func NewChroot(path string, config *sdkConfig.Config) *Chroot {
 	chroot := &Chroot{
 		path:          path,
 		defaultMounts: []string{"/dev", "/dev/pts", "/proc", "/sys"},
@@ -55,7 +55,7 @@ func NewChroot(path string, config *agentConfig.Config) *Chroot {
 }
 
 // ChrootedCallback runs the given callback in a chroot environment
-func ChrootedCallback(cfg *agentConfig.Config, path string, bindMounts map[string]string, callback func() error) error {
+func ChrootedCallback(cfg *sdkConfig.Config, path string, bindMounts map[string]string, callback func() error) error {
 	cfg.Logger.Debugf("Extra mounts: %v", bindMounts)
 	chroot := NewChroot(path, cfg)
 	chroot.SetExtraMounts(bindMounts)

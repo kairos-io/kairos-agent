@@ -24,6 +24,7 @@ import (
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/utils"
 	"github.com/mudler/go-pluggable"
 	"github.com/pterm/pterm"
@@ -75,7 +76,7 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 }
 
 func Install(sourceImgURL string, dir ...string) error {
-	var cc *config.Config
+	var cc *sdkConfig.Config
 	var err error
 
 	bus.Manager.Initialize()
@@ -213,11 +214,11 @@ func Install(sourceImgURL string, dir ...string) error {
 	return nil
 }
 
-func RunInstall(c *config.Config) error {
+func RunInstall(c *sdkConfig.Config) error {
 	utils.SetEnv(c.Env)
 	utils.SetEnv(c.Install.Env)
 
-	err := c.CheckForUsers()
+	err := config.CheckConfigForUsers(c)
 	if err != nil {
 		return err
 	}
@@ -237,7 +238,7 @@ func RunInstall(c *config.Config) error {
 }
 
 // runInstallUki runs the UKI path install
-func runInstallUki(c *config.Config) error {
+func runInstallUki(c *sdkConfig.Config) error {
 	// Load the spec from the config
 	installSpec, err := config.ReadUkiInstallSpecFromConfig(c)
 	if err != nil {
@@ -264,7 +265,7 @@ func runInstallUki(c *config.Config) error {
 }
 
 // runInstall runs the non-UKI path install
-func runInstall(c *config.Config) error {
+func runInstall(c *sdkConfig.Config) error {
 	// Load the installation spec from the Config
 	installSpec, err := config.ReadInstallSpecFromConfig(c)
 	if err != nil {
@@ -291,7 +292,7 @@ func runInstall(c *config.Config) error {
 }
 
 // dumpCCStringToFile dumps the cloud-init string to a file and returns the path of the file
-func dumpCCStringToFile(c *config.Config) (string, error) {
+func dumpCCStringToFile(c *sdkConfig.Config) (string, error) {
 	f, err := fsutils.TempFile(c.Fs, "", "kairos-install-config-xxx.yaml")
 	if err != nil {
 		c.Logger.Errorf("Error creating temporary file for install config: %s", err.Error())

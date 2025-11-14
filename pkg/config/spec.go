@@ -32,6 +32,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
 	"github.com/kairos-io/kairos-sdk/ghw"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
@@ -83,7 +84,7 @@ func resolveTarget(target string) (string, error) {
 }
 
 // NewInstallSpec returns an InstallSpec struct all based on defaults and basic host checks (e.g. EFI vs BIOS)
-func NewInstallSpec(cfg *Config) (*spec.InstallSpec, error) {
+func NewInstallSpec(cfg *sdkConfig.Config) (*spec.InstallSpec, error) {
 	var firmware string
 	var recoveryImg, activeImg, passiveImg sdkImages.Image
 
@@ -279,7 +280,7 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 }
 
 // NewUpgradeSpec returns an UpgradeSpec struct all based on defaults and current host state
-func NewUpgradeSpec(cfg *Config) (*spec.UpgradeSpec, error) {
+func NewUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeSpec, error) {
 	var recLabel, recFs, recMnt string
 	var active, passive, recovery sdkImages.Image
 
@@ -414,7 +415,7 @@ func NewUpgradeSpec(cfg *Config) (*spec.UpgradeSpec, error) {
 	return spec, nil
 }
 
-func setUpgradeSourceSize(cfg *Config, spec *spec.UpgradeSpec) error {
+func setUpgradeSourceSize(cfg *sdkConfig.Config, spec *spec.UpgradeSpec) error {
 	var size int64
 	var err error
 	var originalSize uint
@@ -458,7 +459,7 @@ func setUpgradeSourceSize(cfg *Config, spec *spec.UpgradeSpec) error {
 }
 
 // NewResetSpec returns a ResetSpec struct all based on defaults and current host state
-func NewResetSpec(cfg *Config) (*spec.ResetSpec, error) {
+func NewResetSpec(cfg *sdkConfig.Config) (*spec.ResetSpec, error) {
 	var imgSource *sdkImages.ImageSource
 
 	//TODO find a way to pre-load current state values such as labels
@@ -594,7 +595,7 @@ func NewResetSpec(cfg *Config) (*spec.ResetSpec, error) {
 }
 
 // ReadResetSpecFromConfig will return a proper ResetSpec based on an agent Config
-func ReadResetSpecFromConfig(c *Config) (*spec.ResetSpec, error) {
+func ReadResetSpecFromConfig(c *sdkConfig.Config) (*spec.ResetSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "reset")
 	if err != nil {
 		return &spec.ResetSpec{}, err
@@ -603,7 +604,7 @@ func ReadResetSpecFromConfig(c *Config) (*spec.ResetSpec, error) {
 	return resetSpec, nil
 }
 
-func NewUkiResetSpec(cfg *Config) (*spec.ResetUkiSpec, error) {
+func NewUkiResetSpec(cfg *sdkConfig.Config) (*spec.ResetUkiSpec, error) {
 	sp := &spec.ResetUkiSpec{
 		FormatPersistent: true, // Persistent is formatted by default
 		Partitions:       sdkPartitions.ElementalPartitions{},
@@ -646,7 +647,7 @@ func NewUkiResetSpec(cfg *Config) (*spec.ResetUkiSpec, error) {
 }
 
 // ReadInstallSpecFromConfig will return a proper v1.InstallSpec based on an agent Config
-func ReadInstallSpecFromConfig(c *Config) (*spec.InstallSpec, error) {
+func ReadInstallSpecFromConfig(c *sdkConfig.Config) (*spec.InstallSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "install")
 	if err != nil {
 		return &spec.InstallSpec{}, err
@@ -661,7 +662,7 @@ func ReadInstallSpecFromConfig(c *Config) (*spec.InstallSpec, error) {
 }
 
 // ReadUkiResetSpecFromConfig will return a proper v1.ResetUkiSpec based on an agent Config
-func ReadUkiResetSpecFromConfig(c *Config) (*spec.ResetUkiSpec, error) {
+func ReadUkiResetSpecFromConfig(c *sdkConfig.Config) (*spec.ResetUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "reset-uki")
 	if err != nil {
 		return &spec.ResetUkiSpec{}, err
@@ -670,7 +671,7 @@ func ReadUkiResetSpecFromConfig(c *Config) (*spec.ResetUkiSpec, error) {
 	return resetSpec, nil
 }
 
-func NewUkiInstallSpec(cfg *Config) (*spec.InstallUkiSpec, error) {
+func NewUkiInstallSpec(cfg *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 	var activeImg sdkImages.Image
 
 	isoRootExists, _ := fsutils.Exists(cfg.Fs, constants.IsoBaseTree)
@@ -741,7 +742,7 @@ func NewUkiInstallSpec(cfg *Config) (*spec.InstallUkiSpec, error) {
 }
 
 // ReadUkiInstallSpecFromConfig will return a proper v1.InstallUkiSpec based on an agent Config
-func ReadUkiInstallSpecFromConfig(c *Config) (*spec.InstallUkiSpec, error) {
+func ReadUkiInstallSpecFromConfig(c *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "install-uki")
 	if err != nil {
 		return &spec.InstallUkiSpec{}, err
@@ -755,7 +756,7 @@ func ReadUkiInstallSpecFromConfig(c *Config) (*spec.InstallUkiSpec, error) {
 	return installSpec, nil
 }
 
-func NewUkiUpgradeSpec(cfg *Config) (*spec.UpgradeUkiSpec, error) {
+func NewUkiUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 	spec := &spec.UpgradeUkiSpec{}
 	if err := unmarshallFullSpec(cfg, "upgrade", spec); err != nil {
 		return nil, fmt.Errorf("failed unmarshalling full spec: %w", err)
@@ -802,7 +803,7 @@ func NewUkiUpgradeSpec(cfg *Config) (*spec.UpgradeUkiSpec, error) {
 }
 
 // ReadUkiUpgradeSpecFromConfig will return a proper v1.UpgradeUkiSpec based on an agent Config
-func ReadUkiUpgradeSpecFromConfig(c *Config) (*spec.UpgradeUkiSpec, error) {
+func ReadUkiUpgradeSpecFromConfig(c *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "upgrade-uki")
 	if err != nil {
 		return &spec.UpgradeUkiSpec{}, err
@@ -857,7 +858,7 @@ func getSize(vfs sdkFS.KairosFS, size *int64, fileList map[string]bool, path str
 // This helps adjust the size to be juuuuust right.
 // It can still be manually override from the cloud config by setting all values manually
 // But by default it should adjust the sizes properly
-func GetSourceSize(config *Config, source *sdkImages.ImageSource) (int64, error) {
+func GetSourceSize(config *sdkConfig.Config, source *sdkImages.ImageSource) (int64, error) {
 	var size int64
 	var err error
 	var filesVisited map[string]bool
@@ -912,7 +913,7 @@ func GetSourceSize(config *Config, source *sdkImages.ImageSource) (int64, error)
 }
 
 // ReadUpgradeSpecFromConfig will return a proper v1.UpgradeSpec based on an agent Config
-func ReadUpgradeSpecFromConfig(c *Config) (*spec.UpgradeSpec, error) {
+func ReadUpgradeSpecFromConfig(c *sdkConfig.Config) (*spec.UpgradeSpec, error) {
 	sp, err := ReadSpecFromCloudConfig(c, "upgrade")
 	if err != nil {
 		return &spec.UpgradeSpec{}, err
@@ -922,7 +923,7 @@ func ReadUpgradeSpecFromConfig(c *Config) (*spec.UpgradeSpec, error) {
 }
 
 // ReadSpecFromCloudConfig returns a v1.Spec for the given spec
-func ReadSpecFromCloudConfig(r *Config, spec string) (sdkSpec.Spec, error) {
+func ReadSpecFromCloudConfig(r *sdkConfig.Config, spec string) (sdkSpec.Spec, error) {
 	var sp sdkSpec.Spec
 	var err error
 
@@ -1008,7 +1009,7 @@ func BootedFrom(runner sdkRunner.Runner, label string) bool {
 }
 
 // HasSquashedRecovery returns true if a squashed recovery image is found in the system
-func hasSquashedRecovery(config *Config, recovery *sdkPartitions.Partition) (squashed bool, err error) {
+func hasSquashedRecovery(config *sdkConfig.Config, recovery *sdkPartitions.Partition) (squashed bool, err error) {
 	mountPoint := recovery.MountPoint
 	if mnt, _ := isMounted(config, recovery); !mnt {
 		tmpMountDir, err := fsutils.TempDir(config.Fs, "", "elemental")
@@ -1033,7 +1034,7 @@ func hasSquashedRecovery(config *Config, recovery *sdkPartitions.Partition) (squ
 	return fsutils.Exists(config.Fs, filepath.Join(mountPoint, "cOS", constants.RecoverySquashFile))
 }
 
-func isMounted(config *Config, part *sdkPartitions.Partition) (bool, error) {
+func isMounted(config *sdkConfig.Config, part *sdkPartitions.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -1050,7 +1051,7 @@ func isMounted(config *Config, part *sdkPartitions.Partition) (bool, error) {
 	return !notMnt, nil
 }
 
-func unmarshallFullSpec(r *Config, subkey string, sp sdkSpec.Spec) error {
+func unmarshallFullSpec(r *sdkConfig.Config, subkey string, sp sdkSpec.Spec) error {
 	// Load the config into viper from the raw cloud config string
 	ccString, err := r.Collector.String()
 	if err != nil {

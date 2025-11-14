@@ -14,6 +14,7 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,7 +29,7 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = Describe("Hooks", func() {
-	var cfg *config.Config
+	var cfg *sdkConfig.Config
 	var fs vfs.FS
 	var logger sdkLogger.KairosLogger
 	var runner *v1mock.FakeRunner

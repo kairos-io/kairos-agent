@@ -4,21 +4,21 @@ import (
 	"fmt"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	elementalUtils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	events "github.com/kairos-io/kairos-sdk/bus"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 type ResetAction struct {
-	cfg  *config.Config
+	cfg  *sdkConfig.Config
 	spec *v1.ResetUkiSpec
 }
 
-func NewResetAction(cfg *config.Config, spec *v1.ResetUkiSpec) *ResetAction {
+func NewResetAction(cfg *sdkConfig.Config, spec *v1.ResetUkiSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 

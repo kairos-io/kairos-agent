@@ -26,6 +26,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
@@ -42,7 +43,7 @@ func writeCmdline(s string, fs sdkFs.KairosFS) error {
 }
 
 var _ = Describe("run stage", Label("RunStage"), func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger sdkLogger.KairosLogger
 	var syscall *v1mock.FakeSyscall

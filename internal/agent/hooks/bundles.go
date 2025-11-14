@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
@@ -16,7 +16,7 @@ import (
 // BundlePostInstall install bundles just after installation
 type BundlePostInstall struct{}
 
-func (b BundlePostInstall) Run(c config.Config, _ sdkSpec.Spec) error {
+func (b BundlePostInstall) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	if len(c.Install.Bundles) == 0 {
 		c.Logger.Logger.Info().Msg("No bundles to run in BundlePostInstall hook")
 		return nil
@@ -98,7 +98,7 @@ func (b BundlePostInstall) Run(c config.Config, _ sdkSpec.Spec) error {
 // BundleFirstBoot installs bundles during the first boot of the machine
 type BundleFirstBoot struct{}
 
-func (b BundleFirstBoot) Run(c config.Config, _ sdkSpec.Spec) error {
+func (b BundleFirstBoot) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	c.Logger.Logger.Debug().Msg("Running BundleFirstBoot hook")
 	opts := c.Bundles.Options()
 	err := bundles.RunBundles(opts...)

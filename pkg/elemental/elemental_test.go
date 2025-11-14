@@ -39,6 +39,7 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	Collector "github.com/kairos-io/kairos-sdk/types/logger"
 	SdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
@@ -55,7 +56,7 @@ func TestElementalSuite(t *testing.T) {
 }
 
 var _ = Describe("Elemental", Label("elemental"), func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger Collector.KairosLogger
 	var syscall *v1mock.FakeSyscall

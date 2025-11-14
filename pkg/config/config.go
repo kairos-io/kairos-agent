@@ -20,7 +20,7 @@ import (
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos-sdk/types/cloudinitrunner"
-	"github.com/kairos-io/kairos-sdk/types/config"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
 	sdkHttp "github.com/kairos-io/kairos-sdk/types/http"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
@@ -41,11 +41,7 @@ const (
 	DefaultWebUIListenAddress = ":8080"
 )
 
-type Config struct {
-	config.Config
-}
-
-func NewConfig(opts ...GenericOptions) *Config {
+func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
 	log := logger.NewKairosLogger("agent", "info", false)
 	// Get the viper config in case something in command line or env var has set it and set the level asap
 	if viper.GetBool("debug") {
@@ -64,20 +60,18 @@ func NewConfig(opts ...GenericOptions) *Config {
 		return nil
 	}
 
-	c := &Config{
-		Config: config.Config{
-			Fs:                        vfs.OSFS,
-			Logger:                    log,
-			Syscall:                   &syscall.RealSyscall{},
-			Client:                    http.NewClient(),
-			Arch:                      arch,
-			Platform:                  hostPlatform,
-			SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
-			ImageExtractor:            imageextractor.OCIImageExtractor{},
-			SquashFsNoCompression:     true,
-			Install:                   &install.Install{},
-			UkiMaxEntries:             constants.UkiMaxEntries,
-		},
+	c := &sdkConfig.Config{
+		Fs:                        vfs.OSFS,
+		Logger:                    log,
+		Syscall:                   &syscall.RealSyscall{},
+		Client:                    http.NewClient(),
+		Arch:                      arch,
+		Platform:                  hostPlatform,
+		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
+		ImageExtractor:            imageextractor.OCIImageExtractor{},
+		SquashFsNoCompression:     true,
+		Install:                   &install.Install{},
+		UkiMaxEntries:             constants.UkiMaxEntries,
 	}
 	for _, o := range opts {
 		o(c)
@@ -106,7 +100,7 @@ func NewConfig(opts ...GenericOptions) *Config {
 		c.Mounter = mount.New(constants.MountBinary)
 	}
 
-	err = c.Sanitize()
+	err = sanitizeConfig(c)
 	// This should never happen
 	if err != nil {
 		c.Logger.Warnf("Error sanitizing the config: %s", err)
@@ -124,13 +118,13 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-// CheckForUsers will check the config for any users and validate that at least we have 1 admin.
+// CheckConfigForUsers will check the config for any users and validate that at least we have 1 admin.
 // Since Kairos 3.3.x we don't ship a default user with the system, so before a system with no specific users
 // was relying in our default cloud-configs which created a kairos user ALWAYS (with SUDO!)
 // But now we don't ship it anymore. So a user upgrading from 3.2.x to 3.3.x that created no users, will end up with a blocked
 // system.
 // So we need to see if they are setting a user in their config and if not refuse to continue
-func (c Config) CheckForUsers() (err error) {
+func CheckConfigForUsers(c *sdkConfig.Config) (err error) {
 	// If nousers is enabled we do not check for the validity of the users and such
 	// At this point, the config should be fully parsed and the yip stages ready
 
@@ -170,9 +164,9 @@ func (c Config) CheckForUsers() (err error) {
 	return err
 }
 
-// Sanitize checks the consistency of the struct, returns error
+// sanitizeConfig checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
-func (c *Config) Sanitize() error {
+func sanitizeConfig(c *sdkConfig.Config) error {
 	// If no squashcompression is set, zero the compression parameters
 	// By default on NewConfig the SquashFsCompressionConfig is set to the default values, and then override
 	// on config unmarshall.
@@ -197,52 +191,52 @@ func (c *Config) Sanitize() error {
 	return nil
 }
 
-type GenericOptions func(a *Config)
+type GenericOptions func(a *sdkConfig.Config)
 
-func WithFs(fs sdkFs.KairosFS) func(r *Config) {
-	return func(r *Config) {
+func WithFs(fs sdkFs.KairosFS) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Fs = fs
 	}
 }
 
-func WithLogger(logger logger.KairosLogger) func(r *Config) {
-	return func(r *Config) {
+func WithLogger(logger logger.KairosLogger) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Logger = logger
 	}
 }
 
-func WithSyscall(syscall sdkSyscall.Interface) func(r *Config) {
-	return func(r *Config) {
+func WithSyscall(syscall sdkSyscall.Interface) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Syscall = syscall
 	}
 }
 
-func WithMounter(mounter mount.Interface) func(r *Config) {
-	return func(r *Config) {
+func WithMounter(mounter mount.Interface) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Mounter = mounter
 	}
 }
 
-func WithRunner(runner runner.Runner) func(r *Config) {
-	return func(r *Config) {
+func WithRunner(runner runner.Runner) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Runner = runner
 	}
 }
 
-func WithClient(client sdkHttp.Client) func(r *Config) {
-	return func(r *Config) {
+func WithClient(client sdkHttp.Client) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.Client = client
 	}
 }
 
-func WithCloudInitRunner(ci cloudinitrunner.CloudInitRunner) func(r *Config) {
-	return func(r *Config) {
+func WithCloudInitRunner(ci cloudinitrunner.CloudInitRunner) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.CloudInitRunner = ci
 	}
 }
 
-func WithPlatform(plat string) func(r *Config) {
-	return func(r *Config) {
+func WithPlatform(plat string) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		p, err := platform.ParsePlatform(plat)
 		if err == nil {
 			r.Platform = p
@@ -250,8 +244,8 @@ func WithPlatform(plat string) func(r *Config) {
 	}
 }
 
-func WithImageExtractor(extractor sdkImages.ImageExtractor) func(r *Config) {
-	return func(r *Config) {
+func WithImageExtractor(extractor sdkImages.ImageExtractor) func(r *sdkConfig.Config) {
+	return func(r *sdkConfig.Config) {
 		r.ImageExtractor = extractor
 	}
 }
@@ -271,13 +265,13 @@ func HasHeader(userdata, head string) (bool, string) {
 }
 
 // HasConfigURL returns true if ConfigURL has been set and false if it's empty.
-func (c Config) HasConfigURL() bool {
+func HasConfigURL(c *sdkConfig.Config) bool {
 	return c.ConfigURL != ""
 }
 
 // FilterKeys is used to pass to any other pkg which might want to see which part of the config matches the Kairos config.
 func FilterKeys(d []byte) ([]byte, error) {
-	cmdLineFilter := Config{}
+	cmdLineFilter := sdkConfig.Config{}
 	err := yaml.Unmarshal(d, &cmdLineFilter)
 	if err != nil {
 		return []byte{}, err
@@ -293,20 +287,20 @@ func FilterKeys(d []byte) ([]byte, error) {
 
 // ScanNoLogs is a wrapper around Scan that sets the logger to null
 // Also sets the NoLogs option to true by default
-func ScanNoLogs(opts ...collector.Option) (c *Config, err error) {
+func ScanNoLogs(opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	log := logger.NewNullLogger()
 	result := NewConfig(WithLogger(log))
 	return scan(result, append(opts, collector.NoLogs)...)
 }
 
 // Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger
-func Scan(opts ...collector.Option) (c *Config, err error) {
+func Scan(opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	result := NewConfig()
 	return scan(result, opts...)
 }
 
 // scan is the internal function that does the actual scanning of the configs
-func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
+func scan(result *sdkConfig.Config, opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	// Init new config with some default options
 	o := &collector.Options{}
 	if err := o.Apply(opts...); err != nil {
@@ -318,7 +312,7 @@ func scan(result *Config, opts ...collector.Option) (c *Config, err error) {
 		return result, err
 	}
 
-	result.Config.Collector = *genericConfig
+	result.Collector = *genericConfig
 	configStr, err := genericConfig.String()
 	if err != nil {
 		return result, err

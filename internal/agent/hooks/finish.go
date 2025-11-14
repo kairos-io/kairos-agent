@@ -1,7 +1,7 @@
 package hook
 
 import (
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 )
 
@@ -9,7 +9,7 @@ import (
 // It is used to encrypt partitions and run the BundlePostInstall, CustomMounts and CopyLogs hooks
 type Finish struct{}
 
-func (k Finish) Run(c config.Config, spec sdkSpec.Spec) error {
+func (k Finish) Run(c sdkConfig.Config, spec sdkSpec.Spec) error {
 	var err error
 
 	// Run encryption (handles both UKI and non-UKI, returns early if nothing to encrypt)

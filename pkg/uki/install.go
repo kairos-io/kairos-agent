@@ -8,6 +8,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -20,11 +21,11 @@ import (
 )
 
 type InstallAction struct {
-	cfg  *config.Config
+	cfg  *sdkConfig.Config
 	spec *v1.InstallUkiSpec
 }
 
-func NewInstallAction(cfg *config.Config, spec *v1.InstallUkiSpec) *InstallAction {
+func NewInstallAction(cfg *sdkConfig.Config, spec *v1.InstallUkiSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 
@@ -251,7 +252,7 @@ func (i *InstallAction) SkipEntry(path string, conf map[string]string) (err erro
 
 // Hook is RunStage wrapper that only adds logic to ignore errors
 // in case v1.Config.Strict is set to false
-func Hook(config *config.Config, hook string) error {
+func Hook(config *sdkConfig.Config, hook string) error {
 	config.Logger.Infof("Running %s hook", hook)
 	err := utils.RunStage(config, hook)
 	if !config.Strict {

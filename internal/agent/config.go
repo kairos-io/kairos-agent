@@ -86,16 +86,14 @@ type ExtraFields struct {
 }
 
 // NewInteractiveInstallConfig creates a new config from model values
-func NewInteractiveInstallConfig(m *Model) *config.Config {
+func NewInteractiveInstallConfig(m *Model) *sdkConfig.Config {
 	// Always set the extra fields
 	extras := ExtraFields{m.extraFields}
 
 	// This is temporal to generate a valid cc file, no need to properly initialize everything
-	cc := &config.Config{
-		Config: sdkConfig.Config{
-			Install: &sdkInstall.Install{
-				Device: m.disk,
-			},
+	cc := &sdkConfig.Config{
+		Install: &sdkInstall.Install{
+			Device: m.disk,
 		},
 	}
 

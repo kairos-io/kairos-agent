@@ -4,11 +4,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
@@ -18,7 +18,7 @@ type CopyLogs struct{}
 // Run for CopyLogs copies all current logs to the persistent partition.
 // useful during install to keep the livecd logs. Its also run during reset
 // best effort, no error handling
-func (k CopyLogs) Run(c config.Config, _ sdkSpec.Spec) error {
+func (k CopyLogs) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	// TODO: If we have encryption under RESET we need to make sure to:
 	// - Unlock the partitions
 	// - Mount OEM so we can read the config for encryption (remote server)

@@ -7,6 +7,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,7 +16,7 @@ import (
 )
 
 var _ = Describe("Sysext Actions test", Label("sysext"), func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
 	var logger sdkLogger.KairosLogger

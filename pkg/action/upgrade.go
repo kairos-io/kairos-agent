@@ -20,23 +20,23 @@ import (
 	"path/filepath"
 	"syscall"
 
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 )
 
 // UpgradeAction represents the struct that will run the upgrade from start to finish
 type UpgradeAction struct {
-	config *agentConfig.Config
+	config *sdkConfig.Config
 	spec   *v1.UpgradeSpec
 }
 
-func NewUpgradeAction(config *agentConfig.Config, spec *v1.UpgradeSpec) *UpgradeAction {
+func NewUpgradeAction(config *sdkConfig.Config, spec *v1.UpgradeSpec) *UpgradeAction {
 	return &UpgradeAction{config: config, spec: spec}
 }
 

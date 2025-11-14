@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 type Interface interface {
-	Run(c config.Config, spec sdkSpec.Spec) error
+	Run(c sdkConfig.Config, spec sdkSpec.Spec) error
 }
 
 // FinishInstall is a list of hooks that run when the install process is finished completely.
@@ -52,7 +52,7 @@ var PostInstall = []Interface{
 	&Finish{},
 }
 
-func Run(c config.Config, spec sdkSpec.Spec, hooks ...Interface) error {
+func Run(c sdkConfig.Config, spec sdkSpec.Spec, hooks ...Interface) error {
 	for _, h := range hooks {
 		if err := h.Run(c, spec); err != nil {
 			return err

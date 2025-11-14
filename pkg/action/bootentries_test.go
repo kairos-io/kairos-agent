@@ -11,6 +11,7 @@ import (
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	"github.com/kairos-io/kairos-sdk/collector"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +21,7 @@ import (
 )
 
 var _ = Describe("Bootentries tests", Label("bootentry"), func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var fs vfs.FS
 	var logger sdkLogger.KairosLogger
 	var runner *v1mock.FakeRunner

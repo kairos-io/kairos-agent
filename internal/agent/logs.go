@@ -12,6 +12,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/collector"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkLogs "github.com/kairos-io/kairos-sdk/types/logs"
@@ -26,11 +27,11 @@ type LogsResult struct {
 
 // LogsCollector handles the collection of logs from various sources
 type LogsCollector struct {
-	config *config.Config
+	config *sdkConfig.Config
 }
 
 // NewLogsCollector creates a new LogsCollector instance
-func NewLogsCollector(cfg *config.Config) *LogsCollector {
+func NewLogsCollector(cfg *sdkConfig.Config) *LogsCollector {
 	return &LogsCollector{
 		config: cfg,
 	}

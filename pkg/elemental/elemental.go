@@ -31,13 +31,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/partitioner"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/loop"
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
@@ -45,10 +45,10 @@ import (
 
 // Elemental is the struct meant to self-contain most utils and actions related to Elemental, like installing or applying selinux
 type Elemental struct {
-	config *agentConfig.Config
+	config *sdkConfig.Config
 }
 
-func NewElemental(config *agentConfig.Config) *Elemental {
+func NewElemental(config *sdkConfig.Config) *Elemental {
 	return &Elemental{
 		config: config,
 	}

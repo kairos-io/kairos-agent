@@ -35,6 +35,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/tests/matchers"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 
@@ -53,7 +54,7 @@ func getNamesFromListFiles(list []fs.DirEntry) []string {
 }
 
 var _ = Describe("Utils", Label("utils"), func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var logger sdkLogger.KairosLogger
 	var syscall *v1mock.FakeSyscall

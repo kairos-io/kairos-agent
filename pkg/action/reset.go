@@ -17,11 +17,11 @@ limitations under the License.
 package action
 
 import (
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
 func (r *ResetAction) resetHook(hook string, chroot bool) error {
@@ -41,11 +41,11 @@ func (r *ResetAction) resetHook(hook string, chroot bool) error {
 }
 
 type ResetAction struct {
-	cfg  *agentConfig.Config
+	cfg  *sdkConfig.Config
 	spec *v1.ResetSpec
 }
 
-func NewResetAction(cfg *agentConfig.Config, spec *v1.ResetSpec) *ResetAction {
+func NewResetAction(cfg *sdkConfig.Config, spec *v1.ResetSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 

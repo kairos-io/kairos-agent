@@ -11,19 +11,19 @@ import (
 
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 )
 
 // SelectBootEntry sets the default boot entry to the selected entry
 // This is the entrypoint for the bootentry action with --select flag
 // also other actions can call this function to set the default boot entry
-func SelectBootEntry(cfg *config.Config, entry string) error {
+func SelectBootEntry(cfg *sdkConfig.Config, entry string) error {
 	if utils.IsUkiWithFs(cfg.Fs) {
 		return selectBootEntrySystemd(cfg, entry)
 	} else {
@@ -33,7 +33,7 @@ func SelectBootEntry(cfg *config.Config, entry string) error {
 
 // ListBootEntries lists the boot entries available in the system and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
-func ListBootEntries(cfg *config.Config) error {
+func ListBootEntries(cfg *sdkConfig.Config) error {
 	if utils.IsUkiWithFs(cfg.Fs) {
 		return listBootEntriesSystemd(cfg)
 	} else {
@@ -43,7 +43,7 @@ func ListBootEntries(cfg *config.Config) error {
 
 // selectBootEntryGrub sets the default boot entry to the selected entry by modifying /oem/grubenv
 // also validates that the entry exists in our list of entries
-func selectBootEntryGrub(cfg *config.Config, entry string) error {
+func selectBootEntryGrub(cfg *sdkConfig.Config, entry string) error {
 	// Validate if entry exists
 	entries, err := listGrubEntries(cfg)
 	if err != nil {
@@ -70,7 +70,7 @@ func selectBootEntryGrub(cfg *config.Config, entry string) error {
 
 // selectBootEntrySystemd sets the default boot entry to the selected entry via modifying the loader.conf file
 // also validates that the entry exists in our list of entries
-func selectBootEntrySystemd(cfg *config.Config, entry string) error {
+func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
 
 	// Get EFI partition
@@ -152,7 +152,7 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 // listBootEntriesGrub lists the boot entries available in the grub config files
 // and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
-func listBootEntriesGrub(cfg *config.Config) error {
+func listBootEntriesGrub(cfg *sdkConfig.Config) error {
 	entries, err := listGrubEntries(cfg)
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func bootNameToSystemdConf(name string) (string, error) {
 // listBootEntriesSystemd lists the boot entries available in the systemd-boot config files
 // and prompts the user to select one
 // then calls the underlying SelectBootEntry function to mange the entry writing and validation
-func listBootEntriesSystemd(cfg *config.Config) error {
+func listBootEntriesSystemd(cfg *sdkConfig.Config) error {
 	var err error
 	e := elemental.NewElemental(cfg)
 	cleanup := utils.NewCleanStack()
@@ -330,7 +330,7 @@ func listBootEntriesSystemd(cfg *config.Config) error {
 }
 
 // ListSystemdEntries reads the systemd-boot entries and returns a list of entries found
-func listSystemdEntries(cfg *config.Config, efiPartition *sdkPartitions.Partition) ([]string, error) {
+func listSystemdEntries(cfg *sdkConfig.Config, efiPartition *sdkPartitions.Partition) ([]string, error) {
 	var entries []string
 	err := fsutils.WalkDirFs(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/entries/"), func(path string, info os.DirEntry, err error) error {
 		if err != nil {
@@ -359,7 +359,7 @@ func listSystemdEntries(cfg *config.Config, efiPartition *sdkPartitions.Partitio
 }
 
 // listGrubEntries reads the grub config files and returns a list of entries found
-func listGrubEntries(cfg *config.Config) ([]string, error) {
+func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 	// Read grub config from 4 places
 	// /etc/cos/grub.cfg
 	// /run/initramfs/cos-state/grub/grub.cfg
@@ -400,7 +400,7 @@ func uniqueStringArray(arr []string) []string {
 }
 
 // Another one. Seriously there is nothing to check if something is in a list?
-func entryInList(cfg *config.Config, entry string, list []string) error {
+func entryInList(cfg *sdkConfig.Config, entry string, list []string) error {
 	// Check that entry exists in the entries list
 	for _, e := range list {
 		if e == entry {
