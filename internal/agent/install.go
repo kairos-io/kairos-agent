@@ -18,6 +18,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/cmd"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/uki"
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
@@ -44,7 +45,7 @@ func displayInfo(agentConfig *Config) {
 					if strings.Contains("127.0.0.1", ip) || strings.Contains("::1", ip) {
 						continue
 					}
-					messageIps = messageIps + fmt.Sprintf("%s%s ", ip, config.DefaultWebUIListenAddress)
+					messageIps = messageIps + fmt.Sprintf("%s%s ", ip, constants.DefaultWebUIListenAddress)
 				}
 				message = message + messageIps
 			}
@@ -83,7 +84,7 @@ func Install(sourceImgURL string, dir ...string) error {
 	utils.OnSignal(func() {
 		svc, err := machine.Getty(1)
 		if err == nil {
-			svc.Start() //nolint:errcheck
+			_ = svc.Start() //nolint:errcheck
 		}
 	}, syscall.SIGINT, syscall.SIGTERM)
 
@@ -125,10 +126,10 @@ func Install(sourceImgURL string, dir ...string) error {
 		}
 
 		if !cc.Install.Reboot && !cc.Install.Poweroff {
-			pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
+			_, _ = pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
 			svc, err := machine.Getty(1)
 			if err == nil {
-				svc.Start() //nolint:errcheck
+				_ = svc.Start() //nolint:errcheck
 			}
 		}
 
@@ -200,14 +201,14 @@ func Install(sourceImgURL string, dir ...string) error {
 	// If neither reboot and poweroff are enabled let the user insert enter to go back to a new shell
 	// This is helpful to see the installation messages instead of just cleaning the screen with a new tty
 	if !cc.Install.Reboot && !cc.Install.Poweroff {
-		pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
+		_, _ = pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
 
-		utils.Prompt("") //nolint:errcheck
+		_, _ = utils.Prompt("") //nolint:errcheck
 
 		// give tty1 back
 		svc, err := machine.Getty(1)
 		if err == nil {
-			svc.Start() //nolint: errcheck
+			_ = svc.Start() //nolint: errcheck
 		}
 	}
 
@@ -219,6 +220,11 @@ func RunInstall(c *sdkConfig.Config) error {
 	utils.SetEnv(c.Install.Env)
 
 	err := config.CheckConfigForUsers(c)
+	if err != nil {
+		return err
+	}
+
+	err = config.CheckConfigForExtraPartitions(c)
 	if err != nil {
 		return err
 	}
@@ -355,7 +361,9 @@ func prepareConfiguration(source string) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusNotFound {

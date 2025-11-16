@@ -2,23 +2,15 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
-	"unicode"
 
-	"github.com/joho/godotenv"
-	version "github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/http"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
-	runner2 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/runner"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/runner"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/syscall"
-	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/schema"
-	"github.com/kairos-io/kairos-sdk/state"
 	"github.com/kairos-io/kairos-sdk/types/cloudinitrunner"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
@@ -27,18 +19,13 @@ import (
 	"github.com/kairos-io/kairos-sdk/types/install"
 	"github.com/kairos-io/kairos-sdk/types/logger"
 	"github.com/kairos-io/kairos-sdk/types/platform"
-	"github.com/kairos-io/kairos-sdk/types/runner"
+	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 	sdkSyscall "github.com/kairos-io/kairos-sdk/types/syscall"
 	yip "github.com/mudler/yip/pkg/schema"
-	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
 	"github.com/twpayne/go-vfs/v5"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
-)
-
-const (
-	DefaultWebUIListenAddress = ":8080"
 )
 
 func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
@@ -79,7 +66,7 @@ func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
 
 	// delay runner creation after we have run over the options in case we use WithRunner
 	if c.Runner == nil {
-		c.Runner = &runner2.RealRunner{Logger: &c.Logger}
+		c.Runner = &runner.RealRunner{Logger: &c.Logger}
 	}
 
 	// Now check if the runner has a logger inside, otherwise point our logger into it
@@ -164,6 +151,20 @@ func CheckConfigForUsers(c *sdkConfig.Config) (err error) {
 	return err
 }
 
+// CheckConfigForExtraPartitions will check that any extra partition defined has a name
+// as its required to identify them later on while formatting and creating the partitions
+func CheckConfigForExtraPartitions(c *sdkConfig.Config) error {
+	// Check if extra partitions are defined and if so, if they have a name as its required
+	if len(c.Install.ExtraPartitions) > 0 {
+		for _, part := range c.Install.ExtraPartitions {
+			if part.Name == "" {
+				return fmt.Errorf("extra partition defined without a name, please define a name for the partition: %+v", part)
+			}
+		}
+	}
+	return nil
+}
+
 // sanitizeConfig checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func sanitizeConfig(c *sdkConfig.Config) error {
@@ -188,6 +189,7 @@ func sanitizeConfig(c *sdkConfig.Config) error {
 		}
 		c.Platform = p
 	}
+
 	return nil
 }
 
@@ -217,7 +219,7 @@ func WithMounter(mounter mount.Interface) func(r *sdkConfig.Config) {
 	}
 }
 
-func WithRunner(runner runner.Runner) func(r *sdkConfig.Config) {
+func WithRunner(runner sdkRunner.Runner) func(r *sdkConfig.Config) {
 	return func(r *sdkConfig.Config) {
 		r.Runner = runner
 	}
@@ -250,152 +252,6 @@ func WithImageExtractor(extractor sdkImages.ImageExtractor) func(r *sdkConfig.Co
 	}
 }
 
-const DefaultHeader = "#cloud-config"
-
-func HasHeader(userdata, head string) (bool, string) {
-	header := strings.SplitN(userdata, "\n", 2)[0]
-
-	// Trim trailing whitespaces
-	header = strings.TrimRightFunc(header, unicode.IsSpace)
-
-	if head != "" {
-		return head == header, header
-	}
-	return (header == DefaultHeader) || (header == "#kairos-config") || (header == "#node-config"), header
-}
-
-// HasConfigURL returns true if ConfigURL has been set and false if it's empty.
-func HasConfigURL(c *sdkConfig.Config) bool {
-	return c.ConfigURL != ""
-}
-
-// FilterKeys is used to pass to any other pkg which might want to see which part of the config matches the Kairos config.
-func FilterKeys(d []byte) ([]byte, error) {
-	cmdLineFilter := sdkConfig.Config{}
-	err := yaml.Unmarshal(d, &cmdLineFilter)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	out, err := yaml.Marshal(cmdLineFilter)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return out, nil
-}
-
-// ScanNoLogs is a wrapper around Scan that sets the logger to null
-// Also sets the NoLogs option to true by default
-func ScanNoLogs(opts ...collector.Option) (c *sdkConfig.Config, err error) {
-	log := logger.NewNullLogger()
-	result := NewConfig(WithLogger(log))
-	return scan(result, append(opts, collector.NoLogs)...)
-}
-
-// Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger
-func Scan(opts ...collector.Option) (c *sdkConfig.Config, err error) {
-	result := NewConfig()
-	return scan(result, opts...)
-}
-
-// scan is the internal function that does the actual scanning of the configs
-func scan(result *sdkConfig.Config, opts ...collector.Option) (c *sdkConfig.Config, err error) {
-	// Init new config with some default options
-	o := &collector.Options{}
-	if err := o.Apply(opts...); err != nil {
-		return result, err
-	}
-
-	genericConfig, err := collector.Scan(o, FilterKeys)
-	if err != nil {
-		return result, err
-	}
-
-	result.Collector = *genericConfig
-	configStr, err := genericConfig.String()
-	if err != nil {
-		return result, err
-	}
-
-	err = yaml.Unmarshal([]byte(configStr), result)
-	if err != nil {
-		return result, err
-	}
-
-	kc, err := schema.NewConfigFromYAML(configStr, schema.RootSchema{})
-	if err != nil {
-		if !o.NoLogs && !o.StrictValidation {
-			fmt.Printf("WARNING: %s\n", err.Error())
-		}
-
-		if o.StrictValidation {
-			return result, fmt.Errorf("ERROR: %s", err.Error())
-		}
-	}
-
-	if !kc.IsValid() {
-		if !o.NoLogs && !o.StrictValidation {
-			fmt.Printf("WARNING: %s\n", kc.ValidationError.Error())
-		}
-
-		if o.StrictValidation {
-			return result, fmt.Errorf("ERROR: %s", kc.ValidationError.Error())
-		}
-	}
-
-	// If we got debug enabled via cloud config, set it on viper so its available everywhere
-	if result.Debug {
-		viper.Set("debug", true)
-	}
-	// Config the logger
-	if viper.GetBool("debug") {
-		result.Logger.SetLevel("debug")
-	}
-
-	result.Logger.Logger.Info().Interface("version", version.GetVersion()).Msg("Kairos Agent")
-	result.Logger.Logger.Debug().Interface("version", version.Get()).Msg("Kairos Agent")
-
-	// Try to load the kairos version from the kairos-release file
-	// Best effort, if it fails, we just ignore it
-	f, err := result.Fs.Open("/etc/os-release")
-	defer f.Close()
-	osRelease, err := godotenv.Parse(f)
-	if err == nil {
-		v := osRelease["KAIROS_VERSION"]
-		if v != "" {
-			result.Logger.Logger.Info().Str("version", v).Msg("Kairos System")
-		} else {
-			// Fallback into os-release
-			f, err = result.Fs.Open("/etc/os-release")
-			defer f.Close()
-			osRelease, err = godotenv.Parse(f)
-			if err == nil {
-				v = osRelease["KAIROS_VERSION"]
-				if v != "" {
-					result.Logger.Logger.Info().Str("version", v).Msg("Kairos System")
-				}
-			}
-		}
-	}
-
-	// Log the boot mode
-	r, err := state.NewRuntimeWithLogger(result.Logger.Logger)
-	if err == nil {
-		result.Logger.Logger.Info().Str("boot_mode", string(r.BootState)).Msg("Boot Mode")
-	}
-
-	// Detect if we are running on a UKI boot to also log it
-	cmdline, err := result.Fs.ReadFile("/proc/cmdline")
-	if err == nil {
-		result.Logger.Logger.Info().Bool("result", state.DetectUKIboot(string(cmdline))).Msg("Boot in uki mode")
-	}
-
-	result.Logger.Debugf("Loaded config: %s", litter.Sdump(result))
-
-	return result, nil
-}
-
 type Stage string
 
 const (
@@ -405,18 +261,6 @@ const (
 
 func (n Stage) String() string {
 	return string(n)
-}
-
-func SaveCloudConfig(name Stage, yc yip.YipConfig) error {
-	dnsYAML, err := yaml.Marshal(yc)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join("usr", "local", "cloud-config", fmt.Sprintf("100_%s.yaml", name)), dnsYAML, 0700)
-}
-
-func FromString(s string, o interface{}) error {
-	return yaml.Unmarshal([]byte(s), o)
 }
 
 func MergeYAML(objs ...interface{}) ([]byte, error) {

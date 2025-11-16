@@ -40,7 +40,6 @@ const (
 	RecoveryPartName             = "recovery"
 	StateLabel                   = "COS_STATE"
 	StatePartName                = "state"
-	InstallStateFile             = "state.yaml"
 	PersistentLabel              = "COS_PERSISTENT"
 	PersistentPartName           = "persistent"
 	OEMLabel                     = "COS_OEM"
@@ -104,14 +103,10 @@ const (
 	Archx86    = "x86_64"
 	ArchArm64  = "arm64"
 	SignedShim = "shim.efi"
-	SignedGrub = "grub.efi"
 	Rsync      = "rsync"
 
-	UkiSource         = "/run/install/uki"
-	UkiCdromSource    = "/run/initramfs/live"
-	UkiEfiDir         = "/efi"
-	UkiEfiDiskByLabel = `/dev/disk/by-label/` + EfiLabel
-	UkiMaxEntries     = 3
+	UkiEfiDir     = "/efi"
+	UkiMaxEntries = 3
 
 	// Boot labeling
 	PassiveBootSuffix    = " (fallback)"
@@ -123,6 +118,8 @@ const (
 	UpgradeRecoveryNoSourceError   = "could not find a proper source for the recovery upgrade.\nThis can be configured in the cloud config files under the 'upgrade.recovery-system.uri' key or via cmdline using the '--source' flag"
 	MultipleEntriesAssessmentError = "multiple boot entries found for %s"
 	NoBootAssessmentWarning        = "No boot assessment found in current boot entry config file"
+
+	DefaultWebUIListenAddress = ":8080"
 )
 
 func UkiDefaultMenuEntries() []string {
