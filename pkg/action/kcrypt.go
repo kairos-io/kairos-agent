@@ -6,14 +6,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-sdk/kcrypt"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/tpm-helpers"
 )
 
 // resolveNVIndexAndDevice resolves the NV index and TPM device from flags, config, or defaults.
 // Priority: explicit flag > config > default
-func resolveNVIndexAndDevice(cfg *config.Config, nvIndex, tpmDevice string) (targetIndex, targetTPMDevice string) {
+func resolveNVIndexAndDevice(cfg *sdkConfig.Config, nvIndex, tpmDevice string) (targetIndex, targetTPMDevice string) {
 	// Determine NV index
 	if nvIndex != "" {
 		targetIndex = nvIndex
@@ -21,7 +21,7 @@ func resolveNVIndexAndDevice(cfg *config.Config, nvIndex, tpmDevice string) (tar
 		// Get kcrypt config from the embedded collector.Config
 		var ok bool
 		var kcryptConfig map[string]interface{}
-		if kcryptConfig, ok = cfg.Config.Values["kcrypt"].(map[string]interface{}); ok {
+		if kcryptConfig, ok = cfg.Collector.Values["kcrypt"].(map[string]interface{}); ok {
 			targetIndex, _ = kcryptConfig["nv_index"].(string)
 		}
 	}
@@ -36,7 +36,7 @@ func resolveNVIndexAndDevice(cfg *config.Config, nvIndex, tpmDevice string) (tar
 		// Get kcrypt config from the embedded collector.Config
 		var ok bool
 		var kcryptConfig map[string]interface{}
-		if kcryptConfig, ok = cfg.Config.Values["kcrypt"].(map[string]interface{}); ok {
+		if kcryptConfig, ok = cfg.Collector.Values["kcrypt"].(map[string]interface{}); ok {
 			targetTPMDevice, _ = kcryptConfig["tpm_device"].(string)
 		}
 	}
@@ -46,7 +46,7 @@ func resolveNVIndexAndDevice(cfg *config.Config, nvIndex, tpmDevice string) (tar
 
 // resolveCIndex resolves the C index (certificate index) from flags, config, or defaults.
 // Priority: explicit flag > config
-func resolveCIndex(cfg *config.Config, cIndex string) string {
+func resolveCIndex(cfg *sdkConfig.Config, cIndex string) string {
 	// If explicitly provided via flag, use it
 	if cIndex != "" {
 		return cIndex
@@ -55,7 +55,7 @@ func resolveCIndex(cfg *config.Config, cIndex string) string {
 	// Otherwise, try to get from config
 	var kcryptConfig map[string]interface{}
 	var ok bool
-	if kcryptConfig, ok = cfg.Config.Values["kcrypt"].(map[string]interface{}); !ok {
+	if kcryptConfig, ok = cfg.Collector.Values["kcrypt"].(map[string]interface{}); !ok {
 		return ""
 	}
 
@@ -71,7 +71,7 @@ func resolveCIndex(cfg *config.Config, cIndex string) string {
 // KcryptReadNV reads and decrypts the value from a TPM NV index.
 // If the value is encrypted (as is the case for local passphrases), it will be decrypted
 // using the C index from flags or config before outputting.
-func KcryptReadNV(cfg *config.Config, nvIndex, tpmDevice, cIndex string) error {
+func KcryptReadNV(cfg *sdkConfig.Config, nvIndex, tpmDevice, cIndex string) error {
 	logger := cfg.Logger
 
 	targetIndex, targetTPMDevice := resolveNVIndexAndDevice(cfg, nvIndex, tpmDevice)
@@ -140,7 +140,7 @@ func KcryptReadNV(cfg *config.Config, nvIndex, tpmDevice, cIndex string) error {
 
 // KcryptCheckNV checks if data exists in a TPM NV index.
 // Returns an error if the index doesn't exist or is empty.
-func KcryptCheckNV(cfg *config.Config, nvIndex, tpmDevice string) error {
+func KcryptCheckNV(cfg *sdkConfig.Config, nvIndex, tpmDevice string) error {
 	logger := cfg.Logger
 
 	targetIndex, targetTPMDevice := resolveNVIndexAndDevice(cfg, nvIndex, tpmDevice)
@@ -170,7 +170,7 @@ func KcryptCheckNV(cfg *config.Config, nvIndex, tpmDevice string) error {
 // KcryptCleanup cleans up TPM NV memory by undefining specific NV indices.
 // This is used to clean up legacy local passphrase storage (now handled by kairos-sdk)
 // or any other TPM NV indices that need to be removed.
-func KcryptCleanup(cfg *config.Config, nvIndex, tpmDevice string, skipConfirmation bool) error {
+func KcryptCleanup(cfg *sdkConfig.Config, nvIndex, tpmDevice string, skipConfirmation bool) error {
 	logger := cfg.Logger
 
 	targetIndex, targetTPMDevice := resolveNVIndexAndDevice(cfg, nvIndex, tpmDevice)

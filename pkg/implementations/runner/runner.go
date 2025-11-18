@@ -14,24 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package runner
 
 import (
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 	"strings"
+
+	"github.com/kairos-io/kairos-sdk/types/logger"
 )
 
-type Runner interface {
-	InitCmd(string, ...string) *exec.Cmd
-	Run(string, ...string) ([]byte, error)
-	RunCmd(cmd *exec.Cmd) ([]byte, error)
-	GetLogger() *sdkTypes.KairosLogger
-	SetLogger(logger *sdkTypes.KairosLogger)
-}
-
 type RealRunner struct {
-	Logger *sdkTypes.KairosLogger
+	Logger *logger.KairosLogger
 }
 
 func (r RealRunner) InitCmd(command string, args ...string) *exec.Cmd {
@@ -50,10 +43,10 @@ func (r RealRunner) Run(command string, args ...string) ([]byte, error) {
 	return r.RunCmd(cmd)
 }
 
-func (r *RealRunner) GetLogger() *sdkTypes.KairosLogger {
+func (r *RealRunner) GetLogger() *logger.KairosLogger {
 	return r.Logger
 }
 
-func (r *RealRunner) SetLogger(logger *sdkTypes.KairosLogger) {
+func (r *RealRunner) SetLogger(logger *logger.KairosLogger) {
 	r.Logger = logger
 }

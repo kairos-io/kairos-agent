@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1_test
+package syscall_test
 
 import (
 	"testing"
@@ -25,5 +25,5 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "v1 types test suite")
+	RunSpecs(t, "syscall types test suite")
 }

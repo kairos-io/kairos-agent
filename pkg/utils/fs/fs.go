@@ -32,13 +32,13 @@ import (
 	"syscall"
 	"time"
 
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
 	"github.com/twpayne/go-vfs/v5"
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
 // DirSize returns the accumulated size of all files in folder
-func DirSize(fs v1.FS, path string) (int64, error) {
+func DirSize(fs sdkFS.KairosFS, path string) (int64, error) {
 	var size int64
 	err := vfs.Walk(fs, path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -53,7 +53,7 @@ func DirSize(fs v1.FS, path string) (int64, error) {
 }
 
 // Check if a file or directory exists.
-func Exists(fs v1.FS, path string) (bool, error) {
+func Exists(fs sdkFS.KairosFS, path string) (bool, error) {
 	_, err := fs.Stat(path)
 	if err == nil {
 		return true, nil
@@ -65,7 +65,7 @@ func Exists(fs v1.FS, path string) (bool, error) {
 }
 
 // IsDir check if the path is a dir
-func IsDir(fs v1.FS, path string) (bool, error) {
+func IsDir(fs sdkFS.KairosFS, path string) (bool, error) {
 	fi, err := fs.Stat(path)
 	if err != nil {
 		return false, err
@@ -74,7 +74,7 @@ func IsDir(fs v1.FS, path string) (bool, error) {
 }
 
 // MkdirAll directory and all parents if not existing
-func MkdirAll(fs v1.FS, name string, mode os.FileMode) (err error) {
+func MkdirAll(fs sdkFS.KairosFS, name string, mode os.FileMode) (err error) {
 	if _, isReadOnly := fs.(*vfs.ReadOnlyFS); isReadOnly {
 		return permError("mkdir", name)
 	}
@@ -118,7 +118,7 @@ func nextRandom() string {
 
 // TempDir creates a temp dir in the virtual fs
 // Took from afero.FS code and adapted
-func TempDir(fs v1.FS, dir, prefix string) (name string, err error) {
+func TempDir(fs sdkFS.KairosFS, dir, prefix string) (name string, err error) {
 	if dir == "" {
 		dir = os.TempDir()
 	}
@@ -153,7 +153,7 @@ func TempDir(fs v1.FS, dir, prefix string) (name string, err error) {
 
 // TempFile creates a temp file in the virtual fs
 // Took from afero.FS code and adapted
-func TempFile(fs v1.FS, dir, pattern string) (f *os.File, err error) {
+func TempFile(fs sdkFS.KairosFS, dir, pattern string) (f *os.File, err error) {
 	if dir == "" {
 		dir = os.TempDir()
 	}
@@ -193,7 +193,7 @@ func (d *statDirEntry) Type() fs.FileMode          { return d.info.Mode().Type()
 func (d *statDirEntry) Info() (fs.FileInfo, error) { return d.info, nil }
 
 // WalkDirFs is the same as filepath.WalkDir but accepts a v1.Fs so it can be run on any v1.Fs type
-func WalkDirFs(fs v1.FS, root string, fn fs.WalkDirFunc) error {
+func WalkDirFs(fs sdkFS.KairosFS, root string, fn fs.WalkDirFunc) error {
 	info, err := fs.Stat(root)
 	if err != nil {
 		err = fn(root, nil, err)
@@ -206,7 +206,7 @@ func WalkDirFs(fs v1.FS, root string, fn fs.WalkDirFunc) error {
 	return err
 }
 
-func walkDir(fs v1.FS, path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) error {
+func walkDir(fs sdkFS.KairosFS, path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) error {
 	if err := walkDirFn(path, d, nil); err != nil || !d.IsDir() {
 		if err == filepath.SkipDir && d.IsDir() {
 			// Successfully skipped directory.
@@ -236,7 +236,7 @@ func walkDir(fs v1.FS, path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) err
 	return nil
 }
 
-func readDir(fs v1.FS, dirname string) ([]fs.DirEntry, error) {
+func readDir(fs sdkFS.KairosFS, dirname string) ([]fs.DirEntry, error) {
 	dirs, err := fs.ReadDir(dirname)
 	if err != nil {
 		return nil, err
@@ -246,7 +246,7 @@ func readDir(fs v1.FS, dirname string) ([]fs.DirEntry, error) {
 }
 
 // Copy copies src to dst like the cp command.
-func Copy(fs v1.FS, src, dst string) error {
+func Copy(fs sdkFS.KairosFS, src, dst string) error {
 	if dst == src {
 		return os.ErrInvalid
 	}
@@ -277,7 +277,7 @@ func Copy(fs v1.FS, src, dst string) error {
 // GlobFs returns the names of all files matching pattern or nil if there is no matching file.
 // Only consider the names of files in the directory included in the pattern, not in subdirectories.
 // So the pattern "dir/*" will return only the files in the directory "dir", not in "dir/subdir".
-func GlobFs(fs v1.FS, pattern string) ([]string, error) {
+func GlobFs(fs sdkFS.KairosFS, pattern string) ([]string, error) {
 	var matches []string
 
 	// Check if the pattern is well formed.

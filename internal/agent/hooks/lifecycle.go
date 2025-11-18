@@ -3,14 +3,14 @@ package hook
 import (
 	"time"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
 type Lifecycle struct{}
 
-func (s Lifecycle) Run(c config.Config, spec v1.Spec) error {
+func (s Lifecycle) Run(c sdkConfig.Config, spec sdkSpec.Spec) error {
 	c.Logger.Logger.Debug().Msg("Running Lifecycle hook")
 	if spec.ShouldReboot() {
 		time.Sleep(5 * time.Second)

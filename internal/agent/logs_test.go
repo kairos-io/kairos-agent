@@ -11,7 +11,8 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	"github.com/kairos-io/kairos-sdk/types"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkLogs "github.com/kairos-io/kairos-sdk/types/logs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5/vfst"
@@ -22,7 +23,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 		fs      *vfst.TestFS
 		cleanup func()
 		err     error
-		logger  types.KairosLogger
+		logger  sdkLogger.KairosLogger
 		runner  *v1mock.FakeRunner
 	)
 
@@ -38,7 +39,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 		fs, cleanup, err = vfst.NewTestFS(nil)
 		Expect(err).ToNot(HaveOccurred())
 
-		logger = types.NewNullLogger()
+		logger = sdkLogger.NewNullLogger()
 		runner = v1mock.NewFakeRunner()
 
 		// Create mock systemctl for systemd detection in all tests
@@ -72,7 +73,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{"myservice"},
 				Files:   []string{},
 			}
@@ -133,7 +134,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{},
 				Files:   []string{"/var/log/*.log", "/var/log/subdir/*.log"},
 			}
@@ -169,7 +170,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{},
 				Files:   []string{"/var/log/test.log", "/var/log/subdir/test.log"},
 			}
@@ -235,7 +236,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{"myservice"},
 				Files:   []string{testFile},
 			}
@@ -303,7 +304,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{},
 				Files:   []string{"/var/log/nonexistent.log"},
 			}
@@ -328,7 +329,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{"nonexistentservice"},
 				Files:   []string{},
 			}
@@ -364,7 +365,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{"emptyservice"},
 				Files:   []string{},
 			}
@@ -403,7 +404,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{"existingservice", "nonexistentservice"},
 				Files:   []string{},
 			}
@@ -512,7 +513,7 @@ var _ = Describe("Logs Command", Label("logs", "cmd"), func() {
 			}
 
 			// Set logs config in the main config with user-defined services
-			collector.config.Logs = &config.LogsConfig{
+			collector.config.Logs = &sdkLogs.LogsConfig{
 				Journal: []string{"myservice", "myotherservice"},
 				Files:   []string{"/var/log/mycustom.log"},
 			}

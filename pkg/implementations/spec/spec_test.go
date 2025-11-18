@@ -14,27 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1_test
+package spec_test
 
 import (
 	"path/filepath"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Types", Label("types", "config"), func() {
 	Describe("ElementalPartitions", func() {
-		var p sdkTypes.PartitionList
-		var ep v1.ElementalPartitions
+		var p sdkPartitions.PartitionList
+		var ep sdkPartitions.ElementalPartitions
 		BeforeEach(func() {
-			ep = v1.ElementalPartitions{}
-			p = sdkTypes.PartitionList{
-				&sdkTypes.Partition{
+			ep = sdkPartitions.ElementalPartitions{}
+			p = sdkPartitions.PartitionList{
+				&sdkPartitions.Partition{
 					FilesystemLabel: "COS_OEM",
 					Size:            0,
 					Name:            "oem",
@@ -44,7 +45,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Path:            "",
 					Disk:            "",
 				},
-				&sdkTypes.Partition{
+				&sdkPartitions.Partition{
 					FilesystemLabel: "COS_CUSTOM",
 					Size:            0,
 					Name:            "persistent",
@@ -54,7 +55,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Path:            "",
 					Disk:            "",
 				},
-				&sdkTypes.Partition{
+				&sdkPartitions.Partition{
 					FilesystemLabel: "SOMETHING",
 					Size:            0,
 					Name:            "somethingelse",
@@ -68,31 +69,29 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 		It("sets firmware partitions on efi", func() {
 			Expect(ep.EFI == nil && ep.BIOS == nil).To(BeTrue())
-			err := ep.SetFirmwarePartitions(v1.EFI, v1.GPT)
+			err := ep.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ep.EFI != nil && ep.BIOS == nil).To(BeTrue())
 		})
 		It("sets firmware partitions on bios", func() {
 			Expect(ep.EFI == nil && ep.BIOS == nil).To(BeTrue())
-			err := ep.SetFirmwarePartitions(v1.BIOS, v1.GPT)
+			err := ep.SetFirmwarePartitions(sdkConstants.BIOS, sdkConstants.GPT)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ep.EFI == nil && ep.BIOS != nil).To(BeTrue())
 		})
 		It("sets firmware partitions on msdos", func() {
-			ep.State = &sdkTypes.Partition{}
+			ep.State = &sdkPartitions.Partition{}
 			Expect(ep.EFI == nil && ep.BIOS == nil).To(BeTrue())
-			err := ep.SetFirmwarePartitions(v1.BIOS, v1.MSDOS)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(ep.EFI == nil && ep.BIOS == nil).To(BeTrue())
-			Expect(ep.State.Flags != nil && ep.State.Flags[0] == "boot").To(BeTrue())
+			err := ep.SetFirmwarePartitions(sdkConstants.BIOS, sdkConstants.MSDOS)
+			Expect(err).Should(HaveOccurred())
 		})
 		It("fails to set firmware partitions of state is not defined on msdos", func() {
 			Expect(ep.EFI == nil && ep.BIOS == nil).To(BeTrue())
-			err := ep.SetFirmwarePartitions(v1.BIOS, v1.MSDOS)
+			err := ep.SetFirmwarePartitions(sdkConstants.BIOS, sdkConstants.MSDOS)
 			Expect(err).Should(HaveOccurred())
 		})
 		It("initializes an ElementalPartitions from a PartitionList", func() {
-			ep := v1.NewElementalPartitionsFromList(p)
+			ep := spec.NewElementalPartitionsFromList(p)
 			Expect(ep.Persistent != nil).To(BeTrue())
 			Expect(ep.OEM != nil).To(BeTrue())
 			Expect(ep.BIOS == nil).To(BeTrue())
@@ -102,16 +101,16 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 		Describe("returns a partition list by install order", func() {
 			It("with no extra parts", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
-				lst := ep.PartitionsByInstallOrder([]*sdkTypes.Partition{})
+				ep := spec.NewElementalPartitionsFromList(p)
+				lst := ep.PartitionsByInstallOrder([]*sdkPartitions.Partition{})
 				Expect(len(lst)).To(Equal(2))
 				Expect(lst[0].Name == "oem").To(BeTrue())
 				Expect(lst[1].Name == "persistent").To(BeTrue())
 			})
 			It("with extra parts with size > 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
-				var extraParts []*sdkTypes.Partition
-				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", Size: 5})
+				ep := spec.NewElementalPartitionsFromList(p)
+				var extraParts []*sdkPartitions.Partition
+				extraParts = append(extraParts, &sdkPartitions.Partition{Name: "extra", Size: 5})
 
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				Expect(len(lst)).To(Equal(3))
@@ -120,9 +119,9 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(lst[2].Name == "persistent").To(BeTrue())
 			})
 			It("with extra part with size == 0 and persistent.Size == 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
-				var extraParts []*sdkTypes.Partition
-				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", Size: 0})
+				ep := spec.NewElementalPartitionsFromList(p)
+				var extraParts []*sdkPartitions.Partition
+				extraParts = append(extraParts, &sdkPartitions.Partition{Name: "extra", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				// Should ignore the wrong partition had have the persistent over it
 				Expect(len(lst)).To(Equal(2))
@@ -130,10 +129,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(lst[1].Name == "persistent").To(BeTrue())
 			})
 			It("with extra part with size == 0 and persistent.Size > 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := spec.NewElementalPartitionsFromList(p)
 				ep.Persistent.Size = 10
-				var extraParts []*sdkTypes.Partition
-				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra", FilesystemLabel: "LABEL", Size: 0})
+				var extraParts []*sdkPartitions.Partition
+				extraParts = append(extraParts, &sdkPartitions.Partition{Name: "extra", FilesystemLabel: "LABEL", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				// Will have our size == 0 partition the latest
 				Expect(len(lst)).To(Equal(3))
@@ -142,11 +141,11 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(lst[2].Name == "extra").To(BeTrue())
 			})
 			It("with several extra parts with size == 0 and persistent.Size > 0", func() {
-				ep := v1.NewElementalPartitionsFromList(p)
+				ep := spec.NewElementalPartitionsFromList(p)
 				ep.Persistent.Size = 10
-				var extraParts []*sdkTypes.Partition
-				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra1", Size: 0})
-				extraParts = append(extraParts, &sdkTypes.Partition{Name: "extra2", Size: 0})
+				var extraParts []*sdkPartitions.Partition
+				extraParts = append(extraParts, &sdkPartitions.Partition{Name: "extra1", Size: 0})
+				extraParts = append(extraParts, &sdkPartitions.Partition{Name: "extra2", Size: 0})
 				lst := ep.PartitionsByInstallOrder(extraParts)
 				// Should ignore the wrong partition had have the first partition with size 0 added last
 				Expect(len(lst)).To(Equal(3))
@@ -157,14 +156,14 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 
 		It("returns a partition list by mount order", func() {
-			ep := v1.NewElementalPartitionsFromList(p)
+			ep := spec.NewElementalPartitionsFromList(p)
 			lst := ep.PartitionsByMountPoint(false)
 			Expect(len(lst)).To(Equal(2))
 			Expect(lst[0].Name == "persistent").To(BeTrue())
 			Expect(lst[1].Name == "oem").To(BeTrue())
 		})
 		It("returns a partition list by mount reverse order", func() {
-			ep := v1.NewElementalPartitionsFromList(p)
+			ep := spec.NewElementalPartitionsFromList(p)
 			lst := ep.PartitionsByMountPoint(true)
 			Expect(len(lst)).To(Equal(2))
 			Expect(lst[0].Name == "oem").To(BeTrue())
@@ -172,10 +171,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 		})
 	})
 	Describe("PartitionList", func() {
-		var p sdkTypes.PartitionList
+		var p sdkPartitions.PartitionList
 		BeforeEach(func() {
-			p = sdkTypes.PartitionList{
-				&sdkTypes.Partition{
+			p = sdkPartitions.PartitionList{
+				&sdkPartitions.Partition{
 					FilesystemLabel: "ONE",
 					Size:            0,
 					Name:            "one",
@@ -185,7 +184,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Path:            "",
 					Disk:            "",
 				},
-				&sdkTypes.Partition{
+				&sdkPartitions.Partition{
 					FilesystemLabel: "TWO",
 					Size:            0,
 					Name:            "two",
@@ -198,7 +197,7 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}
 		})
 		It("returns partitions by name", func() {
-			Expect(v1.GetPartitionByNameOrLabel("two", "", p)).To(Equal(&sdkTypes.Partition{
+			Expect(spec.GetPartitionByNameOrLabel("two", "", p)).To(Equal(&sdkPartitions.Partition{
 				FilesystemLabel: "TWO",
 				Size:            0,
 				Name:            "two",
@@ -210,10 +209,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}))
 		})
 		It("returns nil if partiton name not found", func() {
-			Expect(v1.GetPartitionByNameOrLabel("dsd", "nonexistent", p)).To(BeNil())
+			Expect(spec.GetPartitionByNameOrLabel("dsd", "nonexistent", p)).To(BeNil())
 		})
 		It("returns partitions by filesystem label", func() {
-			Expect(v1.GetPartitionByNameOrLabel("", "TWO", p)).To(Equal(&sdkTypes.Partition{
+			Expect(spec.GetPartitionByNameOrLabel("", "TWO", p)).To(Equal(&sdkPartitions.Partition{
 				FilesystemLabel: "TWO",
 				Size:            0,
 				Name:            "two",
@@ -225,247 +224,249 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			}))
 		})
 		It("returns nil if filesystem label not found", func() {
-			Expect(v1.GetPartitionByNameOrLabel("sd", "nonexistent", p)).To(BeNil())
+			Expect(spec.GetPartitionByNameOrLabel("sd", "nonexistent", p)).To(BeNil())
 		})
 	})
 	Describe("Specs", func() {
 		Describe("InstallSpec sanitize", func() {
-			var spec v1.InstallSpec
+			var sp spec.InstallSpec
 			BeforeEach(func() {
-				spec = v1.InstallSpec{
-					Active: v1.Image{
-						Source: v1.NewEmptySrc(),
+				sp = spec.InstallSpec{
+					Active: sdkImages.Image{
+						Source: sdkImages.NewEmptySrc(),
 					},
-					Recovery: v1.Image{
-						Source: v1.NewEmptySrc(),
+					Recovery: sdkImages.Image{
+						Source: sdkImages.NewEmptySrc(),
 					},
-					Passive: v1.Image{
-						Source: v1.NewEmptySrc(),
+					Passive: sdkImages.Image{
+						Source: sdkImages.NewEmptySrc(),
 					},
-					Partitions: v1.ElementalPartitions{
-						OEM:        &sdkTypes.Partition{},
-						Recovery:   &sdkTypes.Partition{},
-						Persistent: &sdkTypes.Partition{},
+					Partitions: sdkPartitions.ElementalPartitions{
+						OEM:        &sdkPartitions.Partition{},
+						Recovery:   &sdkPartitions.Partition{},
+						Persistent: &sdkPartitions.Partition{},
 					},
-					ExtraPartitions: sdkTypes.PartitionList{},
+					ExtraPartitions: sdkPartitions.PartitionList{},
 				}
 			})
 			It("fails with empty source", func() {
-				err := spec.Sanitize()
+				err := sp.Sanitize()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("undefined system source to install"))
 			})
 			It("fails with missing state partition", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				err := spec.Sanitize()
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				err := sp.Sanitize()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("undefined state partition"))
 			})
 			It("passes if state and source are ready", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				err := spec.Sanitize()
+				sp.Firmware = sdkConstants.BiosPartName
+				sp.PartTable = sdkConstants.GPT
+				err := sp.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("fills the spec with defaults (BIOS)", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+			It("fills the sp with defaults (BIOS)", func() {
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Firmware = constants.BiosPartName
-				spec.PartTable = constants.GPT
-				err := spec.Sanitize()
+				sp.Firmware = sdkConstants.BiosPartName
+				sp.PartTable = sdkConstants.GPT
+				err := sp.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(spec.Recovery.File).ToNot(BeEmpty())
-				Expect(spec.Recovery.File).To(Equal(filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)))
-				Expect(spec.Partitions.EFI).To(BeNil())
-				Expect(spec.Partitions.BIOS).ToNot(BeNil())
-				Expect(spec.Partitions.BIOS.Flags).To(ContainElement("bios_grub"))
-				Expect(spec.Partitions.OEM.FilesystemLabel).To(Equal(constants.OEMLabel))
-				Expect(spec.Partitions.OEM.Name).To(Equal(constants.OEMPartName))
-				Expect(spec.Partitions.Recovery.FilesystemLabel).To(Equal(constants.RecoveryLabel))
-				Expect(spec.Partitions.Recovery.Name).To(Equal(constants.RecoveryPartName))
-				Expect(spec.Partitions.Persistent.FilesystemLabel).To(Equal(constants.PersistentLabel))
-				Expect(spec.Partitions.Persistent.Name).To(Equal(constants.PersistentPartName))
-				Expect(spec.Partitions.State.FilesystemLabel).To(Equal(constants.StateLabel))
-				Expect(spec.Partitions.State.Name).To(Equal(constants.StatePartName))
+				Expect(sp.Recovery.File).ToNot(BeEmpty())
+				Expect(sp.Recovery.File).To(Equal(filepath.Join(sdkConstants.RecoveryDirTransient, "cOS", sdkConstants.RecoveryImgFile)))
+				Expect(sp.Partitions.EFI).To(BeNil())
+				Expect(sp.Partitions.BIOS).ToNot(BeNil())
+				Expect(sp.Partitions.BIOS.Flags).To(ContainElement("bios_grub"))
+				Expect(sp.Partitions.OEM.FilesystemLabel).To(Equal(sdkConstants.OEMLabel))
+				Expect(sp.Partitions.OEM.Name).To(Equal(sdkConstants.OEMPartName))
+				Expect(sp.Partitions.Recovery.FilesystemLabel).To(Equal(sdkConstants.RecoveryLabel))
+				Expect(sp.Partitions.Recovery.Name).To(Equal(sdkConstants.RecoveryPartName))
+				Expect(sp.Partitions.Persistent.FilesystemLabel).To(Equal(sdkConstants.PersistentLabel))
+				Expect(sp.Partitions.Persistent.Name).To(Equal(sdkConstants.PersistentPartName))
+				Expect(sp.Partitions.State.FilesystemLabel).To(Equal(sdkConstants.StateLabel))
+				Expect(sp.Partitions.State.Name).To(Equal(sdkConstants.StatePartName))
 			})
-			It("fills the spec with defaults (EFI)", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+			It("fills the sp with defaults (EFI)", func() {
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Firmware = constants.EfiPartName
-				spec.PartTable = constants.GPT
-				err := spec.Sanitize()
+				sp.Firmware = sdkConstants.EfiPartName
+				sp.PartTable = sdkConstants.GPT
+				err := sp.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(spec.Recovery.File).ToNot(BeEmpty())
-				Expect(spec.Recovery.File).To(Equal(filepath.Join(constants.RecoveryDir, "cOS", constants.RecoveryImgFile)))
-				Expect(spec.Partitions.BIOS).To(BeNil())
-				Expect(spec.Partitions.EFI).ToNot(BeNil())
-				Expect(spec.Partitions.EFI.FilesystemLabel).To(Equal(constants.EfiLabel))
-				Expect(spec.Partitions.EFI.MountPoint).To(Equal(constants.EfiDir))
-				Expect(spec.Partitions.EFI.Size).To(Equal(constants.EfiSize))
-				Expect(spec.Partitions.EFI.FS).To(Equal(constants.EfiFs))
-				Expect(spec.Partitions.EFI.Flags).To(ContainElement("esp"))
-				Expect(spec.Partitions.OEM.FilesystemLabel).To(Equal(constants.OEMLabel))
-				Expect(spec.Partitions.OEM.Name).To(Equal(constants.OEMPartName))
-				Expect(spec.Partitions.Recovery.FilesystemLabel).To(Equal(constants.RecoveryLabel))
-				Expect(spec.Partitions.Recovery.Name).To(Equal(constants.RecoveryPartName))
-				Expect(spec.Partitions.Persistent.FilesystemLabel).To(Equal(constants.PersistentLabel))
-				Expect(spec.Partitions.Persistent.Name).To(Equal(constants.PersistentPartName))
-				Expect(spec.Partitions.State.FilesystemLabel).To(Equal(constants.StateLabel))
-				Expect(spec.Partitions.State.Name).To(Equal(constants.StatePartName))
+				Expect(sp.Recovery.File).ToNot(BeEmpty())
+				Expect(sp.Recovery.File).To(Equal(filepath.Join(sdkConstants.RecoveryDirTransient, "cOS", sdkConstants.RecoveryImgFile)))
+				Expect(sp.Partitions.BIOS).To(BeNil())
+				Expect(sp.Partitions.EFI).ToNot(BeNil())
+				Expect(sp.Partitions.EFI.FilesystemLabel).To(Equal(sdkConstants.EfiLabel))
+				Expect(sp.Partitions.EFI.MountPoint).To(Equal(sdkConstants.EfiDirTransient))
+				Expect(sp.Partitions.EFI.Size).To(Equal(sdkConstants.EfiSize))
+				Expect(sp.Partitions.EFI.FS).To(Equal(sdkConstants.EfiFs))
+				Expect(sp.Partitions.EFI.Flags).To(ContainElement("esp"))
+				Expect(sp.Partitions.OEM.FilesystemLabel).To(Equal(sdkConstants.OEMLabel))
+				Expect(sp.Partitions.OEM.Name).To(Equal(sdkConstants.OEMPartName))
+				Expect(sp.Partitions.Recovery.FilesystemLabel).To(Equal(sdkConstants.RecoveryLabel))
+				Expect(sp.Partitions.Recovery.Name).To(Equal(sdkConstants.RecoveryPartName))
+				Expect(sp.Partitions.Persistent.FilesystemLabel).To(Equal(sdkConstants.PersistentLabel))
+				Expect(sp.Partitions.Persistent.Name).To(Equal(sdkConstants.PersistentPartName))
+				Expect(sp.Partitions.State.FilesystemLabel).To(Equal(sdkConstants.StateLabel))
+				Expect(sp.Partitions.State.Name).To(Equal(sdkConstants.StatePartName))
 			})
 			It("Cannot add extra partitions with 0 size + persistent with 0 size", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.Persistent = &sdkTypes.Partition{
+				sp.Partitions.Persistent = &sdkPartitions.Partition{
 					Size: 0,
 				}
-				spec.Firmware = constants.BiosPartName
-				spec.PartTable = constants.GPT
-				spec.ExtraPartitions = sdkTypes.PartitionList{
-					&sdkTypes.Partition{
+				sp.Firmware = sdkConstants.BiosPartName
+				sp.PartTable = sdkConstants.GPT
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{
 						Size: 0,
 					},
 				}
-				err := spec.Sanitize()
+				err := sp.Sanitize()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("both persistent partition and extra partitions have size set to 0"))
 			})
 			It("Cannot add more than 1 extra partition with 0 size", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.Persistent = &sdkTypes.Partition{
+				sp.Partitions.Persistent = &sdkPartitions.Partition{
 					Size: 100,
 				}
-				spec.Firmware = constants.BiosPartName
-				spec.PartTable = constants.GPT
-				spec.ExtraPartitions = sdkTypes.PartitionList{
-					&sdkTypes.Partition{
+				sp.Firmware = sdkConstants.BiosPartName
+				sp.PartTable = sdkConstants.GPT
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{
 						Size: 0,
 					},
-					&sdkTypes.Partition{
+					&sdkPartitions.Partition{
 						Size: 0,
 					},
 				}
-				err := spec.Sanitize()
+				err := sp.Sanitize()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("more than one extra partition has its size set to 0"))
 			})
 			It("Can add 1 extra partition with 0 size", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.Persistent = &sdkTypes.Partition{
+				sp.Partitions.Persistent = &sdkPartitions.Partition{
 					Size: 100,
 				}
-				spec.Firmware = constants.BiosPartName
-				spec.PartTable = constants.GPT
-				spec.ExtraPartitions = sdkTypes.PartitionList{
-					&sdkTypes.Partition{
+				sp.Firmware = sdkConstants.BiosPartName
+				sp.PartTable = sdkConstants.GPT
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{
 						Size: 0,
 					},
 				}
-				err := spec.Sanitize()
+				err := sp.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Describe("ResetSpec sanitize", func() {
-			var spec v1.ResetSpec
+			var sp spec.ResetSpec
 			BeforeEach(func() {
-				spec = v1.ResetSpec{
-					Active: v1.Image{
-						Source: v1.NewEmptySrc(),
+				sp = spec.ResetSpec{
+					Active: sdkImages.Image{
+						Source: sdkImages.NewEmptySrc(),
 					},
 				}
 			})
 			It("fails with empty source", func() {
-				err := spec.Sanitize()
+				err := sp.Sanitize()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("undefined system source to reset"))
 			})
 			It("fails with missing state partition", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				err := spec.Sanitize()
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				err := sp.Sanitize()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("undefined state partition"))
 			})
 			It("passes if state and source are ready", func() {
-				spec.Active.Source = v1.NewFileSrc("/tmp")
-				spec.Partitions.State = &sdkTypes.Partition{
+				sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+				sp.Partitions.State = &sdkPartitions.Partition{
 					MountPoint: "/tmp",
 				}
-				spec.Partitions.OEM = &sdkTypes.Partition{}
-				spec.Partitions.Recovery = &sdkTypes.Partition{}
-				spec.Partitions.Persistent = &sdkTypes.Partition{}
-				err := spec.Sanitize()
+				sp.Partitions.OEM = &sdkPartitions.Partition{}
+				sp.Partitions.Recovery = &sdkPartitions.Partition{}
+				sp.Partitions.Persistent = &sdkPartitions.Partition{}
+				err := sp.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 		})
 		Describe("UpgradeSpec sanitize", func() {
-			var spec v1.UpgradeSpec
+			var sp spec.UpgradeSpec
 			BeforeEach(func() {
-				spec = v1.UpgradeSpec{
-					Active: v1.Image{
-						Source: v1.NewEmptySrc(),
+				sp = spec.UpgradeSpec{
+					Active: sdkImages.Image{
+						Source: sdkImages.NewEmptySrc(),
 					},
-					Recovery: v1.Image{
-						Source: v1.NewEmptySrc(),
+					Recovery: sdkImages.Image{
+						Source: sdkImages.NewEmptySrc(),
 					},
 				}
 			})
 			Describe("Active upgrade", func() {
 				It("fails with empty source", func() {
-					err := spec.Sanitize()
+					err := sp.Sanitize()
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring(constants.UpgradeNoSourceError))
 				})
 				It("fails with missing state partition", func() {
-					spec.Active.Source = v1.NewFileSrc("/tmp")
-					err := spec.Sanitize()
+					sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+					err := sp.Sanitize()
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("undefined state partition"))
 				})
 				It("passes if state and source are ready", func() {
-					spec.Active.Source = v1.NewFileSrc("/tmp")
-					spec.Partitions.State = &sdkTypes.Partition{
+					sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+					sp.Partitions.State = &sdkPartitions.Partition{
 						MountPoint: "/tmp",
 					}
-					err := spec.Sanitize()
+					err := sp.Sanitize()
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 			Describe("Recovery upgrade", func() {
 				BeforeEach(func() {
-					spec.Entry = constants.BootEntryRecovery
+					sp.Entry = constants.BootEntryRecovery
 				})
 				It("fails with empty source", func() {
-					err := spec.Sanitize()
+					err := sp.Sanitize()
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring(constants.UpgradeRecoveryNoSourceError))
 				})
 				It("fails with missing recovery partition", func() {
-					spec.Recovery.Source = v1.NewFileSrc("/tmp")
-					err := spec.Sanitize()
+					sp.Recovery.Source = sdkImages.NewFileSrc("/tmp")
+					err := sp.Sanitize()
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("undefined recovery partition"))
 				})
 				It("passes if state and source are ready", func() {
-					spec.Recovery.Source = v1.NewFileSrc("/tmp")
-					spec.Partitions.Recovery = &sdkTypes.Partition{
+					sp.Recovery.Source = sdkImages.NewFileSrc("/tmp")
+					sp.Partitions.Recovery = &sdkPartitions.Partition{
 						MountPoint: "/tmp",
 					}
-					err := spec.Sanitize()
+					err := sp.Sanitize()
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})

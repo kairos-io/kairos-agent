@@ -6,18 +6,18 @@ import (
 
 	"path/filepath"
 
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-sdk/machine"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
 )
 
 // GrubPostInstallOptions is a hook that runs after the install process to add grub options.
 type GrubPostInstallOptions struct{}
 
-func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
+func (b GrubPostInstallOptions) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	if utils.IsUki() {
 		c.Logger.Logger.Info().Msg("Skipping GrubPostInstallOptions hook in uki mode")
 		return nil
@@ -80,7 +80,7 @@ func (b GrubPostInstallOptions) Run(c config.Config, _ v1.Spec) error {
 // GrubFirstBootOptions is a hook that runs on the first boot to add grub options.
 type GrubFirstBootOptions struct{}
 
-func (b GrubFirstBootOptions) Run(c config.Config, _ v1.Spec) error {
+func (b GrubFirstBootOptions) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	if len(c.GrubOptions) == 0 {
 		return nil
 	}
@@ -98,7 +98,7 @@ func (b GrubFirstBootOptions) Run(c config.Config, _ v1.Spec) error {
 // grubOptions sets the grub options in the grubenv file
 // It ALWAYS writes to STATE partition (grubenv) as that's what GRUB reads
 // It optionally writes to OEM partition (grub_oem_env) only if OEM is not encrypted
-func grubOptions(c config.Config, opts map[string]string, oemEncrypted bool) error {
+func grubOptions(c sdkConfig.Config, opts map[string]string, oemEncrypted bool) error {
 	var firstErr error
 
 	// Always write to STATE partition (grubenv) - this is what GRUB reads during boot
@@ -144,15 +144,15 @@ func grubOptions(c config.Config, opts map[string]string, oemEncrypted bool) err
 // extractKcryptCmdline extracts kcrypt.challenger config from the Kairos config and
 // formats it as kernel command line arguments for use in grub.
 // This allows kcrypt-challenger to access KMS settings even when COS_OEM is encrypted.
-func extractKcryptCmdline(c *config.Config) string {
+func extractKcryptCmdline(c *sdkConfig.Config) string {
 	var cmdlineArgs []string
 
 	// Access the generic config values map to get kcrypt settings
-	if c.Config.Values == nil {
+	if c.Collector.Values == nil {
 		return ""
 	}
 
-	kcryptVal, hasKcrypt := c.Config.Values["kcrypt"]
+	kcryptVal, hasKcrypt := c.Collector.Values["kcrypt"]
 	if !hasKcrypt {
 		return ""
 	}

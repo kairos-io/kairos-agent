@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
+	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkutils "github.com/kairos-io/kairos-sdk/utils"
 	"github.com/sanity-io/litter"
 )
@@ -23,7 +23,7 @@ const UnassignedArtifactRole = "norole"
 // the artifacts prefixed with oldRole as newRole.
 // E.g. removes "passive" and moved "active" to "passive"
 // This is a step that should happen before a new passive is installed on upgrades.
-func overwriteArtifactSetRole(fs v1.FS, dir, oldRole, newRole string, logger sdkTypes.KairosLogger) error {
+func overwriteArtifactSetRole(fs sdkFs.KairosFS, dir, oldRole, newRole string, logger sdkLogger.KairosLogger) error {
 	if err := removeArtifactSetWithRole(fs, dir, newRole); err != nil {
 		return fmt.Errorf("deleting role %s: %w", newRole, err)
 	}
@@ -36,7 +36,7 @@ func overwriteArtifactSetRole(fs v1.FS, dir, oldRole, newRole string, logger sdk
 }
 
 // copy the source file but rename the base name to as
-func copyArtifact(fs v1.FS, source, oldRole, newRole string) (string, error) {
+func copyArtifact(fs sdkFs.KairosFS, source, oldRole, newRole string) (string, error) {
 	dir := filepath.Dir(source)
 	base := filepath.Base(source)
 
@@ -49,7 +49,7 @@ func copyArtifact(fs v1.FS, source, oldRole, newRole string) (string, error) {
 	return newName, fsutils.Copy(fs, source, newName)
 }
 
-func removeArtifactSetWithRole(fs v1.FS, artifactDir, role string) error {
+func removeArtifactSetWithRole(fs sdkFs.KairosFS, artifactDir, role string) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
 		if !info.IsDir() && strings.HasPrefix(info.Name(), role) {
 			return os.Remove(path)
@@ -59,7 +59,7 @@ func removeArtifactSetWithRole(fs v1.FS, artifactDir, role string) error {
 	})
 }
 
-func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger sdkTypes.KairosLogger) error {
+func copyArtifactSetRole(fs sdkFs.KairosFS, artifactDir, oldRole, newRole string, logger sdkLogger.KairosLogger) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -90,7 +90,7 @@ func copyArtifactSetRole(fs v1.FS, artifactDir, oldRole, newRole string, logger 
 	})
 }
 
-func replaceRoleInKey(path, key, oldRole, newRole string, logger sdkTypes.KairosLogger) (err error) {
+func replaceRoleInKey(path, key, oldRole, newRole string, logger sdkLogger.KairosLogger) (err error) {
 	// Extract the values
 	conf, err := sdkutils.SystemdBootConfReader(path)
 	if err != nil {
@@ -167,7 +167,7 @@ func copyFile(src, dst string) error {
 	return destinationFile.Close()
 }
 
-func AddSystemdConfSortKey(fs v1.FS, artifactDir string, log sdkTypes.KairosLogger) error {
+func AddSystemdConfSortKey(fs sdkFs.KairosFS, artifactDir string, log sdkLogger.KairosLogger) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err

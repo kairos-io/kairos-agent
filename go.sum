@@ -319,8 +319,8 @@ github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 h1:G+9t9cEtnC
 github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004/go.mod h1:KmHnJWQrgEvbuy0vcvj00gtMqbvNn1L+3YUZLK/B92c=
 github.com/kairos-io/go-nodepair v0.3.0 h1:JIMBAtbNhIAsx89aP61mQDGMuGFoIQH/woK2tMDYD6k=
 github.com/kairos-io/go-nodepair v0.3.0/go.mod h1:7i905W/KmR9DAcMSVJr/Wdb84E5Yyu9YLgj7chwX1xs=
-github.com/kairos-io/kairos-sdk v0.13.0 h1:aZnEE99qdehrsIDFVa8N499ItDgYLIMZV57tBg3eAho=
-github.com/kairos-io/kairos-sdk v0.13.0/go.mod h1:9L0chORRxQdVCrTCrC1ufFvWAR3OP+lsCseTI+xO6MY=
+github.com/kairos-io/kairos-sdk v0.14.0 h1:R16K+vAi8DeNPuXOfT06zq3kD7xv8f7lHjY92CcCNCA=
+github.com/kairos-io/kairos-sdk v0.14.0/go.mod h1:wSlEmLSGn0G83M2h7zBi7a2unyMjErJ6yV+RDWBBUeM=
 github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185 h1:XSUSjYFkIFdZhFEc3Z6xcqggbgPOclKz+9hntaA+q8o=
 github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185/go.mod h1:zOtMRZ4zGpy+qL6W1N0LrczM/9T0sdoaJ1K5PgfchAs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=

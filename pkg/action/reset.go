@@ -17,15 +17,11 @@ limitations under the License.
 package action
 
 import (
-	"fmt"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"path/filepath"
-	"time"
-
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
 func (r *ResetAction) resetHook(hook string, chroot bool) error {
@@ -45,69 +41,15 @@ func (r *ResetAction) resetHook(hook string, chroot bool) error {
 }
 
 type ResetAction struct {
-	cfg  *agentConfig.Config
+	cfg  *sdkConfig.Config
 	spec *v1.ResetSpec
 }
 
-func NewResetAction(cfg *agentConfig.Config, spec *v1.ResetSpec) *ResetAction {
+func NewResetAction(cfg *sdkConfig.Config, spec *v1.ResetSpec) *ResetAction {
 	return &ResetAction{cfg: cfg, spec: spec}
 }
 
-func (r *ResetAction) updateInstallState(e *elemental.Elemental, cleanup *utils.CleanStack, meta interface{}) error {
-	if r.spec.Partitions.Recovery == nil || r.spec.Partitions.State == nil {
-		return fmt.Errorf("undefined state or recovery partition")
-	}
-
-	installState := &v1.InstallState{
-		Date: time.Now().Format(time.RFC3339),
-		Partitions: map[string]*v1.PartitionState{
-			cnst.StatePartName: {
-				FSLabel: r.spec.Partitions.State.FilesystemLabel,
-				Images: map[string]*v1.ImageState{
-					cnst.ActiveImgName: {
-						Source:         r.spec.Active.Source,
-						SourceMetadata: meta,
-						Label:          r.spec.Active.Label,
-						FS:             r.spec.Active.FS,
-					},
-					cnst.PassiveImgName: {
-						Source:         r.spec.Active.Source,
-						SourceMetadata: meta,
-						Label:          r.spec.Passive.Label,
-						FS:             r.spec.Passive.FS,
-					},
-				},
-			},
-		},
-	}
-	if r.spec.Partitions.OEM != nil {
-		installState.Partitions[cnst.OEMPartName] = &v1.PartitionState{
-			FSLabel: r.spec.Partitions.OEM.FilesystemLabel,
-		}
-	}
-	if r.spec.Partitions.Persistent != nil {
-		installState.Partitions[cnst.PersistentPartName] = &v1.PartitionState{
-			FSLabel: r.spec.Partitions.Persistent.FilesystemLabel,
-		}
-	}
-	if r.spec.State != nil && r.spec.State.Partitions != nil {
-		installState.Partitions[cnst.RecoveryPartName] = r.spec.State.Partitions[cnst.RecoveryPartName]
-	}
-
-	umount, err := e.MountRWPartition(r.spec.Partitions.Recovery)
-	if err != nil {
-		return err
-	}
-	cleanup.Push(umount)
-
-	return r.cfg.WriteInstallState(
-		installState,
-		filepath.Join(r.spec.Partitions.State.MountPoint, cnst.InstallStateFile),
-		filepath.Join(r.spec.Partitions.Recovery.MountPoint, cnst.InstallStateFile),
-	)
-}
-
-// ResetRun will reset the cos system to by following several steps
+// Run will reset the cos system to by following several steps
 func (r ResetAction) Run() (err error) {
 	e := elemental.NewElemental(r.cfg)
 	cleanup := utils.NewCleanStack()
@@ -190,7 +132,7 @@ func (r ResetAction) Run() (err error) {
 	cleanup.Push(func() error { return e.UnmountPartition(r.spec.Partitions.State) })
 
 	// Deploy active image
-	meta, err := e.DeployImage(&r.spec.Active, true)
+	_, err = e.DeployImage(&r.spec.Active, true)
 	if err != nil {
 		return err
 	}
@@ -270,11 +212,6 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	err = r.resetHook(cnst.AfterResetHook, false)
-	if err != nil {
-		return err
-	}
-
-	err = r.updateInstallState(e, cleanup, meta)
 	if err != nil {
 		return err
 	}

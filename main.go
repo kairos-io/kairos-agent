@@ -12,28 +12,26 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kairos-io/kairos-sdk/kcrypt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
-	"github.com/mudler/go-pluggable"
-
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-sdk/bundles"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
+	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
 	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-sdk/state"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	sdkUtils "github.com/kairos-io/kairos-sdk/utils"
 	"github.com/kairos-io/kairos-sdk/versioneer"
+	"github.com/mudler/go-pluggable"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
@@ -358,7 +356,7 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 				return err
 			}
 
-			configStr, err := config.String()
+			configStr, err := config.Collector.String()
 			if err != nil {
 				return fmt.Errorf("getting config string: %w", err)
 			}
@@ -366,25 +364,6 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 			return nil
 		},
 		Subcommands: []*cli.Command{
-			{
-				Name:        "show",
-				Usage:       "Shows the machine configuration",
-				Description: "WARNING this command will be deprecated in v3.2.0. Use `config` without a subcommand instead.\n\n Show the runtime configuration of the machine. It will scan the machine for all the configuration and will return the config file processed and found.",
-				Aliases:     []string{},
-				Action: func(c *cli.Context) error {
-					config, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-
-					configStr, err := config.String()
-					if err != nil {
-						return err
-					}
-					fmt.Printf("%s", configStr)
-					return nil
-				},
-			},
 			{
 				Name:  "get",
 				Usage: "Get specific data from the configuration",
@@ -406,7 +385,7 @@ enabled: true`,
 						return err
 					}
 
-					res, err := config.Query(c.Args().First())
+					res, err := config.Collector.Query(c.Args().First())
 					if err != nil {
 						return err
 					}
@@ -516,7 +495,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			return checkRoot()
 		},
 		Action: func(c *cli.Context) error {
-			log := sdkTypes.NewKairosLogger("agent", "info", true)
+			log := sdkLogger.NewKairosLogger("agent", "info", true)
 			// Get the viper config in case something in command line or env var has set it and set the level asap
 			if viper.GetBool("debug") {
 				log.SetLevel("debug")

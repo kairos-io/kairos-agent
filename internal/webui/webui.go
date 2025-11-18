@@ -205,7 +205,7 @@ func streamProcess(s *state) func(c echo.Context) error {
 			}
 		}
 		websocket.Handler(func(ws *websocket.Conn) {
-			defer ws.Close()
+			defer func() { _ = ws.Close() }()
 			for {
 				s.Lock()
 				if s.p == nil {
@@ -330,7 +330,7 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 func Start(ctx context.Context) error {
 
 	s := state{}
-	listen := config.DefaultWebUIListenAddress
+	listen := constants.DefaultWebUIListenAddress
 
 	ec := echo.New()
 	assetHandler := http.FileServer(getFileSystem())
