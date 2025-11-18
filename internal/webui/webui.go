@@ -12,9 +12,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
-	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-sdk/schema"
 	"github.com/labstack/echo/v4"
 	process "github.com/mudler/go-processmanager"
 	"github.com/nxadm/tail"
@@ -58,7 +58,7 @@ func streamProcess(s *state) func(c echo.Context) error {
 			}
 		}
 		websocket.Handler(func(ws *websocket.Conn) {
-			defer ws.Close()
+			defer func() { _ = ws.Close() }()
 			for {
 				s.Lock()
 				if s.p == nil {
@@ -135,7 +135,7 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 func Start(ctx context.Context) error {
 
 	s := state{}
-	listen := config.DefaultWebUIListenAddress
+	listen := constants.DefaultWebUIListenAddress
 
 	ec := echo.New()
 	assetHandler := http.FileServer(getFileSystem())

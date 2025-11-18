@@ -33,19 +33,18 @@ import (
 	"strings"
 	"time"
 
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
-
-	"github.com/kairos-io/kairos-sdk/state"
-	"github.com/kairos-io/kairos-sdk/types"
-
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
-
 	"github.com/distribution/reference"
 	"github.com/joho/godotenv"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
+	"github.com/kairos-io/kairos-sdk/state"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
+	"github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
+	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 	"github.com/twpayne/go-vfs/v5"
 )
 
@@ -57,7 +56,7 @@ func CommandExists(command string) bool {
 // GetDeviceByLabel will try to return the device that matches the given label.
 // attempts value sets the number of attempts to find the device, it
 // waits a second between attempts.
-func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (string, error) {
+func GetDeviceByLabel(config *sdkConfig.Config, label string, attempts int) (string, error) {
 	for tries := 0; tries < attempts; tries++ {
 		_, _ = config.Runner.Run("udevadm", "trigger")
 		_, _ = config.Runner.Run("udevadm", "settle")
@@ -76,7 +75,7 @@ func GetDeviceByLabel(config *agentConfig.Config, label string, attempts int) (s
 
 // CopyFile Copies source file to target file using Fs interface. If target
 // is  directory source is copied into that directory using source name file.
-func CopyFile(fs v1.FS, source string, target string) (err error) {
+func CopyFile(fs sdkFs.KairosFS, source string, target string) (err error) {
 	return ConcatFiles(fs, []string{source}, target)
 }
 
@@ -85,7 +84,7 @@ func CopyFile(fs v1.FS, source string, target string) (err error) {
 // If target is a directory source is copied into that directory using
 // 1st source name file.
 // TODO: Log errors, return errors, whatever but dont ignore them
-func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
+func ConcatFiles(fs sdkFs.KairosFS, sources []string, target string) (err error) {
 	if len(sources) == 0 {
 		return fmt.Errorf("Empty sources list")
 	}
@@ -124,7 +123,7 @@ func ConcatFiles(fs v1.FS, sources []string, target string) (err error) {
 }
 
 // Copies source file to target file using Fs interface
-func CreateDirStructure(fs v1.FS, target string) error {
+func CreateDirStructure(fs sdkFs.KairosFS, target string) error {
 	for _, dir := range []string{"/run", "/dev", "/boot", "/usr/local", "/oem"} {
 		err := fsutils.MkdirAll(fs, filepath.Join(target, dir), cnst.DirPerm)
 		if err != nil {
@@ -151,7 +150,7 @@ func CreateDirStructure(fs v1.FS, target string) error {
 
 // SyncData rsync's source folder contents to a target folder content,
 // both are expected to exist beforehand.
-func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source string, target string, excludes ...string) error {
+func SyncData(log logger.KairosLogger, runner sdkRunner.Runner, fs sdkFs.KairosFS, source string, target string, excludes ...string) error {
 	if fs != nil {
 		if s, err := fs.RawPath(source); err == nil {
 			source = s
@@ -207,7 +206,7 @@ func SyncData(log sdkTypes.KairosLogger, runner v1.Runner, fs v1.FS, source stri
 	return nil
 }
 
-func displayProgress(log sdkTypes.KairosLogger, tick time.Duration, message string) chan bool {
+func displayProgress(log logger.KairosLogger, tick time.Duration, message string) chan bool {
 	ticker := time.NewTicker(tick)
 	done := make(chan bool)
 
@@ -227,14 +226,14 @@ func displayProgress(log sdkTypes.KairosLogger, tick time.Duration, message stri
 }
 
 // Reboot reboots the system afater the given delay (in seconds) time passed.
-func Reboot(runner v1.Runner, delay time.Duration) error {
+func Reboot(runner sdkRunner.Runner, delay time.Duration) error {
 	time.Sleep(delay * time.Second)
 	_, err := runner.Run("reboot", "-f")
 	return err
 }
 
 // Shutdown halts the system afater the given delay (in seconds) time passed.
-func Shutdown(runner v1.Runner, delay time.Duration) error {
+func Shutdown(runner sdkRunner.Runner, delay time.Duration) error {
 	time.Sleep(delay * time.Second)
 	_, err := runner.Run("poweroff", "-f")
 	return err
@@ -242,7 +241,7 @@ func Shutdown(runner v1.Runner, delay time.Duration) error {
 
 // CosignVerify runs a cosign validation for the give image and given public key. If no
 // key is provided then it attempts a keyless validation (experimental feature).
-func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string) (string, error) {
+func CosignVerify(fs sdkFs.KairosFS, runner sdkRunner.Runner, image string, publicKey string) (string, error) {
 	args := []string{}
 
 	if publicKey != "" {
@@ -259,7 +258,7 @@ func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string) (s
 		return "", err
 	}
 	_ = os.Setenv("TUF_ROOT", tmpDir)
-	defer func(fs v1.FS, path string) {
+	defer func(fs sdkFs.KairosFS, path string) {
 		_ = fs.RemoveAll(path)
 	}(fs, tmpDir)
 	defer func() {
@@ -272,7 +271,7 @@ func CosignVerify(fs v1.FS, runner v1.Runner, image string, publicKey string) (s
 
 // CreateSquashFS creates a squash file at destination from a source, with options
 // TODO: Check validity of source maybe?
-func CreateSquashFS(runner v1.Runner, logger sdkTypes.KairosLogger, source string, destination string, options []string) error {
+func CreateSquashFS(runner sdkRunner.Runner, logger logger.KairosLogger, source string, destination string, options []string) error {
 	// create args
 	args := []string{source, destination}
 	// append options passed to args in order to have the correct order
@@ -292,7 +291,7 @@ func CreateSquashFS(runner v1.Runner, logger sdkTypes.KairosLogger, source strin
 }
 
 // LoadEnvFile will try to parse the file given and return a map with the kye/values
-func LoadEnvFile(fs v1.FS, file string) (map[string]string, error) {
+func LoadEnvFile(fs sdkFs.KairosFS, file string) (map[string]string, error) {
 	var envMap map[string]string
 	var err error
 
@@ -310,7 +309,7 @@ func LoadEnvFile(fs v1.FS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) {
+func IsMounted(config *sdkConfig.Config, part *sdkPartitions.Partition) (bool, error) {
 	if part == nil {
 		return false, fmt.Errorf("nil partition")
 	}
@@ -331,7 +330,7 @@ func IsMounted(config *agentConfig.Config, part *types.Partition) (bool, error) 
 // It will respect TMPDIR and use that if exists, fallback to try the persistent partition if its mounted
 // and finally the default /tmp/ dir
 // suffix is what is appended to the dir name elemental-suffix. If empty it will randomly generate a number
-func GetTempDir(config *agentConfig.Config, suffix string) string {
+func GetTempDir(config *sdkConfig.Config, suffix string) string {
 	// if we got a TMPDIR var, respect and use that
 	if suffix == "" {
 		random.Seed(time.Now().UnixNano())
@@ -397,7 +396,7 @@ func IsHTTPURI(uri string) (bool, error) {
 
 // GetSource copies given source to destination, if source is a local path it simply
 // copies files, if source is a remote URL it tries to download URL to destination.
-func GetSource(config *agentConfig.Config, source string, destination string) error {
+func GetSource(config *sdkConfig.Config, source string, destination string) error {
 	local, err := IsLocalURI(source)
 	if err != nil {
 		config.Logger.Errorf("Not a valid url: %s", source)
@@ -454,7 +453,7 @@ func ValidTaggedContainerReference(ref string) bool {
 // FindFileWithPrefix looks for a file in the given path matching one of the given
 // prefixes. Returns the found file path including the given path. It does not
 // check subfolders recusively
-func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, error) {
+func FindFileWithPrefix(fs sdkFs.KairosFS, path string, prefixes ...string) (string, error) {
 	files, err := fs.ReadDir(path)
 	if err != nil {
 		return "", err
@@ -486,7 +485,7 @@ func FindFileWithPrefix(fs v1.FS, path string, prefixes ...string) (string, erro
 }
 
 // CalcFileChecksum opens the given file and returns the sha256 checksum of it.
-func CalcFileChecksum(fs v1.FS, fileName string) (string, error) {
+func CalcFileChecksum(fs sdkFs.KairosFS, fileName string) (string, error) {
 	f, err := fs.Open(fileName)
 	if err != nil {
 		return "", err
@@ -503,7 +502,7 @@ func CalcFileChecksum(fs v1.FS, fileName string) (string, error) {
 
 // FindCommand will search for the command(s) in the options given to find the current command
 // If it cant find it returns the default value give. Useful for the same binaries with different names across OS
-func FindCommand(fs v1.FS, defaultPath string, options []string) string {
+func FindCommand(fs sdkFs.KairosFS, defaultPath string, options []string) string {
 	for _, p := range options {
 		// If its a full path, check if it exists directly
 		if strings.Contains(p, "/") {
@@ -542,8 +541,8 @@ func IsUki() bool {
 
 // IsUkiWithFs checks if the system is running in UKI mode
 // by checking the kernel command line for the rd.immucore.uki flag
-// Uses a v1.Fs interface to allow for testing
-func IsUkiWithFs(fs v1.FS) bool {
+// Uses a sdkFs.KairosFS interface to allow for testing
+func IsUkiWithFs(fs sdkFs.KairosFS) bool {
 	cmdline, _ := fs.ReadFile("/proc/cmdline")
 	if strings.Contains(string(cmdline), "rd.immucore.uki") {
 		return true
@@ -572,7 +571,7 @@ func UkiBootMode() state.Boot {
 
 // SystemdBootConfReader reads a systemd-boot conf file and returns a map with the key/value pairs
 // TODO: Move this to the sdk with the FS interface
-func SystemdBootConfReader(vfs v1.FS, filePath string) (map[string]string, error) {
+func SystemdBootConfReader(vfs sdkFs.KairosFS, filePath string) (map[string]string, error) {
 	file, err := vfs.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -603,7 +602,7 @@ func SystemdBootConfReader(vfs v1.FS, filePath string) (map[string]string, error
 
 // SystemdBootConfWriter writes a map to a systemd-boot conf file
 // TODO: Move this to the sdk with the FS interface
-func SystemdBootConfWriter(fs v1.FS, filePath string, conf map[string]string) error {
+func SystemdBootConfWriter(fs sdkFs.KairosFS, filePath string, conf map[string]string) error {
 	file, err := fs.Create(filePath)
 	if err != nil {
 		return err
@@ -645,7 +644,7 @@ func CheckFailedInstallation(stateFile string) (bool, error) {
 // This should be called during install, upgrade and reset
 // Mainly everything that updates the config files to point to a new artifact we need to reset the boot assessment
 // as its a new artifact that needs to be assessed
-func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogger) error {
+func AddBootAssessment(fs sdkFs.KairosFS, artifactDir string, logger logger.KairosLogger) error {
 	return fsutils.WalkDirFs(fs, artifactDir, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -676,7 +675,7 @@ func AddBootAssessment(fs v1.FS, artifactDir string, logger sdkTypes.KairosLogge
 	})
 }
 
-func ReadAssessmentFromEntry(fs v1.FS, entry string, logger sdkTypes.KairosLogger) (string, error) {
+func ReadAssessmentFromEntry(fs sdkFs.KairosFS, entry string, logger logger.KairosLogger) (string, error) {
 	// Read current config for boot assessment from current config. We should already have the final config name
 	// Fix fallback and cos pointing to passive and active
 	if strings.HasPrefix(entry, "fallback") {

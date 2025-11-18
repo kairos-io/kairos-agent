@@ -18,9 +18,10 @@ package mocks
 
 import (
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os/exec"
 	"strings"
+
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 )
 
 type FakeRunner struct {
@@ -28,7 +29,7 @@ type FakeRunner struct {
 	ReturnValue []byte
 	SideEffect  func(command string, args ...string) ([]byte, error)
 	ReturnError error
-	Logger      *sdkTypes.KairosLogger
+	Logger      *sdkLogger.KairosLogger
 }
 
 func NewFakeRunner() *FakeRunner {
@@ -120,10 +121,10 @@ func (r FakeRunner) MatchMilestones(cmdList [][]string) error {
 	return nil
 }
 
-func (r *FakeRunner) GetLogger() *sdkTypes.KairosLogger {
+func (r *FakeRunner) GetLogger() *sdkLogger.KairosLogger {
 	return r.Logger
 }
 
-func (r *FakeRunner) SetLogger(logger *sdkTypes.KairosLogger) {
+func (r *FakeRunner) SetLogger(logger *sdkLogger.KairosLogger) {
 	r.Logger = logger
 }

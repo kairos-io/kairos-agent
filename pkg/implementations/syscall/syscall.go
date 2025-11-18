@@ -14,18 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package syscall
 
 import (
 	"syscall"
 )
-
-type SyscallInterface interface {
-	Chroot(string) error
-	Chdir(string) error
-	Mount(string, string, string, uintptr, string) error
-	Syscall(uintptr, uintptr, uintptr, uintptr) (uintptr, uintptr, syscall.Errno)
-}
 
 type RealSyscall struct{}
 

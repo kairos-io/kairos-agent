@@ -3,10 +3,10 @@ package agent
 import (
 	"fmt"
 
-	events "github.com/kairos-io/kairos-sdk/bus"
-	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
+	events "github.com/kairos-io/kairos-sdk/bus"
+	"github.com/kairos-io/kairos-sdk/collector"
 	"github.com/mudler/go-pluggable"
 )
 
@@ -22,7 +22,7 @@ func Notify(event string, dirs []string) error {
 		return fmt.Errorf("event '%s' not defined", event)
 	}
 
-	configStr, err := c.String()
+	configStr, err := c.Collector.String()
 	if err != nil {
 		return err
 	}

@@ -19,17 +19,20 @@ package action_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/kairos-io/kairos-agent/v2/pkg/action"
-	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
-	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	v1 "github.com/kairos-io/kairos-agent/v2/pkg/types/v1"
-	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
-	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
+	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/twpayne/go-vfs/v5"
@@ -37,10 +40,10 @@ import (
 )
 
 var _ = Describe("Upgrade Actions test", func() {
-	var config *agentConfig.Config
+	var config *sdkConfig.Config
 	var runner *v1mock.FakeRunner
 	var fs vfs.FS
-	var logger sdkTypes.KairosLogger
+	var logger sdkLogger.KairosLogger
 	var mounter *v1mock.ErrorMounter
 	var syscall *v1mock.FakeSyscall
 	var client *v1mock.FakeHTTPClient
@@ -57,7 +60,7 @@ var _ = Describe("Upgrade Actions test", func() {
 		mounter = v1mock.NewErrorMounter()
 		client = &v1mock.FakeHTTPClient{}
 		memLog = &bytes.Buffer{}
-		logger = sdkTypes.NewBufferLogger(memLog)
+		logger = sdkLogger.NewBufferLogger(memLog)
 		logger.SetLevel("debug")
 		extractor = v1mock.NewFakeImageExtractor(logger)
 		var err error
@@ -97,7 +100,7 @@ var _ = Describe("Upgrade Actions test", func() {
 
 		BeforeEach(func() {
 			memLog = &bytes.Buffer{}
-			logger = sdkTypes.NewBufferLogger(memLog)
+			logger = sdkLogger.NewBufferLogger(memLog)
 			extractor = v1mock.NewFakeImageExtractor(logger)
 			config.Logger = logger
 			config.ImageExtractor = extractor
@@ -107,9 +110,9 @@ var _ = Describe("Upgrade Actions test", func() {
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.RunningStateDir), constants.DirPerm)
 			fsutils.MkdirAll(fs, fmt.Sprintf("%s/cOS", constants.LiveDir), constants.DirPerm)
 
-			mainDisk := sdkTypes.Disk{
+			mainDisk := sdkPartitions.Disk{
 				Name: "device",
-				Partitions: []*sdkTypes.Partition{
+				Partitions: []*sdkPartitions.Partition{
 					{
 						Name:            "device1",
 						FilesystemLabel: "COS_GRUB",
@@ -213,7 +216,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				Expect(err.Error()).To(ContainSubstring("cloud init"))
 			})
 			It("Successfully upgrades from docker image", Label("docker"), func() {
-				spec.Active.Source = v1.NewDockerSrc("alpine")
+				spec.Active.Source = sdkImages.NewDockerSrc("alpine")
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
@@ -244,7 +247,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("Successfully reboots after upgrade from docker image", Label("docker"), func() {
-				spec.Active.Source = v1.NewDockerSrc("alpine")
+				spec.Active.Source = sdkImages.NewDockerSrc("alpine")
 				upgrade = action.NewUpgradeAction(config, spec)
 				By("Upgrading")
 				err := upgrade.Run()
@@ -279,7 +282,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				By("checking it called reboot")
 			})
 			It("Successfully powers off after upgrade from docker image", Label("docker"), func() {
-				spec.Active.Source = v1.NewDockerSrc("alpine")
+				spec.Active.Source = sdkImages.NewDockerSrc("alpine")
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
@@ -313,7 +316,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				dirSrc, _ := fsutils.TempDir(fs, "", "elementalupgrade")
 				// Create the dir on real os as rsync works on the real os
 				defer fs.RemoveAll(dirSrc)
-				spec.Active.Source = v1.NewDirSrc(dirSrc)
+				spec.Active.Source = sdkImages.NewDirSrc(dirSrc)
 				// create a random file on it
 				err := fs.WriteFile(fmt.Sprintf("%s/file.file", dirSrc), []byte("something"), constants.FilePerm)
 				Expect(err).ToNot(HaveOccurred())
@@ -405,7 +408,7 @@ var _ = Describe("Upgrade Actions test", func() {
 				_ = fs.RemoveAll(passiveImg)
 			})
 			It("does not backup active img to passive", Label("docker"), func() {
-				spec.Active.Source = v1.NewDockerSrc("alpine")
+				spec.Active.Source = sdkImages.NewDockerSrc("alpine")
 				upgrade = action.NewUpgradeAction(config, spec)
 				err := upgrade.Run()
 				Expect(err).ToNot(HaveOccurred())
@@ -488,7 +491,7 @@ var _ = Describe("Upgrade Actions test", func() {
 					f, _ := fs.ReadFile(recoveryImgSquash)
 					Expect(f).To(ContainSubstring("recovery"))
 
-					spec.Recovery.Source = v1.NewDockerSrc("alpine")
+					spec.Recovery.Source = sdkImages.NewDockerSrc("alpine")
 					upgrade = action.NewUpgradeAction(config, spec)
 					err = upgrade.Run()
 					Expect(err).ToNot(HaveOccurred())
@@ -512,7 +515,7 @@ var _ = Describe("Upgrade Actions test", func() {
 					// create a random file on it
 					_ = fs.WriteFile(fmt.Sprintf("%s/file.file", srcDir), []byte("something"), constants.FilePerm)
 
-					spec.Recovery.Source = v1.NewDirSrc(srcDir)
+					spec.Recovery.Source = sdkImages.NewDirSrc(srcDir)
 					upgrade = action.NewUpgradeAction(config, spec)
 					err := upgrade.Run()
 					Expect(err).ToNot(HaveOccurred())
@@ -580,7 +583,7 @@ var _ = Describe("Upgrade Actions test", func() {
 					f, _ := fs.ReadFile(recoveryImg)
 					Expect(f).To(ContainSubstring("recovery"))
 
-					spec.Recovery.Source = v1.NewDockerSrc("apline")
+					spec.Recovery.Source = sdkImages.NewDockerSrc("alpine")
 
 					upgrade = action.NewUpgradeAction(config, spec)
 					err = upgrade.Run()
@@ -603,7 +606,7 @@ var _ = Describe("Upgrade Actions test", func() {
 					// create a random file on it
 					_ = fs.WriteFile(fmt.Sprintf("%s/file.file", srcDir), []byte("something"), constants.FilePerm)
 
-					spec.Recovery.Source = v1.NewDirSrc(srcDir)
+					spec.Recovery.Source = sdkImages.NewDirSrc(srcDir)
 
 					upgrade = action.NewUpgradeAction(config, spec)
 					err := upgrade.Run()
