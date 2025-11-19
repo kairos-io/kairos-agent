@@ -15,7 +15,7 @@ jobs:
       - name: Generate version
         run: echo "VERSION=$(git describe --always --tags --dirty)" >> $GITHUB_ENV
       - name: Install gcc for arm64
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu libssl-dev
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
