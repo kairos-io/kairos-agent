@@ -106,7 +106,7 @@ func parseMountEntry(line string) (string, string) {
 // We only need to get all this info due to the fS that we need to use to format the partition
 // Otherwise we could just format with the label ¯\_(ツ)_/¯
 // This goes over all the devices in /sys/block looking for dm- devices
-// Then reads dev of the devices to gather the data from the udev database to find the deive number
+// Then reads dev of the devices to gather the data from the udev database to find the device number
 // then we get the info from that device, check the label and if it matches we read size and other info
 // From there we get the slaves of the dm device to find the underlying partition and gather the real filesystem
 // Then we get the PATH of the disk this partition is on to fill that info as well
