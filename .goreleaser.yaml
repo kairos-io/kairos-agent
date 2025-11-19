@@ -15,7 +15,7 @@ builds:
   - ldflags:
       - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - GOEXPERIMENT=boringcrypto
     goos:
       - linux
@@ -29,7 +29,7 @@ builds:
   - ldflags:
       - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - GOEXPERIMENT=boringcrypto
       - CC=aarch64-linux-gnu-gcc
     goos:
