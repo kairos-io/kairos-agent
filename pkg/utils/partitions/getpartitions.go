@@ -38,6 +38,10 @@ func GetAllPartitions(logger *types.KairosLogger) (types.PartitionList, error) {
 
 	for _, d := range ghw.GetDisks(ghw.NewPaths(""), logger) {
 		for _, part := range d.Partitions {
+			if part.FS == "crypto_LUKS" {
+				// skip LUKS partitions, GetPartitionViaDM will handle them
+				continue
+			}
 			parts = append(parts, part)
 		}
 	}
@@ -100,7 +104,14 @@ func parseMountEntry(line string) (string, string) {
 // GetPartitionViaDM tries to get the partition via devicemapper for reset
 // We only need to get all this info due to the fS that we need to use to format the partition
 // Otherwise we could just format with the label ¯\_(ツ)_/¯
-// TODO: store info about persistent and oem in the state.yaml so we can directly load it
+// This goes over all the devices in /sys/block looking for dm- devices
+// Then reads dev of the devices to gather the data from the udev database to find the device number
+// then we get the info from that device, check the label and if it matches we read size and other info
+// From there we get the slaves of the dm device to find the underlying partition and gather the real filesystem
+// Then we get the PATH of the disk this partition is on to fill that info as well
+// as a last step we go over the mounts to find if this partition is mounted and where
+// If we find a partition that matches a mapper, we use that path instead of the by-label path
+// as the by-label could be pointing to the encrypted partition instead of the unlocked one
 func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 	var part *types.Partition
 	rootPath, _ := fs.RawPath("/")
@@ -134,11 +145,18 @@ func GetPartitionViaDM(fs v1.FS, label string) *types.Partition {
 			partitionFS := udevInfo["ID_FS_TYPE"]
 			partitionName := udevInfo["DM_LV_NAME"]
 
+			// Default path to by-label
+			var path = filepath.Join("/dev/disk/by-label/", label)
+			// If we have a dm name path use that instead, for encrypted partitions that are now unlocked
+			if udevInfo["DM_NAME"] != "" {
+				path = filepath.Join("/dev/mapper/", udevInfo["DM_NAME"])
+			}
+
 			part = &types.Partition{
 				Name:            partitionName,
 				FilesystemLabel: label,
 				FS:              partitionFS,
-				Path:            filepath.Join("/dev/disk/by-label/", label),
+				Path:            path,
 			}
 			// Read size
 			sizeInSectors, err1 := fs.ReadFile(filepath.Join(lp.SysBlock, dev.Name(), "size"))
