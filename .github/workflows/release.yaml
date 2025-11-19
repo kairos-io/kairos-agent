@@ -20,8 +20,6 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - name: Build WebUI dependencies
-        run: cd ./internal/webui/public && npm install
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

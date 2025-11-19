@@ -328,7 +328,6 @@ E.g. kairos-agent install-bundle container:quay.io/kairos/kairos...
 		Aliases:     []string{"w"},
 		Action: func(c *cli.Context) error {
 			return webui.Start(context.Background())
-			//return nil
 		},
 	},
 	{
