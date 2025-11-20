@@ -29,7 +29,7 @@ import (
 )
 
 func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
-	log := logger.NewKairosLogger("agent", "info", false)
+	log := logger.NewKairosLoggerWithExtraDirs("agent", "info", false, "/var/log/kairos/")
 	// Get the viper config in case something in command line or env var has set it and set the level asap
 	if viper.GetBool("debug") {
 		log.SetLevel("debug")
