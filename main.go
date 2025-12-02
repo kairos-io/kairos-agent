@@ -1325,6 +1325,31 @@ Default behavior:
 					return action.KcryptCleanup(cfg, c.String("nv-index"), c.String("tpm-device"), c.Bool("i-know-what-i-am-doing"))
 				},
 			},
+			{
+				Name:        "unlock-all",
+				Usage:       "Unlocks all encrypted partitions",
+				Description: `Unlocks all encrypted partitions found on the system.
+
+This command scans the system for LUKS encrypted partitions and unlocks them
+using the appropriate encryption method (TPM+PCR, Remote KMS, or Local TPM)
+based on the system configuration.
+
+The command automatically:
+- Detects UKI mode vs non-UKI mode
+- Scans for kcrypt configuration (challenger server, mdns, etc.)
+- Finds all encrypted partitions that are not already unlocked
+- Unlocks them using the appropriate method`,
+				Before: func(c *cli.Context) error {
+					return checkRoot()
+				},
+				Action: func(c *cli.Context) error {
+					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+					if err != nil {
+						return fmt.Errorf("failed to scan config: %w", err)
+					}
+					return kcrypt.UnlockAllEncryptedPartitions(cfg.Logger)
+				},
+			},
 		},
 	},
 }
