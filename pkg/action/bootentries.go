@@ -371,7 +371,7 @@ func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg", "/run/initramfs/cos-state/grub2/grub.cfg"} {
 		f, err := cfg.Fs.ReadFile(file)
 		if err != nil {
-			cfg.Logger.Errorf("could not read file %s: %s", file, err)
+			cfg.Logger.Warningf("could not read file %s: %s", file, err)
 			continue
 		}
 		re, _ := regexp.Compile(`--id\s([A-z0-9]*)\s{`)
