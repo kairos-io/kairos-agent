@@ -916,9 +916,9 @@ func GetSourceSize(config *sdkConfig.Config, source *sdkImages.ImageSource) (int
 		}
 		size = file.Size()
 	}
-	// Normalize size to Mb before returning and add 100Mb to round the size from bytes to mb+extra files like grub stuff
+	// Normalize size to MB before returning and add 100MB to round the size from bytes to MB+extra files like grub stuff
 	if size != 0 {
-		size = (size / 1000 / 1000) + 100
+		size = (size / 1024 / 1024) + 100
 	}
 	return size, err
 }
