@@ -368,18 +368,31 @@ func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 	// And grep the entries by checking the --id\s([A-z0-9]*)\s{ pattern
 	// TODO: Check how to run this from livecd as it requires mounting state and grub?
 	var entries []string
-	for _, file := range []string{"/etc/cos/grub.cfg", "/run/initramfs/cos-state/grub/grub.cfg", "/etc/kairos/branding/grubmenu.cfg", "/run/initramfs/cos-state/grub2/grub.cfg"} {
+	re, _ := regexp.Compile(`--id\s([A-z0-9]*)\s{`)
+	files := []string{
+		"/etc/cos/grub.cfg",
+		"/run/initramfs/cos-state/grub/grub.cfg",
+		"/run/initramfs/cos-state/grub2/grub.cfg",
+		"/etc/kairos/branding/grubmenu.cfg",
+	}
+	foundAnyGrubFile := false
+	for _, file := range files {
 		f, err := cfg.Fs.ReadFile(file)
 		if err != nil {
 			cfg.Logger.Warningf("could not read file %s: %s", file, err)
 			continue
 		}
-		re, _ := regexp.Compile(`--id\s([A-z0-9]*)\s{`)
+		foundAnyGrubFile = true
 		matches := re.FindAllStringSubmatch(string(f), -1)
 		for _, match := range matches {
 			entries = append(entries, match[1])
 		}
 	}
+	if !foundAnyGrubFile {
+		cfg.Logger.Errorf("No GRUB configuration file was found: %v", files)
+		return nil, fmt.Errorf("failed to get any required GRUB configuration file")
+	}
+
 	entries = uniqueStringArray(entries)
 	return entries, nil
 }
