@@ -898,6 +898,17 @@ func GetSourceSize(config *sdkConfig.Config, source *sdkImages.ImageSource) (int
 			}
 		})
 
+	case source.IsOCIFile():
+		// For OCI tar files, get the tar file size and apply a multiplier
+		// since the tar contains compressed layers that will expand
+		file, err := config.Fs.Stat(source.Value())
+		if err != nil {
+			return size, err
+		}
+		// Apply a 2x multiplier to account for compression and extraction overhead
+		// Similar to Docker images but more conservative since it's a local file
+		size = int64(float64(file.Size()) * 2.0)
+
 	case source.IsFile():
 		file, err := config.Fs.Stat(source.Value())
 		if err != nil {
@@ -905,9 +916,9 @@ func GetSourceSize(config *sdkConfig.Config, source *sdkImages.ImageSource) (int
 		}
 		size = file.Size()
 	}
-	// Normalize size to Mb before returning and add 100Mb to round the size from bytes to mb+extra files like grub stuff
+	// Normalize size to MB before returning and add 100MB to round the size from bytes to MB+extra files like grub stuff
 	if size != 0 {
-		size = (size / 1000 / 1000) + 100
+		size = (size / 1024 / 1024) + 100
 	}
 	return size, err
 }

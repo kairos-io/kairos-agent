@@ -536,8 +536,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err).ShouldNot(HaveOccurred())
 					f, err := c.Fs.Stat("/tmp/waka")
 					Expect(err).ShouldNot(HaveOccurred())
-					// Make the same calculation as the code
-					Expect(spec.Active.Size).To(Equal(uint(f.Size()/1000/1000) + 100))
+					// Make the same calculation as the code (uses binary megabytes /1024/1024)
+					Expect(spec.Active.Size).To(Equal(uint(f.Size()/1024/1024) + 100))
 				})
 
 				It("parses deprecated 'uri' field into Source for backwards compatibility", func() {
@@ -847,10 +847,10 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sizeAfter).ToNot(Equal(sizeBefore))
 		Expect(sizeAfter).ToNot(BeZero())
-		// Size is 2 files of 200 + 100Mb on top, normalized from bytes to MB
-		// So take those 200Mb, converts to bytes by multiplying them (400*1024*1024), then back to MB by dividing
-		// what we get (/1000/1000) then we finish by adding and extra 100MB on top, like the GetSourceSize does internally
-		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
+		// Size is 2 files of 200 + 100MB on top, normalized from bytes to MB
+		// So take those 200MB, converts to bytes by multiplying them (400*1024*1024), then back to MB by dividing
+		// what we get (/1024/1024) then we finish by adding and extra 100MB on top, like the GetSourceSize does internally
+		Expect(sizeAfter).To(Equal(int64(400 + 100)))
 	})
 	It("Does not skip the dirs if outside of kubernetes", func() {
 		sizeBefore, err := config.GetSourceSize(conf, imageSource)
@@ -865,6 +865,35 @@ var _ = Describe("GetSourceSize", Label("GetSourceSize"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sizeAfter).ToNot(Equal(sizeBefore))
 		Expect(sizeAfter).ToNot(BeZero())
-		Expect(sizeAfter).To(Equal(int64((400 * 1024 * 1024 / 1000 / 1000) + 100)))
+		Expect(sizeAfter).To(Equal(int64(400 + 100)))
+	})
+
+	It("calculates size for ocifile sources with 2x multiplier", func() {
+		// Create a test OCI tar file
+		ociTarFile := filepath.Join(tempDir, "test-image.tar")
+		err := createFileOfSizeInMB(ociTarFile, 100) // 100MB tar file
+		Expect(err).To(BeNil())
+
+		// Create ocifile source
+		ociSource := sdkImages.NewOCIFileSrc(ociTarFile)
+
+		// Calculate size
+		size, err := config.GetSourceSize(conf, ociSource)
+		Expect(err).To(BeNil())
+		Expect(size).ToNot(BeZero())
+
+		// Expected: (100MB * 2.0 multiplier) + 100MB normalization = 300MB
+		expectedSize := int64((100 * 2.0) + 100)
+		Expect(size).To(Equal(expectedSize))
+	})
+
+	It("handles missing ocifile gracefully", func() {
+		// Create ocifile source pointing to non-existent file
+		ociSource := sdkImages.NewOCIFileSrc("/non/existent/file.tar")
+
+		// Should return error
+		size, err := config.GetSourceSize(conf, ociSource)
+		Expect(err).ToNot(BeNil())
+		Expect(size).To(Equal(int64(0)))
 	})
 })
