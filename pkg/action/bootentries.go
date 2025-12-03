@@ -379,7 +379,6 @@ func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 	for _, file := range files {
 		f, err := cfg.Fs.ReadFile(file)
 		if err != nil {
-			cfg.Logger.Warningf("could not read file %s: %s", file, err)
 			continue
 		}
 		foundAnyGrubFile = true
