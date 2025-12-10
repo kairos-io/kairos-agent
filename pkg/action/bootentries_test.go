@@ -686,7 +686,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = fs.WriteFile("/etc/kairos/branding/grubmenu.cfg", []byte("whatever whatever --id kairos3 {"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
-				err := SelectBootEntry(config, "nonexistant")
+				err = SelectBootEntry(config, "nonexistant")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("does not exist"))
 			})
