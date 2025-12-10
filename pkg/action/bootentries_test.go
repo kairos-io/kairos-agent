@@ -688,7 +688,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				err := SelectBootEntry(config, "nonexistant")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("failed to get any required GRUB configuration file"))
+				Expect(err.Error()).To(ContainSubstring("does not exist"))
 			})
 			It("selects the boot entry", func() {
 				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("whatever whatever --id kairos {"), os.ModePerm)
