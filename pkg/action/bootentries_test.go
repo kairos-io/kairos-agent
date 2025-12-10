@@ -665,7 +665,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			})
 			It("list empty boot entries if there is none", func() {
 				entries, err := listGrubEntries(config)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 				Expect(entries).To(HaveLen(0))
 
 			})
@@ -680,7 +680,13 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				}
 			})
 			It("fails to select the boot entry if it doesnt exist", func() {
-				err := SelectBootEntry(config, "kairos")
+				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("whatever whatever --id kairos {"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/run/initramfs/cos-state/grub/grub.cfg", []byte("whatever whatever --id kairos2 {"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/etc/kairos/branding/grubmenu.cfg", []byte("whatever whatever --id kairos3 {"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = SelectBootEntry(config, "nonexistant")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("does not exist"))
 			})
