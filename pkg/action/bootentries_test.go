@@ -185,7 +185,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive+3.conf"))
+				Expect(reader["default"]).To(Equal("passive.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -206,7 +206,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery+1-2.conf"))
+				Expect(reader["default"]).To(Equal("recovery.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -227,7 +227,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("statereset+2-1.conf"))
+				Expect(reader["default"]).To(Equal("statereset.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -248,7 +248,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active+2-1.conf"))
+				Expect(reader["default"]).To(Equal("active.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -270,7 +270,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active+2-1.conf"))
+				Expect(reader["default"]).To(Equal("active.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -304,7 +304,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive_install-mode_awesomeos+3.conf"))
+				Expect(reader["default"]).To(Equal("passive_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -431,7 +431,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive+3.conf"))
+				Expect(reader["default"]).To(Equal("passive.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -473,7 +473,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery+3.conf"))
+				Expect(reader["default"]).To(Equal("recovery.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
