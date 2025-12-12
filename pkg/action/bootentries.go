@@ -2,13 +2,14 @@ package action
 
 import (
 	"fmt"
-	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
 	"syscall"
+
+	sdkTypes "github.com/kairos-io/kairos-sdk/types"
 
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
@@ -129,18 +130,15 @@ func selectBootEntrySystemd(cfg *config.Config, entry string) error {
 			}
 		}
 	}
-	bootFileName, err := bootNameToSystemdConf(entry)
+	bootConfigName, err := bootNameToSystemdConf(entry)
 	if err != nil {
 		return err
 	}
-	assessment, err := utils.ReadAssessmentFromEntry(cfg.Fs, bootFileName, cfg.Logger)
-	if err != nil {
-		cfg.Logger.Logger.Err(err).Str("entry", entry).Str("boot file name", bootFileName).Msg("could not read assessment from entry")
-		return err
-	}
-	bootName := fmt.Sprintf("%s%s.conf", bootFileName, assessment)
-	// Set the default entry to the selected entry
-	systemdConf["default"] = bootName
+	// Set the default entry to the selected entry with just the name and .conf extension
+	// systemd >= 257 ignores the boot assesment part in the config name
+	// as we ship our own systemd-boot we know all our built distros will support this
+	systemdConf["default"] = fmt.Sprintf("%s.conf", bootConfigName)
+	cfg.Logger.Debugf("Setting default boot entry to %s", fmt.Sprintf("%s.conf", bootConfigName))
 	err = utils.SystemdBootConfWriter(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"), systemdConf)
 	if err != nil {
 		cfg.Logger.Errorf("could not write loader.conf: %s", err)
