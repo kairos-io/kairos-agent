@@ -129,6 +129,9 @@ func (i *UpgradeAction) Run() (err error) {
 		return err
 	}
 
+	// Remove any default keys in the loader.conf that might cause issues
+	err = removeDefaultKeysFromLoaderConf(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
+
 	if err = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after"); err != nil {
 		i.cfg.Logger.Errorf("running kairos-uki-upgrade.after stage: %s", err.Error())
 	}

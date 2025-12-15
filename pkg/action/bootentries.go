@@ -1,6 +1,7 @@
 package action
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,8 +15,6 @@ import (
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
 	"github.com/foxboron/go-uefi/efi/attributes"
-	efiUtil "github.com/foxboron/go-uefi/efi/util"
-	"github.com/foxboron/go-uefi/efivarfs"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
@@ -132,7 +131,7 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	if err != nil {
 		return err
 	}
-	err = writeEfiVar(cfg, fmt.Sprintf("%s.conf", bootConfigName))
+	err = WriteOneShotEfiVar(cfg, fmt.Sprintf("%s.conf", bootConfigName))
 	if err != nil {
 		cfg.Logger.Errorf("could not write EFI variable: %s", err)
 		return err
@@ -141,29 +140,85 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	return err
 }
 
-// writeEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
+// WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
 // Only works in systemd >= 257
 // for older versions, we would need to append the boot assesment to the name as the entry id
 // in older verrsion is the full file name
 // On newer versions, its just the conf name without the assesment part
-func writeEfiVar(_ *sdkConfig.Config, data string) error {
-	err := clearImmutable("/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f")
+func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
+	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+
+	err := clearImmutable(efivar)
 	if err != nil {
 		return err
 	}
-	efiFs := efivarfs.NewFS()
 	attrs := attributes.EFI_VARIABLE_NON_VOLATILE | attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS | attributes.EFI_VARIABLE_RUNTIME_ACCESS
-	systemdGuid := efiUtil.StringToGUID("4a67b082-0a4c-41cf-b6c7-440b29bb8c4f")
-	err = efiFs.WriteEfivarsWithGuid("LoaderEntryOneShot", attrs, utf16LEStringNullTerminated(data), *systemdGuid)
+
+	f, err := cfg.Fs.OpenFile(efivar, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("couldn't open file: %w", err)
 	}
+	defer f.Close()
+
+	buf := append(attrs.Bytes(), EncondeUtf16LEStringNullTerminated(data)...)
+	if n, err := f.Write(buf); err != nil {
+		return fmt.Errorf("couldn't write efi variable: %w", err)
+	} else if n != len(buf) {
+		return errors.New("could not write the entire buffer")
+	}
+
 	return nil
 }
 
-// utf16LEStringNullTerminated encodes a string to UTF-16LE with a NUL terminator
+// ReadOneShotEfiVar reads the one shot loader efivar and returns the value as a string
+func ReadOneShotEfiVar(cfg *sdkConfig.Config) (string, error) {
+	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+
+	f, err := cfg.Fs.OpenFile(efivar, os.O_RDONLY, 0)
+	if err != nil {
+		return "", fmt.Errorf("couldn't open file: %w", err)
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return "", fmt.Errorf("couldn't stat file: %w", err)
+	}
+
+	size := stat.Size()
+	buf := make([]byte, size)
+	n, err := f.Read(buf)
+	if err != nil {
+		return "", fmt.Errorf("couldn't read efi variable: %w", err)
+	} else if int64(n) != size {
+		return "", errors.New("could not read the entire buffer")
+	}
+
+	// First 4 bytes are attributes so we can drop them
+	return ReadUtf16LEStringNullTerminated(buf[4:]), nil
+}
+
+func ReadUtf16LEStringNullTerminated(b []byte) string {
+	// Decode UTF-16LE
+	u := make([]uint16, len(b)/2)
+	for i := 0; i < len(u); i++ {
+		u[i] = uint16(b[2*i]) | uint16(b[2*i+1])<<8
+	}
+
+	// Find NUL terminator
+	var end int
+	for end = 0; end < len(u); end++ {
+		if u[end] == 0 {
+			break
+		}
+	}
+
+	return string(utf16.Decode(u[:end]))
+}
+
+// EncondeUtf16LEStringNullTerminated encodes a string to UTF-16LE with a NUL terminator
 // Dont ask me, this is what systemd-boot expects
-func utf16LEStringNullTerminated(s string) []byte {
+func EncondeUtf16LEStringNullTerminated(s string) []byte {
 	// Encode runes to UTF-16
 	u := utf16.Encode([]rune(s))
 	// Add explicit NUL terminator

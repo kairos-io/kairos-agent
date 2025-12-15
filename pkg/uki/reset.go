@@ -108,6 +108,10 @@ func (r *ResetAction) Run() (err error) {
 		return err
 	}
 
+	// Remove any default keys in the loader.conf that might cause issues
+	// Do it with reset in case the source contains an older default key
+	err = removeDefaultKeysFromLoaderConf(r.cfg.Fs, r.spec.Partitions.EFI.MountPoint, r.cfg.Logger)
+
 	err = Hook(r.cfg, constants.AfterResetHook)
 	if err != nil {
 		r.cfg.Logger.Errorf("running after install hook: %s", err.Error())
