@@ -1,13 +1,11 @@
 package action
 
 import (
-	"debug/pe"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"syscall"
 
@@ -138,32 +136,7 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	// systemd >= 257 ignores the boot assesment part in the config name
 	// as we ship our own systemd-boot we know all our built distros will support this
 	systemdConf["default"] = fmt.Sprintf("%s.conf", bootConfigName)
-
-	var systemdBootEfi string
-	switch runtime.GOARCH {
-	case "amd64":
-		systemdBootEfi = filepath.Join(efiPartition.MountPoint, "EFI/BOOT", "BOOTX64.EFI")
-	case "arm64":
-		systemdBootEfi = filepath.Join(efiPartition.MountPoint, "EFI/BOOT", "BOOTAA64.EFI")
-	default:
-		return fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
-	}
-
-	systemdBootMajor, _, err := SystemdBootVersion(systemdBootEfi)
-	if err == nil {
-		cfg.Logger.Debugf("systemd-boot version detected: %d", systemdBootMajor)
-		if systemdBootMajor < 257 {
-			cfg.Logger.Debugf("systemd-boot version is older than 257, adding assesment to config name")
-			assessment, err := utils.ReadAssessmentFromEntry(cfg.Fs, bootConfigName, cfg.Logger)
-			if err != nil {
-				cfg.Logger.Logger.Err(err).Str("entry", entry).Str("boot file name", bootConfigName).Msg("could not read assessment from entry")
-				return err
-			}
-			systemdConf["default"] = fmt.Sprintf("%s%s.conf", bootConfigName, assessment)
-		}
-	}
-
-	cfg.Logger.Debugf("Setting default boot entry to %s", systemdConf["default"])
+	cfg.Logger.Debugf("Setting default boot entry to %s", fmt.Sprintf("%s.conf", bootConfigName))
 	err = utils.SystemdBootConfWriter(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"), systemdConf)
 	if err != nil {
 		cfg.Logger.Errorf("could not write loader.conf: %s", err)
@@ -446,22 +419,4 @@ func entryInList(cfg *sdkConfig.Config, entry string, list []string) error {
 	cfg.Logger.Errorf("entry %s does not exist", entry)
 	cfg.Logger.Debugf("entries: %v", list)
 	return fmt.Errorf("entry %s does not exist", entry)
-}
-
-// SystemdBootVersion Reads the systemd-boot version from the PE header of the systemd-boot binary
-func SystemdBootVersion(path string) (major, minor uint16, err error) {
-	f, err := pe.Open(path)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer func(f *pe.File) {
-		_ = f.Close()
-	}(f)
-
-	oh, ok := f.OptionalHeader.(*pe.OptionalHeader64)
-	if !ok {
-		return 0, 0, fmt.Errorf("not a PE32+ (EFI) binary")
-	}
-
-	return oh.MajorImageVersion, oh.MinorImageVersion, nil
 }
