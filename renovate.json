@@ -25,6 +25,12 @@
       "matchPackageNames": [
         "/^github\\.com/containerd/containerd/"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "github.com/google/go-github/*"
+      ],
+      "enabled": false
     }
   ]
 }
