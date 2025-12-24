@@ -520,6 +520,10 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 			&cli.BoolFlag{
 				Name: "reboot",
 			},
+			&cli.BoolFlag{
+				Name:  "use-default-dirs",
+				Usage: fmt.Sprintf("Force the config collector to use the default locations (%s) in addition to the provided config file", strings.Join(constants.GetUserConfigDirs(), ", ")),
+			},
 			&sourceFlag,
 		},
 		Before: func(c *cli.Context) error {
@@ -537,7 +541,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 
 			source := c.String("source")
 
-			return agent.ManualInstall(config, source, c.String("device"), c.Bool("reboot"), c.Bool("poweroff"), c.Bool("strict-validation"))
+			return agent.ManualInstall(config, source, c.String("device"), c.Bool("reboot"), c.Bool("poweroff"), c.Bool("strict-validation"), c.Bool("use-default-dirs"))
 		},
 	},
 	{
