@@ -56,7 +56,7 @@ func displayInfo(agentConfig *Config) {
 	}
 }
 
-func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations bool) error {
+func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations, useDefaultDirs bool) error {
 	configSource, err := prepareConfiguration(c)
 	if err != nil {
 		return err
@@ -65,10 +65,18 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
 	cliConfManualArgs := generateInstallConfForManualCLIArgs(device, reboot, poweroff)
 
-	cc, err := config.Scan(
+	scanOpts := []collector.Option{
 		collector.Readers(configSource, strings.NewReader(cliConf), strings.NewReader(cliConfManualArgs)),
 		collector.MergeBootLine,
-		collector.StrictValidation(strictValidations), collector.NoLogs)
+		collector.StrictValidation(strictValidations),
+		collector.NoLogs,
+	}
+
+	if useDefaultDirs {
+		scanOpts = append(scanOpts, collector.Directories(constants.GetUserConfigDirs()...))
+	}
+
+	cc, err := config.Scan(scanOpts...)
 	if err != nil {
 		return err
 	}
