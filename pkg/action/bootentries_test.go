@@ -59,6 +59,8 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 		Expect(err).Should(BeNil())
 		err = fsutils.MkdirAll(fs, "/etc/kairos/branding/", os.ModeDir|os.ModePerm)
 		Expect(err).Should(BeNil())
+		err = fsutils.MkdirAll(fs, "/sys/firmware/efi/efivars/", os.ModeDir|os.ModePerm)
+		Expect(err).Should(BeNil())
 
 		cloudInit = &v1mock.FakeCloudInitRunner{}
 		config = agentConfig.NewConfig(
@@ -183,9 +185,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -204,9 +204,8 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
+				//Expect(reader["default"]).To(Equal("recovery.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -225,9 +224,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("statereset.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -246,9 +243,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -268,9 +263,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -302,9 +295,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive_install-mode_awesomeos.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -323,9 +314,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery_install-mode_awesomeos.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -344,9 +333,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("statereset_install-mode_awesomeos.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -365,9 +352,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active_install-mode_awesomeos.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -387,9 +372,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active_install-mode_awesomeos.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_awesomeos.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -429,9 +412,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -450,9 +431,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback foobar"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("passive_foobar.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_foobar.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -471,9 +450,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -492,9 +469,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "recovery foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery foobar"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("recovery_foobar.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_foobar.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -513,9 +488,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("statereset.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -534,9 +507,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "statereset foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset foobar"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("statereset_foobar.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset_foobar.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -555,9 +526,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -576,9 +545,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "cos foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos foobar"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active_foobar.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active_foobar.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -598,9 +565,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
@@ -618,9 +583,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "active foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active foobar"))
-				reader, err = utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(reader["default"]).To(Equal("active_foobar.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active_foobar.conf"))
 				// Should have called a remount to make it RW
 				Expect(syscallMock.WasMountCalledWith(
 					"",
