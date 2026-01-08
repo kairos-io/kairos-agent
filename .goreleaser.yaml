@@ -3,6 +3,8 @@ version: 2
 builds:
   - ldflags:
       - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
+    gcflags:
+      - -l
     env:
       - CGO_ENABLED=0
     goos:
@@ -11,9 +13,13 @@ builds:
       - amd64
       - arm64
     binary: '{{ .ProjectName }}'
+    tags:
+      - nogit
     id: default
   - ldflags:
       - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
+    gcflags:
+      - -l
     env:
       - CGO_ENABLED=0
       - GOEXPERIMENT=boringcrypto
@@ -22,12 +28,16 @@ builds:
     goarch:
       - amd64
     binary: '{{ .ProjectName }}'
+    tags:
+      - nogit
     id: fips-amd64
     hooks:
       post:
         - bash -c 'set -e; go version {{.Path}} | grep boringcrypto || (echo "boringcrypto not found" && exit 1)'
   - ldflags:
       - -w -s -X "github.com/kairos-io/kairos-agent/v2/internal/common.VERSION={{.Tag}}" -X "github.com/kairos-io/kairos-agent/v2/internal/common.gitCommit={{.Commit}}"
+    gcflags:
+      - -l
     env:
       - CGO_ENABLED=0
       - GOEXPERIMENT=boringcrypto
@@ -37,6 +47,8 @@ builds:
     goarch:
       - arm64
     binary: '{{ .ProjectName }}'
+    tags:
+      - nogit
     id: fips-arm64
     hooks:
       post:
