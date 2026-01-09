@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	sdkFs "github.com/kairos-io/kairos-sdk/types/fs"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
@@ -209,4 +210,31 @@ func AddSystemdConfSortKey(fs sdkFs.KairosFS, artifactDir string, log sdkLogger.
 
 		return nil
 	})
+}
+
+func removeDefaultKeysFromLoaderConf(fs sdkFs.KairosFS, efiDir string, logger sdkLogger.KairosLogger) error {
+	systemdConf, err := utils.SystemdBootConfReader(fs, filepath.Join(efiDir, "loader/loader.conf"))
+	if err != nil {
+		logger.Errorf("could not read loader.conf: %s", err)
+		return err
+	}
+
+	if _, ok := systemdConf["default"]; ok {
+		// Only remove if it points to active, otherwise leave it alone and warn about a potential boot loop
+		if strings.Contains(systemdConf["default"], "active") {
+			logger.Infof("removing default key from loader.conf")
+			delete(systemdConf, "default")
+			err = utils.SystemdBootConfWriter(fs, filepath.Join(efiDir, "loader/loader.conf"), systemdConf)
+			if err != nil {
+				logger.Errorf("could not write loader.conf: %s", err)
+				return err
+			}
+		} else {
+			logger.Warnf("loader.conf default key points to %s\n"+
+				"Its not recommended to have a default key set to avoid an entry being bad and systemd-boot trying to boot from it indefinitevely, causing a boot loop\n"+
+				"We recommend removing it manually if possible. Please check the Kairos docs for more information.", systemdConf["default"])
+		}
+	}
+
+	return nil
 }

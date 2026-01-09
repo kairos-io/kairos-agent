@@ -201,6 +201,10 @@ func (i *InstallAction) Run() (err error) {
 		i.cfg.Logger.Warnf("selecting active boot entry: %s", err.Error())
 	}
 
+	// Remove any default keys in the loader.conf that might cause issues
+	// This is in case the current image is built with an older AuroraBoot that still ships the default loader key
+	err = removeDefaultKeysFromLoaderConf(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, i.cfg.Logger)
+
 	err = hook.Run(*i.cfg, i.spec, hook.PostInstall...)
 	if err != nil {
 		i.cfg.Logger.Errorf("running uki encryption hooks: %s", err.Error())
