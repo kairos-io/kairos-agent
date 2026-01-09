@@ -18,10 +18,10 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
-	github.com/mudler/yip v1.19.1-0.20260108085244-a70fbd012638
+	github.com/mudler/yip v1.20.0
 	github.com/nxadm/tail v1.4.11
-	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.3
+	github.com/onsi/ginkgo/v2 v2.27.4
+	github.com/onsi/gomega v1.39.0
 	github.com/pterm/pterm v0.12.82
 	github.com/rs/zerolog v1.34.0
 	github.com/sanity-io/litter v1.5.8
@@ -29,7 +29,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	golang.org/x/net v0.48.0
 	golang.org/x/oauth2 v0.34.0
-	golang.org/x/sys v0.39.0
+	golang.org/x/sys v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/mount-utils v0.35.0
 )
@@ -137,7 +137,7 @@ require (
 	github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 // indirect
 	github.com/kendru/darwin/go/depgraph v0.0.0-20230809052043-4d1c7e9d1767 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.18.1 // indirect
+	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
