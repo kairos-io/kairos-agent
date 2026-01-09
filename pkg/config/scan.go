@@ -137,6 +137,7 @@ func scan(result *sdkConfig.Config, opts ...collector.Option) (c *sdkConfig.Conf
 		result.Logger.Logger.Info().Bool("result", state.DetectUKIboot(string(cmdline))).Msg("Boot in uki mode")
 	}
 
+	litter.Config.HideZeroValues = true
 	result.Logger.Debugf("Loaded config: %s", litter.Sdump(result))
 
 	return result, nil
