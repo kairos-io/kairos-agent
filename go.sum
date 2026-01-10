@@ -417,6 +417,8 @@ github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5 h1:FaZD86+A9mV
 github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5/go.mod h1:WmKcT8ONmhDQIqQ+HxU+tkGWjzBEyY/KFO8LTGCu4AI=
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82 h1:FVT07EI8njvsD4tC2Hw8Xhactp5AWhsQWD4oTeQuSAU=
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82/go.mod h1:Urp7LG5jylKoDq0663qeBh0pINGcRl35nXdKx82PSoU=
+github.com/mudler/go-processmanager v0.1.0 h1:fcSKgF9U/a1Z7KofAFeZnke5YseadCI5GqL9oT0LS3E=
+github.com/mudler/go-processmanager v0.1.0/go.mod h1:h6kmHUZeafr+k5hRYpGLMzJFH4hItHffgpRo2QIkP+o=
 github.com/mudler/yip v1.20.0 h1:0I+Nuf5yyt06sS8UrEYC5MG6S5yBOmw1XtSKHzpqBj8=
 github.com/mudler/yip v1.20.0/go.mod h1:kRjH39H96Eh4NkL984OvDWPERVOzDw+oVI/oVy5GzuE=
 github.com/mudler/yip v1.21.0 h1:/fetFk8sKrOz5/U7l/RLk5Gn/x8Apyqti0OybCqoKG8=
