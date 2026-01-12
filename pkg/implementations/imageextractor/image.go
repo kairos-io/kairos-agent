@@ -18,13 +18,14 @@ package imageextractor
 
 import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/kairos-io/kairos-sdk/types/images"
+	imagetypes "github.com/kairos-io/kairos-sdk/types/images"
 	"github.com/kairos-io/kairos-sdk/utils"
+	imageutils "github.com/kairos-io/kairos-sdk/utils/image"
 )
 
 type OCIImageExtractor struct{}
 
-var _ images.ImageExtractor = OCIImageExtractor{}
+var _ imagetypes.ImageExtractor = OCIImageExtractor{}
 
 func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string, excludes ...string) error {
 	// If we pass a platform
@@ -39,14 +40,14 @@ func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef strin
 		// if we don't pass a platform, then default to the current platform
 		platformRef = utils.GetCurrentPlatform()
 	}
-	img, err := utils.GetImage(imageRef, platformRef, nil, nil)
+	img, err := imageutils.GetImage(imageRef, platformRef, nil, nil)
 	if err != nil {
 		return err
 	}
 
-	return utils.ExtractOCIImage(img, destination, excludes...)
+	return imageutils.ExtractOCIImage(img, destination, excludes...)
 }
 
 func (e OCIImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
-	return utils.GetOCIImageSize(imageRef, platformRef, nil, nil)
+	return imageutils.GetOCIImageSize(imageRef, platformRef, nil, nil)
 }
