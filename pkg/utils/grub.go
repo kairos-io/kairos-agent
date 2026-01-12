@@ -27,7 +27,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
-	"github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
+	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
@@ -274,37 +274,20 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		if strings.Contains(strings.ToLower(flavor), "alpine") && strings.Contains(strings.ToLower(model), "rpi") {
 			g.config.Logger.Debug("Running on Alpine+RPI, not copying shim or grub.")
 		} else {
-			err = g.copyShim()
+			// For Hadron, we don't have a signed shim, so skip copying it
+			if !strings.Contains(strings.ToLower(flavor), "hadron") {
+				err = g.copyShim()
+				if err != nil {
+					return err
+				}
+			}
+			err = g.copyGrub(flavor)
 			if err != nil {
 				return err
 			}
-			err = g.copyGrub()
+			err = g.writeEfiGrubCfg(stateLabel, systemgrub, flavor)
 			if err != nil {
 				return err
-			}
-			// Add grub.cfg in EFI that chainloads the grub.cfg in state
-			// Notice that we set the config to /grub2/grub.cfg which means the above we need to copy the file from
-			// the installation source into that dir
-			grubCfgContent := []byte(fmt.Sprintf("search --no-floppy --label --set=root %s\nset prefix=($root)/%s\nconfigfile ($root)/%s/grub.cfg", stateLabel, systemgrub, systemgrub))
-			err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), grubCfgContent, cnst.FilePerm)
-			if err != nil {
-				return fmt.Errorf("error writing %s: %s", filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), err)
-			}
-			// Ubuntu efi searches for the grub.cfg file under /EFI/ubuntu/grub.cfg while we store it under /boot/grub2/grub.cfg
-			// workaround this by copying it there as well
-			// read the kairos-release from the rootfs to know if we are creating a ubuntu based iso
-			if strings.Contains(strings.ToLower(flavor), "ubuntu") {
-				g.config.Logger.Infof("Ubuntu based ISO detected, copying grub.cfg to /EFI/ubuntu/grub.cfg")
-				err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/ubuntu/"), constants.DirPerm)
-				if err != nil {
-					g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
-					return err
-				}
-				err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/ubuntu/grub.cfg"), grubCfgContent, constants.FilePerm)
-				if err != nil {
-					g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
-					return err
-				}
 			}
 		}
 	}
@@ -457,8 +440,12 @@ func (g Grub) copyShim() error {
 	return nil
 }
 
-func (g Grub) copyGrub() error {
+func (g Grub) copyGrub(flavor string) error {
+	isHadron := strings.Contains(strings.ToLower(flavor), "hadron")
+
+	// Get standard grub efi file paths (includes Hadron paths)
 	grubFiles := utils.GetEfiGrubFiles(g.config.Arch)
+
 	grubDone := false
 	for _, f := range grubFiles {
 		_, err := g.config.Fs.Stat(filepath.Join(constants.ActiveDir, f))
@@ -466,15 +453,23 @@ func (g Grub) copyGrub() error {
 			g.config.Logger.Debugf("skip copying %s: not found", filepath.Join(constants.ActiveDir, f))
 			continue
 		}
-		_, name := filepath.Split(f)
-		// remove the .signed suffix if present
-		name = strings.TrimSuffix(name, ".signed")
-		fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
+
+		var fileWriteName string
+		if isHadron {
+			// For Hadron, we don't have a signed shim, so we copy the grub efi as bootx64.efi
+			// which is the EFI standard default
+			bootEfiName := cnst.GetFallBackEfi(g.config.Arch)
+			fileWriteName = filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", bootEfiName))
+		} else {
+			_, name := filepath.Split(f)
+			// remove the .signed suffix if present
+			name = strings.TrimSuffix(name, ".signed")
+			fileWriteName = filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
+		}
 		g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
 		// Try to find the paths give until we succeed
 		fileContent, err := g.config.Fs.ReadFile(filepath.Join(cnst.ActiveDir, f))
-
 		if err != nil {
 			g.config.Logger.Warnf("error reading %s: %s", filepath.Join(cnst.ActiveDir, f), err)
 			continue
@@ -489,6 +484,36 @@ func (g Grub) copyGrub() error {
 	if !grubDone {
 		g.config.Logger.Debugf("List of grub files searched for: %s", grubFiles)
 		return fmt.Errorf("could not find any grub efi file to copy")
+	}
+	return nil
+}
+
+// writeEfiGrubCfg writes the grub.cfg file in EFI that chainloads the grub.cfg in state
+// It also handles Ubuntu-specific workarounds if the flavor is ubuntu
+func (g Grub) writeEfiGrubCfg(stateLabel, systemgrub, flavor string) error {
+	// Add grub.cfg in EFI that chainloads the grub.cfg in state
+	// Notice that we set the config to /grub2/grub.cfg which means the above we need to copy the file from
+	// the installation source into that dir
+	grubCfgContent := []byte(fmt.Sprintf("search --no-floppy --label --set=root %s\nset prefix=($root)/%s\nconfigfile ($root)/%s/grub.cfg", stateLabel, systemgrub, systemgrub))
+	err := g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), grubCfgContent, cnst.FilePerm)
+	if err != nil {
+		return fmt.Errorf("error writing %s: %s", filepath.Join(cnst.EfiDir, "EFI/boot/grub.cfg"), err)
+	}
+	// Ubuntu efi searches for the grub.cfg file under /EFI/ubuntu/grub.cfg while we store it under /boot/grub2/grub.cfg
+	// workaround this by copying it there as well
+	// read the kairos-release from the rootfs to know if we are creating a ubuntu based iso
+	if strings.Contains(strings.ToLower(flavor), "ubuntu") {
+		g.config.Logger.Infof("Ubuntu based ISO detected, copying grub.cfg to /EFI/ubuntu/grub.cfg")
+		err = fsutils.MkdirAll(g.config.Fs, filepath.Join(cnst.EfiDir, "EFI/ubuntu/"), constants.DirPerm)
+		if err != nil {
+			g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
+			return err
+		}
+		err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/ubuntu/grub.cfg"), grubCfgContent, constants.FilePerm)
+		if err != nil {
+			g.config.Logger.Errorf("Failed writing grub.cfg: %v", err)
+			return err
+		}
 	}
 	return nil
 }
