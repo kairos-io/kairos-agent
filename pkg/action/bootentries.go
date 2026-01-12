@@ -1,6 +1,7 @@
 package action
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,9 +9,12 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"unicode/utf16"
+	"unsafe"
 
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/selection"
+	"github.com/foxboron/go-uefi/efi/attributes"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
@@ -18,6 +22,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
+	"golang.org/x/sys/unix"
 )
 
 // SelectBootEntry sets the default boot entry to the selected entry
@@ -26,9 +31,9 @@ import (
 func SelectBootEntry(cfg *sdkConfig.Config, entry string) error {
 	if utils.IsUkiWithFs(cfg.Fs) {
 		return selectBootEntrySystemd(cfg, entry)
-	} else {
-		return selectBootEntryGrub(cfg, entry)
 	}
+
+	return selectBootEntryGrub(cfg, entry)
 }
 
 // ListBootEntries lists the boot entries available in the system and prompts the user to select one
@@ -36,9 +41,9 @@ func SelectBootEntry(cfg *sdkConfig.Config, entry string) error {
 func ListBootEntries(cfg *sdkConfig.Config) error {
 	if utils.IsUkiWithFs(cfg.Fs) {
 		return listBootEntriesSystemd(cfg)
-	} else {
-		return listBootEntriesGrub(cfg)
 	}
+
+	return listBootEntriesGrub(cfg)
 }
 
 // selectBootEntryGrub sets the default boot entry to the selected entry by modifying /oem/grubenv
@@ -68,8 +73,7 @@ func selectBootEntryGrub(cfg *sdkConfig.Config, entry string) error {
 	return err
 }
 
-// selectBootEntrySystemd sets the default boot entry to the selected entry via modifying the loader.conf file
-// also validates that the entry exists in our list of entries
+// selectBootEntrySystemd sets the one shot boot entry to the selected entry by setting it in the LoaderEntryOneShot efivar
 func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
 
@@ -111,11 +115,6 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 		}
 	}("", efiPartition.MountPoint, "", syscall.MS_REMOUNT|syscall.MS_RDONLY, "")
 
-	systemdConf, err := utils.SystemdBootConfReader(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"))
-	if err != nil {
-		cfg.Logger.Errorf("could not read loader.conf: %s", err)
-		return err
-	}
 	originalEntry := entry
 	if !reflect.DeepEqual(originalEntries, entries) {
 		// since we temporarily allow also active, here we need to first set entry to "cos" so it will match with the originalEntries
@@ -132,18 +131,139 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	if err != nil {
 		return err
 	}
-	// Set the default entry to the selected entry with just the name and .conf extension
-	// systemd >= 257 ignores the boot assesment part in the config name
-	// as we ship our own systemd-boot we know all our built distros will support this
-	systemdConf["default"] = fmt.Sprintf("%s.conf", bootConfigName)
-	cfg.Logger.Debugf("Setting default boot entry to %s", fmt.Sprintf("%s.conf", bootConfigName))
-	err = utils.SystemdBootConfWriter(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"), systemdConf)
+	err = WriteOneShotEfiVar(cfg, fmt.Sprintf("%s.conf", bootConfigName))
 	if err != nil {
-		cfg.Logger.Errorf("could not write loader.conf: %s", err)
+		cfg.Logger.Errorf("could not write EFI variable: %s", err)
 		return err
 	}
 	cfg.Logger.Infof("Default boot entry set to %s", originalEntry)
 	return err
+}
+
+// WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
+// Only works in systemd >= 257
+// for older versions, we would need to append the boot assesment to the name as the entry id
+// in older verrsion is the full file name
+// On newer versions, its just the conf name without the assesment part
+func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
+	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+
+	err := clearImmutable(efivar)
+	if err != nil {
+		return err
+	}
+	attrs := attributes.EFI_VARIABLE_NON_VOLATILE | attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS | attributes.EFI_VARIABLE_RUNTIME_ACCESS
+
+	f, err := cfg.Fs.OpenFile(efivar, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("couldn't open file: %w", err)
+	}
+	defer f.Close()
+
+	buf := append(attrs.Bytes(), EncondeUtf16LEStringNullTerminated(data)...)
+	if n, err := f.Write(buf); err != nil {
+		return fmt.Errorf("couldn't write efi variable: %w", err)
+	} else if n != len(buf) {
+		return errors.New("could not write the entire buffer")
+	}
+
+	return nil
+}
+
+// ReadOneShotEfiVar reads the one shot loader efivar and returns the value as a string
+func ReadOneShotEfiVar(cfg *sdkConfig.Config) (string, error) {
+	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+
+	f, err := cfg.Fs.OpenFile(efivar, os.O_RDONLY, 0)
+	if err != nil {
+		return "", fmt.Errorf("couldn't open file: %w", err)
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return "", fmt.Errorf("couldn't stat file: %w", err)
+	}
+
+	size := stat.Size()
+	buf := make([]byte, size)
+	n, err := f.Read(buf)
+	if err != nil {
+		return "", fmt.Errorf("couldn't read efi variable: %w", err)
+	} else if int64(n) != size {
+		return "", errors.New("could not read the entire buffer")
+	}
+
+	// First 4 bytes are attributes so we can drop them
+	return ReadUtf16LEStringNullTerminated(buf[4:]), nil
+}
+
+func ReadUtf16LEStringNullTerminated(b []byte) string {
+	// Decode UTF-16LE
+	u := make([]uint16, len(b)/2)
+	for i := 0; i < len(u); i++ {
+		u[i] = uint16(b[2*i]) | uint16(b[2*i+1])<<8
+	}
+
+	// Find NUL terminator
+	var end int
+	for end = 0; end < len(u); end++ {
+		if u[end] == 0 {
+			break
+		}
+	}
+
+	return string(utf16.Decode(u[:end]))
+}
+
+// EncondeUtf16LEStringNullTerminated encodes a string to UTF-16LE with a NUL terminator
+// Dont ask me, this is what systemd-boot expects
+func EncondeUtf16LEStringNullTerminated(s string) []byte {
+	// Encode runes to UTF-16
+	u := utf16.Encode([]rune(s))
+	// Add explicit NUL terminator
+	u = append(u, 0)
+
+	b := make([]byte, len(u)*2)
+	for i, v := range u {
+		b[2*i] = byte(v)
+		b[2*i+1] = byte(v >> 8)
+	}
+	return b
+}
+
+// clearImmutable removes the immutable flag from a file
+// needed for efivars files that are immutable by default
+func clearImmutable(path string) error {
+	const (
+		fsIOCGetflags = 0x80086601
+		fsIOCSetflags = 0x40086602
+		fsImmutableFl = 0x00000010
+	)
+	fd, err := unix.Open(path, unix.O_RDONLY, 0)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+	defer unix.Close(fd)
+
+	var flags int
+	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), fsIOCGetflags, uintptr(unsafe.Pointer(&flags))); errno != 0 {
+		return errno
+	}
+
+	if flags&fsImmutableFl == 0 {
+		return nil
+	}
+
+	flags &^= fsImmutableFl
+	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), fsIOCSetflags, uintptr(unsafe.Pointer(&flags))); errno != 0 {
+		return errno
+	}
+	return nil
 }
 
 // listBootEntriesGrub lists the boot entries available in the grub config files
@@ -295,25 +415,16 @@ func listBootEntriesSystemd(cfg *sdkConfig.Config) error {
 		cleanup.Push(func() error { return e.UnmountPartition(efiPartition) })
 	}
 
-	// Get default entry from loader.conf
-	loaderConf, err := utils.SystemdBootConfReader(cfg.Fs, filepath.Join(efiPartition.MountPoint, "loader/loader.conf"))
-	if err != nil {
-		return err
-	}
-
 	entries, err := listSystemdEntries(cfg, efiPartition)
 	if err != nil {
 		return err
 	}
 
-	currentlySelected, err := systemdConfToBootName(loaderConf["default"])
-
-	// create a selector
-	selector := selection.New(fmt.Sprintf("Select Boot Entry (current entry: %s)", currentlySelected), entries)
+	selector := selection.New("Select Boot Entry", entries)
 	selector.Filter = nil        // Remove the filter
 	selector.ResultTemplate = `` // Do not print the result as we are asking for confirmation afterwards
 	selected, _ := selector.RunPrompt()
-	c := confirmation.New("Are you sure you want to change the boot entry to "+selected, confirmation.Yes)
+	c := confirmation.New("Are you sure you want to change the oneshot boot entry to "+selected, confirmation.Yes)
 	c.ResultTemplate = ``
 	confirm, err := c.RunPrompt()
 	if err != nil {
