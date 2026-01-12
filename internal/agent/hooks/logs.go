@@ -35,7 +35,7 @@ func (k CopyLogs) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	}()
 
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
-	_ = utils.MkdirAll(c.Fs, constants.PersistentDir, 0755)
+	_ = fsutils.MkdirAll(c.Fs, constants.PersistentDir, 0755)
 	err := c.Syscall.Mount(filepath.Join("/dev/disk/by-label", constants.PersistentLabel), constants.PersistentDir, "ext4", 0, "")
 	if err != nil {
 		c.Logger.Logger.Warn().Err(err).Msg("could not mount persistent")
