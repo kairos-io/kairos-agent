@@ -126,11 +126,11 @@ func grubOptions(c sdkConfig.Config, opts map[string]string, oemEncrypted bool) 
 		c.Logger.Logger.Debug().Msg("Mounting OEM partition")
 		_ = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
 
-		err = utils.SetPersistentVariables(filepath.Join(cnst.OEMPath, cnst.GrubOEMEnv), opts, &c)
+		err = utils.SetPersistentVariables(filepath.Join(cnst.OEMPath, cnst.GrubEnv), opts, &c)
 		if err != nil {
-			c.Logger.Logger.Warn().Err(err).Str("grubfile", filepath.Join(cnst.OEMPath, cnst.GrubOEMEnv)).Msg("Failed to set grub options in OEM (non-critical)")
+			c.Logger.Logger.Warn().Err(err).Str("grubfile", filepath.Join(cnst.OEMPath, cnst.GrubEnv)).Msg("Failed to set grub options in OEM (non-critical)")
 		} else {
-			c.Logger.Logger.Info().Str("grubfile", filepath.Join(cnst.OEMPath, cnst.GrubOEMEnv)).Msg("Successfully set grub options in OEM")
+			c.Logger.Logger.Info().Str("grubfile", filepath.Join(cnst.OEMPath, cnst.GrubEnv)).Msg("Successfully set grub options in OEM")
 		}
 
 		_ = machine.Umount(cnst.OEMPath)
