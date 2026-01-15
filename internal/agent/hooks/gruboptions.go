@@ -86,7 +86,8 @@ func (b GrubFirstBootOptions) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	}
 	c.Logger.Logger.Info().Msg("Running GrubOptions hook")
 	c.Logger.Debugf("Setting grub options: %s", c.GrubOptions)
-	// At first boot, we don't know if OEM is encrypted, so write to both as a fallback
+	// At first boot, we don't know if OEM is encrypted, so assume it's not encrypted
+	// and write to OEM only (if OEM is actually encrypted, grubenv will be written to STATE during install)
 	err := grubOptions(c, c.GrubOptions, false)
 	if err != nil {
 		return err
@@ -95,13 +96,9 @@ func (b GrubFirstBootOptions) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	return nil
 }
 
-// grubOptions sets the grub options in the grubenv file
-// It ALWAYS writes to STATE partition (grubenv) as that's what GRUB reads
-// It optionally writes to OEM partition (grub_oem_env) only if OEM is not encrypted
-func grubOptions(c sdkConfig.Config, opts map[string]string, oemEncrypted bool) error {
-	var firstErr error
-
-	// Always write to STATE partition (grubenv) - this is what GRUB reads during boot
+// writeGrubenvToState writes grub options to STATE partition's grubenv file
+// Used when OEM is encrypted since GRUB can't read the OEM partition before decryption
+func writeGrubenvToState(c sdkConfig.Config, opts map[string]string) error {
 	_ = machine.Umount(cnst.StateDir)
 	c.Logger.Logger.Debug().Msg("Mounting STATE partition")
 	_ = machine.Mount(cnst.StateLabel, cnst.StateDir)
@@ -110,35 +107,48 @@ func grubOptions(c sdkConfig.Config, opts map[string]string, oemEncrypted bool) 
 		_ = machine.Umount(cnst.StateDir)
 	}()
 
-	err := utils.SetPersistentVariables(filepath.Join(cnst.StateDir, cnst.GrubEnv), opts, &c)
+	grubenvPath := filepath.Join(cnst.StateDir, cnst.GrubEnv)
+	err := utils.SetPersistentVariables(grubenvPath, opts, &c)
 	if err != nil {
-		c.Logger.Logger.Error().Err(err).Str("grubfile", filepath.Join(cnst.StateDir, cnst.GrubEnv)).Msg("Failed to set grub options in STATE")
-		firstErr = err
-	} else {
-		c.Logger.Logger.Info().Str("grubfile", filepath.Join(cnst.StateDir, cnst.GrubEnv)).Msg("Successfully set grub options in STATE")
+		c.Logger.Logger.Error().Err(err).Str("grubfile", grubenvPath).Msg("Failed to set grub options in STATE")
+		return err
 	}
+	c.Logger.Logger.Info().Str("grubfile", grubenvPath).Msg("Successfully set grub options in STATE")
+	return nil
+}
 
-	// Only write to OEM if it's not encrypted (GRUB can't read it if encrypted anyway)
-	if !oemEncrypted {
-		_ = machine.Umount(cnst.OEMDir)
+// writeGrubenvToOem writes grub options to OEM partition's grubenv file
+// Used when OEM is not encrypted to avoid having two grubenv files
+func writeGrubenvToOem(c sdkConfig.Config, opts map[string]string) error {
+	_ = machine.Umount(cnst.OEMDir)
+	_ = machine.Umount(cnst.OEMPath)
+
+	c.Logger.Logger.Debug().Msg("Mounting OEM partition")
+	_ = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
+	defer func() {
 		_ = machine.Umount(cnst.OEMPath)
+	}()
 
-		c.Logger.Logger.Debug().Msg("Mounting OEM partition")
-		_ = machine.Mount(cnst.OEMLabel, cnst.OEMPath)
-
-		err = utils.SetPersistentVariables(filepath.Join(cnst.OEMPath, cnst.GrubEnv), opts, &c)
-		if err != nil {
-			c.Logger.Logger.Warn().Err(err).Str("grubfile", filepath.Join(cnst.OEMPath, cnst.GrubEnv)).Msg("Failed to set grub options in OEM (non-critical)")
-		} else {
-			c.Logger.Logger.Info().Str("grubfile", filepath.Join(cnst.OEMPath, cnst.GrubEnv)).Msg("Successfully set grub options in OEM")
-		}
-
-		_ = machine.Umount(cnst.OEMPath)
-	} else {
-		c.Logger.Logger.Info().Msg("Skipping OEM grubenv write as OEM partition is encrypted")
+	grubenvPath := filepath.Join(cnst.OEMPath, cnst.GrubEnv)
+	err := utils.SetPersistentVariables(grubenvPath, opts, &c)
+	if err != nil {
+		c.Logger.Logger.Error().Err(err).Str("grubfile", grubenvPath).Msg("Failed to set grub options in OEM")
+		return err
 	}
+	c.Logger.Logger.Info().Str("grubfile", grubenvPath).Msg("Successfully set grub options in OEM")
+	return nil
+}
 
-	return firstErr
+// grubOptions sets the grub options in the grubenv file
+// When OEM is not encrypted: only writes to OEM partition (grubenv) to avoid having two grubenv files
+// When OEM is encrypted: only writes to STATE partition (grubenv) since GRUB can't read OEM before decryption
+func grubOptions(c sdkConfig.Config, opts map[string]string, oemEncrypted bool) error {
+	if oemEncrypted {
+		c.Logger.Logger.Info().Msg("OEM is encrypted, writing to STATE grubenv")
+		return writeGrubenvToState(c, opts)
+	}
+	c.Logger.Logger.Info().Msg("OEM is not encrypted, writing to OEM grubenv")
+	return writeGrubenvToOem(c, opts)
 }
 
 // extractKcryptCmdline extracts kcrypt.challenger config from the Kairos config and

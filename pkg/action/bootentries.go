@@ -46,6 +46,44 @@ func ListBootEntries(cfg *sdkConfig.Config) error {
 	return listBootEntriesGrub(cfg)
 }
 
+// writeStateGrubenvWhenOemEncrypted writes grubenv variables to STATE partition's grubenv
+// when OEM is encrypted (we skip writing to STATE when OEM is not encrypted to maintain backwards compatibility).
+// This is needed because GRUB can't read the OEM partition before decryption. However, note that setting
+// next boot entry will NOT work reliably when OEM is encrypted because GRUB's grub.cfg
+// (https://raw.githubusercontent.com/kairos-io/packages/refs/heads/main/packages/static/grub-config/files/grub.cfg)
+// loads OEM env first (if available), then STATE env (which overwrites OEM). Even though
+// we write to both OEM and STATE grubenv when OEM is encrypted, GRUB loads STATE env after
+// OEM (which overwrites OEM), so if STATE grubenv has a stale value, it will overwrite the
+// next_entry we set. There are more pending TODOs around encrypted OEM support:
+// https://github.com/kairos-io/kairos-agent/blob/485d9f7ec23b84ccf5af5ba0e58569b10011ad08/internal/agent/hooks/gruboptions.go#L49-L51
+func writeStateGrubenvWhenOemEncrypted(cfg *sdkConfig.Config, vars map[string]string) {
+	cfg.Logger.Debugf("OEM is encrypted, also writing to STATE partition's grubenv")
+	// Mount STATE partition and remount as RW (it's typically mounted as RO)
+	stateDevice, err := utils.GetDeviceByLabel(cfg, cnst.StateLabel, 3)
+	if err != nil {
+		cfg.Logger.Debugf("Could not get STATE device by label: %s", err)
+		return
+	}
+	// Ensure STATE is mounted
+	_ = cfg.Mounter.Mount(stateDevice, cnst.StateDir, "auto", []string{})
+	// Remount as RW
+	remountErr := cfg.Mounter.Mount(stateDevice, cnst.StateDir, "auto", []string{"remount", "rw"})
+	if remountErr != nil {
+		cfg.Logger.Debugf("Could not remount STATE partition as RW: %s", remountErr)
+	}
+
+	stateGrubenvPath := filepath.Join(cnst.StateDir, cnst.GrubEnv)
+	err = utils.SetPersistentVariables(stateGrubenvPath, vars, cfg)
+	if err != nil {
+		cfg.Logger.Warnf("Could not set default boot entry in STATE grubenv (non-critical): %s", err)
+	} else {
+		cfg.Logger.Debugf("Successfully set next_entry in STATE grubenv")
+	}
+
+	// Remount STATE as RO
+	_ = cfg.Mounter.Mount(stateDevice, cnst.StateDir, "auto", []string{"remount", "ro"})
+}
+
 // selectBootEntryGrub sets the default boot entry to the selected entry by modifying /oem/grubenv
 // also validates that the entry exists in our list of entries
 func selectBootEntryGrub(cfg *sdkConfig.Config, entry string) error {
@@ -60,17 +98,37 @@ func selectBootEntryGrub(cfg *sdkConfig.Config, entry string) error {
 		return err
 	}
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
-	// Set the default entry to the selected entry on /oem/grubenv
 	vars := map[string]string{
 		"next_entry": entry,
 	}
-	err = utils.SetPersistentVariables("/oem/grubenv", vars, cfg)
-	if err != nil {
-		cfg.Logger.Errorf("could not set default boot entry: %s\n", err)
-		return err
+
+	// Check if COS_OEM is encrypted
+	oemEncrypted := false
+	if cfg.Install != nil && len(cfg.Install.Encrypt) > 0 {
+		for _, part := range cfg.Install.Encrypt {
+			if part == cnst.OEMLabel {
+				oemEncrypted = true
+				break
+			}
+		}
 	}
+
+	// Write to the appropriate grubenv file based on whether OEM is encrypted
+	// When OEM is not encrypted: only write to OEM partition (grubenv) to avoid having two grubenv files
+	// When OEM is encrypted: only write to STATE partition (grubenv) since GRUB can't read OEM before decryption
+	if oemEncrypted {
+		writeStateGrubenvWhenOemEncrypted(cfg, vars)
+	} else {
+		// Set the default entry to the selected entry on /oem/grubenv
+		err = utils.SetPersistentVariables("/oem/grubenv", vars, cfg)
+		if err != nil {
+			cfg.Logger.Errorf("could not set default boot entry: %s\n", err)
+			return err
+		}
+	}
+
 	cfg.Logger.Infof("Default boot entry set to %s", entry)
-	return err
+	return nil
 }
 
 // selectBootEntrySystemd sets the one shot boot entry to the selected entry by setting it in the LoaderEntryOneShot efivar
