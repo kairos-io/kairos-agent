@@ -1,12 +1,9 @@
 package hook
 
 import (
-	"context"
 	"fmt"
-	"os/exec"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -15,7 +12,6 @@ import (
 	"github.com/kairos-io/kairos-sdk/kcrypt"
 	"github.com/kairos-io/kairos-sdk/machine"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
-	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
@@ -38,11 +34,6 @@ func Encrypt(c sdkConfig.Config) error {
 		return fmt.Errorf("failed to get encryptor: %w", err)
 	}
 	c.Logger.Logger.Info().Str("method", encryptor.Name()).Msg("Using encryption method")
-
-	c.Logger.Logger.Info().Msg("Settling udev")
-	if err := udevAdmSettle(c.Logger, 15*time.Second); err != nil {
-		return fmt.Errorf("ERROR settling udev: %w", err)
-	}
 
 	// Backup OEM if it's in the list (before unmounting!)
 	var oemBackupPath string
@@ -275,8 +266,9 @@ func restoreOEM(c sdkConfig.Config, backupPath string) error {
 
 	c.Logger.Logger.Info().Str("device", devicePath).Msg("Found unlocked OEM mapper device")
 
+	// Wait for udev to finish processing - no trigger needed since unlock already happened
 	c.Logger.Logger.Info().Str("device", devicePath).Msg("Waiting for udev to create device node")
-	if err := udevAdmSettle(c.Logger, 15*time.Second); err != nil {
+	if err := kcrypt.UdevAdmSettle(&c.Logger, 15*time.Second); err != nil {
 		return fmt.Errorf("failed settling udev: %w", err)
 	}
 
@@ -312,49 +304,5 @@ func restoreOEM(c sdkConfig.Config, backupPath string) error {
 	}
 
 	c.Logger.Logger.Info().Msg("OEM partition restored successfully")
-	return nil
-}
-
-// udevAdmSettle triggers udev events, waits for them to complete,
-// and adds basic debugging / diagnostics around the device state.
-func udevAdmSettle(logger sdkLogger.KairosLogger, timeout time.Duration) error {
-	logger.Logger.Info().Msg("Triggering udev events")
-
-	// Trigger subsystems and devices (this replays all udev rules)
-	triggerCmds := [][]string{
-		{"udevadm", "trigger", "--action=add", "--type=subsystems"},
-		{"udevadm", "trigger", "--action=add", "--type=devices"},
-	}
-
-	for _, args := range triggerCmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%s failed: %v (output: %s)", args, err, string(output))
-		}
-	}
-
-	logger.Logger.Info().Msg("Flushing filesystem buffers (sync)")
-	syscall.Sync()
-
-	logger.Logger.Info().Dur("timeout", timeout).Msg("Waiting for udev to settle")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "udevadm", "settle")
-	output, err := cmd.CombinedOutput()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("udevadm settle timed out after %s", timeout)
-	}
-	if err != nil {
-		return fmt.Errorf("udevadm settle failed: %v (output: %s)", err, string(output))
-	}
-
-	logger.Logger.Info().Msg("udevadm settle completed successfully")
-
-	// give the kernel a moment to release device locks.
-	time.Sleep(2 * time.Second)
-
 	return nil
 }

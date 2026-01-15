@@ -13,7 +13,7 @@ require (
 	github.com/jaypipes/ghw v0.21.2
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.16.1
+	github.com/kairos-io/kairos-sdk v0.17.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
