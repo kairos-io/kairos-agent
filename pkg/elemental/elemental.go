@@ -675,12 +675,10 @@ func (e Elemental) UpdateSourcesFormDownloadedISO(workDir string, activeImg *sdk
 	return nil
 }
 
-// SetDefaultGrubEntry Sets the default_menu_entry value in grubenv file.
-// When OEM is not encrypted: writes to OEM partition's grub_oem_env file
-// When OEM is encrypted: writes to STATE partition's grubenv file
-// If there is not a custom value in the kairos-release file, we do nothing
-// as the grub config already has a sane default
-func (e Elemental) SetDefaultGrubEntry(stateMountPoint string, imgMountPoint string, defaultEntry string) error {
+// SetDefaultGrubEntry Sets the default_menu_entry value in Config.GrubOEMEnv file at in
+// State partition mountpoint. If there is not a custom value in the kairos-release file, we do nothing
+// As the grub config already has a sane default
+func (e Elemental) SetDefaultGrubEntry(partMountPoint string, imgMountPoint string, defaultEntry string) error {
 	if defaultEntry == "" {
 		var osRelease map[string]string
 		osRelease, err := utils.LoadEnvFile(e.config.Fs, filepath.Join(imgMountPoint, "etc", "kairos-release"))
@@ -696,34 +694,10 @@ func (e Elemental) SetDefaultGrubEntry(stateMountPoint string, imgMountPoint str
 			return nil
 		}
 	}
-
-	// Check if COS_OEM is encrypted
-	oemEncrypted := false
-	if e.config.Install != nil && len(e.config.Install.Encrypt) > 0 {
-		for _, part := range e.config.Install.Encrypt {
-			if part == cnst.OEMLabel {
-				oemEncrypted = true
-				break
-			}
-		}
-	}
-
 	e.config.Logger.Infof("Setting default grub entry to %s", defaultEntry)
-	vars := map[string]string{"default_menu_entry": defaultEntry}
-
-	if oemEncrypted {
-		// When OEM is encrypted, write to STATE partition's grubenv
-		return utils.SetPersistentVariables(
-			filepath.Join(stateMountPoint, cnst.GrubEnv),
-			vars,
-			e.config,
-		)
-	}
-	// When OEM is not encrypted, write to OEM partition's grub_oem_env
-	// OEM should be mounted at OEMPath by the caller
 	return utils.SetPersistentVariables(
-		filepath.Join(cnst.OEMPath, cnst.GrubOEMEnv),
-		vars,
+		filepath.Join(partMountPoint, cnst.GrubOEMEnv),
+		map[string]string{"default_menu_entry": defaultEntry},
 		e.config,
 	)
 }
