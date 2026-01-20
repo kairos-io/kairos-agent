@@ -126,6 +126,9 @@ func (i *UpgradeAction) Run() (err error) {
 	// Remove any default keys in the loader.conf that might cause issues
 	err = removeDefaultKeysFromLoaderConf(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
 
+	// Upgrade any efi keys in the entries by the new uki key
+	err = upgradeEfiKeysInLoaderEntries(i.cfg.Arch, i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
+
 	if err = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after"); err != nil {
 		i.cfg.Logger.Errorf("running kairos-uki-upgrade.after stage: %s", err.Error())
 	}
@@ -174,8 +177,11 @@ func (i *UpgradeAction) installEntry(entry string) error {
 	}
 	err = replaceRoleInKey(targetConfPath, "efi", UnassignedArtifactRole, entry, i.cfg.Logger)
 	if err != nil {
-		i.cfg.Logger.Errorf("replacing role in in key %s: %s", "efi", err.Error())
-		return err
+		// Maybe a newer system where we use the "uki" key instead of "efi"
+		if err := replaceRoleInKey(targetConfPath, "uki", UnassignedArtifactRole, entry, i.cfg.Logger); err != nil {
+			i.cfg.Logger.Errorf("replacing role in in key %s: %s", "uki", err.Error())
+			return err
+		}
 	}
 
 	return nil

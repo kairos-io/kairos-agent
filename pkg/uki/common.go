@@ -1,6 +1,7 @@
 package uki
 
 import (
+	"debug/pe"
 	"errors"
 	"fmt"
 	"io"
@@ -80,7 +81,10 @@ func copyArtifactSetRole(fs sdkFs.KairosFS, artifactDir, oldRole, newRole string
 		}
 		if strings.HasSuffix(path, ".conf") {
 			if err := replaceRoleInKey(newPath, "efi", oldRole, newRole, logger); err != nil {
-				return err
+				// Maybe this is a newer system where we use the "uki" key instead of "efi"
+				if err := replaceRoleInKey(newPath, "uki", oldRole, newRole, logger); err != nil {
+					return err
+				}
 			}
 			if err := replaceConfTitle(newPath, newRole); err != nil {
 				return err
@@ -237,4 +241,67 @@ func removeDefaultKeysFromLoaderConf(fs sdkFs.KairosFS, efiDir string, logger sd
 	}
 
 	return nil
+}
+
+// upgradeEfiKeysInLoaderEntries checks the systemd-boot version and if its >= 259
+// it upgrades the efi keys in the loader entries to use the new "uki" key instead of "efi"
+// so it changes "efi /EFI/kairos/active.efi" to "uki /EFI/kairos/active.efi"
+func upgradeEfiKeysInLoaderEntries(arch string, fs sdkFs.KairosFS, efiDir string, logger sdkLogger.KairosLogger) error {
+	// Check sdboot version
+	sdboot := "BOOTX64.EFI"
+	if arch == "arm64" {
+		sdboot = "BOOTAA64.EFI"
+	}
+	majorVer, err := getMajorImageVersion(filepath.Join(efiDir, "EFI/BOOT/", sdboot))
+	if err != nil {
+		logger.Warnf("could not get systemd-boot version, skipping efi key upgrade: %s", err)
+		return nil
+	}
+	logger.Infof("systemd-boot major version: %d", majorVer)
+	if majorVer >= 259 {
+		logger.Infof("systemd-boot version >= 259, upgrading efi keys in loader entries")
+		return fsutils.WalkDirFs(fs, filepath.Join(efiDir, "loader/entries"), func(path string, info os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if filepath.Ext(path) != ".conf" {
+				return nil
+			}
+			logger.Infof("upgrading efi keys in loader entry: %s", path)
+			conf, err := utils.SystemdBootConfReader(fs, path)
+			if err != nil {
+				logger.Errorf("could not read loader entry %s: %s", path, err)
+				return err
+			}
+			if val, ok := conf["efi"]; ok {
+				logger.Infof("found efi key in loader entry %s, upgrading to uki", path)
+				delete(conf, "efi")
+				conf["uki"] = val
+				logger.Debug("new loader entry conf: %v", conf)
+				err = utils.SystemdBootConfWriter(fs, path, conf)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	return nil
+}
+
+// getMajorImageVersion reads the PE header of a Windows executable to extract the MajorImageVersion
+// Used mainly to determine the version of systemd-boot in the efi files
+func getMajorImageVersion(path string) (uint16, error) {
+	f, err := pe.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	header := f.OptionalHeader.(pe.OptionalHeader64)
+	return header.MajorImageVersion, nil
 }
