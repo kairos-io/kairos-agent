@@ -99,12 +99,6 @@ func (i *UpgradeAction) Run() (err error) {
 		return fmt.Errorf("installing the new artifacts as active: %w", err)
 	}
 
-	loaderConfPath := filepath.Join(constants.UkiEfiDir, "loader", "loader.conf")
-	if err = replaceRoleInKey(loaderConfPath, "default", UnassignedArtifactRole, "active", i.cfg.Logger); err != nil {
-		i.cfg.Logger.Errorf("replacing role in key: %s", err.Error())
-		return err
-	}
-
 	if err = removeArtifactSetWithRole(i.cfg.Fs, constants.UkiEfiDir, UnassignedArtifactRole); err != nil {
 		i.cfg.Logger.Errorf("removing artifact set: %s", err.Error())
 		return fmt.Errorf("removing artifact set: %w", err)

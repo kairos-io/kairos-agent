@@ -172,12 +172,6 @@ func (i *InstallAction) Run() (err error) {
 		}
 	}
 
-	loaderConfPath := filepath.Join(i.spec.Partitions.EFI.MountPoint, "loader", "loader.conf")
-	if err = replaceRoleInKey(loaderConfPath, "default", UnassignedArtifactRole, "active", i.cfg.Logger); err != nil {
-		i.cfg.Logger.Errorf("replacing role in key %s: %s", "default", err.Error())
-		return err
-	}
-
 	if err = removeArtifactSetWithRole(i.cfg.Fs, i.spec.Partitions.EFI.MountPoint, UnassignedArtifactRole); err != nil {
 		i.cfg.Logger.Errorf("removing artifact set with role %s: %s", UnassignedArtifactRole, err.Error())
 		return fmt.Errorf("removing artifact set with role %s: %w", UnassignedArtifactRole, err)
