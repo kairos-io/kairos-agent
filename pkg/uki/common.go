@@ -257,7 +257,7 @@ func upgradeEfiKeysInLoaderEntries(arch string, fs sdkFs.KairosFS, efiDir string
 		logger.Warnf("could not get systemd-boot version, skipping efi key upgrade: %s", err)
 		return nil
 	}
-	logger.Infof("systemd-boot major version: %d", majorVer)
+	logger.Infof("Identified systemd-boot major version: %d", majorVer)
 	if majorVer >= 259 {
 		logger.Infof("systemd-boot version >= 259, upgrading efi keys in loader entries")
 		return fsutils.WalkDirFs(fs, filepath.Join(efiDir, "loader/entries"), func(path string, info os.DirEntry, err error) error {
@@ -270,17 +270,17 @@ func upgradeEfiKeysInLoaderEntries(arch string, fs sdkFs.KairosFS, efiDir string
 			if filepath.Ext(path) != ".conf" {
 				return nil
 			}
-			logger.Infof("upgrading efi keys in loader entry: %s", path)
+			logger.Debugf("upgrading efi keys in loader entry: %s", path)
 			conf, err := utils.SystemdBootConfReader(fs, path)
 			if err != nil {
 				logger.Errorf("could not read loader entry %s: %s", path, err)
 				return err
 			}
 			if val, ok := conf["efi"]; ok {
-				logger.Infof("found efi key in loader entry %s, upgrading to uki", path)
+				logger.Debugf("found efi key in loader entry %s, upgrading to uki", path)
 				delete(conf, "efi")
 				conf["uki"] = val
-				logger.Debug("new loader entry conf: %v", conf)
+				logger.Debugf("new loader entry conf: %s", litter.Sdump(conf))
 				err = utils.SystemdBootConfWriter(fs, path, conf)
 				if err != nil {
 					return err
@@ -302,6 +302,6 @@ func getMajorImageVersion(path string) (uint16, error) {
 	}
 	defer f.Close()
 
-	header := f.OptionalHeader.(pe.OptionalHeader64)
+	header := f.OptionalHeader.(*pe.OptionalHeader64)
 	return header.MajorImageVersion, nil
 }

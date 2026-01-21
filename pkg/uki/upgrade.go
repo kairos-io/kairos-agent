@@ -125,10 +125,15 @@ func (i *UpgradeAction) Run() (err error) {
 
 	// Remove any default keys in the loader.conf that might cause issues
 	err = removeDefaultKeysFromLoaderConf(i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
+	if err != nil {
+		i.cfg.Logger.Warnf("removing default keys from loader.conf: %s", err.Error())
+	}
 
 	// Upgrade any efi keys in the entries by the new uki key
 	err = upgradeEfiKeysInLoaderEntries(i.cfg.Arch, i.cfg.Fs, i.spec.EfiPartition.MountPoint, i.cfg.Logger)
-
+	if err != nil {
+		i.cfg.Logger.Warnf("upgrading efi keys in loader entries: %s", err.Error())
+	}
 	if err = elementalUtils.RunStage(i.cfg, "kairos-uki-upgrade.after"); err != nil {
 		i.cfg.Logger.Errorf("running kairos-uki-upgrade.after stage: %s", err.Error())
 	}
