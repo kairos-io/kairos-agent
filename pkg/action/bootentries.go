@@ -159,19 +159,22 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 		return err
 	}
 
-	// Mount it RW
-	err = cfg.Syscall.Mount("", efiPartition.MountPoint, "", syscall.MS_REMOUNT, "")
-	if err != nil {
-		cfg.Logger.Errorf("could not remount EFI partition: %s", err)
-		return err
-	}
-	// Remount it RO when finished
-	defer func(source string, target string, fstype string, flags uintptr, data string) {
-		err = cfg.Syscall.Mount(source, target, fstype, flags, data)
+	// Check if efi is RW or RO
+	if utils.IsMountReadOnly(efiPartition.MountPoint) {
+		// Mount it RW
+		err = cfg.Syscall.Mount("", efiPartition.MountPoint, "", syscall.MS_REMOUNT, "")
 		if err != nil {
-			cfg.Logger.Errorf("could not remount EFI partition as RO: %s", err)
+			cfg.Logger.Errorf("could not remount EFI partition: %s", err)
+			return err
 		}
-	}("", efiPartition.MountPoint, "", syscall.MS_REMOUNT|syscall.MS_RDONLY, "")
+		// Remount it RO when finished
+		defer func(source string, target string, fstype string, flags uintptr, data string) {
+			err = cfg.Syscall.Mount(source, target, fstype, flags, data)
+			if err != nil {
+				cfg.Logger.Errorf("could not remount EFI partition as RO: %s", err)
+			}
+		}("", efiPartition.MountPoint, "", syscall.MS_REMOUNT|syscall.MS_RDONLY, "")
+	}
 
 	originalEntry := entry
 	if !reflect.DeepEqual(originalEntries, entries) {

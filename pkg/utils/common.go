@@ -31,6 +31,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/distribution/reference"
@@ -46,6 +47,7 @@ import (
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 	"github.com/twpayne/go-vfs/v5"
+	"golang.org/x/sys/unix"
 )
 
 func CommandExists(command string) bool {
@@ -705,4 +707,14 @@ func ReadAssessmentFromEntry(fs sdkFs.KairosFS, entry string, logger logger.Kair
 		return "", nil
 	}
 	return re.FindStringSubmatch(currentfile[0])[1], nil
+}
+
+// IsMountReadOnly checks if the given mountpoint is mounted as read-only
+func IsMountReadOnly(mountpoint string) bool {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(mountpoint, &stat)
+	if err != nil {
+		return false
+	}
+	return stat.Flags&unix.ST_RDONLY != 0
 }

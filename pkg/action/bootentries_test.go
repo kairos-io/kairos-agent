@@ -3,7 +3,6 @@ package action
 import (
 	"bytes"
 	"os"
-	"syscall"
 
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
@@ -19,6 +18,8 @@ import (
 	"github.com/twpayne/go-vfs/v5"
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
+
+// TODO: Mock the syscall.StatFS to simulate and test RO/RW partitions and how it mounts it and unmounts it
 
 var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 	var config *sdkConfig.Config
@@ -154,20 +155,6 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				reader, err := utils.SystemdBootConfReader(fs, "/efi/loader/loader.conf")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(reader["default"]).To(Equal("active.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 			})
 
 			It("selects the boot entry in a default installation", func() {
@@ -186,98 +173,27 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
-				//Expect(reader["default"]).To(Equal("recovery.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 			})
 
 			It("selects the boot entry in a extend-cmdline installation with boot branding", func() {
@@ -296,97 +212,27 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_awesomeos.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_install-mode_awesomeos.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset_install-mode_awesomeos.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_awesomeos.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_awesomeos.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 			})
 
 			It("selects the boot entry in a extra-cmdline installation", func() {
@@ -413,191 +259,52 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "fallback foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback foobar"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_foobar.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "recovery foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery foobar"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_foobar.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "statereset foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset foobar"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset_foobar.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				err = SelectBootEntry(config, "cos foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos foobar"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_foobar.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 
 				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
+
 				err = SelectBootEntry(config, "active foobar")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active foobar"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_foobar.conf"))
-				// Should have called a remount to make it RW
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT,
-					"")).To(BeTrue())
-				// Should have called a remount to make it RO
-				Expect(syscallMock.WasMountCalledWith(
-					"",
-					"/efi",
-					"",
-					syscall.MS_REMOUNT|syscall.MS_RDONLY,
-					"")).To(BeTrue())
 			})
 		})
 	})
