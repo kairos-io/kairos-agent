@@ -79,10 +79,10 @@ const (
 	InstallDefaultStep       = "Preparing installation"
 	InstallPartitionStep     = "Partitioning disk"
 	InstallBeforeInstallStep = "Running before-install"
-	InstallActiveStep        = "Installing Active"
+	InstallActiveStep        = "Installing active system"
 	InstallBootloaderStep    = "Configuring bootloader"
-	InstallRecoveryStep      = "Creating Recovery"
-	InstallPassiveStep       = "Creating Passive"
+	InstallRecoveryStep      = "Creating recovery image"
+	InstallPassiveStep       = "Creating passive image"
 	InstallAfterInstallStep  = "Running after-install"
 	InstallCompleteStep      = "Installation complete!"
 )
