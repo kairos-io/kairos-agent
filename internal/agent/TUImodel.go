@@ -2,6 +2,8 @@ package agent
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -221,11 +223,55 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return mainModel, nil
 }
 
+// defaultTermWidth/Height are fallbacks when the terminal doesn't report size (e.g. Alpine, serial console).
+const defaultTermWidth, defaultTermHeight = 80, 24
+
+// effectiveSize returns width and height, preferring the model, then env vars (KAIROS_TUI_WIDTH/HEIGHT or COLUMNS/LINES), then defaults.
+func effectiveSize(modelW, modelH int) (width, height int) {
+	width, height = modelW, modelH
+	if width > 0 && height > 0 {
+		return width, height
+	}
+	// Explicit overrides for the TUI (e.g. Alpine where terminal doesn't report size)
+	if w := os.Getenv("KAIROS_TUI_WIDTH"); w != "" {
+		if n, err := strconv.Atoi(w); err == nil && n > 0 {
+			width = n
+		}
+	}
+	if h := os.Getenv("KAIROS_TUI_HEIGHT"); h != "" {
+		if n, err := strconv.Atoi(h); err == nil && n > 0 {
+			height = n
+		}
+	}
+	// Optional env vars; bash sets them for interactive TTY, other shells often do not (COLUMNS, LINES)
+	if width <= 0 {
+		if c := os.Getenv("COLUMNS"); c != "" {
+			if n, err := strconv.Atoi(c); err == nil && n > 0 {
+				width = n
+			}
+		}
+		if width <= 0 {
+			width = defaultTermWidth
+		}
+	}
+	if height <= 0 {
+		if l := os.Getenv("LINES"); l != "" {
+			if n, err := strconv.Atoi(l); err == nil && n > 0 {
+				height = n
+			}
+		}
+		if height <= 0 {
+			height = defaultTermHeight
+		}
+	}
+	return width, height
+}
+
 func (m Model) View() string {
 	mainModel.log.Tracef("Rendering view for current page: %s", mainModel.currentPageID)
-	if mainModel.width == 0 || mainModel.height == 0 {
-		mainModel.log.Debug("Window size is not set, returning loading message")
-		return "Loading..."
+	width, height := effectiveSize(mainModel.width, mainModel.height)
+	if mainModel.width <= 0 || mainModel.height <= 0 {
+		mainModel.log.Tracef("Window size not set (terminal may not report size), using effective %dx%d", width, height)
 	}
 
 	var borderStyle lipgloss.Style
@@ -248,16 +294,16 @@ func (m Model) View() string {
 		borderStyle = lipgloss.NewStyle().
 			Background(kairosBg).
 			Padding(2).
-			Width(mainModel.width).
-			Height(mainModel.height)
+			Width(width).
+			Height(height)
 	} else {
 		borderStyle = lipgloss.NewStyle().
 			Border(borderCustomStyle).
 			BorderForeground(kairosBorder, kairosBorder, kairosBorder, kairosBorder).
 			Background(kairosBg).
 			Padding(1).
-			Width(mainModel.width - 4).
-			Height(mainModel.height - 4)
+			Width(width - 4).
+			Height(height - 4)
 	}
 
 	titleStyle := lipgloss.NewStyle().
@@ -265,7 +311,7 @@ func (m Model) View() string {
 		Foreground(kairosHighlight).
 		Background(kairosBg).
 		Padding(0, 0).
-		Width(mainModel.width - 6). // Set width to match content area
+		Width(width - 6). // Set width to match content area
 		Align(lipgloss.Center)
 
 	// Get current page content by ID
@@ -307,7 +353,7 @@ func (m Model) View() string {
 
 	helpText := helpStyle.Render(fullHelp)
 
-	availableHeight := mainModel.height - 8
+	availableHeight := height - 8
 	contentHeight := availableHeight - 2
 	contentLines := strings.Split(content, "\n")
 	if len(contentLines) > contentHeight {
@@ -328,7 +374,7 @@ func (m Model) View() string {
 		popupMsg := "Are you sure you want to abort the installation? (y/n)"
 		popup := popupStyle.Render(popupMsg)
 		// Overlay the popup in the center
-		return fmt.Sprintf("%s\n\n%s", borderStyle.Render(pageContent), lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, popup))
+		return fmt.Sprintf("%s\n\n%s", borderStyle.Render(pageContent), lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup))
 	}
 
 	return borderStyle.Render(pageContent)
