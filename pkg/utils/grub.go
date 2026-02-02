@@ -274,14 +274,11 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		if strings.Contains(strings.ToLower(flavor), "alpine") && strings.Contains(strings.ToLower(model), "rpi") {
 			g.config.Logger.Debug("Running on Alpine+RPI, not copying shim or grub.")
 		} else {
-			// For Hadron, we don't have a signed shim, so skip copying it
-			if !strings.Contains(strings.ToLower(flavor), "hadron") {
-				err = g.copyShim()
-				if err != nil {
-					return err
-				}
+			err = g.copyShim()
+			if err != nil {
+				return err
 			}
-			err = g.copyGrub(flavor)
+			err = g.copyGrub()
 			if err != nil {
 				return err
 			}
@@ -440,9 +437,7 @@ func (g Grub) copyShim() error {
 	return nil
 }
 
-func (g Grub) copyGrub(flavor string) error {
-	isHadron := strings.Contains(strings.ToLower(flavor), "hadron")
-
+func (g Grub) copyGrub() error {
 	// Get standard grub efi file paths (includes Hadron paths)
 	grubFiles := utils.GetEfiGrubFiles(g.config.Arch)
 
@@ -454,18 +449,11 @@ func (g Grub) copyGrub(flavor string) error {
 			continue
 		}
 
-		var fileWriteName string
-		if isHadron {
-			// For Hadron, we don't have a signed shim, so we copy the grub efi as bootx64.efi
-			// which is the EFI standard default
-			bootEfiName := cnst.GetFallBackEfi(g.config.Arch)
-			fileWriteName = filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", bootEfiName))
-		} else {
-			_, name := filepath.Split(f)
-			// remove the .signed suffix if present
-			name = strings.TrimSuffix(name, ".signed")
-			fileWriteName = filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
-		}
+		_, name := filepath.Split(f)
+		// remove the .signed suffix if present
+		name = strings.TrimSuffix(name, ".signed")
+		fileWriteName := filepath.Join(cnst.EfiDir, fmt.Sprintf("EFI/boot/%s", name))
+
 		g.config.Logger.Debugf("Copying %s to %s", f, fileWriteName)
 
 		// Try to find the paths give until we succeed
