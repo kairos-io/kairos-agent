@@ -44,6 +44,7 @@ require (
 	github.com/google/go-github/v77 v77.0.0
 	github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185
 	github.com/labstack/echo/v4 v4.15.0
+	github.com/labstack/echo/v5 v5.0.3
 	github.com/twpayne/go-vfs/v5 v5.0.5
 	github.com/urfave/cli/v2 v2.27.7
 )
