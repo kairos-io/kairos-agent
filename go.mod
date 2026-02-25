@@ -8,7 +8,7 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/diskfs/go-diskfs v1.7.0
 	github.com/erikgeiser/promptkit v0.9.0
-	github.com/google/go-containerregistry v0.21.0
+	github.com/google/go-containerregistry v0.21.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jaypipes/ghw v0.23.0
 	github.com/joho/godotenv v1.5.1
