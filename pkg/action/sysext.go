@@ -281,9 +281,9 @@ func DisableExtension(cfg *sdkConfig.Config, ext string, bootState, extType stri
 // It will download the extension and extract it to the target dir
 // It will check if the extension is already installed before doing anything
 func InstallExtension(cfg *sdkConfig.Config, uri, extType string) error {
-	linkTarget := sysextRunDir
+	linkTarget := sysextDir
 	if extType == confext {
-		linkTarget = confExtRunDir
+		linkTarget = confExtDir
 	}
 	// Parse the URI
 	download, err := parseURI(cfg, uri)
