@@ -16,9 +16,12 @@ import (
 // Implementation details for not trusted boot
 // sysext are stored under
 // /var/lib/kairos/extensions/
+// confext are stored under
+// /var/lib/kairos/confext/
 // we link them to /var/lib/kairos/extensions/{active,passive} depending on where we want it to be enabled
+// we link them to /var/lib/kairos/confext/{active,passive} depending on where we want it to be enabled
 // Immucore on boot after mounting the persistent dir, will check those dirs\
-// it will then create the proper links to them under /run/extensions
+// it will then create the proper links to them under /run/extensions or /run/confext
 // This means they are enabled on boot and they are ephemeral, nothing is left behind in the actual sysext dirs
 // This prevents us from having to clean up in different dirs, we can just do cleaning in our dirs (remove links)
 // and on reboot they will not be enabled on boot
@@ -30,47 +33,76 @@ import (
 // TODO: On remove we should check if the extension is running and refresh systemd-sysext? YES
 
 const (
-	sysextDir         = "/var/lib/kairos/extensions/"
-	sysextDirActive   = "/var/lib/kairos/extensions/active"
-	sysextDirPassive  = "/var/lib/kairos/extensions/passive"
-	sysextDirRecovery = "/var/lib/kairos/extensions/recovery"
-	sysextDirCommon   = "/var/lib/kairos/extensions/common"
+	sysext             = "sysext"
+	confext            = "confext"
+	sysextDir          = "/var/lib/kairos/extensions/"
+	confExtDir         = "/var/lib/kairos/confext/"
+	sysextDirActive    = sysextDir + "active"
+	sysextDirPassive   = sysextDir + "passive"
+	sysextDirRecovery  = sysextDir + "recovery"
+	sysextDirCommon    = sysextDir + "common"
+	confExtDirActive   = confExtDir + "active"
+	confExtDirPassive  = confExtDir + "passive"
+	confExtDirRecovery = confExtDir + "recovery"
+	confExtDirCommon   = confExtDir + "common"
+	sysextRunDir       = "/run/extensions/"
+	confExtRunDir      = "/run/confexts/"
+	sysextCommand      = "systemd-sysext"
+	confextCommand     = "systemd-confext"
 )
 
-// SysExtension represents a system extension
-type SysExtension struct {
+// Extension represents a system/config extension
+type Extension struct {
 	Name     string
 	Location string
 }
 
-func (s *SysExtension) String() string {
+func (s *Extension) String() string {
 	return s.Name
 }
 
-func dirFromBootState(bootState string) string {
-	switch bootState {
-	case "active":
-		return sysextDirActive
-	case "passive":
-		return sysextDirPassive
-	case "recovery":
-		return sysextDirRecovery
-	case "common":
-		return sysextDirCommon
+func dirFromBootState(bootState, extType string) string {
+	switch extType {
+	case sysext:
+		switch bootState {
+		case "active":
+			return sysextDirActive
+		case "passive":
+			return sysextDirPassive
+		case "recovery":
+			return sysextDirRecovery
+		case "common":
+			return sysextDirCommon
+		default:
+			return sysextDir
+		}
+	case confext:
+		switch bootState {
+		case "active":
+			return confExtDirActive
+		case "passive":
+			return confExtDirPassive
+		case "recovery":
+			return confExtDirRecovery
+		case "common":
+			return confExtDirCommon
+		default:
+			return confExtDir
+		}
 	default:
-		return sysextDir
+		return ""
 	}
 }
 
-// ListSystemExtensions lists the system extensions in the given directory
+// ListExtensions lists the system extensions in the given directory
 // If none is passed then it shows the generic ones
-func ListSystemExtensions(cfg *sdkConfig.Config, bootState string) ([]SysExtension, error) {
-	return getDirExtensions(cfg, dirFromBootState(bootState))
+func ListExtensions(cfg *sdkConfig.Config, bootState, extType string) ([]Extension, error) {
+	return getDirExtensions(cfg, dirFromBootState(bootState, extType))
 }
 
 // getDirExtensions lists the system extensions in the given directory
-func getDirExtensions(cfg *sdkConfig.Config, dir string) ([]SysExtension, error) {
-	var out []SysExtension
+func getDirExtensions(cfg *sdkConfig.Config, dir string) ([]Extension, error) {
+	var out []Extension
 	// get all the extensions in the sysextDir
 	// Try to create the dir if it does not exist
 	if _, err := cfg.Fs.Stat(dir); os.IsNotExist(err) {
@@ -85,24 +117,24 @@ func getDirExtensions(cfg *sdkConfig.Config, dir string) ([]SysExtension, error)
 	}
 	for _, entry := range entries {
 		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".raw" {
-			out = append(out, SysExtension{Name: entry.Name(), Location: filepath.Join(dir, entry.Name())})
+			out = append(out, Extension{Name: entry.Name(), Location: filepath.Join(dir, entry.Name())})
 		}
 	}
 	return out, nil
 }
 
-// GetSystemExtension returns the system extension for a given name
-func GetSystemExtension(cfg *sdkConfig.Config, name, bootState string) (SysExtension, error) {
+// GetExtension returns the system extension for a given name
+func GetExtension(cfg *sdkConfig.Config, name, bootState, extType string) (Extension, error) {
 	// Get a list of all installed system extensions
-	installed, err := ListSystemExtensions(cfg, bootState)
+	installed, err := ListExtensions(cfg, bootState, extType)
 	if err != nil {
-		return SysExtension{}, err
+		return Extension{}, err
 	}
 	// Check if the extension is installed
 	// regex against the name
 	re, err := regexp.Compile(name)
 	if err != nil {
-		return SysExtension{}, err
+		return Extension{}, err
 	}
 	for _, ext := range installed {
 		if re.MatchString(ext.Name) {
@@ -110,23 +142,23 @@ func GetSystemExtension(cfg *sdkConfig.Config, name, bootState string) (SysExten
 		}
 	}
 	// If not, return an error
-	return SysExtension{}, fmt.Errorf("system extension %s not found", name)
+	return Extension{}, fmt.Errorf("extension %s not found", name)
 }
 
-// EnableSystemExtension enables a system extension that is already in the system for a given bootstate
+// EnableExtension enables a extension that is already in the system for a given bootstate
 // It creates a symlink to the extension in the target dir according to the bootstate given
 // It will create the target dir if it does not exist
 // It will check if the extension is already enabled but not fail if it is
 // It will check if the extension is installed
-// If now is true, it will enable the extension immediately by linking it to /run/extensions and refreshing systemd-sysext
-func EnableSystemExtension(cfg *sdkConfig.Config, ext, bootState string, now bool) error {
+// If now is true, it will enable the extension immediately by linking it to the proper dir and refreshing the service
+func EnableExtension(cfg *sdkConfig.Config, ext, bootState, extType string, now bool) error {
 	// first check if the extension is installed
-	extension, err := GetSystemExtension(cfg, ext, "")
+	extension, err := GetExtension(cfg, ext, "", extType)
 	if err != nil {
 		return err
 	}
 
-	targetDir := dirFromBootState(bootState)
+	targetDir := dirFromBootState(bootState, extType)
 
 	// Check if the target dir exists and create it if it doesn't
 	if _, err := cfg.Fs.Stat(targetDir); os.IsNotExist(err) {
@@ -136,11 +168,11 @@ func EnableSystemExtension(cfg *sdkConfig.Config, ext, bootState string, now boo
 	}
 
 	// Check if the extension is already enabled
-	enabled, err := GetSystemExtension(cfg, ext, bootState)
+	enabled, err := GetExtension(cfg, ext, bootState, extType)
 	// This doesnt fail if we have it already enabled
 	if err == nil {
 		if enabled.Name == extension.Name {
-			cfg.Logger.Infof("System extension %s is already enabled in %s", extension.Name, bootState)
+			cfg.Logger.Infof("Extension %s is already enabled in %s", extension.Name, bootState)
 			return nil
 		}
 	}
@@ -149,7 +181,7 @@ func EnableSystemExtension(cfg *sdkConfig.Config, ext, bootState string, now boo
 	if err := cfg.Fs.Symlink(extension.Location, filepath.Join(targetDir, extension.Name)); err != nil {
 		return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
 	}
-	cfg.Logger.Infof("System extension %s enabled in %s", extension.Name, bootState)
+	cfg.Logger.Infof("Extension %s enabled in %s", extension.Name, bootState)
 
 	if now {
 		// Check if the boot state is the same as the one we are enabling
@@ -158,31 +190,37 @@ func EnableSystemExtension(cfg *sdkConfig.Config, ext, bootState string, now boo
 		// TODO: Check in UKI?
 		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_state", bootState)).Msg("Checking boot state")
 		if stateMatches == nil || bootState == "common" {
-			err = cfg.Fs.Symlink(filepath.Join(targetDir, extension.Name), filepath.Join("/run/extensions", extension.Name))
+			linkTarget := sysextRunDir
+			reloadTarget := sysextCommand
+			if extType == confext {
+				linkTarget = confExtRunDir
+				reloadTarget = confextCommand
+			}
+			err = cfg.Fs.Symlink(filepath.Join(targetDir, extension.Name), filepath.Join(linkTarget, extension.Name))
 			if err != nil {
 				return fmt.Errorf("failed to create symlink for %s: %w", extension.Name, err)
 			}
-			cfg.Logger.Infof("System extension %s enabled in /run/extensions", extension.Name)
-			// It makes the sysext check the extension for a valid signature
-			// Refresh systemd-sysext by restarting the service. As the config is set via the service overrides to nice things
-			output, err := cfg.Runner.Run("systemctl", "restart", "systemd-sysext")
+			cfg.Logger.Infof("Extension %s enabled in %s", extension.Name, linkTarget)
+			// It makes the sysext/confext check the extension for a valid signature
+			// Refresh systemd-sysext/confext by restarting the service. As the config is set via the service overrides to nice things
+			output, err := cfg.Runner.Run("systemctl", "restart", reloadTarget)
 			if err != nil {
-				cfg.Logger.Logger.Err(err).Str("output", string(output)).Msg("Failed to refresh systemd-sysext")
+				cfg.Logger.Logger.Err(err).Str("output", string(output)).Msgf("Failed to refresh %s", reloadTarget)
 				return err
 			}
-			cfg.Logger.Infof("System extension %s merged by systemd-sysext", extension.Name)
+			cfg.Logger.Infof("Extension %s merged by %s", extension.Name, reloadTarget)
 		} else {
-			cfg.Logger.Infof("System extension %s enabled in %s but not merged by systemd-sysext as we are currently not booted in %s", extension.Name, bootState, bootState)
+			cfg.Logger.Infof("Extension %s enabled in %s but not merged as we are currently not booted in %s", extension.Name, bootState, bootState)
 		}
 
 	}
 	return nil
 }
 
-// DisableSystemExtension disables a system extension that is already in the system for a given bootstate
+// DisableExtension disables a extension that is already in the system for a given bootstate
 // It removes the symlink from the target dir according to the bootstate given
-func DisableSystemExtension(cfg *sdkConfig.Config, ext string, bootState string, now bool) error {
-	targetDir := dirFromBootState(bootState)
+func DisableExtension(cfg *sdkConfig.Config, ext string, bootState, extType string, now bool) error {
+	targetDir := dirFromBootState(bootState, extType)
 
 	// Check if the target dir exists
 	if _, err := cfg.Fs.Stat(targetDir); os.IsNotExist(err) {
@@ -190,9 +228,9 @@ func DisableSystemExtension(cfg *sdkConfig.Config, ext string, bootState string,
 	}
 
 	// Check if the extension is enabled, do not fail if it is not
-	extension, err := GetSystemExtension(cfg, ext, bootState)
+	extension, err := GetExtension(cfg, ext, bootState, extType)
 	if err != nil {
-		cfg.Logger.Infof("system extension %s is not enabled in %s", ext, bootState)
+		cfg.Logger.Infof("Extension %s is not enabled in %s", ext, bootState)
 		return nil
 	}
 
@@ -206,79 +244,89 @@ func DisableSystemExtension(cfg *sdkConfig.Config, ext string, bootState string,
 		_, stateMatches := cfg.Fs.Stat(fmt.Sprintf("/run/cos/%s_mode", bootState))
 		cfg.Logger.Logger.Debug().Str("boot_state", bootState).Str("filecheck", fmt.Sprintf("/run/cos/%s_mode", bootState)).Msg("Checking boot state")
 		if stateMatches == nil || bootState == "common" {
+			linkTarget := sysextRunDir
+			reloadTarget := sysextCommand
+			if extType == confext {
+				linkTarget = confExtRunDir
+				reloadTarget = confextCommand
+			}
 			// Remove the symlink from /run/extensions if is in there
-			cfg.Logger.Logger.Debug().Str("stat", filepath.Join("/run/extensions", extension.Name)).Msg("Checking if symlink exists")
-			_, stat := cfg.Fs.Readlink(filepath.Join("/run/extensions", extension.Name))
+			cfg.Logger.Logger.Debug().Str("stat", filepath.Join(linkTarget, extension.Name)).Msg("Checking if symlink exists")
+			_, stat := cfg.Fs.Readlink(filepath.Join(linkTarget, extension.Name))
 			if stat == nil {
-				err = cfg.Fs.Remove(filepath.Join("/run/extensions", extension.Name))
+				err = cfg.Fs.Remove(filepath.Join(linkTarget, extension.Name))
 				if err != nil {
 					return fmt.Errorf("failed to remove symlink for %s: %w", extension.Name, err)
 				}
-				cfg.Logger.Infof("System extension %s disabled from /run/extensions", extension.Name)
+				cfg.Logger.Infof("Extension %s disabled from %s", extension.Name, linkTarget)
 				// Now that its removed we refresh systemd-sysext
-				output, err := cfg.Runner.Run("systemctl", "restart", "systemd-sysext")
+				output, err := cfg.Runner.Run("systemctl", "restart", reloadTarget)
 				if err != nil {
-					cfg.Logger.Logger.Err(err).Str("output", string(output)).Msg("Failed to refresh systemd-sysext")
+					cfg.Logger.Logger.Err(err).Str("output", string(output)).Msgf("Failed to refresh %s", reloadTarget)
 					return err
 				}
-				cfg.Logger.Infof("System extension %s refreshed by systemd-sysext", extension.Name)
+				cfg.Logger.Infof("Extension %s refreshed by %s", extension.Name, reloadTarget)
 			} else {
-				cfg.Logger.Logger.Info().Msg("Extension not in /run/extensions, not refreshing")
+				cfg.Logger.Logger.Info().Msgf("Extension not in %s, not refreshing", linkTarget)
 			}
 		} else {
-			cfg.Logger.Infof("System extension %s disabled in %s but not refreshed by systemd-sysext as we are currently not booted in %s", extension.Name, bootState, bootState)
+			cfg.Logger.Infof("Extension %s disabled in %s but not refreshed as we are currently not booted in %s", extension.Name, bootState, bootState)
 		}
 	}
-	cfg.Logger.Infof("System extension %s disabled in %s", ext, bootState)
+	cfg.Logger.Infof("Extension %s disabled in %s", ext, bootState)
 	return nil
 }
 
-// InstallSystemExtension installs a system extension from a given URI
+// InstallExtension installs a extension from a given URI
 // It will download the extension and extract it to the target dir
 // It will check if the extension is already installed before doing anything
-func InstallSystemExtension(cfg *sdkConfig.Config, uri string) error {
+func InstallExtension(cfg *sdkConfig.Config, uri, extType string) error {
+	linkTarget := sysextDir
+	if extType == confext {
+		linkTarget = confExtDir
+	}
 	// Parse the URI
 	download, err := parseURI(cfg, uri)
 	if err != nil {
 		return fmt.Errorf("failed to parse URI %s: %w", uri, err)
 	}
 	// Check if directory exists or create it
-	if _, err := cfg.Fs.Stat(sysextDir); os.IsNotExist(err) {
-		if err := vfs.MkdirAll(cfg.Fs, sysextDir, 0755); err != nil {
-			return fmt.Errorf("failed to create target dir %s: %w", sysextDir, err)
+	if _, err := cfg.Fs.Stat(linkTarget); os.IsNotExist(err) {
+		if err := vfs.MkdirAll(cfg.Fs, linkTarget, 0755); err != nil {
+			return fmt.Errorf("failed to create target dir %s: %w", linkTarget, err)
 		}
 	}
 	// Download the extension
-	if err := download.Download(sysextDir); err != nil {
+	if err := download.Download(linkTarget); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// RemoveSystemExtension removes a system extension from the system
+// RemoveExtension removes a extension from the system
 // It will remove any symlinks to the extension
 // Then it will remove the extension
 // It will check if the extension is installed before doing anything
-func RemoveSystemExtension(cfg *sdkConfig.Config, extension string, now bool) error {
+func RemoveExtension(cfg *sdkConfig.Config, extension, extType string, now bool) error {
 	// Check if the extension is installed
-	installed, err := GetSystemExtension(cfg, extension, "")
+	installed, err := GetExtension(cfg, extension, "", extType)
 	if err != nil {
 		return err
 	}
 	if installed.Name == "" && installed.Location == "" {
-		cfg.Logger.Infof("System extension %s is not installed", extension)
+		cfg.Logger.Infof("Extension %s is not installed", extension)
 		return nil
 	}
 	// Check if the extension is enabled in active or passive
 	for _, state := range []string{"active", "passive", "recovery", "common"} {
-		enabled, err := GetSystemExtension(cfg, extension, state)
+		enabled, err := GetExtension(cfg, extension, state, extType)
 		if err == nil {
 			// Remove the symlink
 			if err := cfg.Fs.Remove(enabled.Location); err != nil {
 				return fmt.Errorf("failed to remove symlink for %s: %w", enabled.Name, err)
 			}
-			cfg.Logger.Infof("System extension %s disabled from %s", enabled.Name, state)
+			cfg.Logger.Infof("Extension %s disabled from %s", enabled.Name, state)
 		}
 	}
 	// Remove the extension
@@ -287,28 +335,34 @@ func RemoveSystemExtension(cfg *sdkConfig.Config, extension string, now bool) er
 	}
 
 	if now {
+		linkTarget := sysextRunDir
+		reloadTarget := sysextCommand
+		if extType == confext {
+			linkTarget = confExtRunDir
+			reloadTarget = confextCommand
+		}
 		// Here as we are removing the extension we need to check if its in /run/extensions
 		// We dont care about the bootState because we are removing it from all
-		_, stat := cfg.Fs.Readlink(filepath.Join("/run/extensions", installed.Name))
+		_, stat := cfg.Fs.Readlink(filepath.Join(linkTarget, installed.Name))
 		if stat == nil {
-			err = cfg.Fs.Remove(filepath.Join("/run/extensions", installed.Name))
+			err = cfg.Fs.Remove(filepath.Join(linkTarget, installed.Name))
 			if err != nil {
 				return fmt.Errorf("failed to remove symlink for %s: %w", installed.Name, err)
 			}
-			cfg.Logger.Infof("System extension %s removed from /run/extensions", installed.Name)
+			cfg.Logger.Infof("Extension %s removed from %s", installed.Name, linkTarget)
 			// Now that its removed we refresh systemd-sysext
-			output, err := cfg.Runner.Run("systemctl", "restart", "systemd-sysext")
+			output, err := cfg.Runner.Run("systemctl", "restart", reloadTarget)
 			if err != nil {
-				cfg.Logger.Logger.Err(err).Str("output", string(output)).Msg("Failed to refresh systemd-sysext")
+				cfg.Logger.Logger.Err(err).Str("output", string(output)).Msgf("Failed to refresh %s", reloadTarget)
 				return err
 			}
-			cfg.Logger.Infof("System extension %s refreshed by systemd-sysext", installed.Name)
+			cfg.Logger.Infof("Extension %s refreshed by %s", installed.Name, reloadTarget)
 		} else {
-			cfg.Logger.Logger.Info().Msg("Extension not in /run/extensions, not refreshing")
+			cfg.Logger.Logger.Info().Msgf("Extension not in %s, not refreshing", linkTarget)
 		}
 	}
 
-	cfg.Logger.Infof("System extension %s removed", installed.Name)
+	cfg.Logger.Infof("Extension %s removed", installed.Name)
 	return nil
 }
 

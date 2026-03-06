@@ -920,272 +920,15 @@ The validate command expects a configuration file as its only argument. Local fi
 		Name:        "sysext",
 		Usage:       "sysext subcommands",
 		Description: "sysext subcommands",
-		Before: func(c *cli.Context) error {
-			_, err := exec.LookPath("systemd-sysext")
-			if err != nil {
-				return fmt.Errorf("systemd-sysext not found in PATH")
-			}
-			return nil
-		},
-		Subcommands: []*cli.Command{
-			{
-				Name:        "list",
-				Usage:       "List all the installed system extensions",
-				Description: "List all the installed system extensions",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "active",
-						Usage: "List the system extensions for the active boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "passive",
-						Usage: "List the system extensions for the passive boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "recovery",
-						Usage: "List the system extensions for the recovery boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "common",
-						Usage: "List the system extensions for the common boot entry (applies to all boot states)",
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
-						return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
-					}
-
-					if err := checkRoot(); err != nil {
-						return err
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					var bootState string
-
-					for k, v := range map[string]bool{
-						"active":   c.Bool("active"),
-						"passive":  c.Bool("passive"),
-						"recovery": c.Bool("recovery"),
-						"common":   c.Bool("common"),
-					} {
-						if v {
-							bootState = k
-							break
-						}
-					}
-					out, err := action.ListSystemExtensions(cfg, bootState)
-					if err != nil {
-						return err
-					}
-					if len(out) == 0 {
-						cfg.Logger.Logger.Info().Msg("No system extensions found")
-						return nil
-					}
-					for _, ext := range out {
-						cfg.Logger.Info(litter.Sdump(ext))
-					}
-					return nil
-				},
-			},
-			{
-				Name:        "enable",
-				Usage:       "Enable a installed system extension for a give entry",
-				UsageText:   "enable [--active|--passive] EXTENSION",
-				Description: "Enable a system extension for a given boot entry (active or passive)",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "active",
-						Usage: "Enable the system extension for the active boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "passive",
-						Usage: "Enable the system extension for the passive boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "recovery",
-						Usage: "List the system extensions for the recovery boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "common",
-						Usage: "List the system extensions for the common boot entry (applies to all boot states)",
-					},
-					&cli.BoolFlag{
-						Name:  "now",
-						Usage: "Enable the system extension now and reload systemd-sysext",
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if c.Args().Len() != 1 {
-						return fmt.Errorf("extension name required")
-					}
-
-					if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
-						return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
-					}
-
-					if noneOfEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
-						return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
-					}
-
-					if err := checkRoot(); err != nil {
-						return err
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					var bootState string
-					for k, v := range map[string]bool{
-						"active":   c.Bool("active"),
-						"passive":  c.Bool("passive"),
-						"recovery": c.Bool("recovery"),
-						"common":   c.Bool("common"),
-					} {
-						if v {
-							bootState = k
-							break
-						}
-					}
-
-					ext := c.Args().First()
-					if err := action.EnableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
-						cfg.Logger.Logger.Error().Err(err).Msg("failed enabling system extension")
-						return err
-					}
-					return nil
-				},
-			},
-			{
-				Name:        "disable",
-				Usage:       "Disable a installed system extension for a give entry",
-				UsageText:   "disable [--active|--passive] EXTENSION",
-				Description: "Disable a system extension for a given boot entry (active or passive)",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "active",
-						Usage: "Disable the system extension for the active boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "passive",
-						Usage: "Disable the system extension for the passive boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "recovery",
-						Usage: "List the system extensions for the recovery boot entry",
-					},
-					&cli.BoolFlag{
-						Name:  "common",
-						Usage: "List the system extensions for the common boot entry (applies to all boot states)",
-					},
-					&cli.BoolFlag{
-						Name:  "now",
-						Usage: "Disable the system extension now and reload systemd-sysext",
-					},
-				},
-				Before: func(c *cli.Context) error {
-					if c.Args().Len() != 1 {
-						return fmt.Errorf("extension name required")
-					}
-
-					if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
-						return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
-					}
-
-					if noneOfEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
-						return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
-					}
-					if err := checkRoot(); err != nil {
-						return err
-					}
-					return nil
-				},
-				Action: func(c *cli.Context) error {
-					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					var bootState string
-					for k, v := range map[string]bool{
-						"active":   c.Bool("active"),
-						"passive":  c.Bool("passive"),
-						"recovery": c.Bool("recovery"),
-						"common":   c.Bool("common"),
-					} {
-						if v {
-							bootState = k
-							break
-						}
-					}
-					ext := c.Args().First()
-					if err := action.DisableSystemExtension(cfg, ext, bootState, c.Bool("now")); err != nil {
-						cfg.Logger.Logger.Error().Err(err).Msg("failed disabling system extension")
-						return err
-					}
-					return nil
-				},
-			},
-			{
-				Name:        "install",
-				Usage:       "Install a system extension",
-				UsageText:   "install URI",
-				Description: "Install a system extension from a given URI",
-				Action: func(c *cli.Context) error {
-					if c.Args().Len() != 1 {
-						return fmt.Errorf("extension URI required")
-					}
-					uri := c.Args().First()
-					if err := validateSourceSysext(uri); err != nil {
-						return err
-					}
-					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					if err := action.InstallSystemExtension(cfg, uri); err != nil {
-						cfg.Logger.Logger.Error().Err(err).Msg("failed installing system extension")
-						return err
-					}
-					cfg.Logger.Logger.Info().Msgf("System extension %s installed", uri)
-					return nil
-				},
-			},
-			{
-				Name:        "remove",
-				Usage:       "Remove a system extension",
-				UsageText:   "remove EXTENSION",
-				Description: "Remove a installed system extension",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "now",
-						Usage: "Remove the system extension now and reload systemd-sysext",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					if c.Args().Len() != 1 {
-						return fmt.Errorf("extension required")
-					}
-					extension := c.Args().First()
-					cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
-					if err != nil {
-						return err
-					}
-					if err := action.RemoveSystemExtension(cfg, extension, c.Bool("now")); err != nil {
-						cfg.Logger.Logger.Error().Err(err).Msg("failed removing system extension")
-						return err
-					}
-					cfg.Logger.Logger.Info().Msgf("System extension %s removed", extension)
-					return nil
-				},
-			},
-		},
+		Before:      beforeSysextConfext,
+		Subcommands: sysextConfextCommands(),
+	},
+	{
+		Name:        "confext",
+		Usage:       "confext subcommands",
+		Description: "confext subcommands",
+		Before:      beforeSysextConfext,
+		Subcommands: sysextConfextCommands(),
 	},
 	{
 		Name:  "logs",
@@ -1330,8 +1073,8 @@ Default behavior:
 				},
 			},
 			{
-				Name:        "unlock-all",
-				Usage:       "Unlocks all encrypted partitions",
+				Name:  "unlock-all",
+				Usage: "Unlocks all encrypted partitions",
 				Description: `Unlocks all encrypted partitions found on the system.
 
 This command scans the system for LUKS encrypted partitions and unlocks them
@@ -1356,6 +1099,285 @@ The command automatically:
 			},
 		},
 	},
+}
+
+func sysextConfextCommands() []*cli.Command {
+	return []*cli.Command{
+		{
+			Name:        "list",
+			Usage:       "List all the installed extensions",
+			UsageText:   "list [--active|--passive|--recovery|--common]",
+			Description: "List all the installed extensions",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "active",
+					Usage: "List the extensions for the active boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "passive",
+					Usage: "List the extensions for the passive boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "recovery",
+					Usage: "List the extensions for the recovery boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "common",
+					Usage: "List the extensions for the common boot entry (applies to all boot states)",
+				},
+			},
+			Before: func(c *cli.Context) error {
+				if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+					return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
+				}
+
+				if err := checkRoot(); err != nil {
+					return err
+				}
+				return nil
+			},
+			Action: func(c *cli.Context) error {
+				cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+				if err != nil {
+					return err
+				}
+				var bootState string
+
+				for k, v := range map[string]bool{
+					"active":   c.Bool("active"),
+					"passive":  c.Bool("passive"),
+					"recovery": c.Bool("recovery"),
+					"common":   c.Bool("common"),
+				} {
+					if v {
+						bootState = k
+						break
+					}
+				}
+				extType := c.Context.Value("extType").(string)
+				out, err := action.ListExtensions(cfg, bootState, extType)
+				if err != nil {
+					return err
+				}
+				if len(out) == 0 {
+					cfg.Logger.Logger.Info().Msg("No system extensions found")
+					return nil
+				}
+				for _, ext := range out {
+					cfg.Logger.Info(litter.Sdump(ext))
+				}
+				return nil
+			},
+		},
+		{
+			Name:        "enable",
+			Usage:       "Enable a installed system extension for a give entry",
+			UsageText:   "enable [--active|--passive|--recovery|--common] EXTENSION",
+			Description: "Enable a system extension for a given boot entry (active or passive)",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "active",
+					Usage: "Enable the system extension for the active boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "passive",
+					Usage: "Enable the system extension for the passive boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "recovery",
+					Usage: "List the system extensions for the recovery boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "common",
+					Usage: "List the system extensions for the common boot entry (applies to all boot states)",
+				},
+				&cli.BoolFlag{
+					Name:  "now",
+					Usage: "Enable the system extension now and reload systemd-sysext",
+				},
+			},
+			Before: func(c *cli.Context) error {
+				if c.Args().Len() != 1 {
+					return fmt.Errorf("extension name required")
+				}
+
+				if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+					return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
+				}
+
+				if noneOfEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+					return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
+				}
+
+				if err := checkRoot(); err != nil {
+					return err
+				}
+				return nil
+			},
+			Action: func(c *cli.Context) error {
+				cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+				if err != nil {
+					return err
+				}
+				var bootState string
+				for k, v := range map[string]bool{
+					"active":   c.Bool("active"),
+					"passive":  c.Bool("passive"),
+					"recovery": c.Bool("recovery"),
+					"common":   c.Bool("common"),
+				} {
+					if v {
+						bootState = k
+						break
+					}
+				}
+
+				ext := c.Args().First()
+				extType := c.Context.Value("extType").(string)
+				if err := action.EnableExtension(cfg, ext, bootState, extType, c.Bool("now")); err != nil {
+					cfg.Logger.Logger.Error().Err(err).Msg("failed enabling system extension")
+					return err
+				}
+				return nil
+			},
+		},
+		{
+			Name:        "disable",
+			Usage:       "Disable a installed system extension for a give entry",
+			UsageText:   "disable [--active|--passive|--recovery|--common] EXTENSION",
+			Description: "Disable a system extension for a given boot entry (active or passive)",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "active",
+					Usage: "Disable the system extension for the active boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "passive",
+					Usage: "Disable the system extension for the passive boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "recovery",
+					Usage: "List the system extensions for the recovery boot entry",
+				},
+				&cli.BoolFlag{
+					Name:  "common",
+					Usage: "List the system extensions for the common boot entry (applies to all boot states)",
+				},
+				&cli.BoolFlag{
+					Name:  "now",
+					Usage: "Disable the system extension now and reload systemd-sysext",
+				},
+			},
+			Before: func(c *cli.Context) error {
+				if c.Args().Len() != 1 {
+					return fmt.Errorf("extension name required")
+				}
+
+				if moreThanOneEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+					return fmt.Errorf("only one of --active, --passive, --recovery or --common can be set")
+				}
+
+				if noneOfEnabled(c.Bool("active"), c.Bool("passive"), c.Bool("recovery"), c.Bool("common")) {
+					return fmt.Errorf("either --active, --passive, --recovery or --common must be set")
+				}
+				if err := checkRoot(); err != nil {
+					return err
+				}
+				return nil
+			},
+			Action: func(c *cli.Context) error {
+				cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+				if err != nil {
+					return err
+				}
+				var bootState string
+				for k, v := range map[string]bool{
+					"active":   c.Bool("active"),
+					"passive":  c.Bool("passive"),
+					"recovery": c.Bool("recovery"),
+					"common":   c.Bool("common"),
+				} {
+					if v {
+						bootState = k
+						break
+					}
+				}
+				ext := c.Args().First()
+				extType := c.Context.Value("extType").(string)
+				if err := action.DisableExtension(cfg, ext, bootState, extType, c.Bool("now")); err != nil {
+					cfg.Logger.Logger.Error().Err(err).Msg("failed disabling system extension")
+					return err
+				}
+				return nil
+			},
+		},
+		{
+			Name:        "install",
+			Usage:       "Install a system extension",
+			UsageText:   "install URI",
+			Description: "Install a system extension from a given URI",
+			Action: func(c *cli.Context) error {
+				if c.Args().Len() != 1 {
+					return fmt.Errorf("extension URI required")
+				}
+				uri := c.Args().First()
+				if err := validateSourceSysext(uri); err != nil {
+					return err
+				}
+				cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+				if err != nil {
+					return err
+				}
+				extType := c.Context.Value("extType").(string)
+				if err := action.InstallExtension(cfg, uri, extType); err != nil {
+					cfg.Logger.Logger.Error().Err(err).Msg("failed installing system extension")
+					return err
+				}
+				cfg.Logger.Logger.Info().Msgf("System extension %s installed", uri)
+				return nil
+			},
+		},
+		{
+			Name:        "remove",
+			Usage:       "Remove a system extension",
+			UsageText:   "remove EXTENSION",
+			Description: "Remove a installed system extension",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "now",
+					Usage: "Remove the system extension now and reload systemd-sysext",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				if c.Args().Len() != 1 {
+					return fmt.Errorf("extension required")
+				}
+				extension := c.Args().First()
+				cfg, err := agentConfig.Scan(collector.Directories(constants.GetUserConfigDirs()...), collector.NoLogs)
+				if err != nil {
+					return err
+				}
+				extType := c.Context.Value("extType").(string)
+				if err := action.RemoveExtension(cfg, extension, extType, c.Bool("now")); err != nil {
+					cfg.Logger.Logger.Error().Err(err).Msg("failed removing system extension")
+					return err
+				}
+				cfg.Logger.Logger.Info().Msgf("System extension %s removed", extension)
+				return nil
+			},
+		},
+	}
+}
+
+func beforeSysextConfext(c *cli.Context) error {
+	_, err := exec.LookPath("systemd-sysext")
+	if err != nil {
+		return fmt.Errorf("systemd-sysext not found in PATH")
+	}
+	// Set the extType in the context to differentiate between sysext and confext in the common code
+	// so its easier for the shared code to know which one is being called without needing to duplicate the code for both commands
+	c.Context = context.WithValue(c.Context, "extType", c.Command.Name)
+	return nil
 }
 
 func main() {
