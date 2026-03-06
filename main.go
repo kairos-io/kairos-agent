@@ -1106,6 +1106,7 @@ func sysextConfextCommands() []*cli.Command {
 		{
 			Name:        "list",
 			Usage:       "List all the installed extensions",
+			UsageText:   "list [--active|--passive|--recovery|--common]",
 			Description: "List all the installed extensions",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -1171,7 +1172,7 @@ func sysextConfextCommands() []*cli.Command {
 		{
 			Name:        "enable",
 			Usage:       "Enable a installed system extension for a give entry",
-			UsageText:   "enable [--active|--passive] EXTENSION",
+			UsageText:   "enable [--active|--passive|--recovery|--common] EXTENSION",
 			Description: "Enable a system extension for a given boot entry (active or passive)",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -1243,7 +1244,7 @@ func sysextConfextCommands() []*cli.Command {
 		{
 			Name:        "disable",
 			Usage:       "Disable a installed system extension for a give entry",
-			UsageText:   "disable [--active|--passive] EXTENSION",
+			UsageText:   "disable [--active|--passive|--recovery|--common] EXTENSION",
 			Description: "Disable a system extension for a given boot entry (active or passive)",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
