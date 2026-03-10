@@ -36,7 +36,7 @@ const (
 	sysext             = "sysext"
 	confext            = "confext"
 	sysextDir          = "/var/lib/kairos/extensions/"
-	confExtDir         = "/var/lib/kairos/confext/"
+	confExtDir         = "/var/lib/kairos/confexts/"
 	sysextDirActive    = sysextDir + "active"
 	sysextDirPassive   = sysextDir + "passive"
 	sysextDirRecovery  = sysextDir + "recovery"
