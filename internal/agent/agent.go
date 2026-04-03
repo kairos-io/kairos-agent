@@ -64,6 +64,9 @@ func Run(opts ...Option) error {
 	}
 	_, err = bus.Manager.Publish(events.EventBootstrap, events.BootstrapPayload{APIAddress: o.APIAddress, Config: configStr, Logfile: fileName})
 
+	// If daedalus config is present, install and start the phone-home service
+	enablePhoneHomeIfConfigured(o.Dir)
+
 	if o.Restart && err != nil {
 		fmt.Println("Warning: Agent failed, restarting: ", err.Error())
 		return Run(opts...)

@@ -11,8 +11,10 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
+	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
@@ -1097,6 +1099,104 @@ The command automatically:
 					return kcrypt.UnlockAllEncryptedPartitions(cfg.Logger)
 				},
 			},
+		},
+	},
+	{
+		Name:  "phone-home",
+		Usage: "Start phone-home connection to a Daedalus management server",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "url",
+				Usage:   "Daedalus server URL",
+				EnvVars: []string{"DAEDALUS_URL"},
+			},
+			&cli.StringFlag{
+				Name:    "token",
+				Usage:   "Registration token",
+				EnvVars: []string{"REGISTRATION_TOKEN"},
+			},
+			&cli.StringFlag{
+				Name:    "group",
+				Usage:   "Node group to join",
+				EnvVars: []string{"DAEDALUS_GROUP"},
+			},
+			&cli.DurationFlag{
+				Name:  "heartbeat-interval",
+				Usage: "Heartbeat interval",
+				Value: 30 * time.Second,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			url := c.String("url")
+			token := c.String("token")
+			group := c.String("group")
+			heartbeat := c.Duration("heartbeat-interval")
+
+			// If url is empty, read from cloud-config using Kairos' config scanner
+			// which handles /oem/, /usr/local/cloud-config/ and subdirectories
+			if url == "" {
+				type daedalusCC struct {
+					Daedalus struct {
+						URL               string            `yaml:"url"`
+						RegistrationToken string            `yaml:"registration_token"`
+						Group             string            `yaml:"group"`
+						Labels            map[string]string `yaml:"labels"`
+					} `yaml:"daedalus"`
+				}
+
+				cfg, err := agentConfig.Scan(
+					collector.Directories(constants.GetUserConfigDirs()...),
+					collector.NoLogs,
+				)
+				if err == nil {
+					// Re-parse the merged config to extract daedalus section
+					configStr, _ := cfg.Collector.String()
+					var cc daedalusCC
+					if yaml.Unmarshal([]byte(configStr), &cc) == nil && cc.Daedalus.URL != "" {
+						url = cc.Daedalus.URL
+						if token == "" {
+							token = cc.Daedalus.RegistrationToken
+						}
+						if group == "" {
+							group = cc.Daedalus.Group
+						}
+					}
+				}
+			}
+
+			if url == "" {
+				return fmt.Errorf("daedalus URL required (use --url, DAEDALUS_URL env, or /oem/daedalus.yaml)")
+			}
+
+			cfg := &phonehome.Config{
+				URL:               url,
+				RegistrationToken: token,
+				Group:             group,
+				HeartbeatInterval: heartbeat,
+			}
+			ctx := c.Context
+			client := phonehome.NewClient(cfg,
+				phonehome.WithCommandHandler(func(cmd phonehome.CommandData) (string, error) {
+					switch cmd.Command {
+					case "exec":
+						cmdStr, ok := cmd.Args["command"]
+						if !ok {
+							return "", fmt.Errorf("exec command requires 'command' arg")
+						}
+						out, err := exec.CommandContext(ctx, "sh", "-c", cmdStr).CombinedOutput()
+						return string(out), err
+					case "reset":
+						return "reset not yet implemented", nil
+					case "upgrade":
+						return "upgrade not yet implemented", nil
+					case "apply-cloud-config":
+						return "apply-cloud-config not yet implemented", nil
+					default:
+						return "", fmt.Errorf("unknown command: %s", cmd.Command)
+					}
+				}),
+			)
+			return client.Run(ctx)
 		},
 	},
 }
