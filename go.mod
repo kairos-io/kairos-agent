@@ -10,7 +10,7 @@ require (
 	github.com/erikgeiser/promptkit v0.11.0
 	github.com/google/go-containerregistry v0.21.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/jaypipes/ghw v0.23.0
+	github.com/jaypipes/ghw v0.24.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
 	github.com/kairos-io/kairos-sdk v0.17.0
