@@ -320,6 +320,7 @@ func (c *Client) handleCommand(ctx context.Context, conn *websocket.Conn, cmd Co
 	}
 }
 
+
 func (c *Client) sendCommandStatus(conn *websocket.Conn, id, phase, result string) {
 	status := CommandStatusData{ID: id, Phase: phase, Result: result}
 	data, _ := json.Marshal(status)

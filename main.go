@@ -1176,25 +1176,7 @@ The command automatically:
 			}
 			ctx := c.Context
 			client := phonehome.NewClient(cfg,
-				phonehome.WithCommandHandler(func(cmd phonehome.CommandData) (string, error) {
-					switch cmd.Command {
-					case "exec":
-						cmdStr, ok := cmd.Args["command"]
-						if !ok {
-							return "", fmt.Errorf("exec command requires 'command' arg")
-						}
-						out, err := exec.CommandContext(ctx, "sh", "-c", cmdStr).CombinedOutput()
-						return string(out), err
-					case "reset":
-						return "reset not yet implemented", nil
-					case "upgrade":
-						return "upgrade not yet implemented", nil
-					case "apply-cloud-config":
-						return "apply-cloud-config not yet implemented", nil
-					default:
-						return "", fmt.Errorf("unknown command: %s", cmd.Command)
-					}
-				}),
+				phonehome.WithCommandHandler(phonehome.DefaultCommandHandler(url)),
 			)
 			return client.Run(ctx)
 		},
