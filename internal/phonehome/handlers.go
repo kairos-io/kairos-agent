@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // DefaultCommandHandler returns a CommandHandler that handles all daedalus commands.
@@ -88,5 +89,18 @@ func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string, api
 	}
 
 	out, err := exec.CommandContext(ctx, "kairos-agent", args...).CombinedOutput()
-	return string(out), err
+	if err != nil {
+		return string(out), err
+	}
+
+	// Reboot after successful upgrade so the new image takes effect
+	if cmd.Command != "upgrade-recovery" {
+		go func() {
+			// Small delay to allow the command status to be reported back
+			time.Sleep(3 * time.Second)
+			exec.Command("reboot").Run()
+		}()
+	}
+
+	return string(out) + "\nRebooting...", nil
 }
