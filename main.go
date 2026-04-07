@@ -1175,8 +1175,15 @@ The command automatically:
 				HeartbeatInterval: heartbeat,
 			}
 			ctx := c.Context
-			client := phonehome.NewClient(cfg,
-				phonehome.WithCommandHandler(phonehome.DefaultCommandHandler(url)),
+			var client *phonehome.Client
+			handler := phonehome.DefaultCommandHandler(url, func() string {
+				if client != nil {
+					return client.APIKey()
+				}
+				return ""
+			})
+			client = phonehome.NewClient(cfg,
+				phonehome.WithCommandHandler(handler),
 			)
 			return client.Run(ctx)
 		},

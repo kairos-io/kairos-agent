@@ -11,8 +11,8 @@ import (
 )
 
 // DefaultCommandHandler returns a CommandHandler that handles all daedalus commands.
-// The daedalusURL is needed to download artifact images for upgrades.
-func DefaultCommandHandler(daedalusURL string) CommandHandler {
+// The daedalusURL and apiKey are needed to download artifact images for upgrades.
+func DefaultCommandHandler(daedalusURL string, apiKey func() string) CommandHandler {
 	return func(cmd CommandData) (string, error) {
 		ctx := context.Background()
 
@@ -26,7 +26,7 @@ func DefaultCommandHandler(daedalusURL string) CommandHandler {
 			return string(out), err
 
 		case "upgrade", "upgrade-recovery":
-			return handleUpgrade(ctx, cmd, daedalusURL)
+			return handleUpgrade(ctx, cmd, daedalusURL, apiKey())
 
 		case "reset":
 			return "reset not yet implemented", nil
@@ -41,7 +41,7 @@ func DefaultCommandHandler(daedalusURL string) CommandHandler {
 }
 
 // handleUpgrade downloads the image (if artifact-based) and runs kairos-agent upgrade.
-func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string) (string, error) {
+func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string, apiKey string) (string, error) {
 	source := cmd.Args["source"]
 	if source == "" {
 		return "", fmt.Errorf("upgrade requires 'source' arg")
@@ -52,7 +52,8 @@ func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string) (st
 		artifactID := strings.TrimPrefix(source, "artifact:")
 		tarPath := fmt.Sprintf("/tmp/daedalus-upgrade-%s.tar", artifactID)
 
-		imageURL := fmt.Sprintf("%s/api/v1/artifacts/%s/image", strings.TrimRight(daedalusURL, "/"), artifactID)
+		imageURL := fmt.Sprintf("%s/api/v1/artifacts/%s/image?token=%s",
+			strings.TrimRight(daedalusURL, "/"), artifactID, apiKey)
 
 		resp, err := http.Get(imageURL)
 		if err != nil {

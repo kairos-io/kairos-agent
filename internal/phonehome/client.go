@@ -60,6 +60,14 @@ type Client struct {
 	conn *websocket.Conn
 }
 
+// APIKey returns the node's API key, or empty string if not yet registered.
+func (c *Client) APIKey() string {
+	if c.credentials == nil {
+		return ""
+	}
+	return c.credentials.APIKey
+}
+
 // NewClient creates a new phone-home client.
 func NewClient(cfg *Config, opts ...ClientOption) *Client {
 	if cfg.HeartbeatInterval == 0 {
@@ -235,8 +243,26 @@ func (c *Client) Connect(ctx context.Context) error {
 
 // Run is the main loop: register, then connect with auto-reconnect.
 func (c *Client) Run(ctx context.Context) error {
-	if err := c.Register(ctx); err != nil {
-		return fmt.Errorf("registration failed: %w", err)
+	// Retry registration with backoff until successful or context cancelled
+	regBackoff := c.cfg.ReconnectBackoff
+	for {
+		err := c.Register(ctx)
+		if err == nil {
+			break
+		}
+		if ctx.Err() != nil {
+			return nil
+		}
+		c.logger.Printf("registration failed: %v, retrying in %s", err, regBackoff)
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(regBackoff):
+		}
+		regBackoff = regBackoff * 2
+		if regBackoff > MaxReconnectBackoff {
+			regBackoff = MaxReconnectBackoff
+		}
 	}
 
 	backoff := c.cfg.ReconnectBackoff
