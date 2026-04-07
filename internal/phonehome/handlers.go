@@ -78,7 +78,7 @@ func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string, api
 		f.Close()
 		defer os.Remove(tarPath)
 
-		source = "ocifile:" + tarPath
+		source = "file:" + tarPath
 	} else if !strings.Contains(source, ":") {
 		source = "oci:" + source
 	}
