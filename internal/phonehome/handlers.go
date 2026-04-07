@@ -88,19 +88,24 @@ func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string, api
 		args = append(args, "--recovery")
 	}
 
-	out, err := exec.CommandContext(ctx, "kairos-agent", args...).CombinedOutput()
+	// Use background context — upgrade must NOT be killed if WS disconnects
+	fmt.Printf("[phonehome] Running: kairos-agent %s\n", strings.Join(args, " "))
+	out, err := exec.Command("kairos-agent", args...).CombinedOutput()
+	fmt.Printf("[phonehome] Exit: err=%v output=%s\n", err, string(out))
 	if err != nil {
 		return string(out), err
 	}
 
-	// Reboot after successful upgrade so the new image takes effect
+	// Reboot after successful upgrade so the new image takes effect.
+	// Do NOT reboot for recovery upgrades (recovery doesn't need reboot).
 	if cmd.Command != "upgrade-recovery" {
 		go func() {
-			// Small delay to allow the command status to be reported back
-			time.Sleep(3 * time.Second)
+			// Sync filesystems and wait before rebooting
+			exec.Command("sync").Run()
+			time.Sleep(10 * time.Second)
 			exec.Command("reboot").Run()
 		}()
 	}
 
-	return string(out) + "\nRebooting...", nil
+	return string(out) + "\nUpgrade complete. Rebooting in 10s...", nil
 }
