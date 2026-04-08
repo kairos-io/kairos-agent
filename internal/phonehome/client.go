@@ -313,6 +313,7 @@ func (c *Client) heartbeatLoop(ctx context.Context, conn *websocket.Conn) {
 func (c *Client) sendHeartbeat(conn *websocket.Conn) error {
 	hb := HeartbeatData{
 		AgentVersion: common.GetVersion(),
+		OSRelease:    gatherSystemInfo(),
 		Labels:       c.cfg.Labels,
 	}
 	data, _ := json.Marshal(hb)
