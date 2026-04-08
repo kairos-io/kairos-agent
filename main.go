@@ -606,6 +606,10 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 				Name:  "reset-oem",
 				Usage: "Reset the OEM partition. Warning: this will delete any persistent data on the OEM partition.",
 			},
+			&cli.BoolFlag{
+				Name:  "reset-persistent",
+				Usage: "Reset the persistent partition. Warning: this will delete any persistent data.",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			return checkRoot()
@@ -614,8 +618,9 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 			reboot := c.Bool("reboot")
 			unattended := c.Bool("unattended")
 			resetOem := c.Bool("reset-oem")
+			resetPersistent := c.Bool("reset-persistent")
 
-			return agent.Reset(reboot, unattended, resetOem, constants.GetUserConfigDirs()...)
+			return agent.Reset(reboot, unattended, resetOem, resetPersistent, constants.GetUserConfigDirs()...)
 		},
 		Usage: "Starts kairos reset mode",
 		Description: `

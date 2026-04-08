@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"gopkg.in/yaml.v3"
 )
 
@@ -311,7 +312,7 @@ func (c *Client) heartbeatLoop(ctx context.Context, conn *websocket.Conn) {
 
 func (c *Client) sendHeartbeat(conn *websocket.Conn) error {
 	hb := HeartbeatData{
-		AgentVersion: "dev", // TODO: inject from build
+		AgentVersion: common.GetVersion(),
 		Labels:       c.cfg.Labels,
 	}
 	data, _ := json.Marshal(hb)
