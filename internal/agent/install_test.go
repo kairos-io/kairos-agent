@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 
@@ -20,8 +22,6 @@ import (
 )
 
 var _ = Describe("prepareConfiguration", func() {
-	url := "https://example.com"
-
 	It("loads the content from a file path", func() {
 		temp, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
@@ -48,14 +48,19 @@ var _ = Describe("prepareConfiguration", func() {
 	})
 
 	It("creates a configuration file containing the given url", func() {
-		source, err := prepareConfiguration(url)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer ts.Close()
+
+		source, err := prepareConfiguration(ts.URL)
 		Expect(err).ToNot(HaveOccurred())
 
 		var cfg sdkConfig.Config
 		err = yaml.NewDecoder(source).Decode(&cfg)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(cfg.ConfigURL).To(Equal(url))
+		Expect(cfg.ConfigURL).To(Equal(ts.URL))
 	})
 })
 

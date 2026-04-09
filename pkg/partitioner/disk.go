@@ -93,7 +93,8 @@ func kairosPartsToDiskfsGPTParts(parts partitions.PartitionList, diskSize int64,
 				Size:       size,                                                         // partition size in bytes
 				GUID:       uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
 				Name:       part.Name,
-				Attributes: 0x1, // system partition flag
+				Index:      index + 1, // GPT partition indices are 1-based
+				Attributes: 0x1,       // system partition flag
 			})
 		} else if part.Name == sdkConstants.BiosPartName {
 			// Non-EFI boot partition
@@ -104,7 +105,8 @@ func kairosPartsToDiskfsGPTParts(parts partitions.PartitionList, diskSize int64,
 				Size:       size,                                                         // partition size in bytes
 				GUID:       uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(), // set know predictable UUID
 				Name:       part.Name,
-				Attributes: 0x4, // legacy bios bootable flag
+				Index:      index + 1, // GPT partition indices are 1-based
+				Attributes: 0x4,       // legacy bios bootable flag
 			})
 		} else {
 			// Other partitions
@@ -115,6 +117,7 @@ func kairosPartsToDiskfsGPTParts(parts partitions.PartitionList, diskSize int64,
 				Size:  size,
 				GUID:  uuid.NewV5(uuid.NamespaceURL, part.FilesystemLabel).String(),
 				Name:  part.Name,
+				Index: index + 1, // GPT partition indices are 1-based
 			})
 		}
 	}
