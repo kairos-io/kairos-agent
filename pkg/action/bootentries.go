@@ -152,11 +152,35 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 		entries = cnst.UkiDefaultMenuEntries()
 	}
 
+	// Save the user-supplied entry name for log messages before any resolution.
+	originalEntry := entry
+
 	// Check that entry exists in the entries list
 	err = entryInList(cfg, entry, entries)
 	// we also accept "active" as a selection so we can migrate eventually from cos
 	if err != nil && !strings.HasPrefix(entry, "active") {
-		return err
+		// Backwards-compatibility: try dot-suffix matching against the original entries.
+		// Older cloud-configs call e.g. `bootentry --select registration` but newer
+		// kairos/auroraboot builds generate compound entry names like
+		// "recovery install-mode_stylus.registration" (issue #4038).
+		// Match the first original entry whose last dot-separated segment equals the
+		// requested name.
+		var suffixMatch string
+		for _, e := range originalEntries {
+			if strings.HasSuffix(e, "."+entry) {
+				if suffixMatch == "" {
+					suffixMatch = e
+				} else {
+					cfg.Logger.Warnf("Multiple entries match suffix %q: using %q (also matched %q)", entry, suffixMatch, e)
+				}
+			}
+		}
+		if suffixMatch != "" {
+			cfg.Logger.Infof("Entry %q not found directly; resolved to %q by suffix match", entry, suffixMatch)
+			entry = suffixMatch
+		} else {
+			return err
+		}
 	}
 
 	// Check if efi is RW or RO
@@ -176,7 +200,6 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 		}("", efiPartition.MountPoint, "", syscall.MS_REMOUNT|syscall.MS_RDONLY, "")
 	}
 
-	originalEntry := entry
 	if !reflect.DeepEqual(originalEntries, entries) {
 		// since we temporarily allow also active, here we need to first set entry to "cos" so it will match with the originalEntries
 		if strings.HasPrefix(entry, "active") {
