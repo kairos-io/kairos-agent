@@ -235,6 +235,81 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_awesomeos.conf"))
 			})
 
+			It("fails to select the boot entry when suffix does not match any entry", func() {
+				// Entries with compound dot-segment names.
+				err := fs.WriteFile("/efi/loader/entries/recovery_install-mode_stylus.registration.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// "nonexistent" has no matching suffix in any entry.
+				err = SelectBootEntry(config, "nonexistent")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("does not exist"))
+			})
+
+			It("selects boot entry via dot-suffix matching (backwards compat with older cloud-configs)", func() {
+				// Newer auroraboot / kairos builds create compound entry names.
+				err := fs.WriteFile("/efi/loader/entries/recovery_install-mode_stylus.registration.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/active_install-mode_stylus.registration.conf", []byte("title kairos\nefi /EFI/kairos/active_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/passive_install-mode_stylus.registration.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/statereset_install-mode_stylus.registration.conf", []byte("title kairos statereset\nefi /EFI/kairos/statereset_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Selecting "registration" directly should fail without the fix but succeed with it.
+				err = SelectBootEntry(config, "recovery")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_install-mode_stylus.registration.conf"))
+
+				err = SelectBootEntry(config, "cos")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_stylus.registration.conf"))
+
+				err = SelectBootEntry(config, "fallback")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_stylus.registration.conf"))
+
+				err = SelectBootEntry(config, "statereset")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset_install-mode_stylus.registration.conf"))
+			})
+
+			It("resolves entry via dot-suffix when entry name is the last dot segment", func() {
+				// Simulates older cloud-config calling `bootentry --select registration`
+				// while the installed system has compound names ending in `.registration`.
+				err := fs.WriteFile("/efi/loader/entries/recovery_install-mode_stylus.registration.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// "registration" is not a known standalone entry name, so entryInList will fail.
+				// The suffix-match fallback should resolve it to "recovery install-mode_stylus.registration".
+				err = SelectBootEntry(config, "registration")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("resolved to"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_install-mode_stylus.registration.conf"))
+			})
+
+			It("warns when multiple entries match the same dot-suffix", func() {
+				// Two entries share the same dot-suffix ".registration".
+				err := fs.WriteFile("/efi/loader/entries/recovery_install-mode_stylus.registration.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery_install-mode_other.registration.conf", []byte("title kairos recovery2\nefi /EFI/kairos/recovery2.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = SelectBootEntry(config, "registration")
+				Expect(err).ToNot(HaveOccurred())
+				// A warning about multiple matches must appear in the log.
+				Expect(memLog.String()).To(ContainSubstring("Multiple entries match suffix"))
+			})
+
 			It("selects the boot entry in a extra-cmdline installation", func() {
 				err := fs.WriteFile("/efi/loader/entries/active.conf", []byte("title Kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
