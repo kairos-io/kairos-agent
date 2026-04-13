@@ -288,7 +288,8 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// "registration" is not a known standalone entry name, so entryInList will fail.
-				// The suffix-match fallback should resolve it to "recovery install-mode_stylus.registration".
+				// The suffix-match fallback should resolve it to "recovery install-mode_stylus.registration"
+				// (the converted boot name for "recovery_install-mode_stylus.registration.conf").
 				err = SelectBootEntry(config, "registration")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("resolved to"))
