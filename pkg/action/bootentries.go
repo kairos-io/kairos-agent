@@ -156,7 +156,26 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	err = entryInList(cfg, entry, entries)
 	// we also accept "active" as a selection so we can migrate eventually from cos
 	if err != nil && !strings.HasPrefix(entry, "active") {
-		return err
+		// Exact match failed against the (possibly simplified) entries list.
+		// Try a partial/substring match against the original entry names so that
+		// callers can use short names like "registration" to select an entry such
+		// as "recovery install-mode_stylus.registration".
+		var partialMatch string
+		for _, e := range originalEntries {
+			if strings.Contains(e, entry) {
+				if partialMatch != "" {
+					cfg.Logger.Errorf("entry %s is ambiguous, matches both %s and %s", entry, partialMatch, e)
+					return fmt.Errorf("entry %s is ambiguous", entry)
+				}
+				partialMatch = e
+			}
+		}
+		if partialMatch == "" {
+			return err
+		}
+		cfg.Logger.Debugf("entry %s matched %s via partial match", entry, partialMatch)
+		entry = partialMatch
+		err = nil
 	}
 
 	// Check if efi is RW or RO

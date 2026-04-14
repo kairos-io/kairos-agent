@@ -235,6 +235,47 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_install-mode_awesomeos.conf"))
 			})
 
+			It("selects the boot entry via partial match when a unique substring match exists", func() {
+				// Scenario from https://github.com/kairos-io/kairos/issues/4038
+				// kairos-init >= 0.8.5 names entries like recovery_install-mode_stylus.registration.conf
+				// but cloud-init scripts call --select registration (the old short form).
+				// When the partial search term uniquely matches one entry it should succeed.
+				err := fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery_install-mode_stylus.registration.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/statereset.conf", []byte("title kairos statereset\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// "registration" is a substring of "recovery install-mode_stylus.registration" only
+				err = SelectBootEntry(config, "registration")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("matched"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery_install-mode_stylus.registration.conf"))
+			})
+
+			It("returns an ambiguous error when a partial match hits multiple entries", func() {
+				err := fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/passive.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery_install-mode_stylus.registration.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/statereset_install-mode_stylus.registration.conf", []byte("title kairos statereset\nefi /EFI/kairos/statereset_install-mode_stylus.registration.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// "registration" is a substring of BOTH recovery and statereset entries → ambiguous
+				err = SelectBootEntry(config, "registration")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("ambiguous"))
+			})
+
 			It("selects the boot entry in a extra-cmdline installation", func() {
 				err := fs.WriteFile("/efi/loader/entries/active.conf", []byte("title Kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
