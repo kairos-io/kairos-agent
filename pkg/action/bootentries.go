@@ -192,16 +192,27 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	if err != nil {
 		return err
 	}
-	// Read boot assessment from the entry file so we can write the full filename to the EFI var.
-	// systemd-boot < 257 requires the full filename including the assessment suffix (e.g. recovery+3-1.conf)
-	// to look up the entry in LoaderEntryOneShot. systemd-boot >= 257 accepts just the base name, but
-	// also handles the full name, so including the assessment is safe for all versions.
-	assessment, err := utils.ReadAssessmentFromEntry(cfg.Fs, bootConfigName, cfg.Logger)
+
+	// systemd-boot < 257 requires the full entry filename including the boot assessment suffix
+	// (e.g. recovery+3-1.conf) in LoaderEntryOneShot. systemd-boot >= 257 accepts just the base
+	// name (e.g. recovery.conf) and ignores any assessment suffix. We detect the running
+	// systemd-boot version from the LoaderInfo EFI variable that systemd-boot sets at boot time
+	// and choose the right format accordingly.
+	efiVarValue := fmt.Sprintf("%s.conf", bootConfigName)
+	sdbootMajor, _, err := SystemdBootVersionFromLoaderInfo(cfg)
 	if err != nil {
-		cfg.Logger.Logger.Err(err).Str("entry", entry).Str("boot file name", bootConfigName).Msg("could not read assessment from entry")
-		return err
+		cfg.Logger.Debugf("Could not detect systemd-boot version from LoaderInfo, using base name: %s", err)
+	} else if sdbootMajor < 257 {
+		cfg.Logger.Debugf("systemd-boot %d detected (< 257), reading boot assessment for EFI var", sdbootMajor)
+		assessment, assessErr := utils.ReadAssessmentFromEntry(cfg.Fs, bootConfigName, cfg.Logger)
+		if assessErr != nil {
+			cfg.Logger.Logger.Err(assessErr).Str("entry", entry).Str("boot file name", bootConfigName).Msg("could not read assessment from entry, falling back to base name")
+		} else {
+			efiVarValue = fmt.Sprintf("%s%s.conf", bootConfigName, assessment)
+		}
 	}
-	err = WriteOneShotEfiVar(cfg, fmt.Sprintf("%s%s.conf", bootConfigName, assessment))
+
+	err = WriteOneShotEfiVar(cfg, efiVarValue)
 	if err != nil {
 		cfg.Logger.Errorf("could not write EFI variable: %s", err)
 		return err
@@ -210,11 +221,47 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	return err
 }
 
-// WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
-// For systemd-boot >= 257 the entry name without boot assessment is sufficient.
-// For systemd-boot < 257 the full filename including assessment must be supplied (e.g. recovery+3-1.conf)
-// so that systemd-boot can locate the entry. Always passing the full name is safe because
-// newer versions strip the assessment when matching.
+// SystemdBootVersionFromLoaderInfo reads the systemd-boot version from the LoaderInfo EFI variable.
+// systemd-boot sets this variable at boot time with a value like "systemd-boot 257.10".
+// Returns major version, minor version, and any error. On error the caller should fall back to
+// the default (>= 257) behaviour.
+func SystemdBootVersionFromLoaderInfo(cfg *sdkConfig.Config) (int, int, error) {
+	loaderInfoVar := "/sys/firmware/efi/efivars/LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+
+	f, err := cfg.Fs.OpenFile(loaderInfoVar, os.O_RDONLY, 0)
+	if err != nil {
+		return 0, 0, fmt.Errorf("couldn't open LoaderInfo EFI variable: %w", err)
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return 0, 0, fmt.Errorf("couldn't stat LoaderInfo: %w", err)
+	}
+
+	buf := make([]byte, stat.Size())
+	if n, err := f.Read(buf); err != nil {
+		return 0, 0, fmt.Errorf("couldn't read LoaderInfo: %w", err)
+	} else if int64(n) != stat.Size() {
+		return 0, 0, errors.New("short read of LoaderInfo EFI variable")
+	}
+
+	// First 4 bytes are EFI variable attributes; the rest is the UTF-16LE string.
+	info := ReadUtf16LEStringNullTerminated(buf[4:])
+	cfg.Logger.Debugf("LoaderInfo EFI variable: %s", info)
+
+	// Format: "systemd-boot 257.10" (major.minor)
+	var major, minor int
+	if n, err := fmt.Sscanf(info, "systemd-boot %d.%d", &major, &minor); err != nil || n < 1 {
+		return 0, 0, fmt.Errorf("couldn't parse systemd-boot version from LoaderInfo %q: %w", info, err)
+	}
+	return major, minor, nil
+}
+
+// WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry.
+// For systemd-boot >= 257 the entry base name without assessment is sufficient (e.g. recovery.conf).
+// For systemd-boot < 257 the full filename including boot assessment must be used
+// (e.g. recovery+3-1.conf). Use SystemdBootVersionFromLoaderInfo to decide which format to pass.
 func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
 	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 

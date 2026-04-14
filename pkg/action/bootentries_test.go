@@ -138,6 +138,66 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			})
 		})
 		Context("SelectBootEntry", func() {
+			It("uses full filename with assessment in EFI var on systemd-boot < 257", func() {
+				// Write LoaderInfo EFI var to simulate systemd-boot 255.4 (< 257).
+				// systemd-boot sets this variable at boot time; we mock it here.
+				loaderInfoVar := "/sys/firmware/efi/efivars/LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+				// 4 EFI attribute bytes (non-volatile | bootservice | runtime) + UTF-16LE content
+				attrs := []byte{0x07, 0x00, 0x00, 0x00}
+				content := append(attrs, EncondeUtf16LEStringNullTerminated("systemd-boot 255.4")...)
+				err := fs.WriteFile(loaderInfoVar, content, os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/passive+3.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery+1-2.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/statereset+2-1.conf", []byte("title kairos statereset\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = SelectBootEntry(config, "recovery")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(memLog.String()).To(ContainSubstring("systemd-boot 255 detected"))
+				// Full filename with assessment required for systemd-boot < 257
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+1-2.conf"))
+
+				err = SelectBootEntry(config, "fallback")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
+
+				// Entry without assessment falls back to base name
+				err = SelectBootEntry(config, "cos")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
+			})
+
+			It("uses base name in EFI var on systemd-boot >= 257 or unknown version", func() {
+				// No LoaderInfo var → version unknown → falls back to >= 257 behaviour (base name only)
+				err := fs.WriteFile("/efi/loader/entries/active+2-1.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/passive+3.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/recovery+1-2.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/entries/statereset+2-1.conf", []byte("title kairos statereset\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = SelectBootEntry(config, "recovery")
+				Expect(err).ToNot(HaveOccurred())
+				// Base name only — assessment suffix ignored on >= 257
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
+
+				err = SelectBootEntry(config, "fallback")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
+			})
+
 			It("fails to select the boot entry if it doesnt exist", func() {
 				err := SelectBootEntry(config, "kairos")
 				Expect(err).To(HaveOccurred())
@@ -172,28 +232,28 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+1-2.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
 
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset+2-1.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset.conf"))
 
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("active+2-1.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
 
 				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("active+2-1.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
 			})
 
 			It("selects the boot entry in a extend-cmdline installation with boot branding", func() {
@@ -211,7 +271,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_awesomeos+3.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_awesomeos.conf"))
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
@@ -258,7 +318,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
 
 				err = SelectBootEntry(config, "fallback foobar")
 				Expect(err).ToNot(HaveOccurred())
@@ -268,7 +328,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+3.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
 
 				err = SelectBootEntry(config, "recovery foobar")
 				Expect(err).ToNot(HaveOccurred())
