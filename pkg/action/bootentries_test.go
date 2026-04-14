@@ -172,28 +172,28 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+1-2.conf"))
 
 				err = SelectBootEntry(config, "statereset")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to statereset"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("statereset+2-1.conf"))
 
 				err = SelectBootEntry(config, "cos")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to cos"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active+2-1.conf"))
 
 				// also works using active (we want to get rid of the word cos later but this also needs to be applied in GRUB)
 				err = SelectBootEntry(config, "active")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("active.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("active+2-1.conf"))
 			})
 
 			It("selects the boot entry in a extend-cmdline installation with boot branding", func() {
@@ -211,7 +211,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_awesomeos.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive_install-mode_awesomeos+3.conf"))
 
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
@@ -258,7 +258,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "fallback")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to fallback"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("passive.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
 
 				err = SelectBootEntry(config, "fallback foobar")
 				Expect(err).ToNot(HaveOccurred())
@@ -268,7 +268,7 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				err = SelectBootEntry(config, "recovery")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to recovery"))
-				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery.conf"))
+				Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+3.conf"))
 
 				err = SelectBootEntry(config, "recovery foobar")
 				Expect(err).ToNot(HaveOccurred())

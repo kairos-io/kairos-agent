@@ -192,7 +192,16 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	if err != nil {
 		return err
 	}
-	err = WriteOneShotEfiVar(cfg, fmt.Sprintf("%s.conf", bootConfigName))
+	// Read boot assessment from the entry file so we can write the full filename to the EFI var.
+	// systemd-boot < 257 requires the full filename including the assessment suffix (e.g. recovery+3-1.conf)
+	// to look up the entry in LoaderEntryOneShot. systemd-boot >= 257 accepts just the base name, but
+	// also handles the full name, so including the assessment is safe for all versions.
+	assessment, err := utils.ReadAssessmentFromEntry(cfg.Fs, bootConfigName, cfg.Logger)
+	if err != nil {
+		cfg.Logger.Logger.Err(err).Str("entry", entry).Str("boot file name", bootConfigName).Msg("could not read assessment from entry")
+		return err
+	}
+	err = WriteOneShotEfiVar(cfg, fmt.Sprintf("%s%s.conf", bootConfigName, assessment))
 	if err != nil {
 		cfg.Logger.Errorf("could not write EFI variable: %s", err)
 		return err
@@ -202,10 +211,10 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 }
 
 // WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
-// Only works in systemd >= 257
-// for older versions, we would need to append the boot assesment to the name as the entry id
-// in older verrsion is the full file name
-// On newer versions, its just the conf name without the assesment part
+// For systemd-boot >= 257 the entry name without boot assessment is sufficient.
+// For systemd-boot < 257 the full filename including assessment must be supplied (e.g. recovery+3-1.conf)
+// so that systemd-boot can locate the entry. Always passing the full name is safe because
+// newer versions strip the assessment when matching.
 func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
 	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 
