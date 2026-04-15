@@ -1140,13 +1140,13 @@ The command automatically:
 			// If url is empty, read from cloud-config using Kairos' config scanner
 			// which handles /oem/, /usr/local/cloud-config/ and subdirectories
 			if url == "" {
-				type daedalusCC struct {
-					Daedalus struct {
+				type phonehomeCC struct {
+					Phonehome struct {
 						URL               string            `yaml:"url"`
 						RegistrationToken string            `yaml:"registration_token"`
 						Group             string            `yaml:"group"`
 						Labels            map[string]string `yaml:"labels"`
-					} `yaml:"daedalus"`
+					} `yaml:"phonehome"`
 				}
 
 				cfg, err := agentConfig.Scan(
@@ -1154,23 +1154,23 @@ The command automatically:
 					collector.NoLogs,
 				)
 				if err == nil {
-					// Re-parse the merged config to extract daedalus section
+					// Re-parse the merged config to extract the phonehome section
 					configStr, _ := cfg.Collector.String()
-					var cc daedalusCC
-					if yaml.Unmarshal([]byte(configStr), &cc) == nil && cc.Daedalus.URL != "" {
-						url = cc.Daedalus.URL
+					var cc phonehomeCC
+					if yaml.Unmarshal([]byte(configStr), &cc) == nil && cc.Phonehome.URL != "" {
+						url = cc.Phonehome.URL
 						if token == "" {
-							token = cc.Daedalus.RegistrationToken
+							token = cc.Phonehome.RegistrationToken
 						}
 						if group == "" {
-							group = cc.Daedalus.Group
+							group = cc.Phonehome.Group
 						}
 					}
 				}
 			}
 
 			if url == "" {
-				return fmt.Errorf("daedalus URL required (use --url, DAEDALUS_URL env, or /oem/daedalus.yaml)")
+				return fmt.Errorf("phonehome URL required (use --url, DAEDALUS_URL env, or a phonehome: section in cloud-config)")
 			}
 
 			cfg := &phonehome.Config{

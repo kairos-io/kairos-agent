@@ -31,7 +31,7 @@ WantedBy=multi-user.target
 // cloud-config directories and, if so, installs and starts the phone-home
 // systemd service. This is called during `kairos-agent start`.
 func enablePhoneHomeIfConfigured(dirs []string) {
-	if !hasDaedalusConfig(dirs) {
+	if !hasPhonehomeConfig(dirs) {
 		return
 	}
 
@@ -58,9 +58,9 @@ func enablePhoneHomeIfConfigured(dirs []string) {
 	}
 }
 
-// hasDaedalusConfig checks if any cloud-config file in the given directories
-// contains a `daedalus:` section with a `url` field.
-func hasDaedalusConfig(dirs []string) bool {
+// hasPhonehomeConfig checks if any cloud-config file in the given directories
+// contains a `phonehome:` section with a `url` field.
+func hasPhonehomeConfig(dirs []string) bool {
 	for _, dir := range dirs {
 		found := false
 		// Walk recursively — Kairos stores datasource cloud-config in
@@ -77,11 +77,11 @@ func hasDaedalusConfig(dirs []string) bool {
 				return nil
 			}
 			var cc struct {
-				Daedalus struct {
+				Phonehome struct {
 					URL string `yaml:"url"`
-				} `yaml:"daedalus"`
+				} `yaml:"phonehome"`
 			}
-			if yaml.Unmarshal(data, &cc) == nil && cc.Daedalus.URL != "" {
+			if yaml.Unmarshal(data, &cc) == nil && cc.Phonehome.URL != "" {
 				found = true
 				return filepath.SkipAll
 			}

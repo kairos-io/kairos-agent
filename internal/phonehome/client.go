@@ -189,14 +189,18 @@ func (c *Client) Connect(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Close connection when context is cancelled (unblocks ReadMessage)
+	// Close connection when context is cancelled (unblocks ReadMessage).
+	// Writes must be serialized with the heartbeat/status goroutines —
+	// gorilla/websocket panics on concurrent writes.
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
-		conn.WriteMessage(websocket.CloseMessage,
+		c.mu.Lock()
+		_ = conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		c.mu.Unlock()
 		conn.Close()
 	}()
 
