@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// DefaultCommandHandler returns a CommandHandler that handles all daedalus commands.
-// The daedalusURL and apiKey are needed to download artifact images for upgrades.
+// DefaultCommandHandler returns a CommandHandler that handles all phone-home commands.
+// The serverURL and apiKey are needed to download artifact images for upgrades.
 //
 // isAllowed gates execution: a command is only dispatched if isAllowed(cmd.Command)
 // returns true. This exists because a rogue/DNS-hijacked server could otherwise
@@ -20,7 +20,7 @@ import (
 // commands are opt-in per Config.AllowedCommands. If isAllowed is nil, every command
 // is denied (safer default than allowing everything when the caller forgets to wire
 // the policy through).
-func DefaultCommandHandler(daedalusURL string, apiKey func() string, isAllowed func(string) bool) CommandHandler {
+func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed func(string) bool) CommandHandler {
 	return func(cmd CommandData) (string, error) {
 		if isAllowed == nil || !isAllowed(cmd.Command) {
 			return "", fmt.Errorf("command %q is not permitted by the phonehome policy; add it to phonehome.allowed_commands in cloud-config to opt in", cmd.Command)
@@ -39,7 +39,7 @@ func DefaultCommandHandler(daedalusURL string, apiKey func() string, isAllowed f
 			return string(out), err
 
 		case "upgrade", "upgrade-recovery":
-			return handleUpgrade(ctx, cmd, daedalusURL, apiKey())
+			return handleUpgrade(ctx, cmd, serverURL, apiKey())
 
 		case "reset":
 			return handleReset(cmd)
@@ -57,13 +57,13 @@ func DefaultCommandHandler(daedalusURL string, apiKey func() string, isAllowed f
 }
 
 // handleUpgrade downloads the image (if artifact-based) and runs kairos-agent upgrade.
-func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string, apiKey string) (string, error) {
+func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKey string) (string, error) {
 	source := cmd.Args["source"]
 	if source == "" {
 		return "", fmt.Errorf("upgrade requires 'source' arg")
 	}
 
-	// If source is "artifact:<id>", download the container image tar from daedalus
+	// If source is "artifact:<id>", download the container image tar from the server.
 	if strings.HasPrefix(source, "artifact:") {
 		artifactID := strings.TrimPrefix(source, "artifact:")
 		// Artifact IDs come from the management server — constrain to a safe
@@ -71,12 +71,12 @@ func handleUpgrade(ctx context.Context, cmd CommandData, daedalusURL string, api
 		if !isSafeArtifactID(artifactID) {
 			return "", fmt.Errorf("invalid artifact id %q", artifactID)
 		}
-		tarPath := fmt.Sprintf("/tmp/daedalus-upgrade-%s.tar", artifactID)
+		tarPath := fmt.Sprintf("/tmp/phonehome-upgrade-%s.tar", artifactID)
 
 		imageURL := fmt.Sprintf("%s/api/v1/artifacts/%s/image?token=%s",
-			strings.TrimRight(daedalusURL, "/"), artifactID, apiKey)
+			strings.TrimRight(serverURL, "/"), artifactID, apiKey)
 
-		// daedalusURL is operator-configured via cloud-config, not user input.
+		// serverURL is operator-configured via cloud-config, not user input.
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil) //nosec G107 -- URL derived from operator cloud-config
 		if err != nil {
 			return "", fmt.Errorf("building artifact image request: %w", err)
@@ -173,7 +173,7 @@ func handleApplyCloudConfig(cmd CommandData) (string, error) {
 		return "", err
 	}
 
-	return "Cloud config written to /oem/99_daedalus_remote.yaml. Reboot to apply.", nil
+	return "Cloud config written to /oem/99_phonehome_remote.yaml. Reboot to apply.", nil
 }
 
 // handleReboot schedules a system reboot.
@@ -198,7 +198,7 @@ func writeOEMCloudConfig(content string) error {
 	// Best-effort mount — error is expected and ignored when /oem is already mounted.
 	_ = exec.Command("mount", "-L", "COS_OEM", "/oem").Run() //nosec G204 -- fixed label, called on local mountpoint
 
-	return os.WriteFile("/oem/99_daedalus_remote.yaml", []byte(content), 0600)
+	return os.WriteFile("/oem/99_phonehome_remote.yaml", []byte(content), 0600)
 }
 
 // scheduleReboot syncs filesystems and reboots after a short delay.

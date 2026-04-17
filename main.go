@@ -1108,22 +1108,22 @@ The command automatically:
 	},
 	{
 		Name:  "phone-home",
-		Usage: "Start phone-home connection to a Daedalus management server",
+		Usage: "Start phone-home connection to a management server",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "url",
-				Usage:   "Daedalus server URL",
-				EnvVars: []string{"DAEDALUS_URL"},
+				Usage:   "Phone-home server URL",
+				EnvVars: []string{"PHONEHOME_URL"},
 			},
 			&cli.StringFlag{
 				Name:    "token",
 				Usage:   "Registration token",
-				EnvVars: []string{"REGISTRATION_TOKEN"},
+				EnvVars: []string{"PHONEHOME_REGISTRATION_TOKEN"},
 			},
 			&cli.StringFlag{
 				Name:    "group",
 				Usage:   "Node group to join",
-				EnvVars: []string{"DAEDALUS_GROUP"},
+				EnvVars: []string{"PHONEHOME_GROUP"},
 			},
 			&cli.DurationFlag{
 				Name:  "heartbeat-interval",

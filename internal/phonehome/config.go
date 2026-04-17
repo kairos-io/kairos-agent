@@ -15,7 +15,7 @@ const (
 	MaxReconnectBackoff      = 60 * time.Second
 	// DefaultCredentialsPath is the on-disk location of the node's saved
 	// credentials. It is a filesystem path, not an embedded secret.
-	DefaultCredentialsPath = "/usr/local/.kairos/daedalus-credentials.yaml" //nosec G101 -- path, not credential
+	DefaultCredentialsPath = "/usr/local/.kairos/phonehome-credentials.yaml" //nosec G101 -- path, not credential
 )
 
 // Config holds the phone-home configuration, typically read from cloud-config.
@@ -116,7 +116,7 @@ type HeartbeatData struct {
 	Labels       map[string]string `json:"labels,omitempty"`
 }
 
-// CommandData is received from daedalus.
+// CommandData is received from the management server.
 type CommandData struct {
 	ID      string            `json:"id"`
 	Command string            `json:"command"`
