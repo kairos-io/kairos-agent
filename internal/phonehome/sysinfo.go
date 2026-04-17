@@ -39,7 +39,7 @@ func gatherSystemInfo() map[string]string {
 					break
 				}
 			}
-			f.Close()
+			_ = f.Close()
 		}
 
 		if f, err := os.Open("/proc/cpuinfo"); err == nil {
@@ -50,7 +50,7 @@ func gatherSystemInfo() map[string]string {
 					count++
 				}
 			}
-			f.Close()
+			_ = f.Close()
 			if count > 0 {
 				info["CPU_COUNT"] = strconv.Itoa(count)
 			}
@@ -62,12 +62,13 @@ func gatherSystemInfo() map[string]string {
 }
 
 // mergeEnvFile parses KEY=VALUE lines (optional quotes) and merges into dst.
+// path is always a compile-time constant in this package (see gatherSystemInfo).
 func mergeEnvFile(dst map[string]string, path string) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nosec G304 -- callers pass only fixed /etc/*-release paths
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

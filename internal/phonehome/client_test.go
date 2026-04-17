@@ -24,6 +24,7 @@ type mockServer struct {
 	mu       sync.Mutex
 	regCalls int
 	lastReg  phonehome.RegisterRequest
+	wsToken  string
 	// WS tracking
 	wsConnected    chan struct{}
 	heartbeats     []phonehome.HeartbeatData
@@ -31,9 +32,22 @@ type mockServer struct {
 	commandsToSend []phonehome.CommandData
 }
 
+func (ms *mockServer) setWSToken(t string) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.wsToken = t
+}
+
+func (ms *mockServer) getWSToken() string {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	return ms.wsToken
+}
+
 func newMockServer(validToken string) *mockServer {
 	ms := &mockServer{
 		wsConnected: make(chan struct{}, 1),
+		wsToken:     "test-api-key",
 	}
 
 	mux := http.NewServeMux()
@@ -69,7 +83,7 @@ func newMockServer(validToken string) *mockServer {
 
 	mux.HandleFunc("/api/v1/ws", func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
-		if token != "test-api-key" {
+		if token != ms.getWSToken() {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -257,6 +271,25 @@ var _ = Describe("PhoneHome Client", func() {
 			ms.mu.Lock()
 			defer ms.mu.Unlock()
 			Expect(len(ms.heartbeats)).To(BeNumerically(">=", 2))
+		})
+
+		It("should fail when the stored API key is rejected by the server", func() {
+			// Register with a valid registration token so credentials are stored,
+			// then make the server reject the resulting API key on the WS handshake.
+			// This covers the case where the registration token is correct but the
+			// node's API key is invalid/revoked at connection time.
+			client := newTestClient("test-token")
+			err := client.Register(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			ms.setWSToken("some-other-key")
+
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
+
+			err = client.Connect(ctx)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("websocket"))
 		})
 
 		It("should receive and handle command messages", func() {

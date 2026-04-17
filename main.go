@@ -1108,22 +1108,22 @@ The command automatically:
 	},
 	{
 		Name:  "phone-home",
-		Usage: "Start phone-home connection to a Daedalus management server",
+		Usage: "Start phone-home connection to a management server",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "url",
-				Usage:   "Daedalus server URL",
-				EnvVars: []string{"DAEDALUS_URL"},
+				Usage:   "Phone-home server URL",
+				EnvVars: []string{"PHONEHOME_URL"},
 			},
 			&cli.StringFlag{
 				Name:    "token",
 				Usage:   "Registration token",
-				EnvVars: []string{"REGISTRATION_TOKEN"},
+				EnvVars: []string{"PHONEHOME_REGISTRATION_TOKEN"},
 			},
 			&cli.StringFlag{
 				Name:    "group",
 				Usage:   "Node group to join",
-				EnvVars: []string{"DAEDALUS_GROUP"},
+				EnvVars: []string{"PHONEHOME_GROUP"},
 			},
 			&cli.DurationFlag{
 				Name:  "heartbeat-interval",
@@ -1137,57 +1137,44 @@ The command automatically:
 			group := c.String("group")
 			heartbeat := c.Duration("heartbeat-interval")
 
-			// If url is empty, read from cloud-config using Kairos' config scanner
-			// which handles /oem/, /usr/local/cloud-config/ and subdirectories
-			if url == "" {
-				type phonehomeCC struct {
-					Phonehome struct {
-						URL               string            `yaml:"url"`
-						RegistrationToken string            `yaml:"registration_token"`
-						Group             string            `yaml:"group"`
-						Labels            map[string]string `yaml:"labels"`
-					} `yaml:"phonehome"`
-				}
-
-				cfg, err := agentConfig.Scan(
-					collector.Directories(constants.GetUserConfigDirs()...),
-					collector.NoLogs,
-				)
-				if err == nil {
-					// Re-parse the merged config to extract the phonehome section
-					configStr, _ := cfg.Collector.String()
-					var cc phonehomeCC
-					if yaml.Unmarshal([]byte(configStr), &cc) == nil && cc.Phonehome.URL != "" {
-						url = cc.Phonehome.URL
-						if token == "" {
-							token = cc.Phonehome.RegistrationToken
-						}
-						if group == "" {
-							group = cc.Phonehome.Group
-						}
-					}
+			// Pull phonehome defaults from cloud-config via the shared Collector.
+			// CLI flags still win: they override anything from the merged config.
+			var cfg phonehome.Config
+			scanned, err := agentConfig.Scan(
+				collector.Directories(constants.GetUserConfigDirs()...),
+				collector.NoLogs,
+			)
+			if err == nil {
+				if cc, ok, _ := phonehome.LoadFromCollector(scanned); ok {
+					cfg = *cc
 				}
 			}
 
-			if url == "" {
+			if url != "" {
+				cfg.URL = url
+			}
+			if token != "" {
+				cfg.RegistrationToken = token
+			}
+			if group != "" {
+				cfg.Group = group
+			}
+			cfg.HeartbeatInterval = heartbeat
+
+			if cfg.URL == "" {
 				return fmt.Errorf("phonehome URL required (use --url, DAEDALUS_URL env, or a phonehome: section in cloud-config)")
 			}
 
-			cfg := &phonehome.Config{
-				URL:               url,
-				RegistrationToken: token,
-				Group:             group,
-				HeartbeatInterval: heartbeat,
-			}
 			ctx := c.Context
 			var client *phonehome.Client
-			handler := phonehome.DefaultCommandHandler(url, func() string {
+			apiKeyFn := func() string {
 				if client != nil {
 					return client.APIKey()
 				}
 				return ""
-			})
-			client = phonehome.NewClient(cfg,
+			}
+			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed)
+			client = phonehome.NewClient(&cfg,
 				phonehome.WithCommandHandler(handler),
 			)
 			return client.Run(ctx)

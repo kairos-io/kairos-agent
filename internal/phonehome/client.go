@@ -20,7 +20,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CommandHandler is called when a command is received from daedalus.
+// CommandHandler is called when a command is received from the management server.
 // It should execute the command and return a result string and any error.
 type CommandHandler func(cmd CommandData) (result string, err error)
 
@@ -47,7 +47,7 @@ func WithLogger(l *log.Logger) ClientOption {
 	return func(c *Client) { c.logger = l }
 }
 
-// Client manages the connection to a daedalus server.
+// Client manages the connection to a phone-home management server.
 type Client struct {
 	cfg         *Config
 	credentials *Credentials
@@ -97,7 +97,7 @@ func NewClient(cfg *Config, opts ...ClientOption) *Client {
 	return c
 }
 
-// Register contacts daedalus to register this node. Stores credentials locally.
+// Register contacts the server to register this node. Stores credentials locally.
 // If credentials already exist on disk, they are loaded and registration is skipped.
 func (c *Client) Register(ctx context.Context) error {
 	// Try loading existing credentials
@@ -156,7 +156,7 @@ func (c *Client) Register(ctx context.Context) error {
 	return nil
 }
 
-// Connect establishes a WebSocket connection to daedalus and handles messages.
+// Connect establishes a WebSocket connection to the server and handles messages.
 // It blocks until the connection is closed or the context is cancelled.
 func (c *Client) Connect(ctx context.Context) error {
 	if c.credentials == nil {
@@ -178,7 +178,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Unlock()
 
 	defer func() {
-		conn.Close()
+		_ = conn.Close()
 		c.mu.Lock()
 		c.conn = nil
 		c.mu.Unlock()
@@ -201,7 +201,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		_ = conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		c.mu.Unlock()
-		conn.Close()
+		_ = conn.Close()
 	}()
 
 	// Start heartbeat writer
@@ -298,8 +298,11 @@ func (c *Client) heartbeatLoop(ctx context.Context, conn *websocket.Conn) {
 	ticker := time.NewTicker(c.cfg.HeartbeatInterval)
 	defer ticker.Stop()
 
-	// Send initial heartbeat immediately
-	c.sendHeartbeat(conn)
+	// Send initial heartbeat immediately. If it fails the ticker-driven loop
+	// below will surface the next write error, so log-and-continue is enough here.
+	if err := c.sendHeartbeat(conn); err != nil {
+		c.logger.Printf("initial heartbeat error: %v", err)
+	}
 
 	for {
 		select {
