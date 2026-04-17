@@ -371,5 +371,31 @@ var _ = Describe("PhoneHome Client", func() {
 			err := client.Run(ctx)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		// Stop() is the decommission escape hatch: once the unregister
+		// command handler has torn down the phone-home install on disk,
+		// the Run loop has nothing to reconnect to and should exit cleanly
+		// even though the caller's context is still alive.
+		It("should exit Run cleanly when Stop() is called", func() {
+			client := newTestClient("test-token")
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// Kick Stop() shortly after the WS connection is established —
+			// Run must return without waiting for ctx to fire.
+			go func() {
+				defer GinkgoRecover()
+				<-ms.wsConnected
+				time.Sleep(50 * time.Millisecond)
+				client.Stop()
+			}()
+
+			done := make(chan error, 1)
+			go func() { done <- client.Run(ctx) }()
+
+			Eventually(done, "2s", "50ms").Should(Receive(BeNil()))
+			Expect(ctx.Err()).To(BeNil(), "caller's context must not have been cancelled")
+		})
 	})
 })

@@ -1109,6 +1109,26 @@ The command automatically:
 	{
 		Name:  "phone-home",
 		Usage: "Start phone-home connection to a management server",
+		Subcommands: []*cli.Command{
+			{
+				Name:  "uninstall",
+				Usage: "Stop the phone-home service and remove all phone-home configs and credentials from this node",
+				Description: "Tears down the phone-home installation on the local node: stops and disables the systemd service, " +
+					"removes the unit file, drops the saved credentials, and removes the phone-home cloud-config files. " +
+					"Run this after a node has been decommissioned on the server (especially when the server could not " +
+					"reach the node to run the teardown remotely).",
+				Action: func(c *cli.Context) error {
+					summary, err := phonehome.Uninstall()
+					if summary != "" {
+						fmt.Println(summary)
+					}
+					if err != nil {
+						return fmt.Errorf("uninstall completed with errors: %w", err)
+					}
+					return nil
+				},
+			},
+		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "url",
@@ -1162,7 +1182,7 @@ The command automatically:
 			cfg.HeartbeatInterval = heartbeat
 
 			if cfg.URL == "" {
-				return fmt.Errorf("phonehome URL required (use --url, DAEDALUS_URL env, or a phonehome: section in cloud-config)")
+				return fmt.Errorf("phonehome URL required (use --url, PHONEHOME_URL env, or a phonehome: section in cloud-config)")
 			}
 
 			ctx := c.Context
@@ -1173,7 +1193,14 @@ The command automatically:
 				}
 				return ""
 			}
-			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed)
+			// stopFn is captured before the client exists; the handler resolves
+			// it lazily so `unregister` can break the Run loop from inside.
+			stopFn := func() {
+				if client != nil {
+					client.Stop()
+				}
+			}
+			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed, stopFn)
 			client = phonehome.NewClient(&cfg,
 				phonehome.WithCommandHandler(handler),
 			)

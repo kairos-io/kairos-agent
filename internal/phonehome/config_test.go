@@ -97,6 +97,20 @@ var _ = Describe("Config.IsAllowed", func() {
 		Expect(cfg.IsAllowed("apply-cloud-config")).To(BeFalse())
 	})
 
+	// unregister is a deliberate default-allow so that newly-registered
+	// nodes can be cleanly decommissioned without first having to push a
+	// cloud-config update that opts in to the teardown command. The
+	// behaviour here is load-bearing for the "delete node" UX.
+	It("allows `unregister` by default so decommission works out of the box", func() {
+		cfg := &phonehome.Config{}
+		Expect(cfg.IsAllowed("unregister")).To(BeTrue())
+	})
+
+	It("respects an explicit allowlist that omits `unregister`", func() {
+		cfg := &phonehome.Config{AllowedCommands: []string{"upgrade"}}
+		Expect(cfg.IsAllowed("unregister")).To(BeFalse())
+	})
+
 	It("honors an explicit AllowedCommands allowlist", func() {
 		cfg := &phonehome.Config{AllowedCommands: []string{"exec"}}
 		Expect(cfg.IsAllowed("exec")).To(BeTrue())
@@ -114,7 +128,7 @@ var _ = Describe("Config.IsAllowed", func() {
 var _ = Describe("DefaultCommandHandler policy gating", func() {
 	It("rejects commands that are not in the allowlist", func() {
 		cfg := &phonehome.Config{} // defaults — exec not allowed
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, nil)
 
 		out, err := handler(phonehome.CommandData{
 			ID:      "c1",
@@ -128,7 +142,7 @@ var _ = Describe("DefaultCommandHandler policy gating", func() {
 
 	It("rejects unknown commands even when listed in defaults", func() {
 		cfg := &phonehome.Config{}
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, nil)
 
 		_, err := handler(phonehome.CommandData{ID: "c2", Command: "totally-made-up"})
 		Expect(err).To(HaveOccurred())
@@ -136,10 +150,33 @@ var _ = Describe("DefaultCommandHandler policy gating", func() {
 	})
 
 	It("denies everything when isAllowed is nil (fail-closed)", func() {
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, nil, nil)
 
 		_, err := handler(phonehome.CommandData{ID: "c3", Command: "upgrade"})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("not permitted"))
+	})
+
+	// The unregister path runs the real on-host teardown via Uninstall, which
+	// would try to stop a systemd unit and delete files. Swap out the runners
+	// for the duration of this spec so the test stays hermetic.
+	It("invokes the stop callback after a successful `unregister`", func() {
+		origRun, origRm := phonehome.SetUninstallRunners(
+			func(name string, args ...string) ([]byte, error) { return nil, nil },
+			func(string) error { return nil },
+		)
+		defer phonehome.SetUninstallRunners(origRun, origRm)
+
+		stopped := make(chan struct{}, 1)
+		stop := func() { stopped <- struct{}{} }
+		cfg := &phonehome.Config{} // defaults include unregister
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, stop)
+
+		out, err := handler(phonehome.CommandData{ID: "u1", Command: "unregister"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(ContainSubstring(phonehome.ServiceName))
+
+		// Stop runs via time.AfterFunc(500ms); wait a bit longer than that.
+		Eventually(stopped, "2s", "50ms").Should(Receive())
 	})
 })

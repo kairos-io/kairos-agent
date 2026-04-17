@@ -10,8 +10,6 @@ import (
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
-const phoneHomeServiceName = "kairos-agent-phonehome"
-const phoneHomeServicePath = "/etc/systemd/system/kairos-agent-phonehome.service"
 const phoneHomeServiceContent = `[Unit]
 Description=Kairos Agent Phone Home
 After=network-online.target
@@ -43,15 +41,15 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 
 	fmt.Println("Phone-home configuration detected, enabling phone-home service")
 
-	if err := os.WriteFile(phoneHomeServicePath, []byte(phoneHomeServiceContent), 0600); err != nil {
+	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceContent), 0600); err != nil {
 		fmt.Printf("Warning: failed to write phone-home service: %v\n", err)
 		return
 	}
 
 	for _, args := range [][]string{
 		{"systemctl", "daemon-reload"},
-		{"systemctl", "enable", phoneHomeServiceName},
-		{"systemctl", "start", phoneHomeServiceName},
+		{"systemctl", "enable", phonehome.ServiceName},
+		{"systemctl", "start", phonehome.ServiceName},
 	} {
 		// args is a literal slice defined just above — no user input reaches exec.Command.
 		cmd := exec.Command(args[0], args[1:]...) //nosec G204 -- fixed command and arguments

@@ -20,7 +20,12 @@ import (
 // commands are opt-in per Config.AllowedCommands. If isAllowed is nil, every command
 // is denied (safer default than allowing everything when the caller forgets to wire
 // the policy through).
-func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed func(string) bool) CommandHandler {
+//
+// stop is invoked after a successful `unregister` teardown so the long-lived
+// phonehome Run loop stops reconnecting. It is nil-safe (nil => no self-exit,
+// useful for tests and one-shot handler drivers); in production the Client
+// passes its own Stop method in.
+func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed func(string) bool, stop func()) CommandHandler {
 	return func(cmd CommandData) (string, error) {
 		if isAllowed == nil || !isAllowed(cmd.Command) {
 			return "", fmt.Errorf("command %q is not permitted by the phonehome policy; add it to phonehome.allowed_commands in cloud-config to opt in", cmd.Command)
@@ -50,10 +55,30 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 		case "reboot":
 			return handleReboot()
 
+		case "unregister":
+			return handleUnregister(stop)
+
 		default:
 			return "", fmt.Errorf("unknown command: %s", cmd.Command)
 		}
 	}
+}
+
+// handleUnregister runs the on-host phonehome teardown (stop service, remove
+// unit, drop cloud-configs and credentials) and then schedules the Run loop
+// to exit. The brief delay before stop() gives the final "Completed" status
+// message time to leave the WebSocket before the connection closes from this
+// side; without it the server would see the disconnect first and mark the
+// command as Failed/Delivered-without-result.
+func handleUnregister(stop func()) (string, error) {
+	summary, err := Uninstall()
+	if stop != nil {
+		time.AfterFunc(500*time.Millisecond, stop)
+	}
+	if err != nil {
+		return summary, err
+	}
+	return summary, nil
 }
 
 // handleUpgrade downloads the image (if artifact-based) and runs kairos-agent upgrade.

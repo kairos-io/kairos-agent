@@ -59,6 +59,24 @@ type Client struct {
 
 	mu   sync.Mutex
 	conn *websocket.Conn
+
+	// stopCancel cancels the derived context the Run loop uses; nil until Run
+	// starts. Stop() captures the current value under mu.
+	stopCancel context.CancelFunc
+}
+
+// Stop signals a running Run loop to exit cleanly without reconnecting.
+// It is the counterpart to `unregister`: after the command handler has
+// finished the teardown on disk, calling Stop tells the reconnect loop it
+// has nothing left to attach to. Safe to call from any goroutine; no-op if
+// Run has not started yet or has already returned.
+func (c *Client) Stop() {
+	c.mu.Lock()
+	cancel := c.stopCancel
+	c.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 // APIKey returns the node's API key, or empty string if not yet registered.
@@ -248,6 +266,15 @@ func (c *Client) Connect(ctx context.Context) error {
 
 // Run is the main loop: register, then connect with auto-reconnect.
 func (c *Client) Run(ctx context.Context) error {
+	// Derive a cancelable context so Stop() (invoked by e.g. the unregister
+	// command handler) can break out of this loop without the caller having
+	// to plumb a second cancel through. The parent ctx still takes precedence.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c.mu.Lock()
+	c.stopCancel = cancel
+	c.mu.Unlock()
+
 	// Retry registration with backoff until successful or context cancelled
 	regBackoff := c.cfg.ReconnectBackoff
 	for {

@@ -16,6 +16,20 @@ const (
 	// DefaultCredentialsPath is the on-disk location of the node's saved
 	// credentials. It is a filesystem path, not an embedded secret.
 	DefaultCredentialsPath = "/usr/local/.kairos/phonehome-credentials.yaml" //nosec G101 -- path, not credential
+
+	// ServiceName / ServicePath are shared between the agent package (which
+	// installs the unit) and this package's Uninstall (which tears it down).
+	// Keeping them here avoids an internal/phonehome -> internal/agent import
+	// cycle when Uninstall needs to touch the same paths.
+	ServiceName = "kairos-agent-phonehome"
+	ServicePath = "/etc/systemd/system/kairos-agent-phonehome.service"
+
+	// Cloud-config files written during phone-home installation that Uninstall
+	// removes. The first is baked by AuroraBoot (either in an artifact image's
+	// datasource or by the install script); the second is written on demand
+	// by the apply-cloud-config command handler.
+	CloudConfigPath       = "/oem/phonehome.yaml"
+	RemoteCloudConfigPath = "/oem/99_phonehome_remote.yaml"
 )
 
 // Config holds the phone-home configuration, typically read from cloud-config.
@@ -36,7 +50,13 @@ type Config struct {
 // DefaultAllowedCommands is the conservative set of commands a phone-home node
 // will execute when the user has not specified allowed_commands in cloud-config.
 // It intentionally excludes exec, reset and apply-cloud-config.
-var DefaultAllowedCommands = []string{"upgrade", "upgrade-recovery", "reboot"}
+//
+// `unregister` is included: it is self-destruct of the management link, not a
+// privilege escalation — the worst a rogue server can do with it is terminate
+// its own connection to the node. Having it on by default means operators can
+// cleanly decommission nodes without having to first push a cloud-config
+// update opting in to the teardown command.
+var DefaultAllowedCommands = []string{"upgrade", "upgrade-recovery", "reboot", "unregister"}
 
 // IsAllowed reports whether the given command name is permitted by this config.
 // Matching is exact. A nil AllowedCommands falls back to DefaultAllowedCommands;
