@@ -178,7 +178,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Unlock()
 
 	defer func() {
-		conn.Close()
+		_ = conn.Close()
 		c.mu.Lock()
 		c.conn = nil
 		c.mu.Unlock()
@@ -201,7 +201,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		_ = conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		c.mu.Unlock()
-		conn.Close()
+		_ = conn.Close()
 	}()
 
 	// Start heartbeat writer
@@ -298,8 +298,11 @@ func (c *Client) heartbeatLoop(ctx context.Context, conn *websocket.Conn) {
 	ticker := time.NewTicker(c.cfg.HeartbeatInterval)
 	defer ticker.Stop()
 
-	// Send initial heartbeat immediately
-	c.sendHeartbeat(conn)
+	// Send initial heartbeat immediately. If it fails the ticker-driven loop
+	// below will surface the next write error, so log-and-continue is enough here.
+	if err := c.sendHeartbeat(conn); err != nil {
+		c.logger.Printf("initial heartbeat error: %v", err)
+	}
 
 	for {
 		select {
