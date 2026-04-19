@@ -64,6 +64,9 @@ func Run(opts ...Option) error {
 	}
 	_, err = bus.Manager.Publish(events.EventBootstrap, events.BootstrapPayload{APIAddress: o.APIAddress, Config: configStr, Logfile: fileName})
 
+	// If phonehome config is present in cloud-config, install+start the service.
+	enablePhoneHomeIfConfigured(c)
+
 	if o.Restart && err != nil {
 		fmt.Println("Warning: Agent failed, restarting: ", err.Error())
 		return Run(opts...)
