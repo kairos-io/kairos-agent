@@ -11,8 +11,10 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
+	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
@@ -613,6 +615,9 @@ This command is meant to be used from the boot GRUB menu, but can likely be used
 			unattended := c.Bool("unattended")
 			resetOem := c.Bool("reset-oem")
 
+			// The persistent partition is formatted by default during reset
+			// (pkg/config/spec.go NewResetSpec sets FormatPersistent: true),
+			// so there's no useful CLI knob to surface here.
 			return agent.Reset(reboot, unattended, resetOem, constants.GetUserConfigDirs()...)
 		},
 		Usage: "Starts kairos reset mode",
@@ -1097,6 +1102,119 @@ The command automatically:
 					return kcrypt.UnlockAllEncryptedPartitions(cfg.Logger)
 				},
 			},
+		},
+	},
+	{
+		Name:  "phone-home",
+		Usage: "Start phone-home connection to a management server",
+		Subcommands: []*cli.Command{
+			{
+				Name:  "uninstall",
+				Usage: "Stop the phone-home service and remove all phone-home configs and credentials from this node",
+				Description: "Tears down the phone-home installation on the local node: stops and disables the systemd service, " +
+					"removes the unit file, drops the saved credentials, and removes the phone-home cloud-config files. " +
+					"Run this after a node has been decommissioned on the server (especially when the server could not " +
+					"reach the node to run the teardown remotely).",
+				Action: func(c *cli.Context) error {
+					// CLI invocation runs in its own process, so stopping the
+					// service unit SIGTERMs the service process (not us) —
+					// safe, and ensures we converge even on a node where the
+					// service is still up.
+					summary, err := phonehome.Uninstall(true)
+					if summary != "" {
+						fmt.Println(summary)
+					}
+					if err != nil {
+						return fmt.Errorf("uninstall completed with errors: %w", err)
+					}
+					return nil
+				},
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "url",
+				Usage:   "Phone-home server URL",
+				EnvVars: []string{"PHONEHOME_URL"},
+			},
+			&cli.StringFlag{
+				Name:    "token",
+				Usage:   "Registration token",
+				EnvVars: []string{"PHONEHOME_REGISTRATION_TOKEN"},
+			},
+			&cli.StringFlag{
+				Name:    "group",
+				Usage:   "Node group to join",
+				EnvVars: []string{"PHONEHOME_GROUP"},
+			},
+			&cli.DurationFlag{
+				Name:  "heartbeat-interval",
+				Usage: "Heartbeat interval",
+				Value: 30 * time.Second,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			url := c.String("url")
+			token := c.String("token")
+			group := c.String("group")
+			heartbeat := c.Duration("heartbeat-interval")
+
+			// Pull phonehome defaults from cloud-config via the shared Collector.
+			// CLI flags still win: they override anything from the merged config.
+			var cfg phonehome.Config
+			scanned, err := agentConfig.Scan(
+				collector.Directories(constants.GetUserConfigDirs()...),
+				collector.NoLogs,
+			)
+			if err == nil {
+				// Route the package-level Logger (used by the command
+				// handlers and Uninstall helpers) through the agent's own
+				// KairosLogger so every phone-home line lands in the same
+				// journal/file stream.
+				phonehome.SetLogger(scanned.Logger)
+
+				if cc, ok, _ := phonehome.LoadFromCollector(scanned); ok {
+					cfg = *cc
+				}
+			}
+
+			if url != "" {
+				cfg.URL = url
+			}
+			if token != "" {
+				cfg.RegistrationToken = token
+			}
+			if group != "" {
+				cfg.Group = group
+			}
+			cfg.HeartbeatInterval = heartbeat
+
+			if cfg.URL == "" {
+				return fmt.Errorf("phonehome URL required (use --url, PHONEHOME_URL env, or a phonehome: section in cloud-config)")
+			}
+
+			ctx := c.Context
+			var client *phonehome.Client
+			apiKeyFn := func() string {
+				if client != nil {
+					return client.APIKey()
+				}
+				return ""
+			}
+			// stopFn is captured before the client exists; the handler resolves
+			// it lazily so `unregister` can break the Run loop from inside.
+			stopFn := func() {
+				if client != nil {
+					client.Stop()
+				}
+			}
+			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed, stopFn)
+			clientOpts := []phonehome.ClientOption{phonehome.WithCommandHandler(handler)}
+			if scanned != nil {
+				clientOpts = append(clientOpts, phonehome.WithLogger(scanned.Logger))
+			}
+			client = phonehome.NewClient(&cfg, clientOpts...)
+			return client.Run(ctx)
 		},
 	},
 }

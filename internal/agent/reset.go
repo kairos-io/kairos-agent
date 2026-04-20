@@ -156,10 +156,6 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *sdkConfig
 	r := ExtraConfigReset{}
 	r.Reset.ResetOem = resetOem
 
-	if resetOem {
-		r.Reset.ResetOem = true
-	}
-
 	if reboot {
 		r.Reset.Reboot = true
 	}
@@ -167,9 +163,6 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *sdkConfig
 	// Override the config with the event options
 	// Go over the possible options sent via event
 	if len(optionsFromEvent) > 0 {
-		if p := optionsFromEvent["reset-persistent"]; p != "" {
-			r.Reset.ResetPersistent = p == "true"
-		}
 		if o := optionsFromEvent["reset-oem"]; o != "" {
 			r.Reset.ResetOem = o == "true"
 		}
@@ -203,8 +196,7 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *sdkConfig
 // ExtraConfigReset is the struct that holds the reset options that come from flags and events
 type ExtraConfigReset struct {
 	Reset struct {
-		ResetOem        bool `json:"reset-oem,omitempty"`
-		ResetPersistent bool `json:"reset-persistent,omitempty"`
-		Reboot          bool `json:"reboot,omitempty"`
+		ResetOem bool `json:"reset-oem,omitempty"`
+		Reboot   bool `json:"reboot,omitempty"`
 	} `json:"reset"`
 }
