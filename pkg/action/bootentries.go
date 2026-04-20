@@ -157,16 +157,25 @@ var getSystemdBootMajorVersion = func(efiMountPoint string) uint16 {
 func findEntryWithAssessment(cfg *sdkConfig.Config, efiMountPoint, confBaseName string) string {
 	re := regexp.MustCompile(`^` + regexp.QuoteMeta(confBaseName) + `\+\d+(-\d+)?\.conf$`)
 	entriesDir := filepath.Join(efiMountPoint, "loader/entries")
+	stopWalk := errors.New("matching assessed boot entry found")
 	var found string
-	_ = fsutils.WalkDirFs(cfg.Fs, entriesDir, func(path string, info os.DirEntry, err error) error {
-		if err != nil || info == nil || info.IsDir() || found != "" {
+
+	walkErr := fsutils.WalkDirFs(cfg.Fs, entriesDir, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if info == nil || info.IsDir() || found != "" {
 			return nil
 		}
 		if re.MatchString(info.Name()) {
 			found = strings.TrimSuffix(info.Name(), ".conf")
+			return stopWalk
 		}
 		return nil
 	})
+	if walkErr != nil && !errors.Is(walkErr, stopWalk) {
+		fmt.Fprintf(os.Stderr, "warning: failed to inspect %s for assessed boot entry %q: %v\n", entriesDir, confBaseName, walkErr)
+	}
 	if found != "" {
 		return found
 	}
