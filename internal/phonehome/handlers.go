@@ -146,9 +146,9 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 	}
 
 	// Use background context — upgrade must NOT be killed if WS disconnects
-	fmt.Printf("[phonehome] Running: kairos-agent %s\n", strings.Join(args, " "))
+	Logger.Printf("running: kairos-agent %s", strings.Join(args, " "))
 	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
-	fmt.Printf("[phonehome] Exit: err=%v output=%s\n", err, string(out))
+	Logger.Printf("exit: err=%v output=%s", err, string(out))
 	if err != nil {
 		return string(out), err
 	}
@@ -171,9 +171,9 @@ func handleReset(cmd CommandData) (string, error) {
 		args = append(args, "--reset-oem")
 	}
 
-	fmt.Printf("[phonehome] Running: kairos-agent %s\n", strings.Join(args, " "))
+	Logger.Printf("running: kairos-agent %s", strings.Join(args, " "))
 	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
-	fmt.Printf("[phonehome] Exit: err=%v output=%s\n", err, string(out))
+	Logger.Printf("exit: err=%v output=%s", err, string(out))
 	if err != nil {
 		return string(out), err
 	}
@@ -221,7 +221,7 @@ func writeOEMCloudConfig(content string) error {
 	// MkdirAll is best-effort: if /oem already exists we proceed; any other
 	// failure will surface from the mount attempt or WriteFile below.
 	if err := os.MkdirAll("/oem", 0750); err != nil {
-		fmt.Printf("[phonehome] mkdir /oem: %v\n", err)
+		Logger.Printf("mkdir /oem: %v", err)
 	}
 	// Best-effort mount — error is expected and ignored when /oem is already mounted.
 	_ = exec.Command("mount", "-L", "COS_OEM", "/oem").Run() //nosec G204 -- fixed label, called on local mountpoint

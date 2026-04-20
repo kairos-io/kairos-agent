@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -32,17 +31,17 @@ WantedBy=multi-user.target
 func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 	cfg, ok, err := phonehome.LoadFromCollector(c)
 	if err != nil {
-		fmt.Printf("Warning: could not parse phonehome config: %v\n", err)
+		c.Logger.Warnf("could not parse phonehome config: %v", err)
 		return
 	}
 	if !ok || cfg.URL == "" {
 		return
 	}
 
-	fmt.Println("Phone-home configuration detected, enabling phone-home service")
+	c.Logger.Infof("phone-home configuration detected, enabling phone-home service")
 
 	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceContent), 0600); err != nil {
-		fmt.Printf("Warning: failed to write phone-home service: %v\n", err)
+		c.Logger.Warnf("failed to write phone-home service: %v", err)
 		return
 	}
 
@@ -54,7 +53,7 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 		// args is a literal slice defined just above — no user input reaches exec.Command.
 		cmd := exec.Command(args[0], args[1:]...) //nosec G204 -- fixed command and arguments
 		if out, err := cmd.CombinedOutput(); err != nil {
-			fmt.Printf("Warning: %s failed: %v (%s)\n", strings.Join(args, " "), err, string(out))
+			c.Logger.Warnf("%s failed: %v (%s)", strings.Join(args, " "), err, string(out))
 		}
 	}
 }
