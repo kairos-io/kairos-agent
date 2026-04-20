@@ -102,6 +102,9 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = fs.WriteFile("/proc/cmdline", []byte("rd.immucore.uki"), os.ModePerm)
 			Expect(err).ToNot(HaveOccurred())
+			// Reset the version probe to the default (0 = unknown → 257+ behaviour)
+			// so tests are isolated from each other.
+			getSystemdBootMajorVersion = func(_ string) uint16 { return 0 }
 		})
 		Context("ListBootEntries", func() {
 			It("fails to list the boot entries when there is no loader.conf", func() {
@@ -306,6 +309,120 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(memLog.String()).To(ContainSubstring("Default boot entry set to active foobar"))
 				Expect(ReadOneShotEfiVar(config)).To(Equal("active_foobar.conf"))
 			})
+
+			// systemd-boot 256 requires the boot assessment suffix in the EFI variable entry ID.
+			Context("systemd-boot 256 workaround", func() {
+				BeforeEach(func() {
+					getSystemdBootMajorVersion = func(_ string) uint16 { return 256 }
+				})
+
+				It("includes the assessment suffix in the EFI var for a default installation", func() {
+					err := fs.WriteFile("/efi/loader/entries/active+2-1.conf", []byte("title kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/passive+3.conf", []byte("title kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/recovery+1-2.conf", []byte("title kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/statereset+2-1.conf", []byte("title kairos state reset (auto)\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = SelectBootEntry(config, "fallback")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
+
+					err = SelectBootEntry(config, "recovery")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+1-2.conf"))
+
+					err = SelectBootEntry(config, "statereset")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("statereset+2-1.conf"))
+
+					err = SelectBootEntry(config, "cos")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("active+2-1.conf"))
+
+					err = SelectBootEntry(config, "active")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("active+2-1.conf"))
+				})
+
+				It("includes the assessment suffix in the EFI var for an extra-cmdline installation", func() {
+					err := fs.WriteFile("/efi/loader/entries/active+3.conf", []byte("title Kairos\nefi /EFI/kairos/active.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/active_foobar.conf", []byte("title Kairos\nefi /EFI/kairos/active_foobar.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/passive+3.conf", []byte("title Kairos (fallback)\nefi /EFI/kairos/passive.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/passive_foobar.conf", []byte("title Kairos (fallback)\nefi /EFI/kairos/passive_foobar.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/recovery+1.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/recovery_foobar.conf", []byte("title Kairos recovery\nefi /EFI/kairos/recovery_foobar.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/statereset+2.conf", []byte("title Kairos state reset (auto)\nefi /EFI/kairos/statereset.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/entries/statereset_foobar.conf", []byte("title Kairos state reset (auto)\nefi /EFI/kairos/statereset_foobar.efi\n"), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					err = fs.WriteFile("/efi/loader/loader.conf", []byte(""), os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Entries with an assessment suffix use it in the EFI var
+					err = SelectBootEntry(config, "fallback")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("passive+3.conf"))
+
+					err = SelectBootEntry(config, "recovery")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("recovery+1.conf"))
+
+					err = SelectBootEntry(config, "statereset")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("statereset+2.conf"))
+
+					err = SelectBootEntry(config, "cos")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("active+3.conf"))
+
+					// Entries without an assessment suffix use the plain name
+					err = SelectBootEntry(config, "fallback foobar")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("passive_foobar.conf"))
+
+					err = SelectBootEntry(config, "cos foobar")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ReadOneShotEfiVar(config)).To(Equal("active_foobar.conf"))
+				})
+			})
+		})
+	})
+
+	Context("findEntryWithAssessment", func() {
+		It("returns the base name unchanged when no assessment file exists", func() {
+			err := fs.WriteFile("/efi/loader/entries/active.conf", []byte("title kairos\n"), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			result := findEntryWithAssessment(config, "/efi", "active")
+			Expect(result).To(Equal("active"))
+		})
+		It("returns the name with assessment when the file exists", func() {
+			err := fs.WriteFile("/efi/loader/entries/active+3.conf", []byte("title kairos\n"), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			result := findEntryWithAssessment(config, "/efi", "active")
+			Expect(result).To(Equal("active+3"))
+		})
+		It("returns the name with compound assessment (N-M) when the file exists", func() {
+			err := fs.WriteFile("/efi/loader/entries/passive+2-1.conf", []byte("title kairos (fallback)\n"), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			result := findEntryWithAssessment(config, "/efi", "passive")
+			Expect(result).To(Equal("passive+2-1"))
+		})
+		It("does not match a file with a different base name", func() {
+			err := fs.WriteFile("/efi/loader/entries/active_foobar+3.conf", []byte("title kairos\n"), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+			result := findEntryWithAssessment(config, "/efi", "active")
+			Expect(result).To(Equal("active"))
 		})
 	})
 
