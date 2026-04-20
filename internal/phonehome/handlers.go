@@ -163,13 +163,12 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 }
 
 // handleReset runs kairos-agent reset and optionally writes a cloud-config after.
+// The persistent partition is always reformatted during reset — that's the
+// NewResetSpec default in pkg/config/spec.go — so there's no arg to surface.
 func handleReset(cmd CommandData) (string, error) {
 	args := []string{"reset", "--unattended"}
 	if cmd.Args["reset-oem"] == "true" {
 		args = append(args, "--reset-oem")
-	}
-	if cmd.Args["reset-persistent"] == "true" {
-		args = append(args, "--reset-persistent")
 	}
 
 	fmt.Printf("[phonehome] Running: kairos-agent %s\n", strings.Join(args, " "))

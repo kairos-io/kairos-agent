@@ -23,19 +23,19 @@ import (
 	"github.com/mudler/go-pluggable"
 )
 
-func Reset(reboot, unattended, resetOem, resetPersistent bool, dir ...string) error {
+func Reset(reboot, unattended, resetOem bool, dir ...string) error {
 	// In both cases we want
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
-		return resetUki(reboot, unattended, resetOem, resetPersistent, dir...)
+		return resetUki(reboot, unattended, resetOem, dir...)
 	} else if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
 		return fmt.Errorf("reset is not supported on removable media, please run reset from the installed system recovery entry")
 	} else {
-		return reset(reboot, unattended, resetOem, resetPersistent, dir...)
+		return reset(reboot, unattended, resetOem, dir...)
 	}
 }
 
-func reset(reboot, unattended, resetOem, resetPersistent bool, dir ...string) error {
-	cfg, err := sharedReset(reboot, unattended, resetOem, resetPersistent, dir...)
+func reset(reboot, unattended, resetOem bool, dir ...string) error {
+	cfg, err := sharedReset(reboot, unattended, resetOem, dir...)
 	if err != nil {
 		return err
 	}
@@ -66,8 +66,8 @@ func reset(reboot, unattended, resetOem, resetPersistent bool, dir ...string) er
 	return hook.Run(*cfg, resetSpec, hook.FinishReset...)
 }
 
-func resetUki(reboot, unattended, resetOem, resetPersistent bool, dir ...string) error {
-	cfg, err := sharedReset(reboot, unattended, resetOem, resetPersistent, dir...)
+func resetUki(reboot, unattended, resetOem bool, dir ...string) error {
+	cfg, err := sharedReset(reboot, unattended, resetOem, dir...)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func resetUki(reboot, unattended, resetOem, resetPersistent bool, dir ...string)
 
 // sharedReset is the common reset code for both uki and non-uki
 // sets the config, runs the event handler, publish the envent and gets the config
-func sharedReset(reboot, unattended, resetOem, resetPersistent bool, dir ...string) (c *sdkConfig.Config, err error) {
+func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *sdkConfig.Config, err error) {
 	bus.Manager.Initialize()
 	var optionsFromEvent map[string]string
 
@@ -155,7 +155,6 @@ func sharedReset(reboot, unattended, resetOem, resetPersistent bool, dir ...stri
 	// Prepare a config from the cli flags
 	r := ExtraConfigReset{}
 	r.Reset.ResetOem = resetOem
-	r.Reset.ResetPersistent = resetPersistent
 
 	if reboot {
 		r.Reset.Reboot = true
@@ -164,9 +163,6 @@ func sharedReset(reboot, unattended, resetOem, resetPersistent bool, dir ...stri
 	// Override the config with the event options
 	// Go over the possible options sent via event
 	if len(optionsFromEvent) > 0 {
-		if p := optionsFromEvent["reset-persistent"]; p != "" {
-			r.Reset.ResetPersistent = p == "true"
-		}
 		if o := optionsFromEvent["reset-oem"]; o != "" {
 			r.Reset.ResetOem = o == "true"
 		}
@@ -200,8 +196,7 @@ func sharedReset(reboot, unattended, resetOem, resetPersistent bool, dir ...stri
 // ExtraConfigReset is the struct that holds the reset options that come from flags and events
 type ExtraConfigReset struct {
 	Reset struct {
-		ResetOem        bool `json:"reset-oem,omitempty"`
-		ResetPersistent bool `json:"reset-persistent,omitempty"`
-		Reboot          bool `json:"reboot,omitempty"`
+		ResetOem bool `json:"reset-oem,omitempty"`
+		Reboot   bool `json:"reboot,omitempty"`
 	} `json:"reset"`
 }
