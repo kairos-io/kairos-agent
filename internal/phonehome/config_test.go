@@ -1,6 +1,8 @@
 package phonehome_test
 
 import (
+	"os"
+
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	"github.com/kairos-io/kairos-sdk/collector"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
@@ -157,15 +159,19 @@ var _ = Describe("DefaultCommandHandler policy gating", func() {
 		Expect(err.Error()).To(ContainSubstring("not permitted"))
 	})
 
-	// The unregister path runs the real on-host teardown via Uninstall, which
-	// would try to stop a systemd unit and delete files. Swap out the runners
-	// for the duration of this spec so the test stays hermetic.
+	// The unregister path runs the real on-host teardown via Uninstall,
+	// which would try to stop a systemd unit and manipulate /oem files.
+	// Swap out all five indirections for the duration of this spec so the
+	// test stays hermetic (no real systemctl calls, no real I/O).
 	It("invokes the stop callback after a successful `unregister`", func() {
-		origRun, origRm := phonehome.SetUninstallRunners(
+		restore := phonehome.SetUninstallRunners(
 			func(name string, args ...string) ([]byte, error) { return nil, nil },
-			func(string) error { return nil },
+			func(string) error { return os.ErrNotExist },
+			func(string) ([]byte, error) { return nil, os.ErrNotExist },
+			func(string, []byte, os.FileMode) error { return nil },
+			func(string) ([]string, error) { return nil, nil },
 		)
-		defer phonehome.SetUninstallRunners(origRun, origRm)
+		defer restore()
 
 		stopped := make(chan struct{}, 1)
 		stop := func() { stopped <- struct{}{} }

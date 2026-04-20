@@ -1,18 +1,32 @@
 package phonehome
 
+import "os"
+
 // Test-only exports. Files ending in `_test.go` are compiled into the test
 // binary only, so the helpers below are invisible to production code.
 
-// SetUninstallRunners swaps the package-local systemctl runner and file
-// remover used by Uninstall. Returns the previous values so the caller can
-// restore them in a defer. Only tests should touch this.
+// SetUninstallRunners swaps the teardown's package-local helpers and
+// returns a restorer that puts the production defaults back. Use it in a
+// defer (or BeforeEach/AfterEach) so specs don't leak fakes into each other.
 func SetUninstallRunners(
 	run func(name string, args ...string) ([]byte, error),
 	rm func(path string) error,
-) (func(name string, args ...string) ([]byte, error), func(path string) error) {
-	prevRun := runCommand
-	prevRm := removeFile
+	read func(path string) ([]byte, error),
+	write func(path string, data []byte, perm os.FileMode) error,
+	glob func(pattern string) ([]string, error),
+) func() {
+	prevRun, prevRm := runCommand, removeFile
+	prevRead, prevWrite, prevGlob := readFile, writeFile, globFiles
 	runCommand = run
 	removeFile = rm
-	return prevRun, prevRm
+	readFile = read
+	writeFile = write
+	globFiles = glob
+	return func() {
+		runCommand = prevRun
+		removeFile = prevRm
+		readFile = prevRead
+		writeFile = prevWrite
+		globFiles = prevGlob
+	}
 }

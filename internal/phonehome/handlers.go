@@ -64,14 +64,18 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 	}
 }
 
-// handleUnregister runs the on-host phonehome teardown (stop service, remove
-// unit, drop cloud-configs and credentials) and then schedules the Run loop
-// to exit. The brief delay before stop() gives the final "Completed" status
-// message time to leave the WebSocket before the connection closes from this
-// side; without it the server would see the disconnect first and mark the
-// command as Failed/Delivered-without-result.
+// handleUnregister runs the on-host phone-home teardown from inside the
+// running service and then schedules the Run loop to exit.
+//
+// Crucially, this passes stopService=false to Uninstall: the handler IS the
+// service process, so `systemctl stop kairos-agent-phonehome` would SIGTERM
+// it mid-call and the "Completed" WebSocket status would never be written.
+// Instead we remove the unit file, daemon-reload, clean up the state on
+// disk, and then after the summary is sent the client stops itself via
+// Client.Stop(). The 500 ms delay gives the Completed write time to flush
+// through the WS and the TCP buffers before we tear down the client.
 func handleUnregister(stop func()) (string, error) {
-	summary, err := Uninstall()
+	summary, err := Uninstall(false)
 	if stop != nil {
 		time.AfterFunc(500*time.Millisecond, stop)
 	}

@@ -1118,7 +1118,11 @@ The command automatically:
 					"Run this after a node has been decommissioned on the server (especially when the server could not " +
 					"reach the node to run the teardown remotely).",
 				Action: func(c *cli.Context) error {
-					summary, err := phonehome.Uninstall()
+					// CLI invocation runs in its own process, so stopping the
+					// service unit SIGTERMs the service process (not us) —
+					// safe, and ensures we converge even on a node where the
+					// service is still up.
+					summary, err := phonehome.Uninstall(true)
 					if summary != "" {
 						fmt.Println(summary)
 					}
