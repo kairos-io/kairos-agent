@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -42,8 +42,10 @@ func WithCommandHandler(h CommandHandler) ClientOption {
 	return func(c *Client) { c.cmdHandler = h }
 }
 
-// WithLogger sets a custom logger.
-func WithLogger(l *log.Logger) ClientOption {
+// WithLogger sets a custom logger. Pass the scanned agent's sdkConfig.Config
+// Logger here so every phone-home line lands in the same journal/file
+// stream as the rest of kairos-agent's output.
+func WithLogger(l sdkLogger.KairosLogger) ClientOption {
 	return func(c *Client) { c.logger = l }
 }
 
@@ -55,7 +57,7 @@ type Client struct {
 	credPath    string
 	machineIDFn func() string
 	cmdHandler  CommandHandler
-	logger      *log.Logger
+	logger      sdkLogger.KairosLogger
 
 	mu   sync.Mutex
 	conn *websocket.Conn
@@ -107,7 +109,9 @@ func NewClient(cfg *Config, opts ...ClientOption) *Client {
 			}
 			return strings.TrimSpace(string(data))
 		},
-		logger: log.New(os.Stderr, "[phonehome] ", log.LstdFlags),
+		// Default logger; callers should pass WithLogger(cfg.Logger) from
+		// the scanned sdkConfig.Config so the two output streams match.
+		logger: sdkLogger.NewKairosLogger("phonehome", "info", false),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -121,7 +125,7 @@ func (c *Client) Register(ctx context.Context) error {
 	// Try loading existing credentials
 	if creds, err := c.loadCredentials(); err == nil {
 		c.credentials = creds
-		c.logger.Printf("loaded existing credentials for node %s", creds.NodeID)
+		c.logger.Infof("loaded existing credentials for node %s", creds.NodeID)
 		return nil
 	}
 
@@ -167,10 +171,10 @@ func (c *Client) Register(ctx context.Context) error {
 
 	c.credentials = &creds
 	if err := c.saveCredentials(&creds); err != nil {
-		c.logger.Printf("warning: could not save credentials: %v", err)
+		c.logger.Warnf("could not save credentials: %v", err)
 	}
 
-	c.logger.Printf("registered as node %s", creds.NodeID)
+	c.logger.Infof("registered as node %s", creds.NodeID)
 	return nil
 }
 
@@ -202,7 +206,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		c.mu.Unlock()
 	}()
 
-	c.logger.Printf("connected to %s", wsURL)
+	c.logger.Infof("connected to %s", wsURL)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -246,7 +250,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 		var msg WSMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
-			c.logger.Printf("invalid message: %v", err)
+			c.logger.Warnf("invalid message: %v", err)
 			continue
 		}
 
@@ -254,12 +258,12 @@ func (c *Client) Connect(ctx context.Context) error {
 		case "command":
 			var cmd CommandData
 			if err := json.Unmarshal(msg.Data, &cmd); err != nil {
-				c.logger.Printf("invalid command data: %v", err)
+				c.logger.Warnf("invalid command data: %v", err)
 				continue
 			}
 			go c.handleCommand(ctx, conn, cmd)
 		default:
-			c.logger.Printf("unknown message type: %s", msg.Type)
+			c.logger.Warnf("unknown message type: %s", msg.Type)
 		}
 	}
 }
@@ -285,7 +289,7 @@ func (c *Client) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return nil
 		}
-		c.logger.Printf("registration failed: %v, retrying in %s", err, regBackoff)
+		c.logger.Warnf("registration failed: %v, retrying in %s", err, regBackoff)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -304,7 +308,7 @@ func (c *Client) Run(ctx context.Context) error {
 			return nil // context cancelled, clean shutdown
 		}
 		if err != nil {
-			c.logger.Printf("disconnected: %v, reconnecting in %s", err, backoff)
+			c.logger.Warnf("disconnected: %v, reconnecting in %s", err, backoff)
 		}
 
 		select {
@@ -328,7 +332,7 @@ func (c *Client) heartbeatLoop(ctx context.Context, conn *websocket.Conn) {
 	// Send initial heartbeat immediately. If it fails the ticker-driven loop
 	// below will surface the next write error, so log-and-continue is enough here.
 	if err := c.sendHeartbeat(conn); err != nil {
-		c.logger.Printf("initial heartbeat error: %v", err)
+		c.logger.Warnf("initial heartbeat error: %v", err)
 	}
 
 	for {
@@ -337,7 +341,7 @@ func (c *Client) heartbeatLoop(ctx context.Context, conn *websocket.Conn) {
 			return
 		case <-ticker.C:
 			if err := c.sendHeartbeat(conn); err != nil {
-				c.logger.Printf("heartbeat error: %v", err)
+				c.logger.Warnf("heartbeat error: %v", err)
 				return
 			}
 		}
@@ -360,7 +364,7 @@ func (c *Client) sendHeartbeat(conn *websocket.Conn) error {
 }
 
 func (c *Client) handleCommand(ctx context.Context, conn *websocket.Conn, cmd CommandData) {
-	c.logger.Printf("executing command %s: %s", cmd.ID, cmd.Command)
+	c.logger.Infof("executing command %s: %s", cmd.ID, cmd.Command)
 
 	// Report running
 	c.sendCommandStatus(conn, cmd.ID, "Running", "")
@@ -392,7 +396,7 @@ func (c *Client) sendCommandStatus(conn *websocket.Conn, id, phase, result strin
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := conn.WriteMessage(websocket.TextMessage, msgBytes); err != nil {
-		c.logger.Printf("failed to send command status: %v", err)
+		c.logger.Errorf("failed to send command status: %v", err)
 	}
 }
 

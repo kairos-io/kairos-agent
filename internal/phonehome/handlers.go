@@ -146,12 +146,13 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 	}
 
 	// Use background context — upgrade must NOT be killed if WS disconnects
-	Logger.Printf("running: kairos-agent %s", strings.Join(args, " "))
+	Logger.Infof("running: kairos-agent %s", strings.Join(args, " "))
 	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
-	Logger.Printf("exit: err=%v output=%s", err, string(out))
 	if err != nil {
+		Logger.Errorf("kairos-agent upgrade exit: err=%v output=%s", err, string(out))
 		return string(out), err
 	}
+	Logger.Infof("kairos-agent upgrade completed: %s", string(out))
 
 	// Reboot after successful upgrade so the new image takes effect.
 	// Do NOT reboot for recovery upgrades (recovery doesn't need reboot).
@@ -171,12 +172,13 @@ func handleReset(cmd CommandData) (string, error) {
 		args = append(args, "--reset-oem")
 	}
 
-	Logger.Printf("running: kairos-agent %s", strings.Join(args, " "))
+	Logger.Infof("running: kairos-agent %s", strings.Join(args, " "))
 	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
-	Logger.Printf("exit: err=%v output=%s", err, string(out))
 	if err != nil {
+		Logger.Errorf("kairos-agent reset exit: err=%v output=%s", err, string(out))
 		return string(out), err
 	}
+	Logger.Infof("kairos-agent reset completed: %s", string(out))
 
 	// If a cloud-config was provided, write it to OEM after reset.
 	// OEM may have been wiped (--reset-oem) so we remount it first.
@@ -221,7 +223,7 @@ func writeOEMCloudConfig(content string) error {
 	// MkdirAll is best-effort: if /oem already exists we proceed; any other
 	// failure will surface from the mount attempt or WriteFile below.
 	if err := os.MkdirAll("/oem", 0750); err != nil {
-		Logger.Printf("mkdir /oem: %v", err)
+		Logger.Warnf("mkdir /oem: %v", err)
 	}
 	// Best-effort mount — error is expected and ignored when /oem is already mounted.
 	_ = exec.Command("mount", "-L", "COS_OEM", "/oem").Run() //nosec G204 -- fixed label, called on local mountpoint

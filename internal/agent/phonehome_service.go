@@ -29,6 +29,12 @@ WantedBy=multi-user.target
 // The config is parsed by phonehome.LoadFromCollector so it uses the same
 // Collector output as the rest of the kairos-agent (no separate file walk).
 func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
+	// Point the phonehome package at the agent's already-configured logger
+	// so the service-install output below and the command handlers' output
+	// later share one stream (journald when the binary is running under
+	// systemd, /var/log/kairos/*.log + stderr otherwise).
+	phonehome.SetLogger(c.Logger)
+
 	cfg, ok, err := phonehome.LoadFromCollector(c)
 	if err != nil {
 		c.Logger.Warnf("could not parse phonehome config: %v", err)

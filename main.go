@@ -1167,6 +1167,12 @@ The command automatically:
 				collector.NoLogs,
 			)
 			if err == nil {
+				// Route the package-level Logger (used by the command
+				// handlers and Uninstall helpers) through the agent's own
+				// KairosLogger so every phone-home line lands in the same
+				// journal/file stream.
+				phonehome.SetLogger(scanned.Logger)
+
 				if cc, ok, _ := phonehome.LoadFromCollector(scanned); ok {
 					cfg = *cc
 				}
@@ -1203,9 +1209,11 @@ The command automatically:
 				}
 			}
 			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed, stopFn)
-			client = phonehome.NewClient(&cfg,
-				phonehome.WithCommandHandler(handler),
-			)
+			clientOpts := []phonehome.ClientOption{phonehome.WithCommandHandler(handler)}
+			if scanned != nil {
+				clientOpts = append(clientOpts, phonehome.WithLogger(scanned.Logger))
+			}
+			client = phonehome.NewClient(&cfg, clientOpts...)
 			return client.Run(ctx)
 		},
 	},

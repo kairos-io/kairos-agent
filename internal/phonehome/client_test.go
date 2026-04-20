@@ -3,7 +3,6 @@ package phonehome_test
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -150,9 +150,9 @@ func (ms *mockServer) close() {
 
 var _ = Describe("PhoneHome Client", func() {
 	var (
-		ms      *mockServer
-		tmpDir  string
-		logger  *log.Logger
+		ms     *mockServer
+		tmpDir string
+		logger sdkLogger.KairosLogger
 	)
 
 	BeforeEach(func() {
@@ -160,7 +160,9 @@ var _ = Describe("PhoneHome Client", func() {
 		var err error
 		tmpDir, err = os.MkdirTemp("", "phonehome-test")
 		Expect(err).ToNot(HaveOccurred())
-		logger = log.New(GinkgoWriter, "[test] ", log.LstdFlags)
+		// Null logger keeps the client quiet under ginkgo — the test body
+		// asserts on channels and HTTP side-effects, not on log output.
+		logger = sdkLogger.NewNullLogger()
 	})
 
 	AfterEach(func() {
