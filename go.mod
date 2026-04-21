@@ -22,7 +22,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/pterm/pterm v0.12.83
-	github.com/rs/zerolog v1.35.0
+	github.com/rs/zerolog v1.35.1
 	github.com/sanity-io/litter v1.5.8
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/viper v1.19.0
