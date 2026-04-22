@@ -18,7 +18,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-sdk/schema"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	process "github.com/mudler/go-processmanager"
 	"github.com/nxadm/tail"
 	"golang.org/x/net/websocket"
@@ -197,11 +197,11 @@ func stripANSI(s string) string {
 	return ansiRegex.ReplaceAllString(s, "")
 }
 
-func streamProcess(s *state) func(c echo.Context) error {
-	return func(c echo.Context) error {
+func streamProcess(s *state) func(c *echo.Context) error {
+	return func(c *echo.Context) error {
 		consumeError := func(err error) {
 			if err != nil {
-				c.Logger().Error(err)
+				c.Logger().Error(err.Error())
 			}
 		}
 		websocket.Handler(func(ws *websocket.Conn) {
@@ -317,13 +317,7 @@ type TemplateRenderer struct {
 }
 
 // Render renders a template document.
-func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-
-	// Add global methods if data is a map
-	if viewContext, isMap := data.(map[string]interface{}); isMap {
-		viewContext["reverse"] = c.Echo().Reverse
-	}
-
+func (t *TemplateRenderer) Render(c *echo.Context, w io.Writer, name string, data interface{}) error {
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
@@ -356,7 +350,7 @@ func Start(ctx context.Context) error {
 
 	ec.GET("/*", echo.WrapHandler(http.StripPrefix("/", assetHandler)))
 
-	ec.POST("/validate", func(c echo.Context) error {
+	ec.POST("/validate", func(c *echo.Context) error {
 		formData := new(FormData)
 		if err := c.Bind(formData); err != nil {
 			return err
@@ -374,7 +368,7 @@ func Start(ctx context.Context) error {
 		return c.String(http.StatusOK, "")
 	})
 
-	ec.POST("/install", func(c echo.Context) error {
+	ec.POST("/install", func(c *echo.Context) error {
 
 		s.Lock()
 		if s.p != nil {
@@ -437,19 +431,13 @@ func Start(ctx context.Context) error {
 
 	ec.GET("/ws", streamProcess(&s))
 
-	if err := ec.Start(listen); err != nil && err != http.ErrServerClosed {
+	sc := echo.StartConfig{
+		Address:         listen,
+		GracefulTimeout: 10 * time.Second,
+	}
+	if err := sc.Start(ctx, ec); err != nil && err != http.ErrServerClosed {
 		return err
 	}
-
-	go func() {
-		<-ctx.Done()
-		ct, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		err := ec.Shutdown(ct)
-		if err != nil {
-			log.Printf("shutdown failed: %s", err.Error())
-		}
-		cancel()
-	}()
 
 	return nil
 }
