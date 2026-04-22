@@ -19,6 +19,7 @@ package utils
 import (
 	"bufio"
 	"crypto/sha256"
+	"debug/pe"
 	"errors"
 	"fmt"
 	"io"
@@ -707,6 +708,21 @@ func ReadAssessmentFromEntry(fs sdkFs.KairosFS, entry string, logger logger.Kair
 		return "", nil
 	}
 	return re.FindStringSubmatch(currentfile[0])[1], nil
+}
+
+// GetMajorImageVersion reads the MajorImageVersion field from the PE optional header
+// of the EFI binary at path. Used to determine the version of systemd-boot.
+func GetMajorImageVersion(path string) (uint16, error) {
+	f, err := pe.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	header, ok := f.OptionalHeader.(*pe.OptionalHeader64)
+	if !ok {
+		return 0, fmt.Errorf("unexpected PE optional header type for %s", path)
+	}
+	return header.MajorImageVersion, nil
 }
 
 // IsMountReadOnly checks if the given mountpoint is mounted as read-only

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"unicode/utf16"
@@ -131,6 +132,58 @@ func selectBootEntryGrub(cfg *sdkConfig.Config, entry string) error {
 	return nil
 }
 
+// getSystemdBootMajorVersion returns the MajorImageVersion of the systemd-boot EFI binary
+// on the given EFI mount point. Returns 0 when the binary cannot be read (e.g. on
+// non-EFI systems). Declared as a variable so it can be overridden in tests.
+var getSystemdBootMajorVersion = func(efiMountPoint string) uint16 {
+	sdboot := "BOOTX64.EFI"
+	if runtime.GOARCH == "arm64" {
+		sdboot = "BOOTAA64.EFI"
+	}
+	ver, err := utils.GetMajorImageVersion(filepath.Join(efiMountPoint, "EFI/BOOT", sdboot))
+	if err != nil {
+		return 0
+	}
+	return ver
+}
+
+// findEntryWithAssessment searches the loader/entries directory for a .conf file whose
+// name matches "<confBaseName>+N.conf" or "<confBaseName>+N-M.conf" (systemd boot
+// assessment format). This is needed for systemd-boot 256, which uses the full filename
+// including the assessment suffix as the entry ID in LoaderEntryOneShot. Later versions
+// drop the assessment from the ID.
+// Returns the base name (without .conf) of the matching file, or confBaseName unchanged
+// if no file with an assessment suffix is found. Returns an error if the directory cannot
+// be read or if multiple assessment files are found for the same base name.
+func findEntryWithAssessment(cfg *sdkConfig.Config, efiMountPoint, confBaseName string) (string, error) {
+	re := regexp.MustCompile(`^` + regexp.QuoteMeta(confBaseName) + `\+\d+(-\d+)?\.conf$`)
+	entriesDir := filepath.Join(efiMountPoint, "loader/entries")
+	var matches []string
+
+	walkErr := fsutils.WalkDirFs(cfg.Fs, entriesDir, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if info == nil || info.IsDir() {
+			return nil
+		}
+		if re.MatchString(info.Name()) {
+			matches = append(matches, strings.TrimSuffix(info.Name(), ".conf"))
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return confBaseName, fmt.Errorf("failed to inspect %s for assessed boot entry %q: %w", entriesDir, confBaseName, walkErr)
+	}
+	if len(matches) > 1 {
+		return confBaseName, fmt.Errorf("ambiguous boot assessment: multiple files match %q in %s: %v", confBaseName, entriesDir, matches)
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	return confBaseName, nil
+}
+
 // selectBootEntrySystemd sets the one shot boot entry to the selected entry by setting it in the LoaderEntryOneShot efivar
 func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	cfg.Logger.Infof("Setting default boot entry to %s", entry)
@@ -192,6 +245,20 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	if err != nil {
 		return err
 	}
+
+	// Workaround for systemd-boot 256: the LoaderEntryOneShot EFI variable must
+	// contain the full filename including the boot assessment suffix
+	// (e.g. "active+3.conf"). Version 257+ dropped the assessment from the entry ID.
+	if getSystemdBootMajorVersion(efiPartition.MountPoint) == 256 {
+		cfg.Logger.Debugf("systemd-boot 256 detected, resolving boot entry with assessment suffix")
+		bootConfigName, err = findEntryWithAssessment(cfg, efiPartition.MountPoint, bootConfigName)
+		if err != nil {
+			cfg.Logger.Errorf("could not resolve boot entry with assessment suffix: %s", err)
+			return err
+		}
+		cfg.Logger.Debugf("resolved boot config name: %s", bootConfigName)
+	}
+
 	err = WriteOneShotEfiVar(cfg, fmt.Sprintf("%s.conf", bootConfigName))
 	if err != nil {
 		cfg.Logger.Errorf("could not write EFI variable: %s", err)
@@ -202,10 +269,10 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 }
 
 // WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
-// Only works in systemd >= 257
-// for older versions, we would need to append the boot assesment to the name as the entry id
-// in older verrsion is the full file name
-// On newer versions, its just the conf name without the assesment part
+// Works with systemd-boot >= 256. For version 256 the value written must be the full filename
+// including the boot assessment suffix and the .conf extension
+// (e.g. "active+3.conf"); from version 257 onward the assessment suffix
+// is omitted and only the bare conf name is used (e.g. "active.conf").
 func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
 	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 

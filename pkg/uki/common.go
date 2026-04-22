@@ -1,7 +1,6 @@
 package uki
 
 import (
-	"debug/pe"
 	"errors"
 	"fmt"
 	"io"
@@ -252,7 +251,7 @@ func upgradeEfiKeysInLoaderEntries(arch string, fs sdkFs.KairosFS, efiDir string
 	if arch == "arm64" {
 		sdboot = "BOOTAA64.EFI"
 	}
-	majorVer, err := getMajorImageVersion(filepath.Join(efiDir, "EFI/BOOT/", sdboot))
+	majorVer, err := utils.GetMajorImageVersion(filepath.Join(efiDir, "EFI/BOOT/", sdboot))
 	if err != nil {
 		logger.Warnf("could not get systemd-boot version, skipping efi key upgrade: %s", err)
 		return nil
@@ -291,17 +290,4 @@ func upgradeEfiKeysInLoaderEntries(arch string, fs sdkFs.KairosFS, efiDir string
 	}
 
 	return nil
-}
-
-// getMajorImageVersion reads the PE header of a Windows executable to extract the MajorImageVersion
-// Used mainly to determine the version of systemd-boot in the efi files
-func getMajorImageVersion(path string) (uint16, error) {
-	f, err := pe.Open(path)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	header := f.OptionalHeader.(*pe.OptionalHeader64)
-	return header.MajorImageVersion, nil
 }
