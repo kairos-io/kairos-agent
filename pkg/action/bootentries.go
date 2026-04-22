@@ -269,9 +269,10 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 }
 
 // WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
-// Works with systemd-boot >= 256. For version 256 the entry ID must include the boot
-// assessment suffix (e.g. "active+3.conf"); from version 257 onward the assessment suffix
-// is omitted from the entry ID and only the bare conf name is used.
+// Works with systemd-boot >= 256. For version 256 the value written must be the full filename
+// including the boot assessment suffix and the .conf extension
+// (e.g. "active+3.conf"); from version 257 onward the assessment suffix
+// is omitted and only the bare conf name is used (e.g. "active.conf").
 func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
 	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 
