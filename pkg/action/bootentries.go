@@ -153,33 +153,35 @@ var getSystemdBootMajorVersion = func(efiMountPoint string) uint16 {
 // including the assessment suffix as the entry ID in LoaderEntryOneShot. Later versions
 // drop the assessment from the ID.
 // Returns the base name (without .conf) of the matching file, or confBaseName unchanged
-// if no file with an assessment suffix is found.
-func findEntryWithAssessment(cfg *sdkConfig.Config, efiMountPoint, confBaseName string) string {
+// if no file with an assessment suffix is found. Returns an error if the directory cannot
+// be read or if multiple assessment files are found for the same base name.
+func findEntryWithAssessment(cfg *sdkConfig.Config, efiMountPoint, confBaseName string) (string, error) {
 	re := regexp.MustCompile(`^` + regexp.QuoteMeta(confBaseName) + `\+\d+(-\d+)?\.conf$`)
 	entriesDir := filepath.Join(efiMountPoint, "loader/entries")
-	stopWalk := errors.New("matching assessed boot entry found")
-	var found string
+	var matches []string
 
 	walkErr := fsutils.WalkDirFs(cfg.Fs, entriesDir, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if info == nil || info.IsDir() || found != "" {
+		if info == nil || info.IsDir() {
 			return nil
 		}
 		if re.MatchString(info.Name()) {
-			found = strings.TrimSuffix(info.Name(), ".conf")
-			return stopWalk
+			matches = append(matches, strings.TrimSuffix(info.Name(), ".conf"))
 		}
 		return nil
 	})
-	if walkErr != nil && !errors.Is(walkErr, stopWalk) {
-		fmt.Fprintf(os.Stderr, "warning: failed to inspect %s for assessed boot entry %q: %v\n", entriesDir, confBaseName, walkErr)
+	if walkErr != nil {
+		return confBaseName, fmt.Errorf("failed to inspect %s for assessed boot entry %q: %w", entriesDir, confBaseName, walkErr)
 	}
-	if found != "" {
-		return found
+	if len(matches) > 1 {
+		return confBaseName, fmt.Errorf("ambiguous boot assessment: multiple files match %q in %s: %v", confBaseName, entriesDir, matches)
 	}
-	return confBaseName
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	return confBaseName, nil
 }
 
 // selectBootEntrySystemd sets the one shot boot entry to the selected entry by setting it in the LoaderEntryOneShot efivar
@@ -249,7 +251,11 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 	// (e.g. "active+3.conf"). Version 257+ dropped the assessment from the entry ID.
 	if getSystemdBootMajorVersion(efiPartition.MountPoint) == 256 {
 		cfg.Logger.Debugf("systemd-boot 256 detected, resolving boot entry with assessment suffix")
-		bootConfigName = findEntryWithAssessment(cfg, efiPartition.MountPoint, bootConfigName)
+		bootConfigName, err = findEntryWithAssessment(cfg, efiPartition.MountPoint, bootConfigName)
+		if err != nil {
+			cfg.Logger.Errorf("could not resolve boot entry with assessment suffix: %s", err)
+			return err
+		}
 		cfg.Logger.Debugf("resolved boot config name: %s", bootConfigName)
 	}
 
@@ -263,10 +269,9 @@ func selectBootEntrySystemd(cfg *sdkConfig.Config, entry string) error {
 }
 
 // WriteOneShotEfiVar writes the LoaderEntryOneShot efi variable with the selected boot entry
-// Only works in systemd >= 257
-// for older versions, we would need to append the boot assesment to the name as the entry id
-// in older verrsion is the full file name
-// On newer versions, its just the conf name without the assesment part
+// Works with systemd-boot >= 256. For version 256 the entry ID must include the boot
+// assessment suffix (e.g. "active+3.conf"); from version 257 onward the assessment suffix
+// is omitted from the entry ID and only the bare conf name is used.
 func WriteOneShotEfiVar(cfg *sdkConfig.Config, data string) error {
 	efivar := "/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 
