@@ -39,7 +39,7 @@ require (
 	github.com/containerd/containerd v1.7.30
 	github.com/distribution/reference v0.6.0
 	github.com/foxboron/go-uefi v0.0.0-20251010190908-d29549a44f29
-	github.com/go-viper/mapstructure/v2 v2.4.0
+	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/go-github/v77 v77.0.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
