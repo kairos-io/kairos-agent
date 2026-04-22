@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,7 +59,7 @@ var _ = Describe("WebUI", func() {
 			e.GET("/*", echo.WrapHandler(http.StripPrefix("/", assetHandler)))
 
 			// Test validate endpoint
-			e.POST("/validate", func(c echo.Context) error {
+			e.POST("/validate", func(c *echo.Context) error {
 				formData := new(webui.FormData)
 				if err := c.Bind(formData); err != nil {
 					return err
