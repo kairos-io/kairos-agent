@@ -26,6 +26,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	yipPlugins "github.com/mudler/yip/pkg/plugins"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
@@ -63,6 +64,12 @@ const (
 // If the target is a normal /dev/X we dont do anything and return the original value so normal installs
 // should not be affected
 func resolveTarget(target string) (string, error) {
+	var err error
+	target, err = yipPlugins.ResolveScriptDevice(target)
+	if err != nil {
+		return "", err
+	}
+
 	// Accept that the target can be a /dev/disk/by-{label,uuid,path,etc..} and resolve it into a /dev/device
 	if strings.HasPrefix(target, "/dev/disk/by-") {
 		// we dont accept partitions as target so check and fail earlier for those that are partuuid or parlabel

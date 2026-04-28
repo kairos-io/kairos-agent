@@ -671,6 +671,58 @@ cloud-init-paths:
 				Expect(cfg.CloudInitPaths).To(ContainElement("/what"))
 
 			})
+			It("Resolves install.device via script:// and uses its stdout as the target", func() {
+				script, err := os.CreateTemp("", "pick-disk-*.sh")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.Remove(script.Name())
+				_, err = script.WriteString("#!/bin/sh\necho /some/device\n")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(script.Close()).To(Succeed())
+				Expect(os.Chmod(script.Name(), 0755)).To(Succeed())
+
+				scriptDir, err := os.MkdirTemp("", "kairos-script-test-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(scriptDir)
+				ccdata := fmt.Sprintf("#cloud-config\ninstall:\n  device: \"script://%s\"\n", script.Name())
+				Expect(os.WriteFile(filepath.Join(scriptDir, "cc.yaml"), []byte(ccdata), os.ModePerm)).To(Succeed())
+
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{scriptDir}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
+				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installSpec.Target).To(Equal("/some/device"))
+			})
+			It("Returns an error when the script:// script fails for install.device", func() {
+				script, err := os.CreateTemp("", "bad-disk-*.sh")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.Remove(script.Name())
+				_, err = script.WriteString("#!/bin/sh\necho 'no disk available' >&2\nexit 1\n")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(script.Close()).To(Succeed())
+				Expect(os.Chmod(script.Name(), 0755)).To(Succeed())
+
+				scriptDir, err := os.MkdirTemp("", "kairos-script-test-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(scriptDir)
+				ccdata := fmt.Sprintf("#cloud-config\ninstall:\n  device: \"script://%s\"\n", script.Name())
+				Expect(os.WriteFile(filepath.Join(scriptDir, "cc.yaml"), []byte(ccdata), os.ModePerm)).To(Succeed())
+
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{scriptDir}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
+				_, err = config.ReadInstallSpecFromConfig(cfg)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("no disk available"))
+			})
 			It("Reads properly the cloud config for reset", func() {
 				bootedFrom = constants.SystemLabel
 				cfg, err := config.ScanNoLogs(collector.Directories([]string{dir}...), collector.NoLogs)
