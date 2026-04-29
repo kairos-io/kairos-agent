@@ -110,14 +110,6 @@ func NewInstallSpec(cfg *sdkConfig.Config) (*spec.InstallSpec, error) {
 		firmware = sdkConstants.BIOS
 	}
 
-	// Resolve the install target
-	dev, err := resolveTarget(cfg.Install.Device)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.Install.Device = dev
-
 	activeImg.Label = sdkConstants.ActiveLabel
 	activeImg.Size = sdkConstants.ImgSize
 	activeImg.File = filepath.Join(constants.StateDir, "cOS", constants.ActiveImgFile)
