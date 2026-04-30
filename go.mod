@@ -1,6 +1,6 @@
 module github.com/kairos-io/kairos-agent/v2
 
-go 1.26.0
+go 1.26.2
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -13,10 +13,10 @@ require (
 	github.com/jaypipes/ghw v0.24.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.19.0
+	github.com/kairos-io/kairos-sdk v0.20.0
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.1.1
-	github.com/mudler/yip v1.23.4
+	github.com/mudler/yip v1.23.5
 	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
@@ -61,8 +61,8 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.14.0 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/anatol/devmapper.go v0.0.0-20230829043248-59ac2b9706ba // indirect
-	github.com/anatol/luks.go v0.0.0-20250316021219-8cd744c3576f // indirect
+	github.com/anatol/devmapper.go v0.0.0-20250316020617-2671eefd35d7 // indirect
+	github.com/anatol/luks.go v0.0.0-20260315175739-98c0a50095cb // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
@@ -192,8 +192,8 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/swaggest/jsonschema-go v0.3.62 // indirect
-	github.com/swaggest/refl v1.3.0 // indirect
+	github.com/swaggest/jsonschema-go v0.3.79 // indirect
+	github.com/swaggest/refl v1.4.0 // indirect
 	github.com/tredoe/osutil v1.5.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/vbatts/tar-split v0.12.2 // indirect
