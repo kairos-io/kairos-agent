@@ -384,6 +384,8 @@ github.com/mattn/go-runewidth v0.0.21 h1:jJKAZiQH+2mIinzCJIaIG9Be1+0NR+5sz/lYEEj
 github.com/mattn/go-runewidth v0.0.21/go.mod h1:XBkDxAl56ILZc9knddidhrOlY5R/pDhgLpndooCuJAs=
 github.com/mauromorales/xpasswd v0.4.4 h1:+vPapYCwgVH6Mb2qL+OEBQla1dJIRPxmF1fpr1s0KJU=
 github.com/mauromorales/xpasswd v0.4.4/go.mod h1:yWLv2YuHAVoZyDEUYLLrpGqP7DTnx3+Pnso+Xx7gMWM=
+github.com/mauromorales/xpasswd v0.4.7 h1:s5I/zVkV1UG2fof4f98KVpw4k0aQJ8QKoAQvSAU2GPg=
+github.com/mauromorales/xpasswd v0.4.7/go.mod h1:FZdWdaNfMX97OBXggPsbA5pvXJlx2HJKcJz0/TVQ2YY=
 github.com/mfridman/tparse v0.18.0 h1:wh6dzOKaIwkUGyKgOntDW4liXSo37qg5AXbIhkMV3vE=
 github.com/mfridman/tparse v0.18.0/go.mod h1:gEvqZTuCgEhPbYk/2lS3Kcxg1GmTxxU7kTC8DvP0i/A=
 github.com/mitchellh/copystructure v1.2.0 h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa15WveJJGw=
@@ -412,6 +414,8 @@ github.com/mudler/go-processmanager v0.1.1 h1:c/1NRZOZpW8HuFv9RhBG57nQu1oDMRomEH
 github.com/mudler/go-processmanager v0.1.1/go.mod h1:h6kmHUZeafr+k5hRYpGLMzJFH4hItHffgpRo2QIkP+o=
 github.com/mudler/yip v1.23.5 h1:ggiHMKxBPUnjpxDqP0VSoc2vGlJjScM3L/EAS/8+EHM=
 github.com/mudler/yip v1.23.5/go.mod h1:0mHLGdYGWyqyiUQMEaR+OuCfG4Ehx90geovHyTNgr8U=
+github.com/mudler/yip v1.23.6 h1:LWBFImjWnCap3LLvUSrt4Cwe/IWawhBFIXm+BMRl7hc=
+github.com/mudler/yip v1.23.6/go.mod h1:KNMV7L33Gyf45T2Otu2u7VJK5zVaOu90ECvHJjdOJNw=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6/go.mod h1:CJlz5H+gyd6CUWT45Oy4q24RdLyn7Md9Vj2/ldJBSIo=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
