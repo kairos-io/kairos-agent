@@ -19,11 +19,11 @@ type userPasswordPage struct {
 func newUserPasswordPage() *userPasswordPage {
 	usernameInput := textinput.New()
 	usernameInput.Placeholder = "Kairos"
-	usernameInput.Width = 20
+	usernameInput.SetWidth(20)
 	usernameInput.Focus()
 
 	passwordInput := textinput.New()
-	passwordInput.Width = 20
+	passwordInput.SetWidth(20)
 	passwordInput.Placeholder = "Kairos"
 	passwordInput.EchoMode = textinput.EchoPassword
 

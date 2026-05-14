@@ -19,7 +19,7 @@ type sshKeysPage struct {
 func newSSHKeysPage() *sshKeysPage {
 	keyInput := textinput.New()
 	keyInput.Placeholder = "github:USERNAME or gitlab:USERNAME"
-	keyInput.Width = 60
+	keyInput.SetWidth(60)
 
 	return &sshKeysPage{
 		mode:     0,

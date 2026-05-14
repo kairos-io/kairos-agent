@@ -83,7 +83,7 @@ func (g genericQuestionPage) Configured() bool {
 func newGenericQuestionPage(section YAMLPrompt) *genericQuestionPage {
 	genericInput := textinput.New()
 	genericInput.Placeholder = section.PlaceHolder
-	genericInput.Width = 120
+	genericInput.SetWidth(120)
 	genericInput.Focus()
 
 	return &genericQuestionPage{
