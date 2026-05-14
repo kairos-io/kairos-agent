@@ -16,8 +16,8 @@ import (
 // - `l`: A logger instance for logging messages during the installation process.
 func InteractiveInstall(spawnShell bool, source string, logger sdkLogger.KairosLogger) error {
 	var err error
-	// Set a default window size
-	p := tea.NewProgram(InitialModel(&logger, source), tea.WithAltScreen())
+	// AltScreen is now configured on the View struct returned from Model.View().
+	p := tea.NewProgram(InitialModel(&logger, source))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v", err)
 		os.Exit(1)
