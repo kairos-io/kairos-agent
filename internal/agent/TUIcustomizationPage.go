@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	sdk "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/mudler/go-pluggable"
