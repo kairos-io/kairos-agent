@@ -335,6 +335,8 @@ github.com/kairos-io/go-nodepair v0.3.0 h1:JIMBAtbNhIAsx89aP61mQDGMuGFoIQH/woK2t
 github.com/kairos-io/go-nodepair v0.3.0/go.mod h1:7i905W/KmR9DAcMSVJr/Wdb84E5Yyu9YLgj7chwX1xs=
 github.com/kairos-io/kairos-sdk v0.20.0 h1:/Mafx3VmIxOfqROtgPPQen6CvOqh4OxkpXOlmKQKqJc=
 github.com/kairos-io/kairos-sdk v0.20.0/go.mod h1:O4adBvvajALEZDRJeiKcDsF7CvP2DH7KW7KUL09mte4=
+github.com/kairos-io/kairos-sdk v0.20.2-0.20260516214447-e19e46e48634 h1:PYB838h8njFBXt/NDcBmmiQ6qqyxbJP3YCJCza8fQ5g=
+github.com/kairos-io/kairos-sdk v0.20.2-0.20260516214447-e19e46e48634/go.mod h1:o7h0hDNpRcf9ljID+Hpa7GuuG2rRdCi343hkhfVBEJw=
 github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185 h1:XSUSjYFkIFdZhFEc3Z6xcqggbgPOclKz+9hntaA+q8o=
 github.com/kairos-io/tpm-helpers v0.0.0-20251107132133-df566ad2d185/go.mod h1:zOtMRZ4zGpy+qL6W1N0LrczM/9T0sdoaJ1K5PgfchAs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
@@ -646,6 +648,8 @@ golang.org/x/mod v0.15.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
 golang.org/x/mod v0.17.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
 golang.org/x/mod v0.35.0 h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=
 golang.org/x/mod v0.35.0/go.mod h1:+GwiRhIInF8wPm+4AoT6L0FA1QWAad3OMdTRx4tFYlU=
+golang.org/x/mod v0.36.0 h1:JJjpVx6myfUsUdAzZuOSTTmRE0PfZeNWzzvKrP7amb4=
+golang.org/x/mod v0.36.0/go.mod h1:moc6ELqsWcOw5Ef3xVprK5ul/MvtVvkIXLziUOICjUQ=
 golang.org/x/net v0.0.0-20180724234803-3673e40ba225/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20180826012351-8a410e7b638d/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20180906233101-161cd47e91fd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
