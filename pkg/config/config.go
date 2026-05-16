@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 
+	registry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/http"
@@ -35,7 +36,7 @@ func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
 		log.SetLevel("debug")
 	}
 
-	hostPlatform, err := platform.NewPlatformFromArch(runtime.GOARCH)
+	hostPlatform, err := newPlatformFromArch(runtime.GOARCH)
 	if err != nil {
 		log.Errorf("error parsing default platform (%s): %s", runtime.GOARCH, err.Error())
 		return nil
@@ -175,7 +176,7 @@ func sanitizeConfig(c *sdkConfig.Config) error {
 		c.SquashFsCompressionConfig = []string{}
 	}
 	if c.Arch != "" && c.Platform == nil {
-		p, err := platform.NewPlatformFromArch(c.Arch)
+		p, err := newPlatformFromArch(c.Arch)
 		if err != nil {
 			return err
 		}
@@ -183,7 +184,7 @@ func sanitizeConfig(c *sdkConfig.Config) error {
 	}
 
 	if c.Platform == nil {
-		p, err := platform.NewPlatformFromArch(runtime.GOARCH)
+		p, err := newPlatformFromArch(runtime.GOARCH)
 		if err != nil {
 			return err
 		}
@@ -239,7 +240,7 @@ func WithCloudInitRunner(ci cloudinitrunner.CloudInitRunner) func(r *sdkConfig.C
 
 func WithPlatform(plat string) func(r *sdkConfig.Config) {
 	return func(r *sdkConfig.Config) {
-		p, err := platform.ParsePlatform(plat)
+		p, err := parsePlatform(plat)
 		if err == nil {
 			r.Platform = p
 		}
@@ -296,7 +297,36 @@ func golangArchToArch(arch string) (string, error) {
 		return constants.Archx86, nil
 	case constants.ArchArm64:
 		return constants.ArchArm64, nil
+	case constants.ArchRiscv64:
+		return constants.ArchRiscv64, nil
 	default:
 		return "", errInvalidArch
 	}
+}
+
+func newPlatformFromArch(arch string) (*platform.Platform, error) {
+	normalizedArch, err := golangArchToArch(arch)
+	if err != nil {
+		return nil, err
+	}
+
+	return &platform.Platform{
+		OS:         "linux",
+		Arch:       normalizedArch,
+		GolangArch: strings.ToLower(arch),
+	}, nil
+}
+
+func parsePlatform(plat string) (*platform.Platform, error) {
+	parsed, err := registry.ParsePlatform(plat)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := newPlatformFromArch(parsed.Architecture)
+	if err != nil {
+		return nil, err
+	}
+	p.OS = parsed.OS
+	return p, nil
 }

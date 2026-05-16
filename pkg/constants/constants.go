@@ -99,11 +99,12 @@ const (
 	// Eject script
 	EjectScript = "#!/bin/sh\n/usr/bin/eject -rmF"
 
-	ArchAmd64  = "amd64"
-	Archx86    = "x86_64"
-	ArchArm64  = "arm64"
-	SignedShim = "shim.efi"
-	Rsync      = "rsync"
+	ArchAmd64   = "amd64"
+	Archx86     = "x86_64"
+	ArchArm64   = "arm64"
+	ArchRiscv64 = "riscv64"
+	SignedShim  = "shim.efi"
+	Rsync       = "rsync"
 
 	UkiEfiDir     = "/efi"
 	UkiMaxEntries = 3

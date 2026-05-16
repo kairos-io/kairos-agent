@@ -128,6 +128,21 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(c.Platform.Arch).To(Equal("x86_64"))
 				Expect(c.Platform.GolangArch).To(Equal("amd64"))
 			})
+			It("accepts riscv64 platforms", func() {
+				c = config.NewConfig(
+					config.WithFs(fs),
+					config.WithMounter(mounter),
+					config.WithRunner(runner),
+					config.WithSyscall(sysc),
+					config.WithLogger(logger),
+					config.WithCloudInitRunner(ci),
+					config.WithClient(client),
+					config.WithPlatform("linux/riscv64"),
+				)
+				Expect(c.Platform.OS).To(Equal("linux"))
+				Expect(c.Platform.Arch).To(Equal("riscv64"))
+				Expect(c.Platform.GolangArch).To(Equal("riscv64"))
+			})
 		})
 		Describe("ConfigOptions no mounter specified", Label("mount", "mounter"), func() {
 			It("should use the default mounter", Label("systemctl"), func() {
