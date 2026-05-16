@@ -2,10 +2,6 @@ package config
 
 import (
 	"fmt"
-	"runtime"
-	"strings"
-
-	registry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/http"
@@ -27,6 +23,7 @@ import (
 	"github.com/twpayne/go-vfs/v5"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
+	"runtime"
 )
 
 func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
@@ -36,15 +33,9 @@ func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
 		log.SetLevel("debug")
 	}
 
-	hostPlatform, err := newPlatformFromArch(runtime.GOARCH)
+	hostPlatform, err := platform.NewPlatformFromArch(runtime.GOARCH)
 	if err != nil {
 		log.Errorf("error parsing default platform (%s): %s", runtime.GOARCH, err.Error())
-		return nil
-	}
-
-	arch, err := golangArchToArch(runtime.GOARCH)
-	if err != nil {
-		log.Errorf("invalid arch: %s", err.Error())
 		return nil
 	}
 
@@ -53,7 +44,7 @@ func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
 		Logger:                    log,
 		Syscall:                   &syscall.RealSyscall{},
 		Client:                    http.NewClient(),
-		Arch:                      arch,
+		Arch:                      hostPlatform.Arch,
 		Platform:                  hostPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 		ImageExtractor:            imageextractor.OCIImageExtractor{},
@@ -176,7 +167,7 @@ func sanitizeConfig(c *sdkConfig.Config) error {
 		c.SquashFsCompressionConfig = []string{}
 	}
 	if c.Arch != "" && c.Platform == nil {
-		p, err := newPlatformFromArch(c.Arch)
+		p, err := platform.NewPlatformFromArch(c.Arch)
 		if err != nil {
 			return err
 		}
@@ -184,7 +175,7 @@ func sanitizeConfig(c *sdkConfig.Config) error {
 	}
 
 	if c.Platform == nil {
-		p, err := newPlatformFromArch(runtime.GOARCH)
+		p, err := platform.NewPlatformFromArch(runtime.GOARCH)
 		if err != nil {
 			return err
 		}
@@ -240,7 +231,7 @@ func WithCloudInitRunner(ci cloudinitrunner.CloudInitRunner) func(r *sdkConfig.C
 
 func WithPlatform(plat string) func(r *sdkConfig.Config) {
 	return func(r *sdkConfig.Config) {
-		p, err := parsePlatform(plat)
+		p, err := platform.ParsePlatform(plat)
 		if err == nil {
 			r.Platform = p
 		}
@@ -287,46 +278,4 @@ func MergeYAML(objs ...interface{}) ([]byte, error) {
 
 func AddHeader(header, data string) string {
 	return fmt.Sprintf("%s\n%s", header, data)
-}
-
-var errInvalidArch = fmt.Errorf("invalid arch")
-
-func golangArchToArch(arch string) (string, error) {
-	switch strings.ToLower(arch) {
-	case constants.ArchAmd64:
-		return constants.Archx86, nil
-	case constants.ArchArm64:
-		return constants.ArchArm64, nil
-	case constants.ArchRiscv64:
-		return constants.ArchRiscv64, nil
-	default:
-		return "", errInvalidArch
-	}
-}
-
-func newPlatformFromArch(arch string) (*platform.Platform, error) {
-	normalizedArch, err := golangArchToArch(arch)
-	if err != nil {
-		return nil, err
-	}
-
-	return &platform.Platform{
-		OS:         "linux",
-		Arch:       normalizedArch,
-		GolangArch: strings.ToLower(arch),
-	}, nil
-}
-
-func parsePlatform(plat string) (*platform.Platform, error) {
-	parsed, err := registry.ParsePlatform(plat)
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := newPlatformFromArch(parsed.Architecture)
-	if err != nil {
-		return nil, err
-	}
-	p.OS = parsed.OS
-	return p, nil
 }
