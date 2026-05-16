@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 )
@@ -152,7 +152,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return mainModel, nil
 		}
 		if keyMsg, isKey := msg.(tea.KeyMsg); isKey {
-			if keyMsg.Type == tea.KeyCtrlC || keyMsg.String() == "ctrl+c" {
+			if keyMsg.String() == "ctrl+c" {
 				// Only show abort modal if install is not failed/finished
 				if installPage.errorMsg == "" && installPage.progress < len(installPage.steps)-1 {
 					mainModel.showAbortConfirm = true
@@ -267,7 +267,7 @@ func effectiveSize(modelW, modelH int) (width, height int) {
 	return width, height
 }
 
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	mainModel.log.Tracef("Rendering view for current page: %s", mainModel.currentPageID)
 	width, height := effectiveSize(mainModel.width, mainModel.height)
 	if mainModel.width <= 0 || mainModel.height <= 0 {
@@ -374,8 +374,12 @@ func (m Model) View() string {
 		popupMsg := "Are you sure you want to abort the installation? (y/n)"
 		popup := popupStyle.Render(popupMsg)
 		// Overlay the popup in the center
-		return fmt.Sprintf("%s\n\n%s", borderStyle.Render(pageContent), lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup))
+		v := tea.NewView(fmt.Sprintf("%s\n\n%s", borderStyle.Render(pageContent), lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, popup)))
+		v.AltScreen = true
+		return v
 	}
 
-	return borderStyle.Render(pageContent)
+	v := tea.NewView(borderStyle.Render(pageContent))
+	v.AltScreen = true
+	return v
 }

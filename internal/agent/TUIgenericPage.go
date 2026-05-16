@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // genericQuestionPage represents a page that asks a generic question
@@ -83,7 +83,7 @@ func (g genericQuestionPage) Configured() bool {
 func newGenericQuestionPage(section YAMLPrompt) *genericQuestionPage {
 	genericInput := textinput.New()
 	genericInput.Placeholder = section.PlaceHolder
-	genericInput.Width = 120
+	genericInput.SetWidth(120)
 	genericInput.Focus()
 
 	return &genericQuestionPage{

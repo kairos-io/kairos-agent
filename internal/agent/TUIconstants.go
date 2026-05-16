@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/joho/godotenv"
 	"github.com/kairos-io/kairos-agent/v2/internal/kairos"
 )

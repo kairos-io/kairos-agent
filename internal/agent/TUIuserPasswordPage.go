@@ -3,8 +3,8 @@ package agent
 import (
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 // User Password Page
@@ -19,11 +19,11 @@ type userPasswordPage struct {
 func newUserPasswordPage() *userPasswordPage {
 	usernameInput := textinput.New()
 	usernameInput.Placeholder = "Kairos"
-	usernameInput.Width = 20
+	usernameInput.SetWidth(20)
 	usernameInput.Focus()
 
 	passwordInput := textinput.New()
-	passwordInput.Width = 20
+	passwordInput.SetWidth(20)
 	passwordInput.Placeholder = "Kairos"
 	passwordInput.EchoMode = textinput.EchoPassword
 
