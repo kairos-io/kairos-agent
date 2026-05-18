@@ -36,12 +36,18 @@ func FilterKeys(d []byte) ([]byte, error) {
 func ScanNoLogs(opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	log := logger.NewNullLogger()
 	result := NewConfig(WithLogger(log))
+	if result == nil {
+		return nil, fmt.Errorf("failed to initialize config")
+	}
 	return scan(result, append(opts, collector.NoLogs)...)
 }
 
 // Scan is a wrapper around collector.Scan that sets the logger to the default Kairos logger
 func Scan(opts ...collector.Option) (c *sdkConfig.Config, err error) {
 	result := NewConfig()
+	if result == nil {
+		return nil, fmt.Errorf("failed to initialize config")
+	}
 	return scan(result, opts...)
 }
 

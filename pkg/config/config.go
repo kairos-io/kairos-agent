@@ -2,9 +2,6 @@ package config
 
 import (
 	"fmt"
-	"runtime"
-	"strings"
-
 	"github.com/kairos-io/kairos-agent/v2/pkg/cloudinit"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/http"
@@ -26,6 +23,7 @@ import (
 	"github.com/twpayne/go-vfs/v5"
 	"gopkg.in/yaml.v3"
 	"k8s.io/mount-utils"
+	"runtime"
 )
 
 func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
@@ -41,18 +39,12 @@ func NewConfig(opts ...GenericOptions) *sdkConfig.Config {
 		return nil
 	}
 
-	arch, err := golangArchToArch(runtime.GOARCH)
-	if err != nil {
-		log.Errorf("invalid arch: %s", err.Error())
-		return nil
-	}
-
 	c := &sdkConfig.Config{
 		Fs:                        vfs.OSFS,
 		Logger:                    log,
 		Syscall:                   &syscall.RealSyscall{},
 		Client:                    http.NewClient(),
-		Arch:                      arch,
+		Arch:                      hostPlatform.Arch,
 		Platform:                  hostPlatform,
 		SquashFsCompressionConfig: constants.GetDefaultSquashfsCompressionOptions(),
 		ImageExtractor:            imageextractor.OCIImageExtractor{},
@@ -286,17 +278,4 @@ func MergeYAML(objs ...interface{}) ([]byte, error) {
 
 func AddHeader(header, data string) string {
 	return fmt.Sprintf("%s\n%s", header, data)
-}
-
-var errInvalidArch = fmt.Errorf("invalid arch")
-
-func golangArchToArch(arch string) (string, error) {
-	switch strings.ToLower(arch) {
-	case constants.ArchAmd64:
-		return constants.Archx86, nil
-	case constants.ArchArm64:
-		return constants.ArchArm64, nil
-	default:
-		return "", errInvalidArch
-	}
 }

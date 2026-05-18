@@ -198,4 +198,15 @@ stages:
 			Expect(pkgConfig.CheckConfigForUsers(c)).To(HaveOccurred())
 		})
 	})
+
+	Describe("Platform handling", func() {
+		It("creates a config for riscv64 platform values", func() {
+			c := pkgConfig.NewConfig(pkgConfig.WithPlatform("linux/riscv64"))
+			Expect(c).ToNot(BeNil())
+			Expect(c.Platform).ToNot(BeNil())
+			Expect(c.Platform.OS).To(Equal("linux"))
+			Expect(c.Platform.Arch).To(Equal("riscv64"))
+			Expect(c.Platform.GolangArch).To(Equal("riscv64"))
+		})
+	})
 })
