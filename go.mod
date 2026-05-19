@@ -87,7 +87,6 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/containerd/stargz-snapshotter/estargz v0.18.2 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
@@ -110,7 +109,7 @@ require (
 	github.com/gen2brain/shm v0.0.0-20230802011745-f2460f5984f7 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
-	github.com/go-git/go-git/v5 v5.19.0 // indirect
+	github.com/go-git/go-git/v5 v5.19.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -152,7 +151,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.21 // indirect
 	github.com/mauromorales/xpasswd v0.4.7 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
@@ -197,7 +195,6 @@ require (
 	github.com/swaggest/refl v1.4.0 // indirect
 	github.com/tredoe/osutil v1.5.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/vbatts/tar-split v0.12.2 // indirect
 	github.com/vmware/vmw-guestinfo v0.0.0-20220317130741-510905f0efa3 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
