@@ -1,6 +1,9 @@
 package phonehome
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // ExtensionArgs is the validated, typed shape of an `extension` command's args.
 type ExtensionArgs struct {
@@ -44,4 +47,16 @@ func parseExtensionArgs(in map[string]string) (ExtensionArgs, error) {
 		return out, fmt.Errorf("extension: unsupported bootState %q", out.BootState)
 	}
 	return out, nil
+}
+
+// handleExtension dispatches the manual-flow extension command. The stub
+// returned here is replaced in subsequent tasks with the install/enable/
+// disable/remove action implementations.
+func handleExtension(ctx context.Context, cmd CommandData) (string, error) {
+	args, err := parseExtensionArgs(cmd.Args)
+	if err != nil {
+		return "", err
+	}
+	_ = ctx
+	return "", fmt.Errorf("extension: action %q not yet implemented", args.Action)
 }
