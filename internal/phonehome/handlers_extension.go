@@ -2,6 +2,7 @@ package phonehome
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -121,4 +122,35 @@ func runCLI(ctx context.Context, args ...string) (string, error) {
 	_ = ctx
 	out, err := execCommand("kairos-agent", args...).CombinedOutput()
 	return string(out), err
+}
+
+// BundledExtension is one entry inside the upgrade command's `extensions` arg.
+// The on-wire shape is a JSON-encoded array passed as a string under
+// CommandData.Args["extensions"] because Args is map[string]string.
+type BundledExtension struct {
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	Source string `json:"source"`
+}
+
+func parseBundledExtensions(raw string) ([]BundledExtension, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var list []BundledExtension
+	if err := json.Unmarshal([]byte(raw), &list); err != nil {
+		return nil, fmt.Errorf("extensions arg: %w", err)
+	}
+	for i, e := range list {
+		if e.Type != "sysext" && e.Type != "confext" {
+			return nil, fmt.Errorf("extensions[%d]: unsupported type %q", i, e.Type)
+		}
+		if e.Name == "" {
+			return nil, fmt.Errorf("extensions[%d]: name is required", i)
+		}
+		if e.Source == "" {
+			return nil, fmt.Errorf("extensions[%d]: source is required", i)
+		}
+	}
+	return list, nil
 }
