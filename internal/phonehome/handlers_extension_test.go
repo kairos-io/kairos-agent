@@ -414,3 +414,96 @@ var _ = Describe("installBundledExtension", func() {
 		}))
 	})
 })
+
+var _ = Describe("handleUpgrade — extensions bundle", func() {
+	var rec *commandRecorder
+	var restoreExec, restoreRoot, restoreReboot func()
+	var rebootCalled bool
+
+	BeforeEach(func() {
+		tmpRoot := GinkgoT().TempDir()
+		restoreRoot = phonehome.SetExtensionsPersistentRoot(func(extType string) string {
+			return filepath.Join(tmpRoot, extType+"s")
+		})
+		rec = &commandRecorder{}
+		restoreExec = phonehome.SetExecCommand(rec.record)
+		rebootCalled = false
+		restoreReboot = phonehome.SetScheduleReboot(func() { rebootCalled = true })
+	})
+	AfterEach(func() {
+		restoreExec()
+		restoreRoot()
+		restoreReboot()
+	})
+
+	It("is a no-op for extensions when the arg is empty (backward compat)", func() {
+		_, err := phonehome.HandleUpgradeForTest(phonehome.CommandData{
+			ID: "u1", Command: "upgrade",
+			Args: map[string]string{"source": "oci:quay.io/myorg/edge-os:v4.2.0"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(HaveLen(1))
+		Expect(rec.calls[0]).To(ContainElement("upgrade"))
+		Expect(rebootCalled).To(BeTrue())
+	})
+
+	It("installs every bundled extension before running upgrade", func() {
+		raw, _ := json.Marshal([]phonehome.BundledExtension{
+			{Type: "sysext", Name: "tailscale-agent", Source: "https://x/a"},
+			{Type: "confext", Name: "fluent-bit-config", Source: "https://x/b"},
+		})
+		_, err := phonehome.HandleUpgradeForTest(phonehome.CommandData{
+			Command: "upgrade",
+			Args: map[string]string{
+				"source":     "oci:quay.io/myorg/edge-os:v4.2.0",
+				"extensions": string(raw),
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(HaveLen(5))
+		Expect(rec.calls[0][1:3]).To(Equal([]string{"sysext", "install"}))
+		Expect(rec.calls[1][1:3]).To(Equal([]string{"sysext", "enable"}))
+		Expect(rec.calls[1]).To(ContainElement("--active"))
+		Expect(rec.calls[2][1:3]).To(Equal([]string{"confext", "install"}))
+		Expect(rec.calls[3][1:3]).To(Equal([]string{"confext", "enable"}))
+		Expect(rec.calls[4]).To(ContainElement("upgrade"))
+		Expect(rebootCalled).To(BeTrue())
+	})
+
+	It("aborts before the OS upgrade when an extension install fails", func() {
+		failRec := &failingRecorder{failOn: 0}
+		restoreExec()
+		restoreExec = phonehome.SetExecCommand(failRec.record)
+
+		raw, _ := json.Marshal([]phonehome.BundledExtension{
+			{Type: "sysext", Name: "x", Source: "https://x/a"},
+		})
+		_, err := phonehome.HandleUpgradeForTest(phonehome.CommandData{
+			Command: "upgrade",
+			Args: map[string]string{
+				"source":     "oci:quay.io/myorg/edge-os:v4.2.0",
+				"extensions": string(raw),
+			},
+		})
+		Expect(err).To(MatchError(ContainSubstring("install sysext/x")))
+		Expect(failRec.calls).To(HaveLen(1))
+		Expect(rebootCalled).To(BeFalse())
+	})
+
+	It("enables bundled extensions at --recovery scope for upgrade-recovery", func() {
+		raw, _ := json.Marshal([]phonehome.BundledExtension{
+			{Type: "sysext", Name: "rescue-tools", Source: "https://x/r"},
+		})
+		_, err := phonehome.HandleUpgradeForTest(phonehome.CommandData{
+			Command: "upgrade-recovery",
+			Args: map[string]string{
+				"source":     "oci:quay.io/myorg/edge-os:v4.2.0",
+				"recovery":   "true",
+				"extensions": string(raw),
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(HaveLen(3))
+		Expect(rec.calls[1]).To(Equal([]string{"kairos-agent", "sysext", "enable", "rescue-tools", "--recovery"}))
+	})
+})
