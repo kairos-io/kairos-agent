@@ -67,3 +67,24 @@ func HandleExtensionForTest(cmd CommandData) (string, error) {
 func ParseBundledExtensionsForTest(raw string) ([]BundledExtension, error) {
 	return parseBundledExtensions(raw)
 }
+
+// SetExtensionsPersistentRoot swaps the on-disk root resolver used by the
+// scope-scan helpers. Returns a restorer.
+func SetExtensionsPersistentRoot(fn func(extType string) string) func() {
+	prev := extensionsPersistentRoot
+	extensionsPersistentRoot = fn
+	return func() { extensionsPersistentRoot = prev }
+}
+
+// ExtensionEnabledAnywhereForTest exposes the package-private
+// extensionEnabledAnywhere scanner so specs can verify the prefix-then-dot
+// matching behaviour against a fake persistent root.
+func ExtensionEnabledAnywhereForTest(extType, name string) bool {
+	return extensionEnabledAnywhere(extType, name)
+}
+
+// InstallBundledExtensionForTest exposes the compound install+enable helper
+// so specs can drive it without going through the full handleUpgrade flow.
+func InstallBundledExtensionForTest(e BundledExtension, scope string) error {
+	return installBundledExtension(context.Background(), e, scope)
+}

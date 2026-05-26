@@ -2,7 +2,9 @@ package phonehome_test
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	. "github.com/onsi/ginkgo/v2"
@@ -317,5 +319,98 @@ var _ = Describe("parseBundledExtensions", func() {
 		_, err := phonehome.ParseBundledExtensionsForTest(
 			`[{"type":"sysext","name":"x"}]`)
 		Expect(err).To(MatchError(ContainSubstring("source")))
+	})
+})
+
+var _ = Describe("extensionEnabledAnywhere", func() {
+	var rootRestore func()
+	var tmpRoot string
+
+	BeforeEach(func() {
+		tmpRoot = GinkgoT().TempDir()
+		rootRestore = phonehome.SetExtensionsPersistentRoot(func(extType string) string {
+			return filepath.Join(tmpRoot, extType+"s")
+		})
+	})
+	AfterEach(func() { rootRestore() })
+
+	It("returns false when no scope dir contains the extension", func() {
+		Expect(phonehome.ExtensionEnabledAnywhereForTest("sysext", "tailscale-agent")).To(BeFalse())
+	})
+
+	It("returns true when a symlink exists under active/", func() {
+		scopeDir := filepath.Join(tmpRoot, "sysexts", "active")
+		Expect(os.MkdirAll(scopeDir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(scopeDir, "tailscale-agent.sysext.raw"), nil, 0o644)).To(Succeed())
+		Expect(phonehome.ExtensionEnabledAnywhereForTest("sysext", "tailscale-agent")).To(BeTrue())
+	})
+
+	It("returns true when a symlink exists under common/", func() {
+		scopeDir := filepath.Join(tmpRoot, "sysexts", "common")
+		Expect(os.MkdirAll(scopeDir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(scopeDir, "tailscale-agent.sysext.raw"), nil, 0o644)).To(Succeed())
+		Expect(phonehome.ExtensionEnabledAnywhereForTest("sysext", "tailscale-agent")).To(BeTrue())
+	})
+
+	It("matches by prefix-then-dot so a longer-named neighbour doesn't false-positive", func() {
+		scopeDir := filepath.Join(tmpRoot, "sysexts", "common")
+		Expect(os.MkdirAll(scopeDir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(scopeDir, "tailscale-agent-helper.sysext.raw"), nil, 0o644)).To(Succeed())
+		Expect(phonehome.ExtensionEnabledAnywhereForTest("sysext", "tailscale-agent")).To(BeFalse())
+	})
+})
+
+var _ = Describe("installBundledExtension", func() {
+	var rec *commandRecorder
+	var restoreExec, restoreRoot func()
+	var tmpRoot string
+
+	BeforeEach(func() {
+		tmpRoot = GinkgoT().TempDir()
+		restoreRoot = phonehome.SetExtensionsPersistentRoot(func(extType string) string {
+			return filepath.Join(tmpRoot, extType+"s")
+		})
+		rec = &commandRecorder{}
+		restoreExec = phonehome.SetExecCommand(rec.record)
+	})
+	AfterEach(func() {
+		restoreExec()
+		restoreRoot()
+	})
+
+	It("installs and enables a brand-new extension at --active", func() {
+		Expect(phonehome.InstallBundledExtensionForTest(
+			phonehome.BundledExtension{Type: "sysext", Name: "tailscale-agent", Source: "https://x/y"},
+			"active",
+		)).To(Succeed())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "sysext", "install", "https://x/y"},
+			{"kairos-agent", "sysext", "enable", "tailscale-agent", "--active"},
+		}))
+	})
+
+	It("skips enable when the extension is already present at common scope", func() {
+		scopeDir := filepath.Join(tmpRoot, "sysexts", "common")
+		Expect(os.MkdirAll(scopeDir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(scopeDir, "tailscale-agent.sysext.raw"), nil, 0o644)).To(Succeed())
+
+		Expect(phonehome.InstallBundledExtensionForTest(
+			phonehome.BundledExtension{Type: "sysext", Name: "tailscale-agent", Source: "https://x/y"},
+			"active",
+		)).To(Succeed())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "sysext", "install", "https://x/y"},
+		}))
+	})
+
+	It("enables at the recovery scope when called with scope=recovery", func() {
+		Expect(phonehome.InstallBundledExtensionForTest(
+			phonehome.BundledExtension{Type: "sysext", Name: "rescue-tools", Source: "https://x/r"},
+			"recovery",
+		)).To(Succeed())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "sysext", "install", "https://x/r"},
+			{"kairos-agent", "sysext", "enable", "rescue-tools", "--recovery"},
+		}))
 	})
 })
