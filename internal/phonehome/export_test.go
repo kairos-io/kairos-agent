@@ -88,3 +88,17 @@ func ExtensionEnabledAnywhereForTest(extType, name string) bool {
 func InstallBundledExtensionForTest(e BundledExtension, scope string) error {
 	return installBundledExtension(context.Background(), e, scope)
 }
+
+// SetScheduleReboot swaps the reboot scheduler with a test double. Specs use
+// this to assert that a failed bundled-extension install short-circuits
+// before the OS upgrade and therefore does NOT schedule a reboot.
+func SetScheduleReboot(fn func()) func() {
+	prev := scheduleRebootFn
+	scheduleRebootFn = fn
+	return func() { scheduleRebootFn = prev }
+}
+
+// HandleUpgradeForTest is the test-only entry point for handleUpgrade.
+func HandleUpgradeForTest(cmd CommandData) (string, error) {
+	return handleUpgrade(context.Background(), cmd, "http://test", "")
+}
