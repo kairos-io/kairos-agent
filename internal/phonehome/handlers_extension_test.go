@@ -230,3 +230,53 @@ var _ = Describe("handleExtension — enable/disable/remove", func() {
 		}))
 	})
 })
+
+// failingRecorder is like commandRecorder but lets the test request a
+// specific call (0-based) to exit non-zero.
+type failingRecorder struct {
+	calls  [][]string
+	failOn int
+}
+
+func (r *failingRecorder) record(name string, args ...string) *exec.Cmd {
+	idx := len(r.calls)
+	r.calls = append(r.calls, append([]string{name}, args...))
+	if r.failOn == idx {
+		return exec.Command("/bin/false")
+	}
+	return exec.Command("/bin/true")
+}
+
+var _ = Describe("handleExtension — install error paths", func() {
+	It("returns the install error and does NOT call enable when download fails", func() {
+		rec := &failingRecorder{failOn: 0}
+		restore := phonehome.SetExecCommand(rec.record)
+		defer restore()
+
+		_, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			Command: "extension",
+			Args: map[string]string{
+				"type": "sysext", "action": "install",
+				"name": "x", "source": "https://x/y", "bootState": "common",
+			},
+		})
+		Expect(err).To(MatchError(ContainSubstring("extension install")))
+		Expect(rec.calls).To(HaveLen(1))
+	})
+
+	It("returns the enable error when symlink creation fails after a successful download", func() {
+		rec := &failingRecorder{failOn: 1}
+		restore := phonehome.SetExecCommand(rec.record)
+		defer restore()
+
+		_, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			Command: "extension",
+			Args: map[string]string{
+				"type": "sysext", "action": "install",
+				"name": "x", "source": "https://x/y", "bootState": "common",
+			},
+		})
+		Expect(err).To(MatchError(ContainSubstring("extension enable")))
+		Expect(rec.calls).To(HaveLen(2))
+	})
+})
