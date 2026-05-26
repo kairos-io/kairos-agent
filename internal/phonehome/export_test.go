@@ -30,3 +30,10 @@ func SetUninstallRunners(
 		globFiles = prevGlob
 	}
 }
+
+// ParseExtensionArgsForTest is the test-only entry point for the package-private
+// parseExtensionArgs validator. Keeping the production function unexported lets
+// us reshape it without breaking external callers.
+func ParseExtensionArgsForTest(in map[string]string) (ExtensionArgs, error) {
+	return parseExtensionArgs(in)
+}
