@@ -1,10 +1,24 @@
 package phonehome_test
 
 import (
+	"os/exec"
+
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// commandRecorder captures shell-outs and always returns a command that
+// exits successfully. Tests that need failure use a failingRecorder
+// instead (added in Task 5).
+type commandRecorder struct {
+	calls [][]string
+}
+
+func (r *commandRecorder) record(name string, args ...string) *exec.Cmd {
+	r.calls = append(r.calls, append([]string{name}, args...))
+	return exec.Command("/bin/true")
+}
 
 var _ = Describe("parseExtensionArgs", func() {
 	It("parses a complete install request", func() {
@@ -105,5 +119,57 @@ var _ = Describe("DefaultCommandHandler — extension command", func() {
 			},
 		})
 		Expect(err).To(MatchError(ContainSubstring("not yet implemented")))
+	})
+})
+
+var _ = Describe("handleExtension — install action", func() {
+	var rec *commandRecorder
+	var restore func()
+
+	BeforeEach(func() {
+		rec = &commandRecorder{}
+		restore = phonehome.SetExecCommand(rec.record)
+	})
+	AfterEach(func() { restore() })
+
+	It("issues install + enable with --now when now=true", func() {
+		out, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			ID: "c1", Command: "extension",
+			Args: map[string]string{
+				"type":      "sysext",
+				"action":    "install",
+				"name":      "tailscale-agent",
+				"source":    "https://aurora/api/v1/extensions/abc/download/tailscale-agent.sysext.raw?token=k",
+				"bootState": "common",
+				"now":       "true",
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(ContainSubstring("installed"))
+		Expect(rec.calls).To(HaveLen(2))
+		Expect(rec.calls[0]).To(Equal([]string{
+			"kairos-agent", "sysext", "install",
+			"https://aurora/api/v1/extensions/abc/download/tailscale-agent.sysext.raw?token=k",
+		}))
+		Expect(rec.calls[1]).To(Equal([]string{
+			"kairos-agent", "sysext", "enable", "tailscale-agent", "--common", "--now",
+		}))
+	})
+
+	It("omits --now when now=false", func() {
+		_, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			Command: "extension",
+			Args: map[string]string{
+				"type": "confext", "action": "install",
+				"name":      "fluent-bit-config",
+				"source":    "https://x/file?token=k",
+				"bootState": "active",
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(HaveLen(2))
+		Expect(rec.calls[1]).To(Equal([]string{
+			"kairos-agent", "confext", "enable", "fluent-bit-config", "--active",
+		}))
 	})
 })
