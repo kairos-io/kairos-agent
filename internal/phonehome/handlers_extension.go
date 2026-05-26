@@ -61,6 +61,12 @@ func handleExtension(ctx context.Context, cmd CommandData) (string, error) {
 	switch args.Action {
 	case "install":
 		return extInstall(ctx, args)
+	case "enable":
+		return extToggle(ctx, args, "enable")
+	case "disable":
+		return extToggle(ctx, args, "disable")
+	case "remove":
+		return extRemove(ctx, args)
 	default:
 		return "", fmt.Errorf("extension: action %q not yet implemented", args.Action)
 	}
@@ -85,6 +91,30 @@ func extInstall(ctx context.Context, a ExtensionArgs) (string, error) {
 	}
 	return fmt.Sprintf("Extension %s installed and enabled in %s\n%s\n%s",
 		a.Name, a.BootState, strings.TrimSpace(out1), strings.TrimSpace(out2)), nil
+}
+
+func extToggle(ctx context.Context, a ExtensionArgs, action string) (string, error) {
+	cliArgs := []string{a.Type, action, a.Name, "--" + a.BootState}
+	if a.Now {
+		cliArgs = append(cliArgs, "--now")
+	}
+	out, err := runCLI(ctx, cliArgs...)
+	if err != nil {
+		return out, fmt.Errorf("extension %s: %w: %s", action, err, out)
+	}
+	return strings.TrimSpace(out), nil
+}
+
+func extRemove(ctx context.Context, a ExtensionArgs) (string, error) {
+	cliArgs := []string{a.Type, "remove", a.Name}
+	if a.Now {
+		cliArgs = append(cliArgs, "--now")
+	}
+	out, err := runCLI(ctx, cliArgs...)
+	if err != nil {
+		return out, fmt.Errorf("extension remove: %w: %s", err, out)
+	}
+	return strings.TrimSpace(out), nil
 }
 
 func runCLI(ctx context.Context, args ...string) (string, error) {
