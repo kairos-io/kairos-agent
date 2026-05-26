@@ -58,6 +58,9 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 		case "unregister":
 			return handleUnregister(stop)
 
+		case "extension":
+			return handleExtension(ctx, cmd)
+
 		default:
 			return "", fmt.Errorf("unknown command: %s", cmd.Command)
 		}
