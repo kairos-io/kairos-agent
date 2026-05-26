@@ -60,3 +60,10 @@ func SetExecCommand(fn func(name string, args ...string) *exec.Cmd) func() {
 func HandleExtensionForTest(cmd CommandData) (string, error) {
 	return handleExtension(context.Background(), cmd)
 }
+
+// ParseBundledExtensionsForTest is the test-only entry point for the
+// package-private parseBundledExtensions helper used by handleUpgrade to
+// decode CommandData.Args["extensions"].
+func ParseBundledExtensionsForTest(raw string) ([]BundledExtension, error) {
+	return parseBundledExtensions(raw)
+}
