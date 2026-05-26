@@ -108,8 +108,9 @@ var _ = Describe("DefaultCommandHandler — extension command", func() {
 	})
 
 	It("dispatches to handleExtension when args validate", func() {
-		// The stub introduced in this task returns 'not yet implemented';
-		// later tasks will replace it with real CLI calls.
+		rec := &commandRecorder{}
+		restore := phonehome.SetExecCommand(rec.record)
+		defer restore()
 		allow := func(string) bool { return true }
 		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, allow, nil)
 		_, err := handler(phonehome.CommandData{
@@ -118,7 +119,10 @@ var _ = Describe("DefaultCommandHandler — extension command", func() {
 				"type": "sysext", "action": "remove", "name": "tailscale-agent",
 			},
 		})
-		Expect(err).To(MatchError(ContainSubstring("not yet implemented")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "sysext", "remove", "tailscale-agent"},
+		}))
 	})
 })
 
@@ -170,6 +174,59 @@ var _ = Describe("handleExtension — install action", func() {
 		Expect(rec.calls).To(HaveLen(2))
 		Expect(rec.calls[1]).To(Equal([]string{
 			"kairos-agent", "confext", "enable", "fluent-bit-config", "--active",
+		}))
+	})
+})
+
+var _ = Describe("handleExtension — enable/disable/remove", func() {
+	var rec *commandRecorder
+	var restore func()
+
+	BeforeEach(func() {
+		rec = &commandRecorder{}
+		restore = phonehome.SetExecCommand(rec.record)
+	})
+	AfterEach(func() { restore() })
+
+	It("issues enable without --now when now=false", func() {
+		_, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			Command: "extension",
+			Args: map[string]string{
+				"type": "sysext", "action": "enable",
+				"name": "tailscale-agent", "bootState": "passive", "now": "false",
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "sysext", "enable", "tailscale-agent", "--passive"},
+		}))
+	})
+
+	It("issues disable with --now when now=true", func() {
+		_, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			Command: "extension",
+			Args: map[string]string{
+				"type": "confext", "action": "disable",
+				"name": "fluent-bit-config", "bootState": "common", "now": "true",
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "confext", "disable", "fluent-bit-config", "--common", "--now"},
+		}))
+	})
+
+	It("issues remove with --now when now=true", func() {
+		_, err := phonehome.HandleExtensionForTest(phonehome.CommandData{
+			Command: "extension",
+			Args: map[string]string{
+				"type": "sysext", "action": "remove",
+				"name": "tailscale-agent", "now": "true",
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.calls).To(Equal([][]string{
+			{"kairos-agent", "sysext", "remove", "tailscale-agent", "--now"},
 		}))
 	})
 })
