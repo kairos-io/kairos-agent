@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -131,6 +133,61 @@ type BundledExtension struct {
 	Type   string `json:"type"`
 	Name   string `json:"name"`
 	Source string `json:"source"`
+}
+
+// extensionsPersistentRoot returns the persistent-dir base path for the
+// given extension type. Test seam — production wraps the constants from
+// pkg/action/sysext.go (sysextDir = /var/lib/kairos/extensions,
+// confExtDir = /var/lib/kairos/confexts).
+var extensionsPersistentRoot = func(extType string) string {
+	if extType == "confext" {
+		return "/var/lib/kairos/confexts"
+	}
+	return "/var/lib/kairos/extensions"
+}
+
+// extensionEnabledAnywhere reports whether any of the four scope dirs
+// (active/passive/recovery/common) contains a symlink or file named like
+// "<name>.<type>.raw" — the convention produced by `auroraboot sysext`.
+//
+// Matching uses prefix-then-dot so `tailscale-agent` does NOT match
+// `tailscale-agent-helper`. Per the spec, this check preserves the
+// operator's prior scope choice during a compound upgrade.
+func extensionEnabledAnywhere(extType, name string) bool {
+	base := extensionsPersistentRoot(extType)
+	prefix := name + "."
+	for _, scope := range []string{"active", "passive", "recovery", "common"} {
+		entries, err := os.ReadDir(filepath.Join(base, scope))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.HasPrefix(e.Name(), prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// installBundledExtension downloads (overwriting) and conditionally enables
+// the extension at the given scope. `scope` is "active" for `upgrade`,
+// "recovery" for `upgrade-recovery`. --now is intentionally omitted: the OS
+// upgrade about to reboot will pick the extension up on the new active boot.
+func installBundledExtension(ctx context.Context, e BundledExtension, scope string) error {
+	if out, err := runCLI(ctx, e.Type, "install", e.Source); err != nil {
+		return fmt.Errorf("install %s/%s: %w: %s", e.Type, e.Name, err, out)
+	}
+	if extensionEnabledAnywhere(e.Type, e.Name) {
+		return nil
+	}
+	if out, err := runCLI(ctx, e.Type, "enable", e.Name, "--"+scope); err != nil {
+		return fmt.Errorf("enable %s/%s --%s: %w: %s", e.Type, e.Name, scope, err, out)
+	}
+	return nil
 }
 
 func parseBundledExtensions(raw string) ([]BundledExtension, error) {
