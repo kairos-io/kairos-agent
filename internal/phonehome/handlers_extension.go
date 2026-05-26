@@ -3,16 +3,20 @@ package phonehome
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"strings"
 )
 
-// ExtensionArgs is the validated, typed shape of an `extension` command's args.
+// execCommand is a seam for tests. Production code path is exec.Command.
+var execCommand = exec.Command
+
 type ExtensionArgs struct {
-	Type      string // "sysext" | "confext"
-	Action    string // "install" | "enable" | "disable" | "remove"
+	Type      string
+	Action    string
 	Name      string
-	Source    string // required for action=install
-	BootState string // required for action in {install,enable,disable}
-	Now       bool   // optional
+	Source    string
+	BootState string
+	Now       bool
 }
 
 func parseExtensionArgs(in map[string]string) (ExtensionArgs, error) {
@@ -49,14 +53,42 @@ func parseExtensionArgs(in map[string]string) (ExtensionArgs, error) {
 	return out, nil
 }
 
-// handleExtension dispatches the manual-flow extension command. The stub
-// returned here is replaced in subsequent tasks with the install/enable/
-// disable/remove action implementations.
 func handleExtension(ctx context.Context, cmd CommandData) (string, error) {
 	args, err := parseExtensionArgs(cmd.Args)
 	if err != nil {
 		return "", err
 	}
+	switch args.Action {
+	case "install":
+		return extInstall(ctx, args)
+	default:
+		return "", fmt.Errorf("extension: action %q not yet implemented", args.Action)
+	}
+}
+
+// extInstall is install + enable. kairos-agent's `install` subcommand only
+// downloads the .raw; `enable` creates the symlink under the chosen scope.
+// We do both so AuroraBoot's "Install" action card is one atomic round-trip
+// from the operator's view.
+func extInstall(ctx context.Context, a ExtensionArgs) (string, error) {
+	out1, err := runCLI(ctx, a.Type, "install", a.Source)
+	if err != nil {
+		return out1, fmt.Errorf("extension install: %w: %s", err, out1)
+	}
+	enableArgs := []string{a.Type, "enable", a.Name, "--" + a.BootState}
+	if a.Now {
+		enableArgs = append(enableArgs, "--now")
+	}
+	out2, err := runCLI(ctx, enableArgs...)
+	if err != nil {
+		return out1 + "\n" + out2, fmt.Errorf("extension enable: %w: %s", err, out2)
+	}
+	return fmt.Sprintf("Extension %s installed and enabled in %s\n%s\n%s",
+		a.Name, a.BootState, strings.TrimSpace(out1), strings.TrimSpace(out2)), nil
+}
+
+func runCLI(ctx context.Context, args ...string) (string, error) {
 	_ = ctx
-	return "", fmt.Errorf("extension: action %q not yet implemented", args.Action)
+	out, err := execCommand("kairos-agent", args...).CombinedOutput()
+	return string(out), err
 }

@@ -1,6 +1,10 @@
 package phonehome
 
-import "os"
+import (
+	"context"
+	"os"
+	"os/exec"
+)
 
 // Test-only exports. Files ending in `_test.go` are compiled into the test
 // binary only, so the helpers below are invisible to production code.
@@ -36,4 +40,23 @@ func SetUninstallRunners(
 // us reshape it without breaking external callers.
 func ParseExtensionArgsForTest(in map[string]string) (ExtensionArgs, error) {
 	return parseExtensionArgs(in)
+}
+
+// SetExecCommand swaps the shell-out indirection used by the extension
+// handlers and (once Task 7 lands) by handleUpgrade. Returns a restorer.
+//
+// Tests typically pass a function that records args and returns
+// `exec.Command("/bin/true")` for success or `exec.Command("/bin/false")`
+// to simulate a non-zero exit.
+func SetExecCommand(fn func(name string, args ...string) *exec.Cmd) func() {
+	prev := execCommand
+	execCommand = fn
+	return func() { execCommand = prev }
+}
+
+// HandleExtensionForTest is the test-only entry point for the package-private
+// handleExtension dispatcher. (DefaultCommandHandler also reaches it via the
+// switch case, but going through DefaultCommandHandler in every spec is noisy.)
+func HandleExtensionForTest(cmd CommandData) (string, error) {
+	return handleExtension(context.Background(), cmd)
 }
