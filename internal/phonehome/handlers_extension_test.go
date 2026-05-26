@@ -1,6 +1,7 @@
 package phonehome_test
 
 import (
+	"encoding/json"
 	"os/exec"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
@@ -278,5 +279,43 @@ var _ = Describe("handleExtension — install error paths", func() {
 		})
 		Expect(err).To(MatchError(ContainSubstring("extension enable")))
 		Expect(rec.calls).To(HaveLen(2))
+	})
+})
+
+var _ = Describe("parseBundledExtensions", func() {
+	It("returns an empty slice for an empty input", func() {
+		got, err := phonehome.ParseBundledExtensionsForTest("")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(BeEmpty())
+	})
+
+	It("decodes a well-formed array", func() {
+		raw, _ := json.Marshal([]phonehome.BundledExtension{
+			{Type: "sysext", Name: "tailscale-agent", Source: "https://x/a"},
+			{Type: "confext", Name: "fluent-bit-config", Source: "https://x/b"},
+		})
+		got, err := phonehome.ParseBundledExtensionsForTest(string(raw))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].Name).To(Equal("tailscale-agent"))
+		Expect(got[1].Type).To(Equal("confext"))
+	})
+
+	It("rejects an unsupported type", func() {
+		_, err := phonehome.ParseBundledExtensionsForTest(
+			`[{"type":"blob","name":"x","source":"https://x"}]`)
+		Expect(err).To(MatchError(ContainSubstring("type")))
+	})
+
+	It("rejects a missing name", func() {
+		_, err := phonehome.ParseBundledExtensionsForTest(
+			`[{"type":"sysext","source":"https://x"}]`)
+		Expect(err).To(MatchError(ContainSubstring("name")))
+	})
+
+	It("rejects a missing source", func() {
+		_, err := phonehome.ParseBundledExtensionsForTest(
+			`[{"type":"sysext","name":"x"}]`)
+		Expect(err).To(MatchError(ContainSubstring("source")))
 	})
 })
