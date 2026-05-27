@@ -159,7 +159,7 @@ var _ = Describe("handleExtension — install action", func() {
 			"https://aurora/api/v1/extensions/abc/download/tailscale-agent.sysext.raw?token=k",
 		}))
 		Expect(rec.calls[1]).To(Equal([]string{
-			"kairos-agent", "sysext", "enable", "tailscale-agent", "--common", "--now",
+			"kairos-agent", "sysext", "enable", "--common", "--now", "tailscale-agent",
 		}))
 	})
 
@@ -176,7 +176,7 @@ var _ = Describe("handleExtension — install action", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rec.calls).To(HaveLen(2))
 		Expect(rec.calls[1]).To(Equal([]string{
-			"kairos-agent", "confext", "enable", "fluent-bit-config", "--active",
+			"kairos-agent", "confext", "enable", "--active", "fluent-bit-config",
 		}))
 	})
 })
@@ -201,7 +201,7 @@ var _ = Describe("handleExtension — enable/disable/remove", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rec.calls).To(Equal([][]string{
-			{"kairos-agent", "sysext", "enable", "tailscale-agent", "--passive"},
+			{"kairos-agent", "sysext", "enable", "--passive", "tailscale-agent"},
 		}))
 	})
 
@@ -215,7 +215,7 @@ var _ = Describe("handleExtension — enable/disable/remove", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rec.calls).To(Equal([][]string{
-			{"kairos-agent", "confext", "disable", "fluent-bit-config", "--common", "--now"},
+			{"kairos-agent", "confext", "disable", "--common", "--now", "fluent-bit-config"},
 		}))
 	})
 
@@ -229,7 +229,7 @@ var _ = Describe("handleExtension — enable/disable/remove", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rec.calls).To(Equal([][]string{
-			{"kairos-agent", "sysext", "remove", "tailscale-agent", "--now"},
+			{"kairos-agent", "sysext", "remove", "--now", "tailscale-agent"},
 		}))
 	})
 })
@@ -385,7 +385,7 @@ var _ = Describe("installBundledExtension", func() {
 		)).To(Succeed())
 		Expect(rec.calls).To(Equal([][]string{
 			{"kairos-agent", "sysext", "install", "https://x/y"},
-			{"kairos-agent", "sysext", "enable", "tailscale-agent", "--active"},
+			{"kairos-agent", "sysext", "enable", "--active", "tailscale-agent"},
 		}))
 	})
 
@@ -410,7 +410,7 @@ var _ = Describe("installBundledExtension", func() {
 		)).To(Succeed())
 		Expect(rec.calls).To(Equal([][]string{
 			{"kairos-agent", "sysext", "install", "https://x/r"},
-			{"kairos-agent", "sysext", "enable", "rescue-tools", "--recovery"},
+			{"kairos-agent", "sysext", "enable", "--recovery", "rescue-tools"},
 		}))
 	})
 })
@@ -504,6 +504,6 @@ var _ = Describe("handleUpgrade — extensions bundle", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rec.calls).To(HaveLen(3))
-		Expect(rec.calls[1]).To(Equal([]string{"kairos-agent", "sysext", "enable", "rescue-tools", "--recovery"}))
+		Expect(rec.calls[1]).To(Equal([]string{"kairos-agent", "sysext", "enable", "--recovery", "rescue-tools"}))
 	})
 })
