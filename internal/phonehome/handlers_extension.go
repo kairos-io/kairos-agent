@@ -84,10 +84,14 @@ func extInstall(ctx context.Context, a ExtensionArgs) (string, error) {
 	if err != nil {
 		return out1, fmt.Errorf("extension install: %w: %s", err, out1)
 	}
-	enableArgs := []string{a.Type, "enable", a.Name, "--" + a.BootState}
+	// urfave/cli v2 only parses flags placed BEFORE positional args; the
+	// enable subcommand rejects with "extension name required" if `--common`
+	// trails the name.
+	enableArgs := []string{a.Type, "enable", "--" + a.BootState}
 	if a.Now {
 		enableArgs = append(enableArgs, "--now")
 	}
+	enableArgs = append(enableArgs, a.Name)
 	out2, err := runCLI(ctx, enableArgs...)
 	if err != nil {
 		return out1 + "\n" + out2, fmt.Errorf("extension enable: %w: %s", err, out2)
@@ -97,10 +101,13 @@ func extInstall(ctx context.Context, a ExtensionArgs) (string, error) {
 }
 
 func extToggle(ctx context.Context, a ExtensionArgs, action string) (string, error) {
-	cliArgs := []string{a.Type, action, a.Name, "--" + a.BootState}
+	// Flags before positional args — urfave/cli v2 stops flag parsing after the
+	// first positional and would otherwise reject `--<scope>` as "extension name required".
+	cliArgs := []string{a.Type, action, "--" + a.BootState}
 	if a.Now {
 		cliArgs = append(cliArgs, "--now")
 	}
+	cliArgs = append(cliArgs, a.Name)
 	out, err := runCLI(ctx, cliArgs...)
 	if err != nil {
 		return out, fmt.Errorf("extension %s: %w: %s", action, err, out)
@@ -109,10 +116,11 @@ func extToggle(ctx context.Context, a ExtensionArgs, action string) (string, err
 }
 
 func extRemove(ctx context.Context, a ExtensionArgs) (string, error) {
-	cliArgs := []string{a.Type, "remove", a.Name}
+	cliArgs := []string{a.Type, "remove"}
 	if a.Now {
 		cliArgs = append(cliArgs, "--now")
 	}
+	cliArgs = append(cliArgs, a.Name)
 	out, err := runCLI(ctx, cliArgs...)
 	if err != nil {
 		return out, fmt.Errorf("extension remove: %w: %s", err, out)
@@ -184,7 +192,7 @@ func installBundledExtension(ctx context.Context, e BundledExtension, scope stri
 	if extensionEnabledAnywhere(e.Type, e.Name) {
 		return nil
 	}
-	if out, err := runCLI(ctx, e.Type, "enable", e.Name, "--"+scope); err != nil {
+	if out, err := runCLI(ctx, e.Type, "enable", "--"+scope, e.Name); err != nil {
 		return fmt.Errorf("enable %s/%s --%s: %w: %s", e.Type, e.Name, scope, err, out)
 	}
 	return nil
