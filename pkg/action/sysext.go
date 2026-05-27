@@ -456,10 +456,16 @@ type httpSource struct {
 }
 
 func (h httpSource) Download(s string) error {
-	// Download the file from the URI
-	// and save it to the destination path
-	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", filepath.Join(s, filepath.Base(h.uri))).Msg("Downloading system extension")
-	return h.cfg.Client.GetURL(sdkLogger.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
+	// Derive the on-disk filename from the URL's *path* — not the raw URI —
+	// so a `?token=…` query doesn't get baked into the file name and break
+	// the `.raw` suffix detection that ListExtensions relies on.
+	name := filepath.Base(h.uri)
+	if u, err := url.Parse(h.uri); err == nil && u.Path != "" {
+		name = filepath.Base(u.Path)
+	}
+	target := filepath.Join(s, name)
+	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", target).Msg("Downloading system extension")
+	return h.cfg.Client.GetURL(sdkLogger.NewNullLogger(), h.uri, target)
 }
 
 type dockerSource struct {
