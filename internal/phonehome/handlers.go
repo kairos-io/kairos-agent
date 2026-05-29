@@ -58,6 +58,9 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 		case "unregister":
 			return handleUnregister(stop)
 
+		case "extension":
+			return handleExtension(ctx, cmd)
+
 		default:
 			return "", fmt.Errorf("unknown command: %s", cmd.Command)
 		}
@@ -145,9 +148,27 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 		args = append(args, "--recovery")
 	}
 
+	// Install bundled extensions before the OS upgrade. Each install is
+	// idempotent (kairos-agent install overwrites the .raw in place), so a
+	// retry of the same compound command after a partial failure is safe.
+	bundled, err := parseBundledExtensions(cmd.Args["extensions"])
+	if err != nil {
+		return "", err
+	}
+	scope := "active"
+	if cmd.Command == "upgrade-recovery" {
+		scope = "recovery"
+	}
+	for _, e := range bundled {
+		if err := installBundledExtension(ctx, e, scope); err != nil {
+			// Do NOT proceed to the OS upgrade if any extension fails.
+			return "", err
+		}
+	}
+
 	// Use background context — upgrade must NOT be killed if WS disconnects
 	Logger.Infof("running: kairos-agent %s", strings.Join(args, " "))
-	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
+	out, err := execCommand("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
 	if err != nil {
 		Logger.Errorf("kairos-agent upgrade exit: err=%v output=%s", err, string(out))
 		return string(out), err
@@ -231,11 +252,19 @@ func writeOEMCloudConfig(content string) error {
 	return os.WriteFile("/oem/99_phonehome_remote.yaml", []byte(content), 0600)
 }
 
+// scheduleRebootFn is a seam for tests to assert "no reboot scheduled on
+// failure". Production points at scheduleRebootImpl.
+var scheduleRebootFn = scheduleRebootImpl
+
 // scheduleReboot syncs filesystems and reboots after a short delay.
 func scheduleReboot() {
+	scheduleRebootFn()
+}
+
+func scheduleRebootImpl() {
 	go func() {
 		// Best-effort flush then reboot — we're going down either way.
-		_ = exec.Command("sync").Run()   //nosec G204 -- fixed command
+		_ = exec.Command("sync").Run() //nosec G204 -- fixed command
 		time.Sleep(10 * time.Second)
 		_ = exec.Command("reboot").Run() //nosec G204 -- fixed command
 	}()

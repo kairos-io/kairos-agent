@@ -441,10 +441,21 @@ type httpSource struct {
 }
 
 func (h httpSource) Download(s string) error {
-	// Download the file from the URI
-	// and save it to the destination path
-	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", filepath.Join(s, filepath.Base(h.uri))).Msg("Downloading system extension")
-	return h.cfg.Client.GetURL(sdkLogger.NewNullLogger(), h.uri, filepath.Join(s, filepath.Base(h.uri)))
+	target := filepath.Join(s, extensionFileNameFromURI(h.uri))
+	h.cfg.Logger.Logger.Debug().Str("uri", h.uri).Str("target", target).Msg("Downloading system extension")
+	return h.cfg.Client.GetURL(sdkLogger.NewNullLogger(), h.uri, target)
+}
+
+// extensionFileNameFromURI derives the on-disk filename for a downloaded
+// extension from its source URI, using the URL's *path* basename rather than
+// the raw URI — so a `?token=…` query doesn't get baked into the file name and
+// break the `.raw` suffix detection that ListExtensions relies on. Falls back
+// to the raw basename when the URI doesn't parse or has no path.
+func extensionFileNameFromURI(uri string) string {
+	if u, err := url.Parse(uri); err == nil && u.Path != "" {
+		return filepath.Base(u.Path)
+	}
+	return filepath.Base(uri)
 }
 
 type dockerSource struct {
