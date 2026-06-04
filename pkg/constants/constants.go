@@ -148,6 +148,8 @@ func GetFallBackEfi(arch string) string {
 	switch arch {
 	case ArchArm64:
 		return "bootaa64.efi"
+	case ArchRiscv64:
+		return "BOOTRISCV64.EFI"
 	default:
 		return "bootx64.efi"
 	}

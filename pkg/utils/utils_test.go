@@ -754,6 +754,39 @@ var _ = Describe("Utils", Label("utils"), func() {
 				Expect(err).To(BeNil())
 
 			})
+			It("installs with efi firmware on riscv64 without shim", Label("efi"), func() {
+				riscvConfig := agentConfig.NewConfig(
+					agentConfig.WithFs(fs),
+					agentConfig.WithRunner(runner),
+					agentConfig.WithLogger(logger),
+					agentConfig.WithMounter(mounter),
+					agentConfig.WithSyscall(syscall),
+					agentConfig.WithClient(client),
+					agentConfig.WithPlatform("linux/riscv64"),
+				)
+				// WithPlatform only updates Platform; Arch defaults to the host (x86_64 on CI).
+				riscvConfig.Arch = constants.ArchRiscv64
+				err := fsutils.MkdirAll(fs, filepath.Join(rootDir, "/usr/lib/grub/riscv64-efi/"), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/usr/lib/grub/riscv64-efi/grubriscv64.efi"), []byte("grub"), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/usr/lib/grub/riscv64-efi/loopback.mod"), []byte(""), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "/etc/"), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/etc/os-release"), []byte("ID=\"fedora\""), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				grub := utils.NewGrub(riscvConfig)
+				err = grub.Install(target, rootDir, bootDir, constants.GrubConf, "", true, "COS_STATE")
+				Expect(err).ShouldNot(HaveOccurred())
+
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/grubriscv64.efi"))
+				Expect(err).To(BeNil())
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/BOOTRISCV64.EFI"))
+				Expect(err).To(BeNil())
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/", constants.SignedShim))
+				Expect(err).To(HaveOccurred())
+			})
 			It("fails with bios if no grub2-install file exists", func() {
 				Expect(fs.RemoveAll(filepath.Join(rootDir, "sbin", "grub2-install"))).ToNot(HaveOccurred())
 				grub := utils.NewGrub(config)

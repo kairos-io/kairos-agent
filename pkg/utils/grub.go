@@ -274,9 +274,14 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 		if strings.Contains(strings.ToLower(flavor), "alpine") && strings.Contains(strings.ToLower(model), "rpi") {
 			g.config.Logger.Debug("Running on Alpine+RPI, not copying shim or grub.")
 		} else {
-			err = g.copyShim()
-			if err != nil {
-				return err
+			// RISC-V has no shim package on Fedora/RHEL; firmware boots grub.efi directly.
+			if g.config.Arch != cnst.ArchRiscv64 {
+				err = g.copyShim()
+				if err != nil {
+					return err
+				}
+			} else {
+				g.config.Logger.Debug("Skipping shim copy for riscv64 - booting with grub EFI directly")
 			}
 			err = g.copyGrub()
 			if err != nil {
@@ -465,6 +470,13 @@ func (g Grub) copyGrub() error {
 		err = g.config.Fs.WriteFile(fileWriteName, fileContent, cnst.FilePerm)
 		if err != nil {
 			return fmt.Errorf("error writing %s: %s", fileWriteName, err)
+		}
+		if g.config.Arch == cnst.ArchRiscv64 {
+			fallback := cnst.GetFallBackEfi(g.config.Arch)
+			err = g.config.Fs.WriteFile(filepath.Join(cnst.EfiDir, "EFI/boot/", fallback), fileContent, cnst.FilePerm)
+			if err != nil {
+				return fmt.Errorf("could not write grub fallback %s at dir %s: %w", fallback, cnst.EfiDir, err)
+			}
 		}
 		grubDone = true
 		break
