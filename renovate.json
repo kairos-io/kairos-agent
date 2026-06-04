@@ -31,6 +31,12 @@
         "github.com/google/go-github/*"
       ],
       "enabled": false
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump"
     }
   ]
 }
