@@ -21,6 +21,55 @@ type diskStruct struct {
 type diskSelectionPage struct {
 	disks  []diskStruct
 	cursor int
+	offset int // index of the first visible disk in the scroll window
+}
+
+// diskPageHeaderLines is the number of fixed lines the page renders before the
+// disk list: the "Select target disk" prompt + blank line, and the WARNING line
+// + blank line.
+const diskPageHeaderLines = 4
+
+// visibleRows is the number of rows reserved by Model.View for page content
+// (height minus this value gives the usable content area).
+const visibleRows = 10
+
+// visibleCount returns how many disk rows fit in the available vertical space.
+// It mirrors the content budget applied by Model.View (height-visibleRows) and
+// reserves two lines for the scroll indicators when the list overflows.
+func (p *diskSelectionPage) visibleCount() int {
+	_, height := effectiveSize(mainModel.width, mainModel.height)
+	// Model.View slices each page's content to height-visibleRows lines.
+	avail := height - visibleRows - diskPageHeaderLines
+	if len(p.disks) > avail {
+		// Reserve room for the top/bottom "..." scroll indicators.
+		avail -= 2
+	}
+	if avail < 1 {
+		avail = 1
+	}
+	return avail
+}
+
+// clampOffset keeps the scroll window so the cursor stays visible and the
+// offset never runs past the end of the list.
+func (p *diskSelectionPage) clampOffset() {
+	vc := p.visibleCount()
+	if p.cursor < p.offset {
+		p.offset = p.cursor
+	}
+	if p.cursor >= p.offset+vc {
+		p.offset = p.cursor - vc + 1
+	}
+	maxOffset := len(p.disks) - vc
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if p.offset > maxOffset {
+		p.offset = maxOffset
+	}
+	if p.offset < 0 {
+		p.offset = 0
+	}
 }
 
 func newDiskSelectionPage() *diskSelectionPage {
@@ -67,10 +116,12 @@ func (p *diskSelectionPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 			if p.cursor > 0 {
 				p.cursor--
 			}
+			p.clampOffset()
 		case "down", "j":
 			if p.cursor < len(p.disks)-1 {
 				p.cursor++
 			}
+			p.clampOffset()
 		case "enter":
 			// Store selected disk in mainModel
 			if p.cursor >= 0 && p.cursor < len(p.disks) {
@@ -87,12 +138,28 @@ func (p *diskSelectionPage) View() string {
 	s := "Select target disk for installation:\n\n"
 	s += "WARNING: All data on the selected disk will be DESTROYED!\n\n"
 
-	for i, disk := range p.disks {
+	p.clampOffset()
+	vc := p.visibleCount()
+	start := p.offset
+	end := start + vc
+	if end > len(p.disks) {
+		end = len(p.disks)
+	}
+
+	indicatorStyle := lipgloss.NewStyle().Foreground(kairosText)
+	if start > 0 {
+		s += indicatorStyle.Render("  ... more above") + "\n"
+	}
+	for i := start; i < end; i++ {
+		disk := p.disks[i]
 		cursor := " "
 		if p.cursor == i {
 			cursor = lipgloss.NewStyle().Foreground(kairosAccent).Render(">")
 		}
 		s += fmt.Sprintf("%s %s (%s)\n", cursor, disk.name, disk.size)
+	}
+	if end < len(p.disks) {
+		s += indicatorStyle.Render("  ... more below") + "\n"
 	}
 
 	return s
