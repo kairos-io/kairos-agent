@@ -79,6 +79,28 @@ var _ = Describe("cloudInitConsole", Label("cloudinit", "console"), func() {
 		})
 	})
 
+	Describe("Start", func() {
+		It("runs the command and returns nil on success", func() {
+			cmd := exec.Command("sh", "-c", "true")
+			Expect(console.Start(cmd)).To(Succeed())
+		})
+
+		It("returns an error on command failure", func() {
+			cmd := exec.Command("sh", "-c", "false")
+			Expect(console.Start(cmd)).To(HaveOccurred())
+		})
+
+		It("applies the given options to the command", func() {
+			called := false
+			cmd := exec.Command("sh", "-c", "true")
+			err := console.Start(cmd, func(c *exec.Cmd) {
+				called = true
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(called).To(BeTrue())
+		})
+	})
+
 	Describe("RunTemplate", func() {
 		It("runs the template for each entry on success", func() {
 			runner.ReturnError = nil

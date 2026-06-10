@@ -1,6 +1,7 @@
 package fsutils_test
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -8,14 +9,14 @@ import (
 	"strings"
 
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
-	sdkFS "github.com/kairos-io/kairos-sdk/types/fs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/twpayne/go-vfs/v5"
 	"github.com/twpayne/go-vfs/v5/vfst"
 )
 
 var _ = Describe("FsUtils", func() {
-	var tfs sdkFS.KairosFS
+	var tfs *vfst.TestFS
 	var cleanup func()
 	var err error
 
@@ -35,6 +36,13 @@ var _ = Describe("FsUtils", func() {
 		It("returns false for a missing file", func() {
 			exists, err := fsutils.Exists(tfs, "/nope.txt")
 			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+		It("returns the error for a stat failure that is not NotExist", func() {
+			Expect(tfs.WriteFile("/file.txt", []byte("hello"), 0644)).To(Succeed())
+			// Stating a path that traverses a regular file yields ENOTDIR.
+			exists, err := fsutils.Exists(tfs, "/file.txt/sub")
+			Expect(err).To(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})
 	})
@@ -68,6 +76,22 @@ var _ = Describe("FsUtils", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isDir).To(BeTrue())
 		})
+		It("returns a permission error on a read-only fs", func() {
+			rofs := vfs.NewReadOnlyFS(tfs)
+			err := fsutils.MkdirAll(rofs, "/denied", 0755)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(os.ErrPermission))
+		})
+		It("returns a path error when RawPath fails", func() {
+			// PathFS refuses relative paths in RawPath, exercising the
+			// RawPath error branch.
+			pfs := vfs.NewPathFS(tfs, "/")
+			err := fsutils.MkdirAll(pfs, "relative/path", 0755)
+			Expect(err).To(HaveOccurred())
+			var pathErr *os.PathError
+			Expect(errors.As(err, &pathErr)).To(BeTrue())
+			Expect(pathErr.Op).To(Equal("mkdir"))
+		})
 	})
 
 	Describe("DirSize", func() {
@@ -97,6 +121,37 @@ var _ = Describe("FsUtils", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isDir).To(BeTrue())
 		})
+		It("defaults to the system temp dir when dir is empty", func() {
+			name, err := fsutils.TempDir(tfs, "", "emptydir")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(name).To(Equal(filepath.Join(os.TempDir(), "emptydir")))
+			exists, err := fsutils.Exists(tfs, name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+		It("creates a random temp dir on a non-test fs", func() {
+			// Use a PathFS over the OS fs rooted at a real temp dir so the
+			// non-TestFS code path runs without touching the host outside it.
+			realDir, err := os.MkdirTemp("", "kairos-fsutils-test")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = os.RemoveAll(realDir) })
+
+			pfs := vfs.NewPathFS(vfs.OSFS, realDir)
+			name, err := fsutils.TempDir(pfs, "/sub", "rand")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(filepath.Base(name)).To(HavePrefix("rand"))
+			// The random suffix is appended on non-test filesystems.
+			Expect(filepath.Base(name)).ToNot(Equal("rand"))
+			info, err := os.Stat(filepath.Join(realDir, name))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.IsDir()).To(BeTrue())
+		})
+		It("returns an error when the dir cannot be created", func() {
+			rofs := vfs.NewReadOnlyFS(tfs)
+			name, err := fsutils.TempDir(rofs, "/tmp", "denied")
+			Expect(err).To(HaveOccurred())
+			Expect(name).To(BeEmpty())
+		})
 	})
 
 	Describe("TempFile", func() {
@@ -117,6 +172,27 @@ var _ = Describe("FsUtils", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.IsDir()).To(BeFalse())
 		})
+		It("creates a temp file when the pattern has no wildcard", func() {
+			Expect(fsutils.MkdirAll(tfs, "/tmp", 0755)).To(Succeed())
+			f, err := fsutils.TempFile(tfs, "/tmp", "noglob")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f).ToNot(BeNil())
+			name := f.Name()
+			Expect(f.Close()).To(Succeed())
+			Expect(filepath.Base(name)).To(HavePrefix("noglob"))
+		})
+		It("defaults to the system temp dir when dir is empty", func() {
+			Expect(fsutils.MkdirAll(tfs, os.TempDir(), 0755)).To(Succeed())
+			f, err := fsutils.TempFile(tfs, "", "empty-*.txt")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f).ToNot(BeNil())
+			Expect(f.Close()).To(Succeed())
+		})
+		It("returns an error when the dir does not exist", func() {
+			f, err := fsutils.TempFile(tfs, "/does/not/exist", "fail-*.txt")
+			Expect(err).To(HaveOccurred())
+			Expect(f).To(BeNil())
+		})
 	})
 
 	Describe("Copy", func() {
@@ -136,6 +212,11 @@ var _ = Describe("FsUtils", func() {
 			err := fsutils.Copy(tfs, "/missing.txt", "/dst.txt")
 			Expect(err).To(HaveOccurred())
 		})
+		It("errors when dst cannot be created", func() {
+			Expect(tfs.WriteFile("/src.txt", []byte("data"), 0644)).To(Succeed())
+			err := fsutils.Copy(tfs, "/src.txt", "/missing-dir/dst.txt")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Describe("GlobFs", func() {
@@ -150,6 +231,24 @@ var _ = Describe("FsUtils", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sort.Strings(matches)
 			Expect(matches).To(Equal([]string{"/glob/a.txt", "/glob/b.txt"}))
+		})
+		It("errors on a malformed pattern", func() {
+			matches, err := fsutils.GlobFs(tfs, "[")
+			Expect(err).To(HaveOccurred())
+			Expect(matches).To(BeNil())
+		})
+		It("errors when the directory cannot be read", func() {
+			matches, err := fsutils.GlobFs(tfs, "/missing-dir/*.txt")
+			Expect(err).To(HaveOccurred())
+			Expect(matches).To(BeNil())
+		})
+		It("defaults to the current directory when the pattern has no dir", func() {
+			// No dir part in the pattern, so it reads ".". The test fs only
+			// accepts absolute paths, so this surfaces as a ReadDir error,
+			// which still exercises the default-dir branch.
+			matches, err := fsutils.GlobFs(tfs, "*.doesnotexist")
+			Expect(err).To(HaveOccurred())
+			Expect(matches).To(BeNil())
 		})
 	})
 
@@ -189,6 +288,105 @@ var _ = Describe("FsUtils", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(visited).To(ContainElement("/walk2/keep.txt"))
 			Expect(visited).ToNot(ContainElement("/walk2/skip/hidden.txt"))
+		})
+		It("exposes dir entry name, type and info for the root entry", func() {
+			Expect(fsutils.MkdirAll(tfs, "/walkroot", 0755)).To(Succeed())
+			err := fsutils.WalkDirFs(tfs, "/walkroot", func(path string, d fs.DirEntry, err error) error {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(d.Name()).To(Equal("walkroot"))
+				Expect(d.IsDir()).To(BeTrue())
+				Expect(d.Type().IsDir()).To(BeTrue())
+				info, infoErr := d.Info()
+				Expect(infoErr).ToNot(HaveOccurred())
+				Expect(info.IsDir()).To(BeTrue())
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("reports the stat error on a missing root", func() {
+			var gotErr error
+			err := fsutils.WalkDirFs(tfs, "/missing-root", func(path string, d fs.DirEntry, err error) error {
+				gotErr = err
+				return err
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(gotErr).To(HaveOccurred())
+		})
+		It("swallows the stat error when the callback returns nil", func() {
+			err := fsutils.WalkDirFs(tfs, "/missing-root", func(path string, d fs.DirEntry, err error) error {
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("returns nil when the callback skips a non-dir root", func() {
+			Expect(tfs.WriteFile("/rootfile.txt", []byte("x"), 0644)).To(Succeed())
+			err := fsutils.WalkDirFs(tfs, "/rootfile.txt", func(path string, d fs.DirEntry, err error) error {
+				return filepath.SkipDir
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("propagates a callback error on a subdirectory", func() {
+			Expect(fsutils.MkdirAll(tfs, "/walk4/sub", 0755)).To(Succeed())
+			bogus := errors.New("bogus")
+			err := fsutils.WalkDirFs(tfs, "/walk4", func(path string, d fs.DirEntry, err error) error {
+				if path == "/walk4/sub" {
+					return bogus
+				}
+				return nil
+			})
+			Expect(err).To(MatchError(bogus))
+		})
+		It("stops walking the directory when a file callback returns SkipDir", func() {
+			Expect(fsutils.MkdirAll(tfs, "/walk5", 0755)).To(Succeed())
+			Expect(tfs.WriteFile("/walk5/a.txt", []byte("a"), 0644)).To(Succeed())
+			Expect(tfs.WriteFile("/walk5/b.txt", []byte("b"), 0644)).To(Succeed())
+
+			var visited []string
+			err := fsutils.WalkDirFs(tfs, "/walk5", func(path string, d fs.DirEntry, err error) error {
+				visited = append(visited, path)
+				if path == "/walk5/a.txt" {
+					return filepath.SkipDir
+				}
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(visited).To(ContainElement("/walk5/a.txt"))
+			Expect(visited).ToNot(ContainElement("/walk5/b.txt"))
+		})
+		It("reports a ReadDir failure to the callback", func() {
+			if os.Geteuid() == 0 {
+				Skip("running as root, permissions are not enforced")
+			}
+			Expect(fsutils.MkdirAll(tfs, "/walk6/noperm", 0755)).To(Succeed())
+			Expect(tfs.Chmod("/walk6/noperm", 0o000)).To(Succeed())
+			DeferCleanup(func() { _ = tfs.Chmod("/walk6/noperm", 0o755) })
+
+			var gotErr error
+			err := fsutils.WalkDirFs(tfs, "/walk6", func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					gotErr = err
+				}
+				return err
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(gotErr).To(HaveOccurred())
+		})
+		It("continues when the callback ignores a ReadDir failure", func() {
+			if os.Geteuid() == 0 {
+				Skip("running as root, permissions are not enforced")
+			}
+			Expect(fsutils.MkdirAll(tfs, "/walk7/noperm", 0755)).To(Succeed())
+			Expect(tfs.WriteFile("/walk7/z.txt", []byte("z"), 0644)).To(Succeed())
+			Expect(tfs.Chmod("/walk7/noperm", 0o000)).To(Succeed())
+			DeferCleanup(func() { _ = tfs.Chmod("/walk7/noperm", 0o755) })
+
+			var visited []string
+			err := fsutils.WalkDirFs(tfs, "/walk7", func(path string, d fs.DirEntry, err error) error {
+				visited = append(visited, path)
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(visited).To(ContainElement("/walk7/z.txt"))
 		})
 	})
 })
