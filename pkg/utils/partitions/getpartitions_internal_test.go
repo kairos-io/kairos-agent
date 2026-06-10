@@ -89,10 +89,10 @@ var _ = Describe("parseMountEntry", func() {
 			"", ""),
 	)
 
-	It("panics on an empty line (documents current behaviour of line[0] indexing)", func() {
-		// parseMountEntry indexes line[0] before checking length, so an empty
-		// string panics. This test documents that contract without changing it.
-		Expect(func() { parseMountEntry("") }).To(Panic())
+	It("returns empty strings for an empty line", func() {
+		dev, mp := parseMountEntry("")
+		Expect(dev).To(Equal(""))
+		Expect(mp).To(Equal(""))
 	})
 })
 
