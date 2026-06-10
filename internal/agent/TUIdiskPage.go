@@ -29,13 +29,17 @@ type diskSelectionPage struct {
 // + blank line.
 const diskPageHeaderLines = 4
 
+// visibleRows is the number of rows reserved by Model.View for page content
+// (height minus this value gives the usable content area).
+const visibleRows = 10
+
 // visibleCount returns how many disk rows fit in the available vertical space.
-// It mirrors the content budget applied by Model.View (height-10) and reserves
-// two lines for the scroll indicators when the list overflows.
+// It mirrors the content budget applied by Model.View (height-visibleRows) and
+// reserves two lines for the scroll indicators when the list overflows.
 func (p *diskSelectionPage) visibleCount() int {
 	_, height := effectiveSize(mainModel.width, mainModel.height)
-	// Model.View slices each page's content to height-10 lines.
-	avail := height - 10 - diskPageHeaderLines
+	// Model.View slices each page's content to height-visibleRows lines.
+	avail := height - visibleRows - diskPageHeaderLines
 	if len(p.disks) > avail {
 		// Reserve room for the top/bottom "..." scroll indicators.
 		avail -= 2
