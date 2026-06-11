@@ -2,29 +2,28 @@ package agent
 
 import (
 	"fmt"
-	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
-// InteractiveInstall starts the interactive installation process.
-// The function signature was updated to replace the `debug` parameter with a `logger` parameter (`l types.KairosLogger`).
-// - `spawnShell`: If true, spawns a shell after the installation process.
-// - `source`: The source of the installation. (Consider reviewing its necessity as noted in the TODO comment.)
-// - `l`: A logger instance for logging messages during the installation process.
+// InteractiveInstall resolves an external installer binary and delegates the
+// interactive installation UX to it. There is no in-process fallback.
+// - spawnShell: if true, spawn a shell after the installer exits.
+// - source: installation source, forwarded to the installer.
 func InteractiveInstall(spawnShell bool, source string, logger sdkLogger.KairosLogger) error {
-	var err error
-	// Set a default window size
-	p := tea.NewProgram(InitialModel(&logger, source), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error: %v", err)
-		os.Exit(1)
+	path := resolveInstaller()
+	if path == "" {
+		return fmt.Errorf("no interactive installer found (looked for %s, %s; or set %s)",
+			installerOverridePath, installerDefaultPath, installerEnvVar)
 	}
-	//TODO: This will always exit and return I think, so the below is useless? Unless we want to hijack the TTY in which case we should do something here for that
+
+	logger.Infof("Delegating interactive installation to %s", path)
+	if err := runExternalInstaller(path, source); err != nil {
+		return err
+	}
 	if spawnShell {
 		return utils.Shell().Run()
 	}
-	return err
+	return nil
 }
