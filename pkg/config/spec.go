@@ -1122,6 +1122,15 @@ func detectLargestDevice() string {
 	maxSize := float64(0)
 
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		// Skip device-mapper devices (multipath maps, LVM volumes). They are
+		// not valid install targets: the agent deactivates them through
+		// blkdeactivate right before partitioning, so installing onto one
+		// would fail with a missing device. Multipath claims any disk
+		// exposing a WWID (even single-path ones), shadowing the real disk
+		// with a dm-N node of the exact same size.
+		if strings.HasPrefix(disk.Name, "dm-") {
+			continue
+		}
 		size := float64(disk.SizeBytes) / float64(GiB)
 		if size > maxSize {
 			maxSize = size
