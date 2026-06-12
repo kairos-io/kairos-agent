@@ -13,7 +13,7 @@ require (
 	github.com/jaypipes/ghw v0.24.0 // indirect
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.22.2-0.20260611090241-29ca84d3dccc
+	github.com/kairos-io/kairos-sdk v0.22.2-0.20260611231517-11bd1f54928c
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.1.1
 	github.com/mudler/yip v1.24.0
