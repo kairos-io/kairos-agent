@@ -7,6 +7,21 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var _ = Describe("GetUserConfigDirs", func() {
+	It("no longer reads the deprecated /etc/elemental directory", func() {
+		Expect(constants.GetUserConfigDirs()).NotTo(ContainElement("/etc/elemental"))
+	})
+
+	It("still reads the supported config directories", func() {
+		Expect(constants.GetUserConfigDirs()).To(ContainElements(
+			"/run/initramfs/live",
+			"/etc/kairos",
+			"/usr/local/cloud-config",
+			"/oem",
+		))
+	})
+})
+
 var _ = Describe("Replace title", func() {
 	DescribeTable("Replacing the tile",
 		func(role, oldTitle, newTitle string) {

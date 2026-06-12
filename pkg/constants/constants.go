@@ -180,8 +180,7 @@ func GetYipConfigDirs() []string {
 func GetUserConfigDirs() []string {
 	return []string{
 		"/run/initramfs/live",
-		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
-		"/etc/elemental", // for backwards compatibility
+		"/etc/kairos", // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
 		"/usr/local/cloud-config",
 		"/oem",
 	}
