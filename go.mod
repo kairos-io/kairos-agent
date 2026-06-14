@@ -41,7 +41,7 @@ require (
 	github.com/google/go-github/v77 v77.0.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/kairos-io/tpm-helpers v0.0.0-20260608091616-8a4ccb53d8f7
-	github.com/labstack/echo/v5 v5.1.1
+	github.com/labstack/echo/v5 v5.2.0
 	github.com/twpayne/go-vfs/v5 v5.0.5
 	github.com/urfave/cli/v2 v2.27.7
 )
