@@ -25,8 +25,8 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
-	yipPlugins "github.com/mudler/yip/pkg/plugins"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
@@ -40,8 +40,8 @@ import (
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
+	yipPlugins "github.com/mudler/yip/pkg/plugins"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
@@ -163,6 +163,11 @@ func NewInstallSpec(cfg *sdkConfig.Config) (*spec.InstallSpec, error) {
 		NoFormat:  cfg.Install.NoFormat,
 		Reboot:    cfg.Install.Reboot,
 		PowerOff:  cfg.Install.Poweroff,
+	}
+
+	// Honor install.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "install"); err != nil {
+		return nil, err
 	}
 
 	// Get the actual source size to calculate the image size and partitions size
@@ -395,20 +400,13 @@ func NewUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
+	// Honor upgrade.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "upgrade"); err != nil {
+		return nil, err
+	}
 	err = setUpgradeSourceSize(cfg, spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed calculating size: %w", err)
-	}
-
-	if spec.Active.Source.IsDocker() {
-		cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
-		_, err := crane.Manifest(spec.Active.Source.Value())
-		if err != nil {
-			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-				return nil, fmt.Errorf("oci image %s does not exist", spec.Active.Source.Value())
-			}
-			return nil, err
-		}
 	}
 
 	return spec, nil
@@ -720,6 +718,11 @@ func NewUkiInstallSpec(cfg *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 		Flags:           []string{},
 	}
 
+	// Honor install.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "install"); err != nil {
+		return nil, err
+	}
+
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
@@ -760,21 +763,20 @@ func NewUkiUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 	if err := unmarshallFullSpec(cfg, "upgrade", spec); err != nil {
 		return nil, fmt.Errorf("failed unmarshalling full spec: %w", err)
 	}
-	// TODO: Use this everywhere?
-	cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
-	if spec.Active.Source.IsDocker() {
-		_, err := crane.Manifest(spec.Active.Source.Value())
-		if err != nil {
-			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-				return nil, fmt.Errorf("oci image %s does not exist", spec.Active.Source.Value())
-			}
-			return nil, err
-		}
+	// Honor upgrade.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "upgrade"); err != nil {
+		return nil, err
 	}
-
-	// Get the actual source size to calculate the image size and partitions size
+	// Get the actual source size to calculate the image size and partitions size.
+	// For a container source this pulls the manifest through the SDK
+	// ImageExtractor (which is insecure-aware), so a missing/unreachable image
+	// fails fast here - this replaces the old crane.Manifest pre-flight. For
+	// other source types a size error is non-fatal and we fall back to a default.
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
+		if spec.Active.Source.IsDocker() {
+			return nil, fmt.Errorf("could not resolve image %s: %w", spec.Active.Source.Value(), err)
+		}
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 		spec.Active.Size = sdkConstants.ImgSize
 	} else {
@@ -1083,6 +1085,48 @@ func unmarshallFullSpec(r *sdkConfig.Config, subkey string, sp sdkSpec.Spec) err
 	checkDeprecatedURIUsage(r.Logger, sp)
 
 	return nil
+}
+
+// applyAllowInsecureRegistries switches the config's ImageExtractor to one that
+// allows pulling from registries served over plain HTTP or presenting an
+// untrusted/self-signed TLS certificate, when the given cloud-config subkey
+// requests it (install.allow-insecure-registries / upgrade.allow-insecure-registries).
+// It is called before any image pull or size calculation so the whole flow honors
+// the setting. Only the default OCIImageExtractor is swapped, so extractors
+// injected by tests or providers are left untouched.
+func applyAllowInsecureRegistries(cfg *sdkConfig.Config, subkey string) error {
+	allow, err := readAllowInsecureRegistries(cfg, subkey)
+	if err != nil {
+		return err
+	}
+	if !allow {
+		return nil
+	}
+	if _, ok := cfg.ImageExtractor.(imageextractor.OCIImageExtractor); ok {
+		cfg.Logger.Infof("Allowing insecure registry pulls via %s.allow-insecure-registries", subkey)
+		cfg.ImageExtractor = imageextractor.OCIImageExtractor{Insecure: true}
+	}
+	return nil
+}
+
+// readAllowInsecureRegistries peeks the boolean <subkey>.allow-insecure-registries
+// value from the merged cloud config. It uses a fresh viper instance so the global
+// viper state used by unmarshallFullSpec is not disturbed.
+func readAllowInsecureRegistries(cfg *sdkConfig.Config, subkey string) (bool, error) {
+	ccString, err := cfg.Collector.String()
+	if err != nil {
+		return false, err
+	}
+	v := viper.New()
+	v.SetConfigType("yaml")
+	if err := v.ReadConfig(strings.NewReader(ccString)); err != nil {
+		return false, err
+	}
+	sub := v.Sub(subkey)
+	if sub == nil {
+		return false, nil
+	}
+	return sub.GetBool("allow-insecure-registries"), nil
 }
 
 // checkDeprecatedURIUsage checks if any Image structs in the spec have the deprecated URI field set

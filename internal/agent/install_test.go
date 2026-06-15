@@ -64,6 +64,37 @@ var _ = Describe("prepareConfiguration", func() {
 	})
 })
 
+var _ = Describe("generateInstallConfForCLIArgs", func() {
+	It("returns empty when nothing is set", func() {
+		Expect(generateInstallConfForCLIArgs("", false)).To(Equal(""))
+	})
+	It("emits the source", func() {
+		Expect(generateInstallConfForCLIArgs("oci:foo", false)).To(ContainSubstring("source: oci:foo"))
+	})
+	It("emits insecure when requested", func() {
+		out := generateInstallConfForCLIArgs("oci:foo", true)
+		Expect(out).To(ContainSubstring("source: oci:foo"))
+		Expect(out).To(ContainSubstring("allow-insecure-registries: true"))
+	})
+	It("emits insecure even without a source", func() {
+		out := generateInstallConfForCLIArgs("", true)
+		Expect(out).To(ContainSubstring("allow-insecure-registries: true"))
+	})
+})
+
+var _ = Describe("generateUpgradeConfForCLIArgs", func() {
+	It("emits allow-insecure-registries when requested", func() {
+		out, err := generateUpgradeConfForCLIArgs("oci:foo", "", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(ContainSubstring(`"allow-insecure-registries":true`))
+	})
+	It("omits allow-insecure-registries by default", func() {
+		out, err := generateUpgradeConfForCLIArgs("oci:foo", "", false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).ToNot(ContainSubstring("allow-insecure-registries"))
+	})
+})
+
 var _ = Describe("RunInstall", func() {
 	var options *sdkConfig.Config
 	var err error

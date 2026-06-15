@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
-	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	"github.com/kairos-io/kairos-agent/v2/internal/bus"
 	"github.com/kairos-io/kairos-agent/v2/internal/common"
+	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -60,6 +60,11 @@ var sourceFlag = cli.StringFlag{
 	Usage: "Source for upgrade. Composed of `type:address`. Accepts `file:`,`dir:` `oci:`,or `ocifile:` for the type of source.\nFor example `ocifile:/var/share/myimage.tar`, `dir:/tmp/extracted` or `oci:repo/image:tag`",
 }
 
+var allowInsecureRegistriesFlag = cli.BoolFlag{
+	Name:  "allow-insecure-registries",
+	Usage: "Pull the image from a registry served over plain HTTP or presenting an untrusted/self-signed TLS certificate. Can also be set in the cloud config via `install.allow-insecure-registries` or `upgrade.allow-insecure-registries`.",
+}
+
 var kcryptNVIndexFlag = cli.StringFlag{
 	Name:  "nv-index",
 	Value: kcrypt.DefaultLocalPassphraseNVIndex,
@@ -89,6 +94,7 @@ var cmds = []*cli.Command{
 			&cli.StringFlag{Name: "boot-entry", Usage: "Specify a systemd-boot entry to upgrade (other than active/passive/recovery). The value should match the name of the '.efi' file."},
 			&cli.BoolFlag{Name: "recovery", Usage: "Upgrade recovery"},
 			&cli.StringSliceFlag{Name: "exclude-path", Usage: "Paths to exclude from the upgrade process. Can be specified multiple times."},
+			&allowInsecureRegistriesFlag,
 		},
 		Description: `
 Manually upgrade a kairos node Active image. Does not upgrade the passive image. It upgrades the recovery image when the --recovery flag is passed.
@@ -97,6 +103,8 @@ To specify a version, pass it as argument using the --source flag. Passing just 
 as a value for the --source flag.
 
 You can also specify the upgrade image by setting "upgrade.system.uri" for the active image or "upgrade.recovery-system.uri" for the recovery image, in the cloud config.
+
+To pull from a registry served over plain HTTP or presenting an untrusted/self-signed TLS certificate, pass the --allow-insecure-registries flag (or set "upgrade.allow-insecure-registries: true" in the cloud config).
 
 To retrieve all the available versions, use "kairos upgrade list-releases". Use the --registry flag to specify a custom registry to retrieve the versions from, otherwise it will default to quay.io/kairos.
 
@@ -226,7 +234,7 @@ See https://kairos.io/docs/upgrade/manual/ for documentation.
 			}
 
 			return agent.Upgrade(source, c.Bool("strict-validation"), constants.GetUserConfigDirs(),
-				upgradeEntry, c.StringSlice("exclude-path")...,
+				upgradeEntry, c.Bool("allow-insecure-registries"), c.StringSlice("exclude-path")...,
 			)
 		},
 	},
@@ -527,6 +535,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 				Usage: fmt.Sprintf("Force the config collector to use the default locations (%s) in addition to the provided config file", strings.Join(constants.GetUserConfigDirs(), ", ")),
 			},
 			&sourceFlag,
+			&allowInsecureRegistriesFlag,
 		},
 		Before: func(c *cli.Context) error {
 			if err := validateSource(c.String("source")); err != nil {
@@ -543,7 +552,7 @@ This command is meant to be used from the boot GRUB menu, but can be also starte
 
 			source := c.String("source")
 
-			return agent.ManualInstall(config, source, c.String("device"), c.Bool("reboot"), c.Bool("poweroff"), c.Bool("strict-validation"), c.Bool("use-default-dirs"))
+			return agent.ManualInstall(config, source, c.String("device"), c.Bool("reboot"), c.Bool("poweroff"), c.Bool("strict-validation"), c.Bool("use-default-dirs"), c.Bool("allow-insecure-registries"))
 		},
 	},
 	{
@@ -556,6 +565,8 @@ It will print out a QR code which can be used with "kairos register" to send ove
 
 See also https://kairos.io/docs/installation/qrcode/ for documentation.
 
+To pull the install image from a registry served over plain HTTP or presenting an untrusted/self-signed TLS certificate, pass the --allow-insecure-registries flag (or set "install.allow-insecure-registries: true" in the cloud config).
+
 This command is meant to be used from the boot GRUB menu, but can be started manually`,
 		Aliases: []string{"i"},
 		Before: func(c *cli.Context) error {
@@ -567,11 +578,12 @@ This command is meant to be used from the boot GRUB menu, but can be started man
 		},
 		Flags: []cli.Flag{
 			&sourceFlag,
+			&allowInsecureRegistriesFlag,
 		},
 		Action: func(c *cli.Context) error {
 			source := c.String("source")
 
-			return agent.Install(source, constants.GetUserConfigDirs()...)
+			return agent.Install(source, c.Bool("allow-insecure-registries"), constants.GetUserConfigDirs()...)
 		},
 	},
 	{
