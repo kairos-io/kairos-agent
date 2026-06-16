@@ -13,7 +13,7 @@ require (
 	github.com/jaypipes/ghw v0.24.0 // indirect
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.22.2-0.20260614211957-533106791a53
+	github.com/kairos-io/kairos-sdk v0.22.2-0.20260616004812-23bfe4191610
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.1.1
 	github.com/mudler/yip v1.24.0
@@ -59,7 +59,7 @@ require (
 	github.com/Microsoft/hcsshim v0.14.0 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/anatol/devmapper.go v0.0.0-20250316020617-2671eefd35d7 // indirect
-	github.com/anatol/luks.go v0.0.0-20260315175739-98c0a50095cb // indirect
+	github.com/anatol/luks.go v0.0.0-20260615185044-2658459c8ca5 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
