@@ -703,6 +703,66 @@ cloud-init-paths:
 				Expect(err).ToNot(HaveOccurred())
 				Expect(installSpec.Target).To(Equal("/dev/sda"))
 			})
+			It("Skips hidden block devices when auto-detecting the largest install device", func() {
+				// NVMe native multipath exposes the per-controller path device
+				// (nvme1c1n1) alongside the real namespace (nvme1n1). The path
+				// device is marked hidden (/sys/block/<dev>/hidden == 1), has the
+				// same size and no usable /dev node, so it must never be picked
+				// as the install target.
+				ghwTest.Clean()
+				ghwTest = ghwMock.GhwMock{}
+				ghwTest.AddDisk(sdkPartitions.Disk{Name: "nvme1n1", SizeBytes: 100})
+				ghwTest.AddDisk(sdkPartitions.Disk{Name: "nvme1c1n1", SizeBytes: 200})
+				ghwTest.CreateDevices()
+				// Mark the per-controller path device hidden, like the kernel does.
+				hiddenPath := filepath.Join(ghwTest.Chroot, "sys", "block", "nvme1c1n1", "hidden")
+				Expect(os.WriteFile(hiddenPath, []byte("1\n"), 0644)).To(Succeed())
+
+				autoDir, err := os.MkdirTemp("", "kairos-hidden-device-test-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(autoDir)
+				ccdata := []byte("#cloud-config\ninstall:\n  auto: true\n")
+				Expect(os.WriteFile(filepath.Join(autoDir, "cc.yaml"), ccdata, os.ModePerm)).To(Succeed())
+
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{autoDir}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
+				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installSpec.Target).To(Equal("/dev/nvme1n1"))
+			})
+			It("Skips NVMe controller-path devices by name when auto-detecting, even without the hidden attribute", func() {
+				// The reliable guard is name-based: in the installer the
+				// /sys/block/<dev>/hidden read may be unavailable, so the
+				// nvmeXcYnZ controller-path device must be skipped purely on
+				// its name. No hidden file is written here on purpose.
+				ghwTest.Clean()
+				ghwTest = ghwMock.GhwMock{}
+				ghwTest.AddDisk(sdkPartitions.Disk{Name: "nvme1n1", SizeBytes: 100})
+				ghwTest.AddDisk(sdkPartitions.Disk{Name: "nvme1c1n1", SizeBytes: 200})
+				ghwTest.CreateDevices()
+
+				autoDir, err := os.MkdirTemp("", "kairos-nvme-ctrl-test-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(autoDir)
+				ccdata := []byte("#cloud-config\ninstall:\n  auto: true\n")
+				Expect(os.WriteFile(filepath.Join(autoDir, "cc.yaml"), ccdata, os.ModePerm)).To(Succeed())
+
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{autoDir}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
+				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installSpec.Target).To(Equal("/dev/nvme1n1"))
+			})
 			It("Resolves install.device via script:// and uses its stdout as the target", func() {
 				script, err := os.CreateTemp("", "pick-disk-*.sh")
 				Expect(err).ToNot(HaveOccurred())

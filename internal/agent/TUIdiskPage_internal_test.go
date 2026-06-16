@@ -1,11 +1,64 @@
 package agent
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+func TestIsNVMeControllerPath(t *testing.T) {
+	hidden := []string{"nvme1c1n1", "nvme0c0n1", "nvme10c2n3", "nvme1c1n1p2"}
+	for _, n := range hidden {
+		if !isNVMeControllerPath(n) {
+			t.Errorf("expected %q to be detected as NVMe controller-path device", n)
+		}
+	}
+	real := []string{"nvme1n1", "nvme0n1", "nvme1n1p2", "sda", "dm-0", "nvme1n1c1" /* not a controller path */}
+	for _, n := range real {
+		if isNVMeControllerPath(n) {
+			t.Errorf("expected %q NOT to be detected as NVMe controller-path device", n)
+		}
+	}
+}
+
+func TestDeviceIsHidden(t *testing.T) {
+	dir := t.TempDir()
+	old := sysBlockPath
+	sysBlockPath = dir
+	defer func() { sysBlockPath = old }()
+
+	writeHidden := func(name, val string) {
+		d := filepath.Join(dir, name)
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(d, "hidden"), []byte(val), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// NVMe per-controller path device: hidden, must be reported as hidden.
+	writeHidden("nvme1c1n1", "1\n")
+	// Real namespace: not hidden.
+	writeHidden("nvme1n1", "0\n")
+	// A disk with no hidden attribute at all must default to not hidden.
+	if err := os.MkdirAll(filepath.Join(dir, "sda"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if !deviceIsHidden("nvme1c1n1") {
+		t.Error("expected nvme1c1n1 (hidden==1) to be reported hidden")
+	}
+	if deviceIsHidden("nvme1n1") {
+		t.Error("expected nvme1n1 (hidden==0) to be reported not hidden")
+	}
+	if deviceIsHidden("sda") {
+		t.Error("expected sda (no hidden attr) to be reported not hidden")
+	}
+}
 
 func makeDiskPage(n int) *diskSelectionPage {
 	disks := make([]diskStruct, n)

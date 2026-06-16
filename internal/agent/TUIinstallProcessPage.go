@@ -26,6 +26,7 @@ type installProcessPage struct {
 	once          sync.Once // Ensure goroutines are started only once
 	cmd           *exec.Cmd
 	errorMsg      string
+	installErr    error // Actual result of RunInstall; the source of truth for failure
 }
 
 func newInstallProcessPage() *installProcessPage {
@@ -65,13 +66,12 @@ func (p *installProcessPage) Init() tea.Cmd {
 		// Start log goroutine (only one!)
 		go func() {
 			lastLen := 0
-			errorSent := false
 		logLoop:
 			for {
 				time.Sleep(100 * time.Millisecond)
 				buf := logBuffer.Bytes()
 				if len(buf) > lastLen {
-					lastLen = p.processLogLines(buf, lastLen, &errorSent, oldLog)
+					lastLen = p.processLogLines(buf, lastLen, oldLog)
 				}
 				// Wait for installerDone before exiting
 				select {
@@ -80,7 +80,7 @@ func (p *installProcessPage) Init() tea.Cmd {
 					for {
 						buf := logBuffer.Bytes()
 						if len(buf) > lastLen {
-							lastLen = p.processLogLines(buf, lastLen, &errorSent, oldLog)
+							lastLen = p.processLogLines(buf, lastLen, oldLog)
 						} else {
 							break
 						}
@@ -97,9 +97,13 @@ func (p *installProcessPage) Init() tea.Cmd {
 			err := RunInstall(cc)
 			close(p.installerDone) // Signal installer is done
 			<-p.logsDone           // Wait for logs to finish
-			close(p.output)        // Only close output here
-			close(p.done)          // Only close done here
-			_ = err                // ignore error, handled in logs
+			// Publish the real install result before closing done. The
+			// receive on done in Update happens-after this write, so reading
+			// installErr there is safe. This is the only source of truth for
+			// success/failure: log scraping must not decide the terminal state.
+			p.installErr = err
+			close(p.output) // Only close output here
+			close(p.done)   // Only close done here
 		}()
 	})
 
@@ -111,6 +115,19 @@ func (p *installProcessPage) Init() tea.Cmd {
 // CheckInstallerMsg Message type to check for installer output
 type CheckInstallerMsg struct{}
 
+// applyFinalState sets the terminal UI state once the installer has finished.
+// The outcome is decided solely by RunInstall's return value (installErr), not
+// by any error-level log line emitted while the install recovered and carried
+// on. Safe to call from either the closed-output or done select branch.
+func (p *installProcessPage) applyFinalState() {
+	if p.installErr != nil {
+		p.errorMsg = p.installErr.Error()
+		return
+	}
+	p.progress = len(p.steps) - 1
+	p.step = p.steps[len(p.steps)-1]
+}
+
 func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch msg.(type) {
 	case CheckInstallerMsg:
@@ -118,7 +135,13 @@ func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 		select {
 		case output, ok := <-p.output:
 			if !ok {
-				// Channel closed, installer is done
+				// Output channel closed: the installer finished and all
+				// buffered step messages have been drained. output and done
+				// are closed together, so this case can win the select over
+				// the done case; apply the terminal state here too, otherwise
+				// the UI freezes at the current step (e.g. 0%) and never shows
+				// the result.
+				p.applyFinalState()
 				return p, nil
 			}
 
@@ -147,9 +170,8 @@ func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 			return p, func() tea.Msg { return CheckInstallerMsg{} }
 
 		case <-p.done:
-			// Installer is finished
-			p.progress = len(p.steps) - 1
-			p.step = p.steps[len(p.steps)-1]
+			// Installer is finished.
+			p.applyFinalState()
 			return p, nil
 
 		default:
@@ -244,7 +266,7 @@ func (p *installProcessPage) Abort() {
 }
 
 // processLogLines processes new log lines from the buffer and updates the UI steps.
-func (p *installProcessPage) processLogLines(buf []byte, lastLen int, errorSent *bool, oldLog *sdkLogger.KairosLogger) int {
+func (p *installProcessPage) processLogLines(buf []byte, lastLen int, oldLog *sdkLogger.KairosLogger) int {
 	newLogs := buf[lastLen:]
 	lines := bytes.Split(newLogs, []byte("\n"))
 	for _, line := range lines {
@@ -259,13 +281,10 @@ func (p *installProcessPage) processLogLines(buf []byte, lastLen int, errorSent 
 			if m, ok := logEntry["message"].(string); ok {
 				msg = m
 			}
-			if level, ok := logEntry["level"].(string); ok && (level == "error" || level == "fatal") {
-				if !*errorSent {
-					p.errorMsg = msg
-					*errorSent = true
-				}
-				continue
-			}
+			// Note: error/fatal log lines are intentionally NOT treated as a
+			// terminal failure here. The install may log a recoverable error
+			// (e.g. a device probe miss) and continue successfully. The real
+			// outcome is RunInstall's return value, handled on the done channel.
 		}
 		if strings.Contains(msg, AgentPartitionLog) {
 			p.output <- StepPrefix + InstallPartitionStep

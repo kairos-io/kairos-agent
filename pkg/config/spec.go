@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
@@ -1122,7 +1123,8 @@ func detectLargestDevice() string {
 	preferedDevice := "/dev/sda"
 	maxSize := float64(0)
 
-	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+	paths := ghw.NewPaths("")
+	for _, disk := range ghw.GetDisks(paths, nil) {
 		// Skip device-mapper devices (multipath maps, LVM volumes). They are
 		// not valid install targets: the agent deactivates them through
 		// blkdeactivate right before partitioning, so installing onto one
@@ -1130,6 +1132,21 @@ func detectLargestDevice() string {
 		// exposing a WWID (even single-path ones), shadowing the real disk
 		// with a dm-N node of the exact same size.
 		if strings.HasPrefix(disk.Name, "dm-") {
+			continue
+		}
+		// Skip the NVMe per-controller path device exposed by native NVMe
+		// multipath (nvmeXcYnZ). It shadows the real namespace (nvmeXnY) with
+		// the exact same size but has no usable /dev node, so installing onto
+		// it fails with "Disk /dev/nvmeXcYnZ does not exist". This name check
+		// is the reliable guard: it needs no sysfs read, unlike isHiddenDevice
+		// below, whose /sys/block/<dev>/hidden lookup can be unavailable in the
+		// installer environment.
+		if isNVMeControllerPath(disk.Name) {
+			continue
+		}
+		// Also skip any other kernel-hidden block device (/sys/block/<dev>/hidden
+		// == 1) as a secondary, best-effort guard when the attribute is exposed.
+		if isHiddenDevice(paths, disk.Name) {
 			continue
 		}
 		size := float64(disk.SizeBytes) / float64(GiB)
@@ -1140,6 +1157,31 @@ func detectLargestDevice() string {
 	}
 
 	return preferedDevice
+}
+
+// nvmeControllerPathRe matches the NVMe per-controller path device exposed by
+// native NVMe multipath, e.g. nvme1c1n1. The real namespace head (nvme1n1)
+// does not contain the "cN" controller segment.
+var nvmeControllerPathRe = regexp.MustCompile(`^nvme\d+c\d+n\d+`)
+
+// isNVMeControllerPath reports whether name is an NVMe per-controller path
+// device (nvmeXcYnZ). These are not valid install targets: they shadow the
+// real namespace and have no usable /dev node.
+func isNVMeControllerPath(name string) bool {
+	return nvmeControllerPathRe.MatchString(name)
+}
+
+// isHiddenDevice reports whether the block device is marked hidden by the
+// kernel through /sys/block/<dev>/hidden. Hidden devices (e.g. NVMe
+// per-controller path devices) have no usable /dev node and must never be
+// used as install targets. A missing hidden attribute is treated as not
+// hidden, matching kernels/devices that do not expose it.
+func isHiddenDevice(paths *ghw.Paths, name string) bool {
+	contents, err := os.ReadFile(filepath.Join(paths.SysBlock, name, "hidden"))
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(contents)) == "1"
 }
 
 // DetectPreConfiguredDevice returns a disk that has partitions labeled with

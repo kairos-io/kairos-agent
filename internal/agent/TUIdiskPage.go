@@ -2,7 +2,9 @@ package agent
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,6 +12,35 @@ import (
 	"github.com/jaypipes/ghw/pkg/block"
 	"github.com/jaypipes/ghw/pkg/option"
 )
+
+// sysBlockPath is the kernel block-device sysfs root. It is a variable so
+// tests can point it at a fake tree.
+var sysBlockPath = "/sys/block"
+
+// nvmeControllerPathRe matches the NVMe per-controller path device exposed by
+// native NVMe multipath, e.g. nvme1c1n1. The real namespace head (nvme1n1)
+// has no "cN" controller segment. These path devices have no usable /dev node
+// and must never be offered as install targets.
+var nvmeControllerPathRe = regexp.MustCompile(`^nvme\d+c\d+n\d+`)
+
+// isNVMeControllerPath reports whether name is an NVMe per-controller path
+// device (nvmeXcYnZ).
+func isNVMeControllerPath(name string) bool {
+	return nvmeControllerPathRe.MatchString(name)
+}
+
+// deviceIsHidden reports whether the block device is marked hidden by the
+// kernel via /sys/block/<dev>/hidden == 1. Hidden devices such as the NVMe
+// per-controller path device (nvmeXcYnZ) exposed by native NVMe multipath
+// have no usable /dev node and must never be offered as install targets. A
+// missing hidden attribute is treated as not hidden.
+func deviceIsHidden(name string) bool {
+	contents, err := os.ReadFile(filepath.Join(sysBlockPath, name, "hidden"))
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(contents)) == "1"
+}
 
 type diskStruct struct {
 	id   int
@@ -92,8 +123,8 @@ func newDiskSelectionPage() *diskSelectionPage {
 				break
 			}
 		}
-		if excluded || disk.SizeBytes < minDiskSizeBytes {
-			continue // Skip excluded devices and disks smaller than the minimum size
+		if excluded || disk.SizeBytes < minDiskSizeBytes || isNVMeControllerPath(disk.Name) || deviceIsHidden(disk.Name) {
+			continue // Skip excluded/controller-path/hidden devices and disks smaller than the minimum size
 		}
 		disks = append(disks, diskStruct{name: filepath.Join("/dev", disk.Name), size: fmt.Sprintf("%.2f GiB", float64(disk.SizeBytes)/float64(1024*1024*1024)), id: len(disks)})
 	}
