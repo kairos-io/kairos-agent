@@ -37,7 +37,7 @@ jobs:
         run: make run-e2e-tests
       - name: Upload serial logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-serial-logs
           path: tests/e2e/logs/
