@@ -13,13 +13,13 @@ require (
 	github.com/jaypipes/ghw v0.24.0 // indirect
 	github.com/joho/godotenv v1.5.1
 	github.com/kairos-io/go-nodepair v0.3.0
-	github.com/kairos-io/kairos-sdk v0.22.2-0.20260611084820-86ba4c8fe904
+	github.com/kairos-io/kairos-sdk v0.22.2-0.20260617131909-b6cc256aa788
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/go-processmanager v0.1.1
 	github.com/mudler/yip v1.24.0
 	github.com/nxadm/tail v1.4.11
-	github.com/onsi/ginkgo/v2 v2.29.0
-	github.com/onsi/gomega v1.41.0
+	github.com/onsi/ginkgo/v2 v2.31.0
+	github.com/onsi/gomega v1.42.0
 	github.com/pterm/pterm v0.12.83
 	github.com/rs/zerolog v1.35.1
 	github.com/sanity-io/litter v1.5.8
@@ -29,7 +29,7 @@ require (
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sys v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/mount-utils v0.36.1
+	k8s.io/mount-utils v0.36.2
 )
 
 require (
@@ -59,7 +59,7 @@ require (
 	github.com/Microsoft/hcsshim v0.14.0 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/anatol/devmapper.go v0.0.0-20250316020617-2671eefd35d7 // indirect
-	github.com/anatol/luks.go v0.0.0-20260315175739-98c0a50095cb // indirect
+	github.com/anatol/luks.go v0.0.0-20260615185044-2658459c8ca5 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect

@@ -10,59 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// writeExecutable creates an executable file at dir/name and returns its path.
-func writeExecutable(dir, name string) string {
-	p := filepath.Join(dir, name)
-	Expect(os.WriteFile(p, []byte("#!/bin/sh\nexit 0\n"), 0o755)).To(Succeed())
-	return p
-}
-
-// writeFileAt creates an executable file at an absolute path.
-func writeFileAt(path string) {
-	Expect(os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755)).To(Succeed())
-}
-
-var _ = Describe("resolveInstaller", func() {
-	var tmp string
-
-	BeforeEach(func() {
-		tmp = GinkgoT().TempDir()
-		origOverride, origDefault := installerOverridePath, installerDefaultPath
-		installerOverridePath = filepath.Join(tmp, "override")
-		installerDefaultPath = filepath.Join(tmp, "default")
-		DeferCleanup(func() {
-			installerOverridePath, installerDefaultPath = origOverride, origDefault
-		})
-		GinkgoT().Setenv(installerEnvVar, "")
-	})
-
-	It("prefers KAIROS_INSTALLER when the file exists", func() {
-		bin := writeExecutable(tmp, "custom")
-		GinkgoT().Setenv(installerEnvVar, bin)
-		writeFileAt(installerDefaultPath)
-		Expect(resolveInstaller()).To(Equal(bin))
-	})
-
-	It("falls through when KAIROS_INSTALLER points to a missing file", func() {
-		GinkgoT().Setenv(installerEnvVar, filepath.Join(tmp, "nope"))
-		Expect(resolveInstaller()).To(BeEmpty())
-	})
-
-	It("uses the override path over the default when both exist", func() {
-		writeFileAt(installerOverridePath)
-		writeFileAt(installerDefaultPath)
-		Expect(resolveInstaller()).To(Equal(installerOverridePath))
-	})
-
-	It("uses the default path when only it exists", func() {
-		writeFileAt(installerDefaultPath)
-		Expect(resolveInstaller()).To(Equal(installerDefaultPath))
-	})
-
-	It("returns empty when nothing exists", func() {
-		Expect(resolveInstaller()).To(BeEmpty())
-	})
-})
+// Installer resolution (KAIROS_INSTALLER env -> override -> default) lives in the
+// kairos-sdk installer package and is tested there. These tests cover the
+// agent-specific exec wiring.
 
 var _ = Describe("installer dispatch", func() {
 	Describe("installerCommand", func() {
