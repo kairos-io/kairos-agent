@@ -52,9 +52,12 @@ type InstallSpec struct {
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
-	// Check if the target device has mounted partitions
+	// Check if the target device has mounted partitions, and remember its size
+	// so we can later make sure the requested partitions fit in it.
+	var targetDisk *partitions.Disk
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
 		if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
+			targetDisk = disk
 			for _, p := range disk.Partitions {
 				if p.MountPoint != "" {
 					return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
@@ -101,7 +104,47 @@ func (i *InstallSpec) Sanitize() error {
 	// we need them to be on fixed values, otherwise we wont know where to find things on boot, on reset, etc...
 	i.Partitions.SetDefaultLabels()
 
-	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
+	if err := i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable); err != nil {
+		return err
+	}
+
+	// Make sure the requested partitions actually fit in the target disk.
+	// Going over the disk size produces an unbootable system that only fails
+	// at first boot, so we fail early here instead.
+	return i.checkPartitionsFitTargetDisk(targetDisk)
+}
+
+// gptMetadataOverhead is the disk space the partitioner reserves and that the
+// partitions cannot use: 1MB of alignment before the first partition plus 1MB
+// at the end of the disk for the backup GPT header (see
+// pkg/partitioner/disk.go). We account for it so we reject a layout that would
+// not fit instead of letting the partitioning fail mid-install.
+const gptMetadataOverhead = 2 * 1024 * 1024
+
+// checkPartitionsFitTargetDisk returns an error if the sum of the requested
+// partition sizes does not fit in the target disk once the GPT metadata
+// overhead is reserved. A partition with size 0 means "take whatever space is
+// left on the disk", so it does not count towards the requested total. If the
+// target disk was not found (for example when the target is not set yet) the
+// check is skipped.
+func (i *InstallSpec) checkPartitionsFitTargetDisk(targetDisk *partitions.Disk) error {
+	if targetDisk == nil {
+		return nil
+	}
+
+	var requestedMB uint
+	for _, p := range i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions) {
+		requestedMB += p.Size
+	}
+
+	// Partition sizes are expressed in MB while the disk size is in bytes.
+	if uint64(requestedMB)*1024*1024+gptMetadataOverhead > targetDisk.SizeBytes {
+		return fmt.Errorf(
+			"the requested partitions size (%dMB) does not fit in the target disk %q (%dMB), which also needs %dMB reserved for partition metadata",
+			requestedMB, i.Target, targetDisk.SizeBytes/(1024*1024), gptMetadataOverhead/(1024*1024))
+	}
+
+	return nil
 }
 
 func (i *InstallSpec) ShouldReboot() bool                            { return i.Reboot }
