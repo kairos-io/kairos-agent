@@ -13,7 +13,7 @@ import (
 // oversizeError is the message Sanitize() returns when the requested manual
 // partitions do not fit in the target disk. Sanitize runs before the image is
 // pulled, so this surfaces without a successful pull having to happen first.
-const oversizeError = "bigger than the target disk"
+const oversizeError = "does not fit in the target disk"
 
 // The e2e VM is created with a 20000MB (~20GB) /dev/vda (see startVM's
 // WithDriveSize). The default layout (state ~10GB, recovery ~6GB, oem, bios)

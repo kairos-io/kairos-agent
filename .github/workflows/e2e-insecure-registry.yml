@@ -1,4 +1,4 @@
-name: E2E insecure-registry
+name: E2E tests
 on:
   push:
     branches:
@@ -9,10 +9,10 @@ permissions:
 env:
   FORCE_COLOR: 1
 concurrency:
-  group: ci-e2e-insecure-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  group: ci-e2e-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
-  e2e-insecure-registry:
+  e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
