@@ -28,24 +28,25 @@ import (
 
 // InstallSpec struct represents all the installation action details
 type InstallSpec struct {
-	Target          string                         `yaml:"device,omitempty" mapstructure:"device"`
-	Firmware        string                         `yaml:"firmware,omitempty" mapstructure:"firmware"`
-	PartTable       string                         `yaml:"part-table,omitempty" mapstructure:"part-table"`
-	Partitions      partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	ExtraPartitions partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
-	NoFormat        bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
-	Force           bool                           `yaml:"force,omitempty" mapstructure:"force"`
-	CloudInit       []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
-	Iso             string                         `yaml:"iso,omitempty" mapstructure:"iso"`
-	GrubDefEntry    string                         `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	Tty             string                         `yaml:"tty,omitempty" mapstructure:"tty"`
-	Reboot          bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	ExtraDirsRootfs []string                       `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
-	Active          images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
-	Recovery        images.Image                   `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
-	Passive         images.Image
-	GrubConf        string
+	Target                  string                         `yaml:"device,omitempty" mapstructure:"device"`
+	Firmware                string                         `yaml:"firmware,omitempty" mapstructure:"firmware"`
+	PartTable               string                         `yaml:"part-table,omitempty" mapstructure:"part-table"`
+	Partitions              partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	ExtraPartitions         partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	NoFormat                bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
+	Force                   bool                           `yaml:"force,omitempty" mapstructure:"force"`
+	CloudInit               []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
+	Iso                     string                         `yaml:"iso,omitempty" mapstructure:"iso"`
+	GrubDefEntry            string                         `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Tty                     string                         `yaml:"tty,omitempty" mapstructure:"tty"`
+	Reboot                  bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	ExtraDirsRootfs         []string                       `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
+	Active                  images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
+	Recovery                images.Image                   `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
+	AllowInsecureRegistries bool                           `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
+	Passive                 images.Image
+	GrubConf                string
 }
 
 // Sanitize checks the consistency of the struct, returns error
@@ -143,16 +144,17 @@ func (r *ResetSpec) ShouldReboot() bool   { return r.Reboot }
 func (r *ResetSpec) ShouldShutdown() bool { return r.PowerOff }
 
 type UpgradeSpec struct {
-	Entry           string       `yaml:"entry,omitempty" mapstructure:"entry"`
-	Active          images.Image `yaml:"system,omitempty" mapstructure:"system"`
-	Recovery        images.Image `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
-	GrubDefEntry    string       `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	Reboot          bool         `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool         `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	ExtraDirsRootfs []string     `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
-	Passive         images.Image
-	Partitions      partitions.ElementalPartitions
-	ExcludedPaths   []string `yaml:"excluded-paths,omitempty" mapstructure:"excluded-paths"`
+	Entry                   string       `yaml:"entry,omitempty" mapstructure:"entry"`
+	Active                  images.Image `yaml:"system,omitempty" mapstructure:"system"`
+	Recovery                images.Image `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
+	GrubDefEntry            string       `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Reboot                  bool         `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool         `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	ExtraDirsRootfs         []string     `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
+	AllowInsecureRegistries bool         `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
+	Passive                 images.Image
+	Partitions              partitions.ElementalPartitions
+	ExcludedPaths           []string `yaml:"excluded-paths,omitempty" mapstructure:"excluded-paths"`
 }
 
 func (u *UpgradeSpec) RecoveryUpgrade() bool {
@@ -225,15 +227,16 @@ func GetPartitionByNameOrLabel(name string, label string, partitionList partitio
 }
 
 type InstallUkiSpec struct {
-	Active          images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
-	Target          string                         `yaml:"device,omitempty" mapstructure:"device"`
-	Reboot          bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	Partitions      partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	ExtraPartitions partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
-	NoFormat        bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
-	CloudInit       []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
-	SkipEntries     []string                       `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
+	Active                  images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
+	Target                  string                         `yaml:"device,omitempty" mapstructure:"device"`
+	Reboot                  bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	Partitions              partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	ExtraPartitions         partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	NoFormat                bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
+	CloudInit               []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
+	SkipEntries             []string                       `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
+	AllowInsecureRegistries bool                           `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
 }
 
 func (i *InstallUkiSpec) Sanitize() error {
@@ -249,11 +252,12 @@ func (i *InstallUkiSpec) GetPartitions() partitions.ElementalPartitions { return
 func (i *InstallUkiSpec) GetExtraPartitions() partitions.PartitionList  { return i.ExtraPartitions }
 
 type UpgradeUkiSpec struct {
-	Entry        string                `yaml:"entry,omitempty" mapstructure:"entry"`
-	Active       images.Image          `yaml:"system,omitempty" mapstructure:"system"`
-	Reboot       bool                  `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff     bool                  `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	EfiPartition *partitions.Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	Entry                   string                `yaml:"entry,omitempty" mapstructure:"entry"`
+	Active                  images.Image          `yaml:"system,omitempty" mapstructure:"system"`
+	Reboot                  bool                  `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool                  `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	EfiPartition            *partitions.Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	AllowInsecureRegistries bool                  `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
 }
 
 func (i *UpgradeUkiSpec) RecoveryUpgrade() bool {

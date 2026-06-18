@@ -25,6 +25,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -293,6 +294,26 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.PowerOff).To(BeFalse())
 				Expect(spec.ShouldReboot()).To(BeFalse())
 				Expect(spec.ShouldShutdown()).To(BeFalse())
+			})
+			It("keeps the secure extractor by default", Label("install", "allow-insecure-registries"), func() {
+				setupIsoBaseTreeDetection(fs)
+
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.AllowInsecureRegistries).To(BeFalse())
+				Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: false}))
+			})
+			It("enables the insecure extractor when install.allow-insecure-registries is set", Label("install", "allow-insecure-registries"), func() {
+				setupIsoBaseTreeDetection(fs)
+
+				cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\ninstall:\n  allow-insecure-registries: true\n")))
+				Expect(err).ToNot(HaveOccurred())
+				c.Collector = cfg.Collector
+
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.AllowInsecureRegistries).To(BeTrue())
+				Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: true}))
 			})
 		})
 		Describe("ResetSpec", Label("reset"), func() {
@@ -573,6 +594,47 @@ upgrade:
 					Expect(err).ToNot(HaveOccurred())
 					Expect(spec.Active.Source).ToNot(BeNil())
 					Expect(spec.Active.Source.Value()).To(Equal("/tmp/testfile"))
+				})
+
+				It("keeps the secure extractor by default", func() {
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.AllowInsecureRegistries).To(BeFalse())
+					Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: false}))
+				})
+
+				It("enables the insecure extractor when upgrade.allow-insecure-registries is set", func() {
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  allow-insecure-registries: true\n")))
+					Expect(err).ToNot(HaveOccurred())
+					c.Collector = cfg.Collector
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.AllowInsecureRegistries).To(BeTrue())
+					Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: true}))
+				})
+
+				It("fails fast for uki upgrade when the container image cannot be resolved", func() {
+					fake := &v1mock.FakeImageExtractor{
+						Logger: logger,
+						SizeSideEffect: func(imageRef, platformRef string) (int64, error) {
+							return 0, fmt.Errorf("MANIFEST_UNKNOWN")
+						},
+					}
+					ukiCfg := config.NewConfig(
+						config.WithFs(fs),
+						config.WithMounter(mounter),
+						config.WithRunner(runner),
+						config.WithLogger(logger),
+						config.WithImageExtractor(fake),
+						config.WithPlatform("linux/amd64"),
+					)
+					cc, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: oci:missing/image:tag\n")))
+					Expect(err).ToNot(HaveOccurred())
+					ukiCfg.Collector = cc.Collector
+
+					_, err = config.NewUkiUpgradeSpec(ukiCfg)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("could not resolve image"))
 				})
 
 			})
