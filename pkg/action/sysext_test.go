@@ -3,6 +3,7 @@ package action_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
@@ -468,6 +469,24 @@ var _ = Describe("Sysext Actions test", Label("sysext"), func() {
 						Location: "/var/lib/kairos/extensions/valid.raw",
 					},
 				}))
+			})
+			It("should preserve file permissions when streaming", func() {
+				extensions, err := action.ListExtensions(config, "", "sysext")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(extensions).To(BeEmpty())
+				// Create a file with specific permissions (0755 survives default umask 022)
+				err = config.Fs.WriteFile("/perms.raw", []byte("valid"), 0640)
+				Expect(err).ToNot(HaveOccurred())
+				err = action.InstallExtension(config, "file:///perms.raw", "sysext")
+				Expect(err).ToNot(HaveOccurred(), memLog.String())
+				// Check if the extension is installed
+				extensions, err = action.ListExtensions(config, "", "sysext")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(extensions)).To(Equal(1))
+				// Check that file permissions are preserved
+				stat, err := config.Fs.Stat("/var/lib/kairos/extensions/perms.raw")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stat.Mode() & 0777).To(Equal(os.FileMode(0640)))
 			})
 			It("should fail to install a missing extension", func() {
 				extensions, err := action.ListExtensions(config, "", "sysext")
