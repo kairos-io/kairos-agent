@@ -35,7 +35,7 @@ build-test-iso: build-agent-e2e
 run-e2e-tests-with-iso:
 	ISO=$${ISO:-$$(ls -t $(CURDIR)/$(BUILD_DIR)/*.iso 2>/dev/null | head -1)} \
 		BASE_IMAGE=$(BASE_IMAGE) \
-		go test -tags e2e ./$(E2E_DIR)/ -count=1 -v --ginkgo.label-filter=insecure-registry --timeout 30m
+		go test -tags e2e ./$(E2E_DIR)/ -count=1 -v --ginkgo.label-filter="insecure-registry || partition-validation" --timeout 30m
 
 # 4. Build then run.
 run-e2e-tests: build-test-iso run-e2e-tests-with-iso
