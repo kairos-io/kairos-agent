@@ -371,6 +371,24 @@ var _ = Describe("Install action tests", func() {
 			Expect(runner.MatchMilestones([][]string{{"grub2-install"}}))
 		})
 
+		It("Runs grub-install chrooted into the source rootfs with relative paths", Label("grub", "chroot"), func() {
+			spec.Target = device
+			Expect(installer.Run()).To(BeNil())
+			// grub-install must run inside a chroot of the active mountpoint so it
+			// resolves its loader and shared libraries from the installation
+			// source instead of from the host liveCD. Inside the chroot the binary
+			// and the grub modules directory are addressed with paths relative to
+			// the rootfs (no /run/cos/active prefix), while the boot directory is
+			// bind-mounted in and kept at its original path.
+			Expect(runner.IncludesCmds([][]string{
+				{"/sbin/grub2-install", "--directory=/usr/lib/grub/i386-pc", "--boot-directory=/run/cos/state", "--target=i386-pc"},
+			})).To(BeNil())
+			// the host-prefixed invocation must not happen anymore
+			Expect(runner.IncludesCmds([][]string{
+				{filepath.Join(spec.Active.MountPoint, "sbin", "grub2-install")},
+			})).NotTo(BeNil())
+		})
+
 		It("Fails copying Passive image", Label("copy", "active"), func() {
 			spec.Target = device
 			cmdFail = "tune2fs"
