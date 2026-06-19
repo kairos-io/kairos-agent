@@ -175,7 +175,7 @@ func NewInstallSpec(cfg *sdkConfig.Config) (*spec.InstallSpec, error) {
 	if err != nil {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
+		cfg.Logger.Infof("Setting image size to %dMiB", size)
 		spec.Active.Size = uint(size)
 		spec.Passive.Size = uint(size)
 		spec.Recovery.Size = uint(size)
@@ -214,7 +214,7 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
-	log.Infof("Setting OEM partition size to %dMb", oemSize)
+	log.Infof("Setting OEM partition size to %dMiB", oemSize)
 	// Double the space for recovery, as upgrades use the recovery partition to create the transition image for upgrades
 	// so we need twice the space to do a proper upgrade
 	// Check if the default/user provided values are enough to fit the images sizes
@@ -225,12 +225,12 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 		if spec.Partitions.Recovery.Size < (spec.Recovery.Size*2)+200 { // Configured by user but not enough space
 			// If we had the logger here we could log a message saying that space is not enough and we are auto increasing it
 			recoverySize = (spec.Recovery.Size * 2) + 200
-			log.Warnf("Not enough space set for recovery partition(%dMb), increasing it to fit the recovery images(%dMb)", spec.Partitions.Recovery.Size, recoverySize)
+			log.Warnf("Not enough space set for recovery partition(%dMiB), increasing it to fit the recovery images(%dMiB)", spec.Partitions.Recovery.Size, recoverySize)
 		} else {
 			recoverySize = spec.Partitions.Recovery.Size
 		}
 	}
-	log.Infof("Setting recovery partition size to %dMb", recoverySize)
+	log.Infof("Setting recovery partition size to %dMiB", recoverySize)
 	pt.Recovery = &sdkPartitions.Partition{
 		FilesystemLabel: sdkConstants.RecoveryLabel,
 		Size:            recoverySize,
@@ -251,12 +251,12 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 	} else {
 		if spec.Partitions.State.Size < (spec.Active.Size*2)+spec.Passive.Size+1000 { // Configured by user but not enough space
 			stateSize = (spec.Active.Size * 2) + spec.Passive.Size + 1000
-			log.Warnf("Not enough space set for state partition(%dMb), increasing it to fit the state images(%dMb)", spec.Partitions.State.Size, stateSize)
+			log.Warnf("Not enough space set for state partition(%dMiB), increasing it to fit the state images(%dMiB)", spec.Partitions.State.Size, stateSize)
 		} else {
 			stateSize = spec.Partitions.State.Size
 		}
 	}
-	log.Infof("Setting state partition size to %dMb", stateSize)
+	log.Infof("Setting state partition size to %dMiB", stateSize)
 	pt.State = &sdkPartitions.Partition{
 		FilesystemLabel: sdkConstants.StateLabel,
 		Size:            stateSize,
@@ -279,7 +279,7 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
-	log.Infof("Setting persistent partition size to %dMb", persistentSize)
+	log.Infof("Setting persistent partition size to %dMiB", persistentSize)
 	return pt
 }
 
@@ -443,14 +443,14 @@ func setUpgradeSourceSize(cfg *sdkConfig.Config, spec *spec.UpgradeSpec) error {
 	}
 
 	if uint(size) < originalSize {
-		cfg.Logger.Debugf("Calculated size (%dMB) is less than specified/default size (%dMB)", size, originalSize)
+		cfg.Logger.Debugf("Calculated size (%dMiB) is less than specified/default size (%dMiB)", size, originalSize)
 		targetSpec.Size = originalSize
 	} else {
-		cfg.Logger.Debugf("Calculated size (%dMB) is higher than specified/default size (%dMB)", size, originalSize)
+		cfg.Logger.Debugf("Calculated size (%dMiB) is higher than specified/default size (%dMiB)", size, originalSize)
 		targetSpec.Size = uint(size)
 	}
 
-	cfg.Logger.Infof("Setting image size to %dMB", targetSpec.Size)
+	cfg.Logger.Infof("Setting image size to %dMiB", targetSpec.Size)
 
 	return nil
 }
@@ -559,7 +559,7 @@ func NewResetSpec(cfg *sdkConfig.Config) (*spec.ResetSpec, error) {
 	if err != nil {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
+		cfg.Logger.Infof("Setting image size to %dMiB", size)
 		spec.Active.Size = uint(size)
 		spec.Passive.Size = uint(size)
 	}
@@ -726,7 +726,7 @@ func NewUkiInstallSpec(cfg *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
-		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%dMb): %s", spec.Partitions.EFI.Size, err.Error())
+		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%dMiB): %s", spec.Partitions.EFI.Size, err.Error())
 	} else {
 		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
 		if uint(size*3) > spec.Partitions.EFI.Size {
@@ -734,7 +734,7 @@ func NewUkiInstallSpec(cfg *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 		}
 	}
 
-	cfg.Logger.Infof("Setting image size to %dMb", spec.Partitions.EFI.Size)
+	cfg.Logger.Infof("Setting image size to %dMiB", spec.Partitions.EFI.Size)
 
 	err = unmarshallFullSpec(cfg, "install", spec)
 
@@ -780,7 +780,7 @@ func NewUkiUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 		spec.Active.Size = sdkConstants.ImgSize
 	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
+		cfg.Logger.Infof("Setting image size to %dMiB", size)
 		spec.Active.Size = uint(size)
 	}
 
@@ -917,7 +917,7 @@ func GetSourceSize(config *sdkConfig.Config, source *sdkImages.ImageSource) (int
 		}
 		size = file.Size()
 	}
-	// Normalize size to MB before returning and add 100MB to round the size from bytes to MB+extra files like grub stuff
+	// Normalize size to MiB before returning and add 100MiB to round the size from bytes to MiB+extra files like grub stuff
 	if size != 0 {
 		size = (size / 1024 / 1024) + 100
 	}
