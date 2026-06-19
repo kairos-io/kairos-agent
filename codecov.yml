@@ -1,0 +1,36 @@
+# Codecov configuration.
+#
+# Coverage uploaded to Codecov comes only from the unit-tests workflow
+# (.github/workflows/unit-tests.yml). A large part of this project is validated
+# by end to end tests that run inside a VM and are not part of that workflow, so
+# many production code paths are exercised by e2e tests rather than unit tests.
+# Without this file Codecov uses strict defaults and flags those e2e-only lines
+# as missing coverage on every pull request. The settings below keep Codecov
+# reporting useful numbers while letting it stop blocking pull requests for code
+# that is covered by the e2e suite.
+
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        # Allow a small dip in overall coverage instead of failing on any drop.
+        threshold: 1%
+    patch:
+      default:
+        # Report patch coverage but do not fail the check on it. The real
+        # validation for VM only code paths is the e2e suite, which does not
+        # contribute to the uploaded coverage profile.
+        informational: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: true
+
+# Files that are test scaffolding or generated and should not count towards
+# coverage numbers.
+ignore:
+  - "tests/**"
+  - "**/*_mock.go"
