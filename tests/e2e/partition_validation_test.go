@@ -15,10 +15,10 @@ import (
 // pulled, so this surfaces without a successful pull having to happen first.
 const oversizeError = "does not fit in the target disk"
 
-// The e2e VM is created with a 20000MB (~20GB) /dev/vda (see startVM's
+// The e2e VM is created with a 20000MiB (~20GB) /dev/vda (see startVM's
 // WithDriveSize). The default layout (state ~10GB, recovery ~6GB, oem, bios)
-// already uses ~16.6GB, so tooBigConfig's 30000MB persistent partition cannot
-// possibly fit, while fittingConfig's 1024MB persistent leaves clear headroom.
+// already uses ~16.6GB, so tooBigConfig's 30000MiB persistent partition cannot
+// possibly fit, while fittingConfig's 1024MiB persistent leaves clear headroom.
 const (
 	tooBigConfig = `#cloud-config
 install:

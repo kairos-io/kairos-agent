@@ -115,7 +115,7 @@ func (i *InstallSpec) Sanitize() error {
 }
 
 // gptMetadataOverhead is the disk space the partitioner reserves and that the
-// partitions cannot use: 1MB of alignment before the first partition plus 1MB
+// partitions cannot use: 1MiB of alignment before the first partition plus 1MiB
 // at the end of the disk for the backup GPT header (see
 // pkg/partitioner/disk.go). We account for it so we reject a layout that would
 // not fit instead of letting the partitioning fail mid-install.
@@ -132,16 +132,16 @@ func (i *InstallSpec) checkPartitionsFitTargetDisk(targetDisk *partitions.Disk) 
 		return nil
 	}
 
-	var requestedMB uint
+	var requestedMiB uint
 	for _, p := range i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions) {
-		requestedMB += p.Size
+		requestedMiB += p.Size
 	}
 
-	// Partition sizes are expressed in MB while the disk size is in bytes.
-	if uint64(requestedMB)*1024*1024+gptMetadataOverhead > targetDisk.SizeBytes {
+	// Partition sizes are expressed in MiB while the disk size is in bytes.
+	if uint64(requestedMiB)*1024*1024+gptMetadataOverhead > targetDisk.SizeBytes {
 		return fmt.Errorf(
-			"the requested partitions size (%dMB) does not fit in the target disk %q (%dMB), which also needs %dMB reserved for partition metadata",
-			requestedMB, i.Target, targetDisk.SizeBytes/(1024*1024), gptMetadataOverhead/(1024*1024))
+			"the requested partitions size (%dMiB) does not fit in the target disk %q (%dMiB), which also needs %dMiB reserved for partition metadata",
+			requestedMiB, i.Target, targetDisk.SizeBytes/(1024*1024), gptMetadataOverhead/(1024*1024))
 	}
 
 	return nil
