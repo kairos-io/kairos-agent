@@ -790,11 +790,12 @@ func NewUkiUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
 
-	// Get free size of partition
+	// Get free size of partition in MiB so it can be compared with the image
+	// sizes, which are also in MiB.
 	var stat unix.Statfs_t
 	_ = unix.Statfs(spec.EfiPartition.MountPoint, &stat)
-	freeSize := stat.Bfree * uint64(stat.Bsize) / 1000 / 1000
-	cfg.Logger.Debugf("Partition on mountpoint %s has %dMb free", spec.EfiPartition.MountPoint, freeSize)
+	freeSize := stat.Bfree * uint64(stat.Bsize) / 1024 / 1024
+	cfg.Logger.Debugf("Partition on mountpoint %s has %dMiB free", spec.EfiPartition.MountPoint, freeSize)
 	// Check if the source is over the free size
 	if spec.Active.Size > uint(freeSize) {
 		return spec, fmt.Errorf("source size(%d) is bigger than the free space(%d) on the EFI partition(%s)", spec.Active.Size, freeSize, spec.EfiPartition.MountPoint)
