@@ -383,10 +383,10 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			Describe("partition sizes against the target disk", func() {
 				var ghwTest ghwMock.GhwMock
 				BeforeEach(func() {
-					// Present a 100MB target disk to ghw. The ghw mock writes this
+					// Present a 100MiB target disk to ghw. The ghw mock writes this
 					// value into the kernel "size" file, which ghw reads back as a
 					// count of 512-byte sectors, so we express the wanted byte size
-					// in 512-byte sectors here to end up with a 100MB disk.
+					// in 512-byte sectors here to end up with a 100MiB disk.
 					ghwTest = ghwMock.GhwMock{}
 					ghwTest.AddDisk(sdkPartitions.Disk{
 						Name:      "sda",
@@ -410,8 +410,8 @@ var _ = Describe("Types", Label("types", "config"), func() {
 					Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
 				})
 				It("fails when the partitions leave no room for the partition metadata", func() {
-					// 99MB persistent + 1MB BIOS = exactly the 100MB disk, leaving
-					// no room for the 1MB start alignment and the 1MB backup GPT
+					// 99MiB persistent + 1MiB BIOS = exactly the 100MiB disk, leaving
+					// no room for the 1MiB start alignment and the 1MiB backup GPT
 					// header that the partitioner reserves.
 					sp.Partitions.Persistent = &sdkPartitions.Partition{Size: 99}
 					err := sp.Sanitize()
