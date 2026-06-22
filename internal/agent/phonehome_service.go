@@ -55,10 +55,11 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 		c.Logger.Warnf("failed to resolve kairos-agent binary path: %v", err)
 		return
 	}
-	agentBin, err = filepath.EvalSymlinks(agentBin)
+	resolved, err := filepath.EvalSymlinks(agentBin)
 	if err != nil {
-		c.Logger.Warnf("failed to resolve kairos-agent binary path: %v", err)
-		return
+		c.Logger.Warnf("failed to eval symlinks for kairos-agent binary path %q: %v", agentBin, err)
+	} else {
+		agentBin = resolved
 	}
 
 	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceUnit(agentBin)), 0600); err != nil {
