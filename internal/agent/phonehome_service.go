@@ -1,28 +1,32 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
-const phoneHomeServiceContent = `[Unit]
+func phoneHomeServiceUnit(agentBin string) string {
+	return fmt.Sprintf(`[Unit]
 Description=Kairos Agent Phone Home
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/kairos-agent phone-home
+ExecStart=%s phone-home
 Restart=on-failure
 RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
-`
+`, agentBin)
+}
 
 // enablePhoneHomeIfConfigured installs and starts the phone-home systemd service
 // when a `phonehome:` section with a url is present in the merged cloud-config.
@@ -46,7 +50,19 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 
 	c.Logger.Infof("phone-home configuration detected, enabling phone-home service")
 
-	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceContent), 0600); err != nil {
+	agentBin, err := os.Executable()
+	if err != nil {
+		c.Logger.Warnf("failed to resolve kairos-agent binary path: %v", err)
+		return
+	}
+	resolved, err := filepath.EvalSymlinks(agentBin)
+	if err != nil {
+		c.Logger.Warnf("failed to eval symlinks for kairos-agent binary path %q: %v", agentBin, err)
+	} else {
+		agentBin = resolved
+	}
+
+	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceUnit(agentBin)), 0600); err != nil {
 		c.Logger.Warnf("failed to write phone-home service: %v", err)
 		return
 	}
