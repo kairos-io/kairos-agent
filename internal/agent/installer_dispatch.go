@@ -5,32 +5,9 @@ import (
 	"os/exec"
 )
 
-const installerEnvVar = "KAIROS_INSTALLER"
-
-// installerOverridePath and installerDefaultPath are the fixed image locations
-// for the installer. The override is checked first so a customizer can drop
-// their own binary next to (or in place of) the kairos-init-provided default.
-// They are vars (not consts) so tests can point them at temp files.
-var (
-	installerOverridePath = "/system/installer/installer"
-	installerDefaultPath  = "/system/installer/kairos-installer"
-)
-
-// resolveInstaller returns the path to an installer binary, or "" if none is
-// found. Order: KAIROS_INSTALLER env (must exist) -> override path -> default.
-func resolveInstaller() string {
-	if p := os.Getenv(installerEnvVar); p != "" {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	for _, p := range []string{installerOverridePath, installerDefaultPath} {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
-}
+// The installer locations and the resolution order (KAIROS_INSTALLER env ->
+// override path -> default path) are defined once in the kairos-sdk installer
+// package and consumed here via installer.Resolve.
 
 // installerCommand builds the *exec.Cmd that invokes the installer, forwarding
 // the install source when present. It does not wire stdio (see
