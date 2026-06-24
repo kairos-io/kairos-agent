@@ -19,6 +19,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
 	"github.com/kairos-io/kairos-agent/v2/internal/webui"
 	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/agenterror"
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
@@ -1570,14 +1571,22 @@ The kairos agent is a component to abstract away node ops, providing a common fe
 
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Println(err)
+		// Format renders the error chain plus, when recognizable, a stable
+		// error code and an actionable recovery hint. Empty-message sentinel
+		// errors (used by some Before hooks after printing help) render as ""
+		// and are suppressed.
+		if out := agenterror.Format(err); out != "" {
+			fmt.Println(out)
+		}
 		os.Exit(1)
 	}
 }
 
 func checkRoot() error {
 	if os.Geteuid() != 0 {
-		return errors.New("this command requires root privileges")
+		return agenterror.New(agenterror.CodeNeedsRoot, "",
+			"Re-run the command as root (e.g. with sudo).",
+			errors.New("this command requires root privileges"))
 	}
 
 	return nil
@@ -1593,7 +1602,9 @@ func validateSource(source string) error {
 		return err
 	}
 	if !r.MatchString(source) {
-		return fmt.Errorf("source %s does not match any of oci:, dir:, file: or ocifile: ", source)
+		return agenterror.New(agenterror.CodeBadSource, "",
+			"Prefix the source with its type, e.g. oci:repo/image:tag, dir:/path, file:/path.img, or ocifile:/path.tar.",
+			fmt.Errorf("source %s does not match any of oci:, dir:, file: or ocifile: ", source))
 	}
 
 	return nil
