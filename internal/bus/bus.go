@@ -29,21 +29,26 @@ type Bus struct {
 	registered bool
 }
 
-func (b *Bus) LoadProviders() {
-	wd, _ := os.Getwd()
-	b.Manager.Autoload("agent-provider", "/system/providers", "/usr/local/system/providers", wd).Register()
+// LoadProviders autoloads the agent providers from the given paths. When no
+// paths are provided it falls back to the default provider directories.
+func (b *Bus) LoadProviders(paths ...string) {
+	if len(paths) == 0 {
+		wd, _ := os.Getwd()
+		paths = []string{"/system/providers", "/usr/local/system/providers", wd}
+	}
+	b.Manager.Autoload("agent-provider", paths...).Register()
 }
 
 func (b *Bus) HasRegisteredPlugins() bool {
 	return len(b.Plugins) > 0
 }
 
-func (b *Bus) Initialize() {
+func (b *Bus) Initialize(paths ...string) {
 	if b.registered {
 		return
 	}
 
-	b.LoadProviders()
+	b.LoadProviders(paths...)
 	for i := range b.Manager.Events {
 		e := b.Manager.Events[i]
 		b.Manager.Response(e, func(p *pluggable.Plugin, r *pluggable.EventResponse) {
