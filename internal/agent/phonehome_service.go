@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/phonehome"
+	"github.com/kairos-io/kairos-sdk/constants"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
@@ -50,19 +50,7 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 
 	c.Logger.Infof("phone-home configuration detected, enabling phone-home service")
 
-	agentBin, err := os.Executable()
-	if err != nil {
-		c.Logger.Warnf("failed to resolve kairos-agent binary path: %v", err)
-		return
-	}
-	resolved, err := filepath.EvalSymlinks(agentBin)
-	if err != nil {
-		c.Logger.Warnf("failed to eval symlinks for kairos-agent binary path %q: %v", agentBin, err)
-	} else {
-		agentBin = resolved
-	}
-
-	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceUnit(agentBin)), 0600); err != nil {
+	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceUnit(constants.AgentDefaultPath)), 0600); err != nil {
 		c.Logger.Warnf("failed to write phone-home service: %v", err)
 		return
 	}
