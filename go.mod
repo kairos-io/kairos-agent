@@ -33,7 +33,7 @@ require (
 )
 
 require (
-	github.com/containerd/containerd v1.7.33
+	github.com/containerd/containerd/v2 v2.3.2
 	github.com/distribution/reference v0.6.0
 	github.com/foxboron/go-uefi v0.0.0-20251010190908-d29549a44f29
 	github.com/go-viper/mapstructure/v2 v2.5.0
@@ -82,7 +82,6 @@ require (
 	github.com/codingsince1985/checksum v1.2.4 // indirect
 	github.com/containerd/cgroups/v3 v3.1.3 // indirect
 	github.com/containerd/console v1.0.5 // indirect
-	github.com/containerd/containerd/v2 v2.3.2 // indirect
 	github.com/containerd/continuity v0.5.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect

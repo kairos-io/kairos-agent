@@ -26,7 +26,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/containerd/archive"
+	"github.com/containerd/containerd/v2/pkg/archive"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
