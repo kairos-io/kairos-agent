@@ -787,6 +787,42 @@ var _ = Describe("Utils", Label("utils"), func() {
 				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/", constants.SignedShim))
 				Expect(err).To(HaveOccurred())
 			})
+			It("installs with efi firmware on openSUSE riscv64 using /usr/share/efi path", Label("efi"), func() {
+				riscvConfig := agentConfig.NewConfig(
+					agentConfig.WithFs(fs),
+					agentConfig.WithRunner(runner),
+					agentConfig.WithLogger(logger),
+					agentConfig.WithMounter(mounter),
+					agentConfig.WithSyscall(syscall),
+					agentConfig.WithClient(client),
+					agentConfig.WithPlatform("linux/riscv64"),
+				)
+				riscvConfig.Arch = constants.ArchRiscv64
+				err := fsutils.MkdirAll(fs, filepath.Join(rootDir, "/usr/share/efi/riscv64/"), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/usr/share/efi/riscv64/grub.efi"), []byte("grub"), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "/usr/lib/grub/riscv64-efi/"), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/usr/lib/grub/riscv64-efi/loopback.mod"), []byte(""), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fsutils.MkdirAll(fs, filepath.Join(rootDir, "/etc/"), constants.DirPerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				err = fs.WriteFile(filepath.Join(rootDir, "/etc/os-release"), []byte("ID=\"suse\""), constants.FilePerm)
+				Expect(err).ShouldNot(HaveOccurred())
+				grub := utils.NewGrub(riscvConfig)
+				err = grub.Install(target, rootDir, bootDir, constants.GrubConf, "", true, "COS_STATE")
+				Expect(err).ShouldNot(HaveOccurred())
+
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/grub.efi"))
+				Expect(err).To(BeNil())
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/BOOTRISCV64.EFI"))
+				Expect(err).To(BeNil())
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/grubriscv64.efi"))
+				Expect(err).To(HaveOccurred())
+				_, err = fs.Stat(filepath.Join(constants.EfiDir, "EFI/boot/", constants.SignedShim))
+				Expect(err).To(HaveOccurred())
+			})
 			It("fails with bios if no grub2-install file exists", func() {
 				Expect(fs.RemoveAll(filepath.Join(rootDir, "sbin", "grub2-install"))).ToNot(HaveOccurred())
 				grub := utils.NewGrub(config)
