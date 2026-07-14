@@ -54,17 +54,9 @@ type InstallSpec struct {
 func (i *InstallSpec) Sanitize() error {
 	// Check if the target device has mounted partitions, and remember its size
 	// so we can later make sure the requested partitions fit in it.
-	var targetDisk *partitions.Disk
-	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
-		if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
-			targetDisk = disk
-			for _, p := range disk.Partitions {
-				if p.MountPoint != "" {
-					return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
-				}
-			}
-
-		}
+	targetDisk, err := lookupTargetDisk(i.Target)
+	if err != nil {
+		return err
 	}
 
 	if i.Active.Source.IsEmpty() && i.Iso == "" {
@@ -84,20 +76,8 @@ func (i *InstallSpec) Sanitize() error {
 		i.Recovery.File = filepath.Join(recoveryMnt, "cOS", constants.RecoveryImgFile)
 	}
 
-	// Check for extra partitions having set its size to 0
-	extraPartsSizeCheck := 0
-	for _, p := range i.ExtraPartitions {
-		if p.Size == 0 {
-			extraPartsSizeCheck++
-		}
-	}
-
-	if extraPartsSizeCheck > 1 {
-		return fmt.Errorf("more than one extra partition has its size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
-	}
-	// Check for both an extra partition and the persistent partition having size set to 0
-	if extraPartsSizeCheck == 1 && i.Partitions.Persistent.Size == 0 {
-		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
+	if err := checkExtraPartitionsSize(i.ExtraPartitions, i.Partitions.Persistent); err != nil {
+		return err
 	}
 
 	// Set default labels in case the config from cloud/config overrides this values.
@@ -111,7 +91,7 @@ func (i *InstallSpec) Sanitize() error {
 	// Make sure the requested partitions actually fit in the target disk.
 	// Going over the disk size produces an unbootable system that only fails
 	// at first boot, so we fail early here instead.
-	return i.checkPartitionsFitTargetDisk(targetDisk)
+	return checkPartitionsFitTargetDisk(i.Target, targetDisk, i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions))
 }
 
 // gptMetadataOverhead is the disk space the partitioner reserves and that the
@@ -121,19 +101,60 @@ func (i *InstallSpec) Sanitize() error {
 // not fit instead of letting the partitioning fail mid-install.
 const gptMetadataOverhead = 2 * 1024 * 1024
 
+// lookupTargetDisk resolves the target device path to a ghw disk. It returns a
+// nil disk (no error) when the target is empty or cannot be found (for example
+// when running unit tests without ghw fixtures). If the target disk has
+// mounted partitions the caller cannot safely repartition, so this returns an
+// error instead.
+func lookupTargetDisk(target string) (*partitions.Disk, error) {
+	if target == "" {
+		return nil, nil
+	}
+	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		if fmt.Sprintf("/dev/%s", disk.Name) == target {
+			for _, p := range disk.Partitions {
+				if p.MountPoint != "" {
+					return nil, fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", target)
+				}
+			}
+			return disk, nil
+		}
+	}
+	return nil, nil
+}
+
+// checkExtraPartitionsSize enforces that at most one partition (either an
+// extra one or the persistent partition) has size 0, which means "take all the
+// remaining space on the disk".
+func checkExtraPartitionsSize(extras partitions.PartitionList, persistent *partitions.Partition) error {
+	extraPartsSizeCheck := 0
+	for _, p := range extras {
+		if p.Size == 0 {
+			extraPartsSizeCheck++
+		}
+	}
+	if extraPartsSizeCheck > 1 {
+		return fmt.Errorf("more than one extra partition has its size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
+	}
+	if extraPartsSizeCheck == 1 && persistent != nil && persistent.Size == 0 {
+		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
+	}
+	return nil
+}
+
 // checkPartitionsFitTargetDisk returns an error if the sum of the requested
 // partition sizes does not fit in the target disk once the GPT metadata
 // overhead is reserved. A partition with size 0 means "take whatever space is
 // left on the disk", so it does not count towards the requested total. If the
 // target disk was not found (for example when the target is not set yet) the
 // check is skipped.
-func (i *InstallSpec) checkPartitionsFitTargetDisk(targetDisk *partitions.Disk) error {
+func checkPartitionsFitTargetDisk(target string, targetDisk *partitions.Disk, parts partitions.PartitionList) error {
 	if targetDisk == nil {
 		return nil
 	}
 
 	var requestedMiB uint
-	for _, p := range i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions) {
+	for _, p := range parts {
 		requestedMiB += p.Size
 	}
 
@@ -141,7 +162,7 @@ func (i *InstallSpec) checkPartitionsFitTargetDisk(targetDisk *partitions.Disk) 
 	if uint64(requestedMiB)*1024*1024+gptMetadataOverhead > targetDisk.SizeBytes {
 		return fmt.Errorf(
 			"the requested partitions size (%dMiB) does not fit in the target disk %q (%dMiB), which also needs %dMiB reserved for partition metadata",
-			requestedMiB, i.Target, targetDisk.SizeBytes/(1024*1024), gptMetadataOverhead/(1024*1024))
+			requestedMiB, target, targetDisk.SizeBytes/(1024*1024), gptMetadataOverhead/(1024*1024))
 	}
 
 	return nil
@@ -283,8 +304,16 @@ type InstallUkiSpec struct {
 }
 
 func (i *InstallUkiSpec) Sanitize() error {
-	var err error
-	return err
+	targetDisk, err := lookupTargetDisk(i.Target)
+	if err != nil {
+		return err
+	}
+
+	if err := checkExtraPartitionsSize(i.ExtraPartitions, i.Partitions.Persistent); err != nil {
+		return err
+	}
+
+	return checkPartitionsFitTargetDisk(i.Target, targetDisk, i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions))
 }
 
 func (i *InstallUkiSpec) ShouldReboot() bool                            { return i.Reboot }
