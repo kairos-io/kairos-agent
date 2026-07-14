@@ -458,6 +458,66 @@ var _ = Describe("Types", Label("types", "config"), func() {
 			})
 
 		})
+		Describe("InstallUkiSpec sanitize", func() {
+			var sp spec.InstallUkiSpec
+			var ghwTest ghwMock.GhwMock
+			BeforeEach(func() {
+				ghwTest = ghwMock.GhwMock{}
+				ghwTest.AddDisk(sdkPartitions.Disk{
+					Name:      "sda",
+					SizeBytes: 100 * 1024 * 1024 / 512,
+				})
+				ghwTest.CreateDevices()
+
+				sp = spec.InstallUkiSpec{
+					Target: "/dev/sda",
+					Partitions: sdkPartitions.ElementalPartitions{
+						EFI:        &sdkPartitions.Partition{Size: 10, Name: sdkConstants.EfiPartName},
+						OEM:        &sdkPartitions.Partition{Size: 10, Name: sdkConstants.OEMPartName},
+						Persistent: &sdkPartitions.Partition{Size: 10, Name: sdkConstants.PersistentPartName},
+					},
+				}
+			})
+			AfterEach(func() {
+				ghwTest.Clean()
+			})
+			It("passes when the requested partitions fit the disk size", func() {
+				err := sp.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("fails when the requested partitions exceed the disk size", func() {
+				sp.Partitions.Persistent.Size = 200
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
+			})
+			It("fails when extra_partitions push the layout over the disk size", func() {
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{Name: "data", Size: 200},
+				}
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
+			})
+			It("fails when more than one extra partition has size 0", func() {
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{Name: "data1", Size: 0},
+					&sdkPartitions.Partition{Name: "data2", Size: 0},
+				}
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("more than one extra partition has its size set to 0"))
+			})
+			It("fails when persistent and an extra partition both have size 0", func() {
+				sp.Partitions.Persistent.Size = 0
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{Name: "data", Size: 0},
+				}
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("both persistent partition and extra partitions have size set to 0"))
+			})
+		})
 		Describe("UpgradeSpec sanitize", func() {
 			var sp spec.UpgradeSpec
 			BeforeEach(func() {
