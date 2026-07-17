@@ -240,6 +240,14 @@ func (u *UpgradeAction) Run() (err error) {
 	if !u.spec.RecoveryUpgrade() {
 		u.config.Logger.Warn("Remember that recovery is upgraded separately by passing the --recovery flag to the upgrade command!\n" +
 			"See more info about this on https://kairos.io/docs/upgrade/")
+
+		// Point the next boot at the active entry so the newly upgraded image
+		// is tried on reboot even if we upgraded from passive. next_entry is
+		// one-shot: if active fails, the normal boot-assessment fallback still
+		// applies on subsequent boots.
+		if err := SelectBootEntry(u.config, constants.BootEntryActive); err != nil {
+			u.config.Logger.Warnf("could not set next boot entry to %s: %s", constants.BootEntryActive, err)
+		}
 	}
 
 	// Do not reboot/poweroff on cleanup errors
