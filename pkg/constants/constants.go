@@ -83,6 +83,7 @@ const (
 	UsrLocalPath                 = "/usr/local"
 	OEMPath                      = "/oem"
 	BootEntryRecovery            = "recovery"
+	BootEntryActive              = "cos"
 
 	// SELinux targeted policy paths
 	SELinuxTargetedPath        = "/etc/selinux/targeted"
