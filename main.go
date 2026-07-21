@@ -1220,7 +1220,7 @@ The command automatically:
 					client.Stop()
 				}
 			}
-			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed, stopFn)
+			handler := phonehome.DefaultCommandHandler(cfg.URL, apiKeyFn, cfg.IsAllowed, stopFn, scanned)
 			clientOpts := []phonehome.ClientOption{phonehome.WithCommandHandler(handler)}
 			if scanned != nil {
 				clientOpts = append(clientOpts, phonehome.WithLogger(scanned.Logger))

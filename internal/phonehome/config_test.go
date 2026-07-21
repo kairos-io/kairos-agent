@@ -130,7 +130,7 @@ var _ = Describe("Config.IsAllowed", func() {
 var _ = Describe("DefaultCommandHandler policy gating", func() {
 	It("rejects commands that are not in the allowlist", func() {
 		cfg := &phonehome.Config{} // defaults — exec not allowed
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, nil, nil)
 
 		out, err := handler(phonehome.CommandData{
 			ID:      "c1",
@@ -144,7 +144,7 @@ var _ = Describe("DefaultCommandHandler policy gating", func() {
 
 	It("rejects unknown commands even when listed in defaults", func() {
 		cfg := &phonehome.Config{}
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, nil, nil)
 
 		_, err := handler(phonehome.CommandData{ID: "c2", Command: "totally-made-up"})
 		Expect(err).To(HaveOccurred())
@@ -152,7 +152,7 @@ var _ = Describe("DefaultCommandHandler policy gating", func() {
 	})
 
 	It("denies everything when isAllowed is nil (fail-closed)", func() {
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, nil, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, nil, nil, nil)
 
 		_, err := handler(phonehome.CommandData{ID: "c3", Command: "upgrade"})
 		Expect(err).To(HaveOccurred())
@@ -176,7 +176,7 @@ var _ = Describe("DefaultCommandHandler policy gating", func() {
 		stopped := make(chan struct{}, 1)
 		stop := func() { stopped <- struct{}{} }
 		cfg := &phonehome.Config{} // defaults include unregister
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, stop)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, cfg.IsAllowed, stop, nil)
 
 		out, err := handler(phonehome.CommandData{ID: "u1", Command: "unregister"})
 		Expect(err).ToNot(HaveOccurred())
