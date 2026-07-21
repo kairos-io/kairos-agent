@@ -20,7 +20,7 @@ var _ = Describe("handleReset", func() {
 	})
 
 	It("fails without the scanned system configuration", func() {
-		_, err := handleReset(nil)
+		_, err := handleReset(CommandData{}, nil)
 
 		Expect(err).To(MatchError(ContainSubstring("scanned system configuration")))
 	})
@@ -36,7 +36,7 @@ var _ = Describe("handleReset", func() {
 		}
 		rebootScheduler = func() { rebootScheduled = true }
 
-		message, err := handleReset(cfg)
+		message, err := handleReset(CommandData{}, cfg)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(selected).To(Equal("statereset"))
@@ -58,11 +58,30 @@ var _ = Describe("handleReset", func() {
 		Expect(message).To(ContainSubstring("Automatic state reset selected"))
 	})
 
+	DescribeTable("rejects unsupported legacy arguments without scheduling a reset",
+		func(argument string) {
+			selectBootEntry = func(*sdkConfig.Config, string) error {
+				Fail("boot entry must not be selected")
+				return nil
+			}
+			rebootScheduler = func() { Fail("reboot must not be scheduled") }
+			handler := DefaultCommandHandler("http://example", func() string { return "" }, func(string) bool {
+				return true
+			}, nil, &sdkConfig.Config{})
+
+			_, err := handler(CommandData{Command: "reset", Args: map[string]string{argument: "value"}})
+
+			Expect(err).To(MatchError(ContainSubstring("is not supported")))
+		},
+		Entry("reset-oem", "reset-oem"),
+		Entry("config", "config"),
+	)
+
 	It("does not reboot when selecting the state-reset entry fails", func() {
 		selectBootEntry = func(*sdkConfig.Config, string) error { return errors.New("selection failed") }
 		rebootScheduler = func() { Fail("reboot must not be scheduled") }
 
-		_, err := handleReset(&sdkConfig.Config{})
+		_, err := handleReset(CommandData{}, &sdkConfig.Config{})
 
 		Expect(err).To(MatchError(ContainSubstring("selection failed")))
 	})

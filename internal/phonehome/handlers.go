@@ -54,7 +54,7 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 			return handleUpgrade(ctx, cmd, serverURL, apiKey())
 
 		case "reset":
-			return handleReset(systemConfig)
+			return handleReset(cmd, systemConfig)
 
 		case "apply-cloud-config":
 			return handleApplyCloudConfig(cmd)
@@ -173,7 +173,12 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 // handleReset selects the automatic state-reset boot entry and reboots. Reset
 // itself cannot run from the active system; the statereset entry performs it on
 // the next boot and then returns the node to the active entry.
-func handleReset(systemConfig *sdkConfig.Config) (string, error) {
+func handleReset(cmd CommandData, systemConfig *sdkConfig.Config) (string, error) {
+	for _, argument := range []string{"reset-oem", "config"} {
+		if _, ok := cmd.Args[argument]; ok {
+			return "", fmt.Errorf("reset argument %q is not supported by automatic state reset", argument)
+		}
+	}
 	if systemConfig == nil {
 		return "", fmt.Errorf("reset requires the scanned system configuration")
 	}
