@@ -412,6 +412,144 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
 			}
 		})
+		It("Preserves PARTLABEL on an extra partition when persistent has a fixed size (kairos-io/kairos#4257)", func() {
+			// Re-create a bigger backing file: the default 2GiB one is not
+			// large enough to hold the state/recovery defaults plus a fixed
+			// persistent + a fixed extra partition.
+			imgPath := filepath.Join(tmpDir, "/test.img")
+			Expect(os.RemoveAll(imgPath)).ToNot(HaveOccurred())
+			_, err = fileBackend.CreateFromPath(imgPath, 8*1024*1024*1024)
+			Expect(err).ToNot(HaveOccurred())
+
+			install.PartTable = sdkConstants.GPT
+			install.Firmware = sdkConstants.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)).To(BeNil())
+
+			// This is the config from the bug report, scaled down: both
+			// persistent and the extra partition have a fixed size, so the
+			// extra is written to disk as the LAST partition with a fixed
+			// size instead of expanding to fill.
+			install.Partitions.Persistent.Size = 1024
+			install.ExtraPartitions = SdkPartitions.PartitionList{
+				{
+					Name:            "data_partition",
+					FilesystemLabel: "SYSTEM_DATA",
+					FS:              "ext4",
+					Size:            1024,
+				},
+			}
+
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+
+			disk, err := fileBackend.OpenFromPath(imgPath, true)
+			Expect(err).ToNot(HaveOccurred())
+			defer disk.Close()
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+			Expect(err).ToNot(HaveOccurred())
+
+			var data *gpt.Partition
+			var persistent *gpt.Partition
+			for _, raw := range table.GetPartitions() {
+				p := raw.(*gpt.Partition)
+				switch p.Name {
+				case "data_partition":
+					data = p
+				case sdkConstants.PersistentPartName:
+					persistent = p
+				}
+			}
+
+			Expect(data).ToNot(BeNil(),
+				"extra partition data_partition missing from on-disk GPT — PARTLABEL will not resolve via /dev/disk/by-partlabel")
+			Expect(data.Name).To(Equal("data_partition"))
+
+			const sectorSize uint64 = 512
+			const mib = uint64(1024 * 1024)
+			dataBytes := (data.End - data.Start + 1) * sectorSize
+			Expect(dataBytes).To(BeNumerically("<=", 1024*mib),
+				"extra data_partition grew beyond its configured 1024 MiB size")
+
+			Expect(persistent).ToNot(BeNil())
+			persistentBytes := (persistent.End - persistent.Start + 1) * sectorSize
+			Expect(persistentBytes).To(Equal(1024 * mib),
+				"persistent should keep its configured 1024 MiB size")
+		})
+		It("Refuses config when persistent + extras exceed target disk size", func() {
+			// 4 GiB disk is not enough to hold state/recovery defaults plus a
+			// 3 GiB persistent + 3 GiB extra partition. Sanitize() must
+			// catch it before we go anywhere near the partitioner.
+			imgPath := filepath.Join(tmpDir, "/test.img")
+			Expect(os.RemoveAll(imgPath)).ToNot(HaveOccurred())
+			_, err = fileBackend.CreateFromPath(imgPath, 4*1024*1024*1024)
+			Expect(err).ToNot(HaveOccurred())
+
+			install.PartTable = sdkConstants.GPT
+			install.Firmware = sdkConstants.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)).To(BeNil())
+
+			install.Partitions.Persistent.Size = 3 * 1024
+			install.ExtraPartitions = SdkPartitions.PartitionList{
+				{
+					Name:            "data_partition",
+					FilesystemLabel: "SYSTEM_DATA",
+					FS:              "ext4",
+					Size:            3 * 1024,
+				},
+			}
+
+			// Sanitize can't consult a ghw fixture in this test, so
+			// checkPartitionsFitTargetDisk is skipped there — exercise
+			// the disk-open path instead by going straight to
+			// PartitionAndFormatDevice on a too-small image.
+			err = el.PartitionAndFormatDevice(install)
+			if err == nil {
+				// Not failing outright means partitions ended up outside
+				// the disk. Read the GPT back and confirm the corruption
+				// so the test names the exact failure mode.
+				disk, dErr := fileBackend.OpenFromPath(imgPath, true)
+				Expect(dErr).ToNot(HaveOccurred())
+				defer disk.Close()
+				table, tErr := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+				Expect(tErr).ToNot(HaveOccurred())
+				diskSectors := uint64(4*1024*1024*1024) / 512
+				for _, raw := range table.GetPartitions() {
+					p := raw.(*gpt.Partition)
+					if p.Name == "" {
+						continue
+					}
+					Expect(p.End).To(BeNumerically("<", diskSectors),
+						fmt.Sprintf("partition %q end=%d overflows disk sector count %d — GPT is corrupted",
+							p.Name, p.End, diskSectors))
+				}
+				Fail("PartitionAndFormatDevice accepted a layout larger than the target disk; " +
+					"kairos-io/kairos#4257: silent overflow corrupts the on-disk GPT and drops PARTLABELs")
+			}
+			Expect(err).To(HaveOccurred())
+		})
+		It("Writes a partition-fit-checkable disk when persistent + extras fit", func() {
+			// Positive control for the previous case: same layout but
+			// on a disk that can actually hold everything.
+			imgPath := filepath.Join(tmpDir, "/test.img")
+			Expect(os.RemoveAll(imgPath)).ToNot(HaveOccurred())
+			_, err = fileBackend.CreateFromPath(imgPath, 12*1024*1024*1024)
+			Expect(err).ToNot(HaveOccurred())
+
+			install.PartTable = sdkConstants.GPT
+			install.Firmware = sdkConstants.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)).To(BeNil())
+
+			install.Partitions.Persistent.Size = 3 * 1024
+			install.ExtraPartitions = SdkPartitions.PartitionList{
+				{
+					Name:            "data_partition",
+					FilesystemLabel: "SYSTEM_DATA",
+					FS:              "ext4",
+					Size:            3 * 1024,
+				},
+			}
+
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+		})
 		It("Successfully creates partitions and formats them, BIOS boot", func() {
 			install.PartTable = sdkConstants.GPT
 			install.Firmware = sdkConstants.BIOS

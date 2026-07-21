@@ -25,10 +25,14 @@ func (d *Disk) NewPartitionTable(partType string, parts partitions.PartitionList
 	var table partition.Table
 	switch partType {
 	case sdkConstants.GPT:
+		gptParts := kairosPartsToDiskfsGPTParts(parts, d.Size, d.LogicalBlocksize)
+		if err := validateGPTPartitionsFit(gptParts, d.Size, d.LogicalBlocksize); err != nil {
+			return err
+		}
 		table = &gpt.Table{
 			ProtectiveMBR:      true,
 			GUID:               cnst.DiskUUID, // Set know predictable UUID
-			Partitions:         kairosPartsToDiskfsGPTParts(parts, d.Size, d.LogicalBlocksize),
+			Partitions:         gptParts,
 			LogicalSectorSize:  int(d.LogicalBlocksize),
 			PhysicalSectorSize: int(d.PhysicalBlocksize),
 		}
@@ -40,6 +44,39 @@ func (d *Disk) NewPartitionTable(partType string, parts partitions.PartitionList
 		return err
 	}
 	d.logger.Infof("Created partition table for partition type %s", partType)
+	return nil
+}
+
+// validateGPTPartitionsFit refuses layouts whose last usable sector falls past
+// the space go-diskfs reserves for the backup GPT structures. Without this the
+// partitioner happily writes a table where the last partition overflows the
+// disk, sgdisk reports a "secondary partition table overlaps" warning, and udev
+// never creates the corresponding /dev/disk/by-partlabel symlink
+// (kairos-io/kairos#4257).
+func validateGPTPartitionsFit(parts []*gpt.Partition, diskSize, sectorSize int64) error {
+	if diskSize <= 0 || sectorSize <= 0 {
+		return nil
+	}
+	diskSectors := uint64(diskSize / sectorSize)
+	// 128 partition entries * 128 bytes = 16 KiB = 32 sectors on 512-byte
+	// sectors. Backup GPT header is one sector before the array, so
+	// lastDataSector = diskSectors - 1 - partArraySectors - 1.
+	partArraySectors := uint64(128*128) / uint64(sectorSize)
+	if diskSectors <= partArraySectors+2 {
+		return fmt.Errorf("target disk is too small to hold a GPT partition table")
+	}
+	lastDataSector := diskSectors - partArraySectors - 2
+	for _, p := range parts {
+		if p == nil {
+			continue
+		}
+		if p.End > lastDataSector {
+			return fmt.Errorf(
+				"partition %q (index %d) would end at sector %d, past the last usable sector %d on a %d-byte disk; requested partition sizes do not fit the target device",
+				p.Name, p.Index, p.End, lastDataSector, diskSize,
+			)
+		}
+	}
 	return nil
 }
 
