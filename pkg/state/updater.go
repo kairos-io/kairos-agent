@@ -46,33 +46,15 @@ func RecordInstall(fs sdkFs.KairosFS, mountPoint, source string, now Clock) erro
 	return s.Save(fs, path)
 }
 
-// RecordActiveUpgrade shifts the current active values into the passive slots
-// (mirroring how the previous active image is physically moved to the passive
-// slot on disk) and records the new active upgrade.
+// RecordActiveUpgrade records a new active image upgrade.
 func RecordActiveUpgrade(fs sdkFs.KairosFS, mountPoint, source string, now Clock) error {
 	path := Path(mountPoint)
 	s, err := loadOrRecover(fs, path)
 	if err != nil {
 		return err
 	}
-	s.LastPassiveUpgrade = s.LastActiveUpgrade
-	s.LastPassiveSource = s.LastActiveSource
 	s.LastActiveUpgrade = stamp(now)
 	s.LastActiveSource = source
-	return s.Save(fs, path)
-}
-
-// RecordPassiveUpgrade records an upgrade that lands directly in the passive
-// slot (e.g. an upgrade started while booted from passive). Active is left
-// untouched.
-func RecordPassiveUpgrade(fs sdkFs.KairosFS, mountPoint, source string, now Clock) error {
-	path := Path(mountPoint)
-	s, err := loadOrRecover(fs, path)
-	if err != nil {
-		return err
-	}
-	s.LastPassiveUpgrade = stamp(now)
-	s.LastPassiveSource = source
 	return s.Save(fs, path)
 }
 
@@ -88,8 +70,7 @@ func RecordRecoveryUpgrade(fs sdkFs.KairosFS, mountPoint, source string, now Clo
 	return s.Save(fs, path)
 }
 
-// RecordReset marks a factory reset. The reset wipes the passive image, so
-// the passive fields are cleared. FirstInstall is left untouched.
+// RecordReset marks a factory reset. FirstInstall is left untouched.
 func RecordReset(fs sdkFs.KairosFS, mountPoint, source string, now Clock) error {
 	path := Path(mountPoint)
 	s, err := loadOrRecover(fs, path)
@@ -98,7 +79,5 @@ func RecordReset(fs sdkFs.KairosFS, mountPoint, source string, now Clock) error 
 	}
 	s.LastReset = stamp(now)
 	s.LastResetSource = source
-	s.LastPassiveUpgrade = NeverValue
-	s.LastPassiveSource = ""
 	return s.Save(fs, path)
 }

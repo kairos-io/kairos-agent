@@ -40,14 +40,23 @@ var _ = Describe("state updater", func() {
 		Expect(s.FirstInstall).To(Equal("2026-07-21T10:15:00Z"))
 		Expect(s.FirstInstallSource).To(Equal("oci://quay.io/kairos/core:v3.0.0"))
 		Expect(s.LastActiveUpgrade).To(Equal("never"))
-		Expect(s.LastPassiveUpgrade).To(Equal("never"))
 		Expect(s.LastRecoveryUpgrade).To(Equal("never"))
 		Expect(s.LastReset).To(Equal("never"))
 	})
 
-	It("RecordActiveUpgrade shifts existing active values into passive slots", func() {
+	It("RecordActiveUpgrade writes only the active fields", func() {
 		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
 
+		s, err := state.Load(fs, state.Path(persistentMount))
+		Expect(err).To(BeNil())
+		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T10:15:00Z"))
+		Expect(s.LastActiveSource).To(Equal("oci://a:1"))
+		Expect(s.LastRecoveryUpgrade).To(Equal("never"))
+		Expect(s.LastReset).To(Equal("never"))
+	})
+
+	It("RecordActiveUpgrade overwrites the previous active values in place", func() {
+		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
 		frozen = frozen.Add(time.Hour)
 		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:2", clock)).To(Succeed())
 
@@ -55,33 +64,6 @@ var _ = Describe("state updater", func() {
 		Expect(err).To(BeNil())
 		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T11:15:00Z"))
 		Expect(s.LastActiveSource).To(Equal("oci://a:2"))
-		Expect(s.LastPassiveUpgrade).To(Equal("2026-07-21T10:15:00Z"))
-		Expect(s.LastPassiveSource).To(Equal("oci://a:1"))
-	})
-
-	It("RecordActiveUpgrade on a fresh state writes never-values into passive slots", func() {
-		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
-
-		s, err := state.Load(fs, state.Path(persistentMount))
-		Expect(err).To(BeNil())
-		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T10:15:00Z"))
-		Expect(s.LastActiveSource).To(Equal("oci://a:1"))
-		Expect(s.LastPassiveUpgrade).To(Equal("never"))
-		Expect(s.LastPassiveSource).To(BeEmpty())
-	})
-
-	It("RecordPassiveUpgrade updates only the passive fields", func() {
-		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
-
-		frozen = frozen.Add(time.Hour)
-		Expect(state.RecordPassiveUpgrade(fs, persistentMount, "oci://p:2", clock)).To(Succeed())
-
-		s, err := state.Load(fs, state.Path(persistentMount))
-		Expect(err).To(BeNil())
-		Expect(s.LastPassiveUpgrade).To(Equal("2026-07-21T11:15:00Z"))
-		Expect(s.LastPassiveSource).To(Equal("oci://p:2"))
-		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T10:15:00Z"))
-		Expect(s.LastActiveSource).To(Equal("oci://a:1"))
 	})
 
 	It("RecordRecoveryUpgrade writes only the recovery fields", func() {
@@ -95,24 +77,17 @@ var _ = Describe("state updater", func() {
 		Expect(s.LastReset).To(Equal("never"))
 	})
 
-	It("RecordReset writes reset fields, clears passive fields and preserves FirstInstall", func() {
+	It("RecordReset writes reset fields and leaves FirstInstall alone", func() {
 		Expect(state.RecordInstall(fs, persistentMount, "oci://core:v3.0.0", clock)).To(Succeed())
-		frozen = frozen.Add(time.Hour)
-		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
-		frozen = frozen.Add(time.Hour)
-		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:2", clock)).To(Succeed())
-
 		frozen = frozen.Add(time.Hour)
 		Expect(state.RecordReset(fs, persistentMount, "oci://core:v3.0.0", clock)).To(Succeed())
 
 		s, err := state.Load(fs, state.Path(persistentMount))
 		Expect(err).To(BeNil())
-		Expect(s.LastReset).To(Equal("2026-07-21T13:15:00Z"))
+		Expect(s.LastReset).To(Equal("2026-07-21T11:15:00Z"))
 		Expect(s.LastResetSource).To(Equal("oci://core:v3.0.0"))
-		Expect(s.LastPassiveUpgrade).To(Equal("never"))
-		Expect(s.LastPassiveSource).To(BeEmpty())
-		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T12:15:00Z"))
 		Expect(s.FirstInstall).To(Equal("2026-07-21T10:15:00Z"))
+		Expect(s.FirstInstallSource).To(Equal("oci://core:v3.0.0"))
 	})
 
 	It("Record* renames a corrupt file to .bak and writes a fresh one", func() {
