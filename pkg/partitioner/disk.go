@@ -47,25 +47,31 @@ func (d *Disk) NewPartitionTable(partType string, parts partitions.PartitionList
 	return nil
 }
 
-// validateGPTPartitionsFit refuses layouts whose last usable sector falls past
-// the space go-diskfs reserves for the backup GPT structures. Without this the
-// partitioner happily writes a table where the last partition overflows the
-// disk, sgdisk reports a "secondary partition table overlaps" warning, and udev
-// never creates the corresponding /dev/disk/by-partlabel symlink
-// (kairos-io/kairos#4257).
+// gptBackupTailSectors returns the number of sectors at the tail of the disk
+// occupied by the backup GPT structures: one sector for the backup header plus
+// 128 partition entries * 128 bytes for the backup partition array (32 sectors
+// on a 512-byte disk, 4 sectors on a 4K-native disk).
+func gptBackupTailSectors(sectorSize int64) uint64 {
+	partArraySectors := uint64(128*128) / uint64(sectorSize)
+	return partArraySectors + 1
+}
+
+// validateGPTPartitionsFit refuses layouts whose last partition would land on
+// or past the sectors go-diskfs reserves for the backup GPT structures.
+// Without this the partitioner happily writes a table where the last partition
+// overflows the disk, sgdisk reports a "secondary partition table overlaps"
+// warning, and udev never creates the corresponding /dev/disk/by-partlabel
+// symlink (kairos-io/kairos#4257).
 func validateGPTPartitionsFit(parts []*gpt.Partition, diskSize, sectorSize int64) error {
 	if diskSize <= 0 || sectorSize <= 0 {
 		return nil
 	}
 	diskSectors := uint64(diskSize / sectorSize)
-	// 128 partition entries * 128 bytes = 16 KiB = 32 sectors on 512-byte
-	// sectors. Backup GPT header is one sector before the array, so
-	// lastDataSector = diskSectors - 1 - partArraySectors - 1.
-	partArraySectors := uint64(128*128) / uint64(sectorSize)
-	if diskSectors <= partArraySectors+2 {
+	tail := gptBackupTailSectors(sectorSize)
+	if diskSectors <= tail+1 {
 		return fmt.Errorf("target disk is too small to hold a GPT partition table")
 	}
-	lastDataSector := diskSectors - partArraySectors - 2
+	lastDataSector := diskSectors - tail - 1
 	for _, p := range parts {
 		if p == nil {
 			continue
@@ -98,6 +104,10 @@ func kairosPartsToDiskfsGPTParts(parts partitions.PartitionList, diskSize int64,
 			start = partitions[len(partitions)-1].End + 1
 		}
 
+		// Reserve the exact tail space go-diskfs uses for the backup GPT
+		// header + backup partition array; anything more is wasted disk.
+		tailReserveBytes := gptBackupTailSectors(sectorSize) * uint64(sectorSize)
+
 		// part.Size 0 means take over whats left on the disk
 		if part.Size == 0 {
 			// Remember to add the 1Mb alignment to total size
@@ -106,13 +116,13 @@ func kairosPartsToDiskfsGPTParts(parts partitions.PartitionList, diskSize int64,
 			for _, p := range partitions {
 				sizeUsed = sizeUsed + p.Size
 			}
-			// leave 1Mb at the end for backup GPT header
-			size = uint64(diskSize) - sizeUsed - uint64(1024*1024)
+			size = uint64(diskSize) - sizeUsed - tailReserveBytes
 		} else {
-			// Change it to bytes
-			// If its the last partition to do, leave 1 Mb at the end for backup GPT header
+			// Change it to bytes. If it is the last partition, trim the
+			// backup-GPT tail off its requested size so the write stays
+			// inside lastDataSector.
 			if index == len(parts)-1 {
-				size = uint64(part.Size*1024*1024) - uint64(1024*1024)
+				size = uint64(part.Size*1024*1024) - tailReserveBytes
 			} else {
 				size = uint64(part.Size * 1024 * 1024)
 			}
