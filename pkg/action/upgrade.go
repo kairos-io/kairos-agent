@@ -19,10 +19,12 @@ package action
 import (
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	agentState "github.com/kairos-io/kairos-agent/v2/pkg/state"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	"github.com/kairos-io/kairos-sdk/state"
@@ -250,6 +252,8 @@ func (u *UpgradeAction) Run() (err error) {
 		}
 	}
 
+	u.recordState()
+
 	// Do not reboot/poweroff on cleanup errors
 	if cleanErr := cleanup.Cleanup(err); cleanErr != nil {
 		u.config.Logger.Warn("failure during cleanup (ignoring), run with --debug to see more details")
@@ -257,6 +261,23 @@ func (u *UpgradeAction) Run() (err error) {
 	}
 
 	return nil
+}
+
+func (u *UpgradeAction) recordState() {
+	if u.spec.Partitions.Persistent == nil || u.spec.Partitions.Persistent.MountPoint == "" {
+		u.config.Logger.Debug("persistent partition not available, skipping kairos state file update")
+		return
+	}
+	mount := u.spec.Partitions.Persistent.MountPoint
+	var err error
+	if u.spec.RecoveryUpgrade() {
+		err = agentState.RecordRecoveryUpgrade(u.config.Fs, mount, u.spec.Recovery.Source.String(), time.Now)
+	} else {
+		err = agentState.RecordActiveUpgrade(u.config.Fs, mount, u.spec.Active.Source.String(), time.Now)
+	}
+	if err != nil {
+		u.config.Logger.Warnf("failed to update kairos state file: %s", err)
+	}
 }
 
 // remove attempts to remove the given path. Does nothing if it doesn't exist

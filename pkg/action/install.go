@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"strings"
 
+	"time"
+
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	"github.com/kairos-io/kairos-agent/v2/pkg/progress"
+	"github.com/kairos-io/kairos-agent/v2/pkg/state"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	"github.com/kairos-io/kairos-sdk/agentrun"
 	events "github.com/kairos-io/kairos-sdk/bus"
@@ -52,6 +55,16 @@ func (i *InstallAction) installHook(hook string, chroot bool) error {
 type InstallAction struct {
 	cfg  *sdkConfig.Config
 	spec *v1.InstallSpec
+}
+
+func recordInstallState(cfg *sdkConfig.Config, spec *v1.InstallSpec) {
+	mount := cnst.PersistentDir
+	if spec.Partitions.Persistent != nil && spec.Partitions.Persistent.MountPoint != "" {
+		mount = spec.Partitions.Persistent.MountPoint
+	}
+	if err := state.RecordInstall(cfg.Fs, mount, spec.Active.Source.String(), time.Now); err != nil {
+		cfg.Logger.Warnf("failed to update kairos state file: %s", err)
+	}
 }
 
 func NewInstallAction(cfg *sdkConfig.Config, spec *v1.InstallSpec) *InstallAction {
@@ -229,6 +242,8 @@ func (i InstallAction) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	recordInstallState(i.cfg, i.spec)
 
 	// Do not reboot/poweroff on cleanup errors
 	err = cleanup.Cleanup(err)

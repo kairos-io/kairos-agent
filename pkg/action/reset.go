@@ -17,9 +17,12 @@ limitations under the License.
 package action
 
 import (
+	"time"
+
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	"github.com/kairos-io/kairos-agent/v2/pkg/state"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
@@ -216,6 +219,8 @@ func (r ResetAction) Run() (err error) {
 		return err
 	}
 
+	r.recordState()
+
 	// Do not reboot/poweroff on cleanup errors
 	err = cleanup.Cleanup(err)
 	if err != nil {
@@ -223,4 +228,14 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	return err
+}
+
+func (r *ResetAction) recordState() {
+	mount := cnst.PersistentDir
+	if r.spec.Partitions.Persistent != nil && r.spec.Partitions.Persistent.MountPoint != "" {
+		mount = r.spec.Partitions.Persistent.MountPoint
+	}
+	if err := state.RecordReset(r.cfg.Fs, mount, r.spec.Active.Source.String(), time.Now); err != nil {
+		r.cfg.Logger.Warnf("failed to update kairos state file: %s", err)
+	}
 }
