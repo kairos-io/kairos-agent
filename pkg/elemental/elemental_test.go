@@ -446,6 +446,50 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
 			}
 		})
+		It("defaults an extra partition with no fs set to ext2", func() {
+			install.PartTable = sdkConstants.GPT
+			install.Firmware = sdkConstants.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)).To(BeNil())
+			install.ExtraPartitions = SdkPartitions.PartitionList{
+				&SdkPartitions.Partition{
+					Name:            "data_partition",
+					FilesystemLabel: "SYSTEM_DATA",
+					Size:            100,
+				},
+			}
+			runner.ClearCmds()
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+
+			disk, err := fileBackend.OpenFromPath(filepath.Join(tmpDir, "/test.img"), true)
+			Expect(err).ToNot(HaveOccurred())
+			defer disk.Close()
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+			Expect(err).ToNot(HaveOccurred())
+			// The extra partition is created, on top of the 5 default ones
+			Expect(len(table.GetPartitions())).To(Equal(6))
+			names := []string{}
+			for _, p := range table.GetPartitions() {
+				names = append(names, p.(*gpt.Partition).Name)
+			}
+			Expect(names).To(ContainElement("data_partition"))
+			Expect(runner.IncludesCmds([][]string{{"mkfs.ext2", "-L", "SYSTEM_DATA"}})).To(Succeed())
+		})
+		It("leaves extra partitions with noformat filesystem values unformatted", func() {
+			install.PartTable = sdkConstants.GPT
+			install.Firmware = sdkConstants.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)).To(BeNil())
+			install.ExtraPartitions = SdkPartitions.PartitionList{
+				&SdkPartitions.Partition{Name: "dash_partition", FS: "-", Size: 100},
+				&SdkPartitions.Partition{Name: "none_partition", FS: "none", Size: 100},
+				&SdkPartitions.Partition{Name: "noformat_partition", FS: "noformat", Size: 100},
+			}
+			runner.ClearCmds()
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+
+			for _, fs := range []string{"-", "none", "noformat"} {
+				Expect(runner.IncludesCmds([][]string{{"mkfs." + fs}})).To(HaveOccurred())
+			}
+		})
 	})
 	Describe("DeployImage", Label("DeployImage"), func() {
 		var el *elemental.Elemental
