@@ -130,6 +130,11 @@ func (e *Elemental) PartitionAndFormatDevice(i sdkSpec.SharedInstallSpec) error 
 				// Grub partition on non-EFI is not formatted. Grub is directly installed on it
 				continue
 			}
+			if configPart.FS == "" {
+				// No filesystem configured, the partition is created but left unformatted
+				e.config.Logger.Infof("Partition %s has no filesystem set, leaving it unformatted", configPart.Name)
+				continue
+			}
 			// we have to match the Fs it was asked with the partition in the system
 			if p.(*gpt.Partition).Name == configPart.Name {
 				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)

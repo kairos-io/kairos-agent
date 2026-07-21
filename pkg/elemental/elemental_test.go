@@ -446,6 +446,35 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 				Expect(partition.Type).To(Equal(gpt.LinuxFilesystem))
 			}
 		})
+		It("Creates an extra partition with no fs set and leaves it unformatted", func() {
+			install.PartTable = sdkConstants.GPT
+			install.Firmware = sdkConstants.EFI
+			Expect(install.Partitions.SetFirmwarePartitions(sdkConstants.EFI, sdkConstants.GPT)).To(BeNil())
+			install.ExtraPartitions = SdkPartitions.PartitionList{
+				&SdkPartitions.Partition{
+					Name:            "data_partition",
+					FilesystemLabel: "SYSTEM_DATA",
+					Size:            100,
+				},
+			}
+			runner.ClearCmds()
+			Expect(el.PartitionAndFormatDevice(install)).To(BeNil())
+
+			disk, err := fileBackend.OpenFromPath(filepath.Join(tmpDir, "/test.img"), true)
+			Expect(err).ToNot(HaveOccurred())
+			defer disk.Close()
+			table, err := gpt.Read(disk, int(diskfs.SectorSize512), int(diskfs.SectorSize512))
+			Expect(err).ToNot(HaveOccurred())
+			// The extra partition is created, on top of the 5 default ones
+			Expect(len(table.GetPartitions())).To(Equal(6))
+			names := []string{}
+			for _, p := range table.GetPartitions() {
+				names = append(names, p.(*gpt.Partition).Name)
+			}
+			Expect(names).To(ContainElement("data_partition"))
+			// But no mkfs was run against it
+			Expect(runner.IncludesCmds([][]string{{"mkfs.ext4", "-L", "SYSTEM_DATA"}})).To(HaveOccurred())
+		})
 	})
 	Describe("DeployImage", Label("DeployImage"), func() {
 		var el *elemental.Elemental
