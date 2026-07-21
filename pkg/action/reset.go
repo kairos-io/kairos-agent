@@ -232,9 +232,30 @@ func (r ResetAction) Run() (err error) {
 
 func (r *ResetAction) recordState() {
 	mount := cnst.PersistentDir
-	if r.spec.Partitions.Persistent != nil && r.spec.Partitions.Persistent.MountPoint != "" {
-		mount = r.spec.Partitions.Persistent.MountPoint
+	persistent := r.spec.Partitions.Persistent
+	if persistent != nil && persistent.MountPoint != "" {
+		mount = persistent.MountPoint
 	}
+
+	// Persistent may have been unmounted after FormatPersistent; mount it for
+	// the write so the state file lands on the partition rather than on the
+	// recovery rootfs (which is discarded on reboot).
+	if persistent != nil {
+		mounted, _ := utils.IsMounted(r.cfg, persistent)
+		if !mounted {
+			e := elemental.NewElemental(r.cfg)
+			if mErr := e.MountPartition(persistent); mErr != nil {
+				r.cfg.Logger.Warnf("failed to mount persistent for state record: %s", mErr)
+			} else {
+				defer func() {
+					if uErr := e.UnmountPartition(persistent); uErr != nil {
+						r.cfg.Logger.Warnf("failed to unmount persistent after state record: %s", uErr)
+					}
+				}()
+			}
+		}
+	}
+
 	if err := state.RecordReset(r.cfg.Fs, mount, r.spec.Active.Source.String(), time.Now); err != nil {
 		r.cfg.Logger.Warnf("failed to update kairos state file: %s", err)
 	}
