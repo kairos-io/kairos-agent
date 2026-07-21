@@ -32,13 +32,13 @@ var _ = Describe("state updater", func() {
 		cleanup()
 	})
 
-	It("RecordInstall writes only the install fields", func() {
+	It("RecordInstall writes only the first-install fields", func() {
 		Expect(state.RecordInstall(fs, persistentMount, "oci://quay.io/kairos/core:v3.0.0", clock)).To(Succeed())
 
 		s, err := state.Load(fs, state.Path(persistentMount))
 		Expect(err).To(BeNil())
-		Expect(s.LastInstall).To(Equal("2026-07-21T10:15:00Z"))
-		Expect(s.LastInstallSource).To(Equal("oci://quay.io/kairos/core:v3.0.0"))
+		Expect(s.FirstInstall).To(Equal("2026-07-21T10:15:00Z"))
+		Expect(s.FirstInstallSource).To(Equal("oci://quay.io/kairos/core:v3.0.0"))
 		Expect(s.LastActiveUpgrade).To(Equal("never"))
 		Expect(s.LastPassiveUpgrade).To(Equal("never"))
 		Expect(s.LastRecoveryUpgrade).To(Equal("never"))
@@ -70,6 +70,20 @@ var _ = Describe("state updater", func() {
 		Expect(s.LastPassiveSource).To(BeEmpty())
 	})
 
+	It("RecordPassiveUpgrade updates only the passive fields", func() {
+		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
+
+		frozen = frozen.Add(time.Hour)
+		Expect(state.RecordPassiveUpgrade(fs, persistentMount, "oci://p:2", clock)).To(Succeed())
+
+		s, err := state.Load(fs, state.Path(persistentMount))
+		Expect(err).To(BeNil())
+		Expect(s.LastPassiveUpgrade).To(Equal("2026-07-21T11:15:00Z"))
+		Expect(s.LastPassiveSource).To(Equal("oci://p:2"))
+		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T10:15:00Z"))
+		Expect(s.LastActiveSource).To(Equal("oci://a:1"))
+	})
+
 	It("RecordRecoveryUpgrade writes only the recovery fields", func() {
 		Expect(state.RecordRecoveryUpgrade(fs, persistentMount, "oci://recovery:1", clock)).To(Succeed())
 
@@ -81,8 +95,9 @@ var _ = Describe("state updater", func() {
 		Expect(s.LastReset).To(Equal("never"))
 	})
 
-	It("RecordReset writes reset fields and clears passive fields", func() {
-		// Seed with a completed active upgrade so passive gets populated.
+	It("RecordReset writes reset fields, clears passive fields and preserves FirstInstall", func() {
+		Expect(state.RecordInstall(fs, persistentMount, "oci://core:v3.0.0", clock)).To(Succeed())
+		frozen = frozen.Add(time.Hour)
 		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:1", clock)).To(Succeed())
 		frozen = frozen.Add(time.Hour)
 		Expect(state.RecordActiveUpgrade(fs, persistentMount, "oci://a:2", clock)).To(Succeed())
@@ -92,11 +107,12 @@ var _ = Describe("state updater", func() {
 
 		s, err := state.Load(fs, state.Path(persistentMount))
 		Expect(err).To(BeNil())
-		Expect(s.LastReset).To(Equal("2026-07-21T12:15:00Z"))
+		Expect(s.LastReset).To(Equal("2026-07-21T13:15:00Z"))
 		Expect(s.LastResetSource).To(Equal("oci://core:v3.0.0"))
 		Expect(s.LastPassiveUpgrade).To(Equal("never"))
 		Expect(s.LastPassiveSource).To(BeEmpty())
-		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T11:15:00Z"))
+		Expect(s.LastActiveUpgrade).To(Equal("2026-07-21T12:15:00Z"))
+		Expect(s.FirstInstall).To(Equal("2026-07-21T10:15:00Z"))
 	})
 
 	It("Record* renames a corrupt file to .bak and writes a fresh one", func() {
@@ -114,7 +130,7 @@ var _ = Describe("state updater", func() {
 
 		s, err := state.Load(fs, p)
 		Expect(err).To(BeNil())
-		Expect(s.LastInstall).To(Equal("2026-07-21T10:15:00Z"))
-		Expect(s.LastInstallSource).To(Equal("oci://x:1"))
+		Expect(s.FirstInstall).To(Equal("2026-07-21T10:15:00Z"))
+		Expect(s.FirstInstallSource).To(Equal("oci://x:1"))
 	})
 })

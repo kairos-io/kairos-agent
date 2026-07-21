@@ -1,7 +1,8 @@
 // Package state manages the .kairos-state file kept on the persistent
-// partition. The file records timestamps and image sources for the last
-// install, active/passive/recovery upgrades and reset so users have a
-// visible history of lifecycle operations on the machine.
+// partition. The file records the machine's first install and the most recent
+// active/passive/recovery upgrade plus the last factory reset, together with
+// the image source for each event. It gives users a persistent,
+// human-readable snapshot of the machine's lifecycle history.
 package state
 
 import (
@@ -19,10 +20,12 @@ const FileName = ".kairos-state"
 // NeverValue is the placeholder used for events that have not happened yet.
 const NeverValue = "never"
 
-// KairosState is the on-disk representation of the state file.
+// KairosState is the on-disk representation of the state file. FirstInstall is
+// set once when the machine is installed and never changes afterwards. The
+// remaining pairs track the most recent occurrence of each lifecycle event.
 type KairosState struct {
-	LastInstall         string `yaml:"last-install"`
-	LastInstallSource   string `yaml:"last-install-source"`
+	FirstInstall        string `yaml:"first-install"`
+	FirstInstallSource  string `yaml:"first-install-source"`
 	LastActiveUpgrade   string `yaml:"last-active-upgrade"`
 	LastActiveSource    string `yaml:"last-active-source"`
 	LastPassiveUpgrade  string `yaml:"last-passive-upgrade"`
@@ -37,7 +40,7 @@ type KairosState struct {
 // sources empty.
 func Default() *KairosState {
 	return &KairosState{
-		LastInstall:         NeverValue,
+		FirstInstall:        NeverValue,
 		LastActiveUpgrade:   NeverValue,
 		LastPassiveUpgrade:  NeverValue,
 		LastRecoveryUpgrade: NeverValue,

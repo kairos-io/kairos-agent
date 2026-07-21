@@ -33,12 +33,12 @@ var _ = Describe("state.KairosState", func() {
 
 	It("returns a Default() with all timestamps set to 'never' and empty sources", func() {
 		s := state.Default()
-		Expect(s.LastInstall).To(Equal("never"))
+		Expect(s.FirstInstall).To(Equal("never"))
 		Expect(s.LastActiveUpgrade).To(Equal("never"))
 		Expect(s.LastPassiveUpgrade).To(Equal("never"))
 		Expect(s.LastRecoveryUpgrade).To(Equal("never"))
 		Expect(s.LastReset).To(Equal("never"))
-		Expect(s.LastInstallSource).To(BeEmpty())
+		Expect(s.FirstInstallSource).To(BeEmpty())
 		Expect(s.LastActiveSource).To(BeEmpty())
 		Expect(s.LastPassiveSource).To(BeEmpty())
 		Expect(s.LastRecoverySource).To(BeEmpty())
@@ -52,13 +52,13 @@ var _ = Describe("state.KairosState", func() {
 	It("Load returns Default() when the file does not exist", func() {
 		s, err := state.Load(fs, state.Path(persistentMount))
 		Expect(err).To(BeNil())
-		Expect(s.LastInstall).To(Equal("never"))
+		Expect(s.FirstInstall).To(Equal("never"))
 	})
 
 	It("Save + Load round-trips the struct", func() {
 		orig := state.Default()
-		orig.LastInstall = time.Date(2026, 7, 21, 9, 51, 0, 0, time.UTC).Format(time.RFC3339)
-		orig.LastInstallSource = "oci://quay.io/kairos/core:v3.0.0"
+		orig.FirstInstall = time.Date(2026, 7, 21, 9, 51, 0, 0, time.UTC).Format(time.RFC3339)
+		orig.FirstInstallSource = "oci://quay.io/kairos/core:v3.0.0"
 		Expect(orig.Save(fs, state.Path(persistentMount))).To(Succeed())
 
 		got, err := state.Load(fs, state.Path(persistentMount))
