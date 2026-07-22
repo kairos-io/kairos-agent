@@ -277,7 +277,7 @@ func (e Elemental) MountImage(img *sdkImages.Image, opts ...string) error {
 
 	err = e.config.Mounter.Mount(loopDevice, img.MountPoint, "auto", opts)
 	if err != nil {
-		return err
+		return errors.Join(err, loop.Unloop(loopDevice, e.config))
 	}
 
 	// Store the loop device so we can later detach it
