@@ -606,7 +606,7 @@ func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 	// TODO: Check how to run this from livecd as it requires mounting state and grub?
 	var entries []string
 	idRe := regexp.MustCompile(`--id\s([A-z0-9]*)\s{`)
-	menuEntryRe := regexp.MustCompile(`(?m)^\s*menuentry\s+(?:"([^"]+)"|'([^']+)')([^\n{]*)\{`)
+	menuEntryRe := regexp.MustCompile(`(?m)^\s*menuentry\s+(?:"([^"]+)"|'([^']+)')(?:[^\n{]*)\{`)
 	files := []string{
 		"/etc/cos/grub.cfg",
 		"/run/initramfs/cos-state/grub/grub.cfg",
