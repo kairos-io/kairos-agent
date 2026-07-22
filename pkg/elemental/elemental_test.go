@@ -272,8 +272,40 @@ var _ = Describe("Elemental", Label("elemental"), func() {
 		})
 
 		It("Fails to mount a loop device", Label("loop"), func() {
+			unloopCalled := false
+			syscall.SideEffectSyscall = func(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err sc.Errno) {
+				if trap == sc.SYS_IOCTL && a2 == unix.LOOP_CTL_GET_FREE {
+					return uintptr(devLoopInt), 0, 0
+				}
+				if trap == sc.SYS_IOCTL && a2 == unix.LOOP_CLR_FD {
+					unloopCalled = true
+				}
+				return 0, 0, 0
+			}
 			mounter.ErrorOnMount = true
 			Expect(el.MountImage(img)).NotTo(BeNil())
+			Expect(unloopCalled).To(BeTrue())
+			Expect(img.LoopDevice).To(Equal(""))
+		})
+
+		It("Reports mount and loop cleanup errors", Label("loop"), func() {
+			syscall.SideEffectSyscall = func(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err sc.Errno) {
+				if trap == sc.SYS_IOCTL && a2 == unix.LOOP_CTL_GET_FREE {
+					return uintptr(devLoopInt), 0, 0
+				}
+				if trap == sc.SYS_IOCTL && a2 == unix.LOOP_CLR_FD {
+					return 0, 0, sc.EIO
+				}
+				return 0, 0, 0
+			}
+			mounter.ErrorOnMount = true
+
+			err := el.MountImage(img)
+
+			Expect(err).To(MatchError(And(
+				ContainSubstring("mount error"),
+				ContainSubstring("input/output error"),
+			)))
 			Expect(img.LoopDevice).To(Equal(""))
 		})
 	})
