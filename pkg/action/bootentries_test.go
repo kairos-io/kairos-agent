@@ -448,6 +448,15 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 			})
 		})
 		Context("ListGrubEntries", func() {
+			It("lists double-quoted grubcustom entries without an explicit id", func() {
+				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry \"Custom Entry\" {\n}"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				entries, err := listGrubEntries(config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(entries).To(ConsistOf("Custom Entry"))
+			})
+
 			It("lists grubcustom entries without an explicit id", func() {
 				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry 'Custom Entry' {\n}"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
