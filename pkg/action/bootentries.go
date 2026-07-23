@@ -601,10 +601,12 @@ func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 	// /run/initramfs/cos-state/grub/grub.cfg
 	// /run/initramfs/cos-state/grub2/grub.cfg
 	// /etc/kairos/branding/grubmenu.cfg
-	// And grep the entries by checking the --id\s([A-z0-9]*)\s{ pattern
+	// Prefer explicit --id values and fall back to menuentry titles when an ID
+	// is not present, as is common for entries supplied through grubcustom.
 	// TODO: Check how to run this from livecd as it requires mounting state and grub?
 	var entries []string
-	re, _ := regexp.Compile(`--id\s([A-z0-9]*)\s{`)
+	idRe := regexp.MustCompile(`--id\s([A-z0-9]*)\s{`)
+	menuEntryRe := regexp.MustCompile(`(?m)^\s*menuentry\s+(?:"([^"]+)"|'([^']+)')(?:[^\n{]*)\{`)
 	files := []string{
 		"/etc/cos/grub.cfg",
 		"/run/initramfs/cos-state/grub/grub.cfg",
@@ -618,9 +620,20 @@ func listGrubEntries(cfg *sdkConfig.Config) ([]string, error) {
 			continue
 		}
 		foundAnyGrubFile = true
-		matches := re.FindAllStringSubmatch(string(f), -1)
+		matches := idRe.FindAllStringSubmatch(string(f), -1)
 		for _, match := range matches {
 			entries = append(entries, match[1])
+		}
+		menuEntries := menuEntryRe.FindAllStringSubmatch(string(f), -1)
+		for _, match := range menuEntries {
+			if idRe.MatchString(match[0]) {
+				continue
+			}
+			if match[1] != "" {
+				entries = append(entries, match[1])
+			} else {
+				entries = append(entries, match[2])
+			}
 		}
 	}
 	if !foundAnyGrubFile {

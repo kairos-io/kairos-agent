@@ -447,7 +447,34 @@ var _ = Describe("Bootentries tests", Label("bootentry"), func() {
 				Expect(err).To(HaveOccurred())
 			})
 		})
-		Context("ListSystemdEntries", func() {
+		Context("ListGrubEntries", func() {
+			It("lists double-quoted grubcustom entries without an explicit id", func() {
+				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry \"Custom Entry\" {\n}"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				entries, err := listGrubEntries(config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(entries).To(ConsistOf("Custom Entry"))
+			})
+
+			It("lists grubcustom entries without an explicit id", func() {
+				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry 'Custom Entry' {\n}"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				entries, err := listGrubEntries(config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(entries).To(ConsistOf("Custom Entry"))
+			})
+
+			It("uses the explicit id instead of also listing the menuentry title", func() {
+				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry 'Custom Entry' --id customentry {\n}"), os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+
+				entries, err := listGrubEntries(config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(entries).To(ConsistOf("customentry"))
+			})
+
 			It("lists the boot entries if there is any", func() {
 				err := fs.WriteFile("/etc/cos/grub.cfg", []byte("whatever whatever --id kairos {"), os.ModePerm)
 				Expect(err).ToNot(HaveOccurred())
