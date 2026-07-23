@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,6 +18,26 @@ import (
 
 var selectBootEntry = action.SelectBootEntry
 var rebootScheduler = scheduleReboot
+var persistentDir = constants.PersistentDir
+
+func createArtifactTempFile(config *sdkConfig.Config, artifactID string) (*os.File, error) {
+	if config == nil || config.Mounter == nil {
+		return nil, fmt.Errorf("cannot verify the persistent partition mount")
+	}
+	notMounted, err := config.Mounter.IsLikelyNotMountPoint(persistentDir)
+	if err != nil {
+		return nil, fmt.Errorf("checking persistent partition mount: %w", err)
+	}
+	if notMounted {
+		return nil, fmt.Errorf("persistent partition %s is not mounted", persistentDir)
+	}
+
+	tempDir := filepath.Join(persistentDir, "tmp")
+	if err := os.MkdirAll(tempDir, 0750); err != nil {
+		return nil, fmt.Errorf("creating persistent temporary directory: %w", err)
+	}
+	return os.CreateTemp(tempDir, fmt.Sprintf("phonehome-upgrade-%s-*.tar", artifactID))
+}
 
 // DefaultCommandHandler returns a CommandHandler that handles all phone-home commands.
 // The serverURL and apiKey are needed to download artifact images for upgrades.
@@ -51,7 +72,7 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 			return string(out), err
 
 		case "upgrade", "upgrade-recovery":
-			return handleUpgrade(ctx, cmd, serverURL, apiKey())
+			return handleUpgrade(ctx, cmd, serverURL, apiKey(), systemConfig)
 
 		case "reset":
 			return handleReset(cmd, systemConfig)
@@ -93,7 +114,7 @@ func handleUnregister(stop func()) (string, error) {
 }
 
 // handleUpgrade downloads the image (if artifact-based) and runs kairos-agent upgrade.
-func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKey string) (string, error) {
+func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKey string, systemConfig *sdkConfig.Config) (string, error) {
 	source := cmd.Args["source"]
 	if source == "" {
 		return "", fmt.Errorf("upgrade requires 'source' arg")
@@ -103,11 +124,10 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 	if strings.HasPrefix(source, "artifact:") {
 		artifactID := strings.TrimPrefix(source, "artifact:")
 		// Artifact IDs come from the management server — constrain to a safe
-		// character set so they can't traverse out of /tmp or poison the URL path.
+		// character set so they can't poison the temporary filename or URL path.
 		if !isSafeArtifactID(artifactID) {
 			return "", fmt.Errorf("invalid artifact id %q", artifactID)
 		}
-		tarPath := fmt.Sprintf("/tmp/phonehome-upgrade-%s.tar", artifactID)
 
 		imageURL := fmt.Sprintf("%s/api/v1/artifacts/%s/image?token=%s",
 			strings.TrimRight(serverURL, "/"), artifactID, apiKey)
@@ -127,10 +147,11 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 			return "", fmt.Errorf("downloading artifact image: HTTP %d", resp.StatusCode)
 		}
 
-		f, err := os.Create(tarPath) //nosec G304 -- tarPath is built from a validated artifactID under /tmp
+		f, err := createArtifactTempFile(systemConfig, artifactID)
 		if err != nil {
 			return "", fmt.Errorf("creating tar file: %w", err)
 		}
+		tarPath := f.Name()
 		if _, err = io.Copy(f, resp.Body); err != nil {
 			_ = f.Close()
 			_ = os.Remove(tarPath)
