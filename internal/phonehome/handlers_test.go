@@ -42,6 +42,25 @@ var _ = Describe("artifact upgrade download", func() {
 
 		Expect(err).To(MatchError(ContainSubstring("is not mounted")))
 	})
+
+	It("refuses to download when the persistent partition mount cannot be verified", func() {
+		_, err := createArtifactTempFile(nil, "artifact-123")
+
+		Expect(err).To(MatchError("cannot verify the persistent partition mount"))
+	})
+
+	It("reports an error when the persistent temporary directory cannot be created", func() {
+		tempDir := GinkgoT().TempDir()
+		persistentDir = filepath.Join(tempDir, "persistent")
+		Expect(os.WriteFile(persistentDir, []byte("not a directory"), 0600)).To(Succeed())
+		config := &sdkConfig.Config{Mounter: mount.NewFakeMounter([]mount.MountPoint{
+			{Device: "/dev/persistent", Path: persistentDir},
+		})}
+
+		_, err := createArtifactTempFile(config, "artifact-123")
+
+		Expect(err).To(MatchError(ContainSubstring("creating persistent temporary directory")))
+	})
 })
 
 var _ = Describe("handleReset", func() {
