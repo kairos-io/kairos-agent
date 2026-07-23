@@ -17,9 +17,12 @@ limitations under the License.
 package action
 
 import (
+	"time"
+
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	"github.com/kairos-io/kairos-agent/v2/pkg/state"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
@@ -216,6 +219,8 @@ func (r ResetAction) Run() (err error) {
 		return err
 	}
 
+	r.recordState()
+
 	// Do not reboot/poweroff on cleanup errors
 	err = cleanup.Cleanup(err)
 	if err != nil {
@@ -223,4 +228,35 @@ func (r ResetAction) Run() (err error) {
 	}
 
 	return err
+}
+
+func (r *ResetAction) recordState() {
+	mount := cnst.PersistentDir
+	persistent := r.spec.Partitions.Persistent
+	if persistent != nil && persistent.MountPoint != "" {
+		mount = persistent.MountPoint
+	}
+
+	// Persistent may have been unmounted after FormatPersistent; mount it for
+	// the write so the state file lands on the partition rather than on the
+	// recovery rootfs (which is discarded on reboot).
+	if persistent != nil {
+		mounted, _ := utils.IsMounted(r.cfg, persistent)
+		if !mounted {
+			e := elemental.NewElemental(r.cfg)
+			if mErr := e.MountPartition(persistent); mErr != nil {
+				r.cfg.Logger.Warnf("failed to mount persistent for state record: %s", mErr)
+			} else {
+				defer func() {
+					if uErr := e.UnmountPartition(persistent); uErr != nil {
+						r.cfg.Logger.Warnf("failed to unmount persistent after state record: %s", uErr)
+					}
+				}()
+			}
+		}
+	}
+
+	if err := state.RecordReset(r.cfg.Fs, mount, r.spec.Active.Source.String(), time.Now); err != nil {
+		r.cfg.Logger.Warnf("failed to update kairos state file: %s", err)
+	}
 }

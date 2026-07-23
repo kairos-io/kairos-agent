@@ -25,8 +25,8 @@ import (
 	"strings"
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
-	yipPlugins "github.com/mudler/yip/pkg/plugins"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	k8sutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/k8s"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils/partitions"
@@ -40,8 +40,8 @@ import (
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	sdkRunner "github.com/kairos-io/kairos-sdk/types/runner"
 	sdkSpec "github.com/kairos-io/kairos-sdk/types/spec"
+	yipPlugins "github.com/mudler/yip/pkg/plugins"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/sanity-io/litter"
 	"github.com/spf13/viper"
@@ -165,12 +165,17 @@ func NewInstallSpec(cfg *sdkConfig.Config) (*spec.InstallSpec, error) {
 		PowerOff:  cfg.Install.Poweroff,
 	}
 
+	// Honor install.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "install"); err != nil {
+		return nil, err
+	}
+
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
+		cfg.Logger.Infof("Setting image size to %dMiB", size)
 		spec.Active.Size = uint(size)
 		spec.Passive.Size = uint(size)
 		spec.Recovery.Size = uint(size)
@@ -209,7 +214,7 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 		MountPoint:      constants.OEMDir,
 		Flags:           []string{},
 	}
-	log.Infof("Setting OEM partition size to %dMb", oemSize)
+	log.Infof("Setting OEM partition size to %dMiB", oemSize)
 	// Double the space for recovery, as upgrades use the recovery partition to create the transition image for upgrades
 	// so we need twice the space to do a proper upgrade
 	// Check if the default/user provided values are enough to fit the images sizes
@@ -220,12 +225,12 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 		if spec.Partitions.Recovery.Size < (spec.Recovery.Size*2)+200 { // Configured by user but not enough space
 			// If we had the logger here we could log a message saying that space is not enough and we are auto increasing it
 			recoverySize = (spec.Recovery.Size * 2) + 200
-			log.Warnf("Not enough space set for recovery partition(%dMb), increasing it to fit the recovery images(%dMb)", spec.Partitions.Recovery.Size, recoverySize)
+			log.Warnf("Not enough space set for recovery partition(%dMiB), increasing it to fit the recovery images(%dMiB)", spec.Partitions.Recovery.Size, recoverySize)
 		} else {
 			recoverySize = spec.Partitions.Recovery.Size
 		}
 	}
-	log.Infof("Setting recovery partition size to %dMb", recoverySize)
+	log.Infof("Setting recovery partition size to %dMiB", recoverySize)
 	pt.Recovery = &sdkPartitions.Partition{
 		FilesystemLabel: sdkConstants.RecoveryLabel,
 		Size:            recoverySize,
@@ -246,12 +251,12 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 	} else {
 		if spec.Partitions.State.Size < (spec.Active.Size*2)+spec.Passive.Size+1000 { // Configured by user but not enough space
 			stateSize = (spec.Active.Size * 2) + spec.Passive.Size + 1000
-			log.Warnf("Not enough space set for state partition(%dMb), increasing it to fit the state images(%dMb)", spec.Partitions.State.Size, stateSize)
+			log.Warnf("Not enough space set for state partition(%dMiB), increasing it to fit the state images(%dMiB)", spec.Partitions.State.Size, stateSize)
 		} else {
 			stateSize = spec.Partitions.State.Size
 		}
 	}
-	log.Infof("Setting state partition size to %dMb", stateSize)
+	log.Infof("Setting state partition size to %dMiB", stateSize)
 	pt.State = &sdkPartitions.Partition{
 		FilesystemLabel: sdkConstants.StateLabel,
 		Size:            stateSize,
@@ -274,7 +279,7 @@ func NewInstallElementalPartitions(log sdkLogger.KairosLogger, spec *spec.Instal
 		MountPoint:      constants.PersistentDir,
 		Flags:           []string{},
 	}
-	log.Infof("Setting persistent partition size to %dMb", persistentSize)
+	log.Infof("Setting persistent partition size to %dMiB", persistentSize)
 	return pt
 }
 
@@ -395,20 +400,13 @@ func NewUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling the full spec: %w", err)
 	}
+	// Honor upgrade.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "upgrade"); err != nil {
+		return nil, err
+	}
 	err = setUpgradeSourceSize(cfg, spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed calculating size: %w", err)
-	}
-
-	if spec.Active.Source.IsDocker() {
-		cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
-		_, err := crane.Manifest(spec.Active.Source.Value())
-		if err != nil {
-			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-				return nil, fmt.Errorf("oci image %s does not exist", spec.Active.Source.Value())
-			}
-			return nil, err
-		}
 	}
 
 	return spec, nil
@@ -445,14 +443,14 @@ func setUpgradeSourceSize(cfg *sdkConfig.Config, spec *spec.UpgradeSpec) error {
 	}
 
 	if uint(size) < originalSize {
-		cfg.Logger.Debugf("Calculated size (%dMB) is less than specified/default size (%dMB)", size, originalSize)
+		cfg.Logger.Debugf("Calculated size (%dMiB) is less than specified/default size (%dMiB)", size, originalSize)
 		targetSpec.Size = originalSize
 	} else {
-		cfg.Logger.Debugf("Calculated size (%dMB) is higher than specified/default size (%dMB)", size, originalSize)
+		cfg.Logger.Debugf("Calculated size (%dMiB) is higher than specified/default size (%dMiB)", size, originalSize)
 		targetSpec.Size = uint(size)
 	}
 
-	cfg.Logger.Infof("Setting image size to %dMB", targetSpec.Size)
+	cfg.Logger.Infof("Setting image size to %dMiB", targetSpec.Size)
 
 	return nil
 }
@@ -561,7 +559,7 @@ func NewResetSpec(cfg *sdkConfig.Config) (*spec.ResetSpec, error) {
 	if err != nil {
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
+		cfg.Logger.Infof("Setting image size to %dMiB", size)
 		spec.Active.Size = uint(size)
 		spec.Passive.Size = uint(size)
 	}
@@ -720,10 +718,15 @@ func NewUkiInstallSpec(cfg *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 		Flags:           []string{},
 	}
 
+	// Honor install.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "install"); err != nil {
+		return nil, err
+	}
+
 	// Get the actual source size to calculate the image size and partitions size
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
-		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%dMb): %s", spec.Partitions.EFI.Size, err.Error())
+		cfg.Logger.Warnf("Failed to infer size for images, leaving it as default size (%dMiB): %s", spec.Partitions.EFI.Size, err.Error())
 	} else {
 		// Only override if the calculated size is bigger than the default size, otherwise stay with 15Gb minimum
 		if uint(size*3) > spec.Partitions.EFI.Size {
@@ -731,7 +734,7 @@ func NewUkiInstallSpec(cfg *sdkConfig.Config) (*spec.InstallUkiSpec, error) {
 		}
 	}
 
-	cfg.Logger.Infof("Setting image size to %dMb", spec.Partitions.EFI.Size)
+	cfg.Logger.Infof("Setting image size to %dMiB", spec.Partitions.EFI.Size)
 
 	err = unmarshallFullSpec(cfg, "install", spec)
 
@@ -760,25 +763,24 @@ func NewUkiUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 	if err := unmarshallFullSpec(cfg, "upgrade", spec); err != nil {
 		return nil, fmt.Errorf("failed unmarshalling full spec: %w", err)
 	}
-	// TODO: Use this everywhere?
-	cfg.Logger.Infof("Checking if OCI image %s exists", spec.Active.Source.Value())
-	if spec.Active.Source.IsDocker() {
-		_, err := crane.Manifest(spec.Active.Source.Value())
-		if err != nil {
-			if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-				return nil, fmt.Errorf("oci image %s does not exist", spec.Active.Source.Value())
-			}
-			return nil, err
-		}
+	// Honor upgrade.allow-insecure-registries before any image is fetched
+	if err := applyAllowInsecureRegistries(cfg, "upgrade"); err != nil {
+		return nil, err
 	}
-
-	// Get the actual source size to calculate the image size and partitions size
+	// Get the actual source size to calculate the image size and partitions size.
+	// For a container source this pulls the manifest through the SDK
+	// ImageExtractor (which is insecure-aware), so a missing/unreachable image
+	// fails fast here - this replaces the old crane.Manifest pre-flight. For
+	// other source types a size error is non-fatal and we fall back to a default.
 	size, err := GetSourceSize(cfg, spec.Active.Source)
 	if err != nil {
+		if spec.Active.Source.IsDocker() {
+			return nil, fmt.Errorf("could not resolve image %s: %w", spec.Active.Source.Value(), err)
+		}
 		cfg.Logger.Warnf("Failed to infer size for images: %s", err.Error())
 		spec.Active.Size = sdkConstants.ImgSize
 	} else {
-		cfg.Logger.Infof("Setting image size to %dMb", size)
+		cfg.Logger.Infof("Setting image size to %dMiB", size)
 		spec.Active.Size = uint(size)
 	}
 
@@ -788,11 +790,12 @@ func NewUkiUpgradeSpec(cfg *sdkConfig.Config) (*spec.UpgradeUkiSpec, error) {
 		return spec, fmt.Errorf("could not read host partitions")
 	}
 
-	// Get free size of partition
+	// Get free size of partition in MiB so it can be compared with the image
+	// sizes, which are also in MiB.
 	var stat unix.Statfs_t
 	_ = unix.Statfs(spec.EfiPartition.MountPoint, &stat)
-	freeSize := stat.Bfree * uint64(stat.Bsize) / 1000 / 1000
-	cfg.Logger.Debugf("Partition on mountpoint %s has %dMb free", spec.EfiPartition.MountPoint, freeSize)
+	freeSize := stat.Bfree * uint64(stat.Bsize) / 1024 / 1024
+	cfg.Logger.Debugf("Partition on mountpoint %s has %dMiB free", spec.EfiPartition.MountPoint, freeSize)
 	// Check if the source is over the free size
 	if spec.Active.Size > uint(freeSize) {
 		return spec, fmt.Errorf("source size(%d) is bigger than the free space(%d) on the EFI partition(%s)", spec.Active.Size, freeSize, spec.EfiPartition.MountPoint)
@@ -915,7 +918,7 @@ func GetSourceSize(config *sdkConfig.Config, source *sdkImages.ImageSource) (int
 		}
 		size = file.Size()
 	}
-	// Normalize size to MB before returning and add 100MB to round the size from bytes to MB+extra files like grub stuff
+	// Normalize size to MiB before returning and add 100MiB to round the size from bytes to MiB+extra files like grub stuff
 	if size != 0 {
 		size = (size / 1024 / 1024) + 100
 	}
@@ -1085,6 +1088,48 @@ func unmarshallFullSpec(r *sdkConfig.Config, subkey string, sp sdkSpec.Spec) err
 	return nil
 }
 
+// applyAllowInsecureRegistries switches the config's ImageExtractor to one that
+// allows pulling from registries served over plain HTTP or presenting an
+// untrusted/self-signed TLS certificate, when the given cloud-config subkey
+// requests it (install.allow-insecure-registries / upgrade.allow-insecure-registries).
+// It is called before any image pull or size calculation so the whole flow honors
+// the setting. Only the default OCIImageExtractor is swapped, so extractors
+// injected by tests or providers are left untouched.
+func applyAllowInsecureRegistries(cfg *sdkConfig.Config, subkey string) error {
+	allow, err := readAllowInsecureRegistries(cfg, subkey)
+	if err != nil {
+		return err
+	}
+	if !allow {
+		return nil
+	}
+	if _, ok := cfg.ImageExtractor.(imageextractor.OCIImageExtractor); ok {
+		cfg.Logger.Infof("Allowing insecure registry pulls via %s.allow-insecure-registries", subkey)
+		cfg.ImageExtractor = imageextractor.OCIImageExtractor{Insecure: true}
+	}
+	return nil
+}
+
+// readAllowInsecureRegistries peeks the boolean <subkey>.allow-insecure-registries
+// value from the merged cloud config. It uses a fresh viper instance so the global
+// viper state used by unmarshallFullSpec is not disturbed.
+func readAllowInsecureRegistries(cfg *sdkConfig.Config, subkey string) (bool, error) {
+	ccString, err := cfg.Collector.String()
+	if err != nil {
+		return false, err
+	}
+	v := viper.New()
+	v.SetConfigType("yaml")
+	if err := v.ReadConfig(strings.NewReader(ccString)); err != nil {
+		return false, err
+	}
+	sub := v.Sub(subkey)
+	if sub == nil {
+		return false, nil
+	}
+	return sub.GetBool("allow-insecure-registries"), nil
+}
+
 // checkDeprecatedURIUsage checks if any Image structs in the spec have the deprecated URI field set
 // and logs a warning if found, also converts URI to Source for backwards compatibility
 func checkDeprecatedURIUsage(logger sdkLogger.KairosLogger, sp sdkSpec.Spec) {
@@ -1122,6 +1167,15 @@ func detectLargestDevice() string {
 	maxSize := float64(0)
 
 	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		// Skip device-mapper devices (multipath maps, LVM volumes). They are
+		// not valid install targets: the agent deactivates them through
+		// blkdeactivate right before partitioning, so installing onto one
+		// would fail with a missing device. Multipath claims any disk
+		// exposing a WWID (even single-path ones), shadowing the real disk
+		// with a dm-N node of the exact same size.
+		if strings.HasPrefix(disk.Name, "dm-") {
+			continue
+		}
 		size := float64(disk.SizeBytes) / float64(GiB)
 		if size > maxSize {
 			maxSize = size

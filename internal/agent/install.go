@@ -56,13 +56,13 @@ func displayInfo(agentConfig *Config) {
 	}
 }
 
-func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations, useDefaultDirs bool) error {
+func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValidations, useDefaultDirs, allowInsecureRegistries bool) error {
 	configSource, err := prepareConfiguration(c)
 	if err != nil {
 		return err
 	}
 
-	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
+	cliConf := generateInstallConfForCLIArgs(sourceImgURL, allowInsecureRegistries)
 	cliConfManualArgs := generateInstallConfForManualCLIArgs(device, reboot, poweroff)
 
 	scanOpts := []collector.Option{
@@ -84,7 +84,7 @@ func ManualInstall(c, sourceImgURL, device string, reboot, poweroff, strictValid
 	return RunInstall(cc)
 }
 
-func Install(sourceImgURL string, dir ...string) error {
+func Install(sourceImgURL string, allowInsecureRegistries bool, dir ...string) error {
 	var cc *sdkConfig.Config
 	var err error
 
@@ -120,7 +120,7 @@ func Install(sourceImgURL string, dir ...string) error {
 
 	ensureDataSourceReady()
 
-	cliConf := generateInstallConfForCLIArgs(sourceImgURL)
+	cliConf := generateInstallConfForCLIArgs(sourceImgURL, allowInsecureRegistries)
 
 	// Reads config, and if present and offline is defined, runs the installation
 	cc, err = config.Scan(collector.Directories(dir...),
@@ -387,14 +387,20 @@ func prepareConfiguration(source string) (io.Reader, error) {
 	return cfg, nil
 }
 
-func generateInstallConfForCLIArgs(sourceImageURL string) string {
-	if sourceImageURL == "" {
+func generateInstallConfForCLIArgs(sourceImageURL string, allowInsecureRegistries bool) string {
+	if sourceImageURL == "" && !allowInsecureRegistries {
 		return ""
 	}
 
-	return fmt.Sprintf(`install:
-  source: %s
-`, sourceImageURL)
+	cfg := "install:\n"
+	if sourceImageURL != "" {
+		cfg += fmt.Sprintf("  source: %s\n", sourceImageURL)
+	}
+	if allowInsecureRegistries {
+		cfg += "  allow-insecure-registries: true\n"
+	}
+
+	return cfg
 }
 
 // generateInstallConfForManualCLIArgs creates a kairos configuration for flags passed via manual install

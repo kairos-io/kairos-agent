@@ -116,7 +116,7 @@ func (i *UpgradeAction) Run() (err error) {
 		i.cfg.Logger.Warnf("adding boot assesment: %s", err.Error())
 	}
 	// SelectBootEntry sets the default boot entry to the selected entry
-	err = action.SelectBootEntry(i.cfg, "cos")
+	err = action.SelectBootEntry(i.cfg, constants.BootEntryActive)
 	// Should we fail? Or warn?
 	if err != nil {
 		i.cfg.Logger.Errorf("selecting boot entry: %s", err.Error())

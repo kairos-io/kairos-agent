@@ -25,6 +25,7 @@ import (
 
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/imageextractor"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
@@ -293,6 +294,26 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(spec.PowerOff).To(BeFalse())
 				Expect(spec.ShouldReboot()).To(BeFalse())
 				Expect(spec.ShouldShutdown()).To(BeFalse())
+			})
+			It("keeps the secure extractor by default", Label("install", "allow-insecure-registries"), func() {
+				setupIsoBaseTreeDetection(fs)
+
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.AllowInsecureRegistries).To(BeFalse())
+				Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: false}))
+			})
+			It("enables the insecure extractor when install.allow-insecure-registries is set", Label("install", "allow-insecure-registries"), func() {
+				setupIsoBaseTreeDetection(fs)
+
+				cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\ninstall:\n  allow-insecure-registries: true\n")))
+				Expect(err).ToNot(HaveOccurred())
+				c.Collector = cfg.Collector
+
+				spec, err := config.NewInstallSpec(c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec.AllowInsecureRegistries).To(BeTrue())
+				Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: true}))
 			})
 		})
 		Describe("ResetSpec", Label("reset"), func() {
@@ -575,6 +596,47 @@ upgrade:
 					Expect(spec.Active.Source.Value()).To(Equal("/tmp/testfile"))
 				})
 
+				It("keeps the secure extractor by default", func() {
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.AllowInsecureRegistries).To(BeFalse())
+					Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: false}))
+				})
+
+				It("enables the insecure extractor when upgrade.allow-insecure-registries is set", func() {
+					cfg, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  allow-insecure-registries: true\n")))
+					Expect(err).ToNot(HaveOccurred())
+					c.Collector = cfg.Collector
+					spec, err := config.NewUpgradeSpec(c)
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(spec.AllowInsecureRegistries).To(BeTrue())
+					Expect(c.ImageExtractor).To(Equal(imageextractor.OCIImageExtractor{Insecure: true}))
+				})
+
+				It("fails fast for uki upgrade when the container image cannot be resolved", func() {
+					fake := &v1mock.FakeImageExtractor{
+						Logger: logger,
+						SizeSideEffect: func(imageRef, platformRef string) (int64, error) {
+							return 0, fmt.Errorf("MANIFEST_UNKNOWN")
+						},
+					}
+					ukiCfg := config.NewConfig(
+						config.WithFs(fs),
+						config.WithMounter(mounter),
+						config.WithRunner(runner),
+						config.WithLogger(logger),
+						config.WithImageExtractor(fake),
+						config.WithPlatform("linux/amd64"),
+					)
+					cc, err := config.ScanNoLogs(collector.Readers(strings.NewReader("#cloud-config\nupgrade:\n  system:\n    source: oci:missing/image:tag\n")))
+					Expect(err).ToNot(HaveOccurred())
+					ukiCfg.Collector = cc.Collector
+
+					_, err = config.NewUkiUpgradeSpec(ukiCfg)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("could not resolve image"))
+				})
+
 			})
 		})
 		Describe("Config from cloudconfig", Label("cloud-config"), func() {
@@ -685,6 +747,38 @@ cloud-init-paths:
 				Expect(installSpec.Active.Size).To(Equal(uint(666)))
 				Expect(cfg.CloudInitPaths).To(ContainElement("/what"))
 
+			})
+			It("Skips device-mapper devices when auto-detecting the largest install device", func() {
+				// A multipath map (dm-0) over a single-path disk shows up in
+				// /sys/block alongside the disk itself and must never be picked
+				// as install target: the agent deactivates dm devices via
+				// blkdeactivate right before partitioning.
+				ghwTest.Clean()
+				ghwTest = ghwMock.GhwMock{}
+				ghwTest.AddDisk(sdkPartitions.Disk{Name: "sda", SizeBytes: 100})
+				ghwTest.AddDisk(sdkPartitions.Disk{
+					Name:      "dm-0",
+					SizeBytes: 200,
+					UUID:      "mpath-3600508b1001c7e72",
+				})
+				ghwTest.CreateDevices()
+
+				autoDir, err := os.MkdirTemp("", "kairos-auto-device-test-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(autoDir)
+				ccdata := []byte("#cloud-config\ninstall:\n  auto: true\n")
+				Expect(os.WriteFile(filepath.Join(autoDir, "cc.yaml"), ccdata, os.ModePerm)).To(Succeed())
+
+				cfg, err := config.ScanNoLogs(collector.Directories([]string{autoDir}...), collector.NoLogs)
+				Expect(err).ToNot(HaveOccurred())
+				cfg.Runner = runner
+				cfg.Fs = fs
+				cfg.Mounter = mounter
+				cfg.CloudInitRunner = ci
+				cfg.Logger = logger
+				installSpec, err := config.ReadInstallSpecFromConfig(cfg)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installSpec.Target).To(Equal("/dev/sda"))
 			})
 			It("Resolves install.device via script:// and uses its stdout as the target", func() {
 				script, err := os.CreateTemp("", "pick-disk-*.sh")

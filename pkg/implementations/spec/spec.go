@@ -28,39 +28,35 @@ import (
 
 // InstallSpec struct represents all the installation action details
 type InstallSpec struct {
-	Target          string                         `yaml:"device,omitempty" mapstructure:"device"`
-	Firmware        string                         `yaml:"firmware,omitempty" mapstructure:"firmware"`
-	PartTable       string                         `yaml:"part-table,omitempty" mapstructure:"part-table"`
-	Partitions      partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	ExtraPartitions partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
-	NoFormat        bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
-	Force           bool                           `yaml:"force,omitempty" mapstructure:"force"`
-	CloudInit       []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
-	Iso             string                         `yaml:"iso,omitempty" mapstructure:"iso"`
-	GrubDefEntry    string                         `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	Tty             string                         `yaml:"tty,omitempty" mapstructure:"tty"`
-	Reboot          bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	ExtraDirsRootfs []string                       `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
-	Active          images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
-	Recovery        images.Image                   `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
-	Passive         images.Image
-	GrubConf        string
+	Target                  string                         `yaml:"device,omitempty" mapstructure:"device"`
+	Firmware                string                         `yaml:"firmware,omitempty" mapstructure:"firmware"`
+	PartTable               string                         `yaml:"part-table,omitempty" mapstructure:"part-table"`
+	Partitions              partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	ExtraPartitions         partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	NoFormat                bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
+	Force                   bool                           `yaml:"force,omitempty" mapstructure:"force"`
+	CloudInit               []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
+	Iso                     string                         `yaml:"iso,omitempty" mapstructure:"iso"`
+	GrubDefEntry            string                         `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Tty                     string                         `yaml:"tty,omitempty" mapstructure:"tty"`
+	Reboot                  bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	ExtraDirsRootfs         []string                       `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
+	Active                  images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
+	Recovery                images.Image                   `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
+	AllowInsecureRegistries bool                           `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
+	Passive                 images.Image
+	GrubConf                string
 }
 
 // Sanitize checks the consistency of the struct, returns error
 // if unsolvable inconsistencies are found
 func (i *InstallSpec) Sanitize() error {
-	// Check if the target device has mounted partitions
-	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
-		if fmt.Sprintf("/dev/%s", disk.Name) == i.Target {
-			for _, p := range disk.Partitions {
-				if p.MountPoint != "" {
-					return fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", i.Target)
-				}
-			}
-
-		}
+	// Check if the target device has mounted partitions, and remember its size
+	// so we can later make sure the requested partitions fit in it.
+	targetDisk, err := lookupTargetDisk(i.Target)
+	if err != nil {
+		return err
 	}
 
 	if i.Active.Source.IsEmpty() && i.Iso == "" {
@@ -80,27 +76,96 @@ func (i *InstallSpec) Sanitize() error {
 		i.Recovery.File = filepath.Join(recoveryMnt, "cOS", constants.RecoveryImgFile)
 	}
 
-	// Check for extra partitions having set its size to 0
-	extraPartsSizeCheck := 0
-	for _, p := range i.ExtraPartitions {
-		if p.Size == 0 {
-			extraPartsSizeCheck++
-		}
-	}
-
-	if extraPartsSizeCheck > 1 {
-		return fmt.Errorf("more than one extra partition has its size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
-	}
-	// Check for both an extra partition and the persistent partition having size set to 0
-	if extraPartsSizeCheck == 1 && i.Partitions.Persistent.Size == 0 {
-		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
+	if err := checkExtraPartitionsSize(i.ExtraPartitions, i.Partitions.Persistent); err != nil {
+		return err
 	}
 
 	// Set default labels in case the config from cloud/config overrides this values.
 	// we need them to be on fixed values, otherwise we wont know where to find things on boot, on reset, etc...
 	i.Partitions.SetDefaultLabels()
 
-	return i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable)
+	if err := i.Partitions.SetFirmwarePartitions(i.Firmware, i.PartTable); err != nil {
+		return err
+	}
+
+	// Make sure the requested partitions actually fit in the target disk.
+	// Going over the disk size produces an unbootable system that only fails
+	// at first boot, so we fail early here instead.
+	return checkPartitionsFitTargetDisk(i.Target, targetDisk, i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions))
+}
+
+// gptMetadataOverhead is the disk space the partitioner reserves and that the
+// partitions cannot use: 1MiB of alignment before the first partition plus 1MiB
+// at the end of the disk for the backup GPT header (see
+// pkg/partitioner/disk.go). We account for it so we reject a layout that would
+// not fit instead of letting the partitioning fail mid-install.
+const gptMetadataOverhead = 2 * 1024 * 1024
+
+// lookupTargetDisk resolves the target device path to a ghw disk. It returns a
+// nil disk (no error) when the target is empty or cannot be found (for example
+// when running unit tests without ghw fixtures). If the target disk has
+// mounted partitions the caller cannot safely repartition, so this returns an
+// error instead.
+func lookupTargetDisk(target string) (*partitions.Disk, error) {
+	if target == "" {
+		return nil, nil
+	}
+	for _, disk := range ghw.GetDisks(ghw.NewPaths(""), nil) {
+		if fmt.Sprintf("/dev/%s", disk.Name) == target {
+			for _, p := range disk.Partitions {
+				if p.MountPoint != "" {
+					return nil, fmt.Errorf("target device %s has mounted partitions, please unmount them before installing", target)
+				}
+			}
+			return disk, nil
+		}
+	}
+	return nil, nil
+}
+
+// checkExtraPartitionsSize enforces that at most one partition (either an
+// extra one or the persistent partition) has size 0, which means "take all the
+// remaining space on the disk".
+func checkExtraPartitionsSize(extras partitions.PartitionList, persistent *partitions.Partition) error {
+	extraPartsSizeCheck := 0
+	for _, p := range extras {
+		if p.Size == 0 {
+			extraPartsSizeCheck++
+		}
+	}
+	if extraPartsSizeCheck > 1 {
+		return fmt.Errorf("more than one extra partition has its size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
+	}
+	if extraPartsSizeCheck == 1 && persistent != nil && persistent.Size == 0 {
+		return fmt.Errorf("both persistent partition and extra partitions have size set to 0. Only one partition can have its size set to 0 which means that it will take all the available disk space in the device")
+	}
+	return nil
+}
+
+// checkPartitionsFitTargetDisk returns an error if the sum of the requested
+// partition sizes does not fit in the target disk once the GPT metadata
+// overhead is reserved. A partition with size 0 means "take whatever space is
+// left on the disk", so it does not count towards the requested total. If the
+// target disk was not found (for example when the target is not set yet) the
+// check is skipped.
+func checkPartitionsFitTargetDisk(target string, targetDisk *partitions.Disk, parts partitions.PartitionList) error {
+	if targetDisk == nil {
+		return nil
+	}
+
+	var requestedMiB uint
+	for _, p := range parts {
+		requestedMiB += p.Size
+	}
+
+	// Partition sizes are expressed in MiB while the disk size is in bytes.
+	if uint64(requestedMiB)*1024*1024+gptMetadataOverhead > targetDisk.SizeBytes {
+		return fmt.Errorf(
+			"the requested partitions size (%dMiB) does not fit in the target disk %q (%dMiB), which also needs %dMiB reserved for partition metadata",
+			requestedMiB, target, targetDisk.SizeBytes/(1024*1024), gptMetadataOverhead/(1024*1024))
+	}
+
+	return nil
 }
 
 func (i *InstallSpec) ShouldReboot() bool                            { return i.Reboot }
@@ -143,16 +208,17 @@ func (r *ResetSpec) ShouldReboot() bool   { return r.Reboot }
 func (r *ResetSpec) ShouldShutdown() bool { return r.PowerOff }
 
 type UpgradeSpec struct {
-	Entry           string       `yaml:"entry,omitempty" mapstructure:"entry"`
-	Active          images.Image `yaml:"system,omitempty" mapstructure:"system"`
-	Recovery        images.Image `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
-	GrubDefEntry    string       `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
-	Reboot          bool         `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool         `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	ExtraDirsRootfs []string     `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
-	Passive         images.Image
-	Partitions      partitions.ElementalPartitions
-	ExcludedPaths   []string `yaml:"excluded-paths,omitempty" mapstructure:"excluded-paths"`
+	Entry                   string       `yaml:"entry,omitempty" mapstructure:"entry"`
+	Active                  images.Image `yaml:"system,omitempty" mapstructure:"system"`
+	Recovery                images.Image `yaml:"recovery-system,omitempty" mapstructure:"recovery-system"`
+	GrubDefEntry            string       `yaml:"grub-entry-name,omitempty" mapstructure:"grub-entry-name"`
+	Reboot                  bool         `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool         `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	ExtraDirsRootfs         []string     `yaml:"extra-dirs-rootfs,omitempty" mapstructure:"extra-dirs-rootfs"`
+	AllowInsecureRegistries bool         `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
+	Passive                 images.Image
+	Partitions              partitions.ElementalPartitions
+	ExcludedPaths           []string `yaml:"excluded-paths,omitempty" mapstructure:"excluded-paths"`
 }
 
 func (u *UpgradeSpec) RecoveryUpgrade() bool {
@@ -225,20 +291,29 @@ func GetPartitionByNameOrLabel(name string, label string, partitionList partitio
 }
 
 type InstallUkiSpec struct {
-	Active          images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
-	Target          string                         `yaml:"device,omitempty" mapstructure:"device"`
-	Reboot          bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff        bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	Partitions      partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
-	ExtraPartitions partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
-	NoFormat        bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
-	CloudInit       []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
-	SkipEntries     []string                       `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
+	Active                  images.Image                   `yaml:"system,omitempty" mapstructure:"system"`
+	Target                  string                         `yaml:"device,omitempty" mapstructure:"device"`
+	Reboot                  bool                           `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool                           `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	Partitions              partitions.ElementalPartitions `yaml:"partitions,omitempty" mapstructure:"partitions"`
+	ExtraPartitions         partitions.PartitionList       `yaml:"extra-partitions,omitempty" mapstructure:"extra-partitions"`
+	NoFormat                bool                           `yaml:"no-format,omitempty" mapstructure:"no-format"`
+	CloudInit               []string                       `yaml:"cloud-init,omitempty" mapstructure:"cloud-init"`
+	SkipEntries             []string                       `yaml:"skip-entries,omitempty" mapstructure:"skip-entries"`
+	AllowInsecureRegistries bool                           `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
 }
 
 func (i *InstallUkiSpec) Sanitize() error {
-	var err error
-	return err
+	targetDisk, err := lookupTargetDisk(i.Target)
+	if err != nil {
+		return err
+	}
+
+	if err := checkExtraPartitionsSize(i.ExtraPartitions, i.Partitions.Persistent); err != nil {
+		return err
+	}
+
+	return checkPartitionsFitTargetDisk(i.Target, targetDisk, i.Partitions.PartitionsByInstallOrder(i.ExtraPartitions))
 }
 
 func (i *InstallUkiSpec) ShouldReboot() bool                            { return i.Reboot }
@@ -249,11 +324,12 @@ func (i *InstallUkiSpec) GetPartitions() partitions.ElementalPartitions { return
 func (i *InstallUkiSpec) GetExtraPartitions() partitions.PartitionList  { return i.ExtraPartitions }
 
 type UpgradeUkiSpec struct {
-	Entry        string                `yaml:"entry,omitempty" mapstructure:"entry"`
-	Active       images.Image          `yaml:"system,omitempty" mapstructure:"system"`
-	Reboot       bool                  `yaml:"reboot,omitempty" mapstructure:"reboot"`
-	PowerOff     bool                  `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
-	EfiPartition *partitions.Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	Entry                   string                `yaml:"entry,omitempty" mapstructure:"entry"`
+	Active                  images.Image          `yaml:"system,omitempty" mapstructure:"system"`
+	Reboot                  bool                  `yaml:"reboot,omitempty" mapstructure:"reboot"`
+	PowerOff                bool                  `yaml:"poweroff,omitempty" mapstructure:"poweroff"`
+	EfiPartition            *partitions.Partition `yaml:"efi-partition,omitempty" mapstructure:"efi-partition"`
+	AllowInsecureRegistries bool                  `yaml:"allow-insecure-registries,omitempty" mapstructure:"allow-insecure-registries"`
 }
 
 func (i *UpgradeUkiSpec) RecoveryUpgrade() bool {

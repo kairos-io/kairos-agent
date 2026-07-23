@@ -68,14 +68,10 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 
 		r, _ := state.NewRuntimeWithLogger(g.config.Logger.Logger)
 		if r.BootState == state.LiveCD {
-			// get the current dir
-			currentDir, err := os.Getwd()
-			if err != nil {
-				g.config.Logger.Warnf("Failed getting current dir: %s", err)
-				return err
-			}
-
-			liveOsDir := filepath.Join(currentDir, "LiveOS_rootfs")
+			// grub-install runs chrooted into rootDir (see below), so its working
+			// dir is the chroot root. Create the symlink under rootDir so it
+			// resolves to CWD/LiveOS_rootfs from inside the chroot.
+			liveOsDir := filepath.Join(rootDir, "LiveOS_rootfs")
 			// Now create the symlink (source, target)
 			err = g.config.Fs.Symlink(filepath.Join("/dev/disk/by-label/", cnst.StateLabel), liveOsDir)
 			if err != nil {
@@ -102,16 +98,6 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			return fmt.Errorf("failed to find grub dir under %s", rootDir)
 		}
 
-		grubargs = append(
-			grubargs,
-			fmt.Sprintf("--directory=%s", grubdir),
-			fmt.Sprintf("--boot-directory=%s", bootDir),
-			"--target=i386-pc", "-v",
-			target,
-		)
-
-		g.config.Logger.Debugf("Running grub with the following args: %s", grubargs)
-
 		grubBin := FindCommand(g.config.Fs, "", []string{
 			filepath.Join(rootDir, "/usr/sbin/", "grub2-install"),
 			filepath.Join(rootDir, "/usr/bin/", "grub2-install"),
@@ -125,7 +111,35 @@ func (g Grub) Install(target, rootDir, bootDir, grubConf, tty string, efi bool, 
 			g.config.Logger.Logger.Error().Str("path", rootDir).Msg("Grub binary not found in path")
 			return fmt.Errorf("grub binary not found in path")
 		}
-		out, err := g.config.Runner.Run(grubBin, grubargs...)
+
+		// grub-install is a dynamically linked binary shipped by the
+		// installation source, not by the host. When installing from an
+		// arbitrary liveCD, the host loader and shared libraries do not match
+		// the ones this binary was linked against, so running it directly fails
+		// with "no such file or directory" (missing ELF interpreter) or a
+		// missing shared library (e.g. libdevmapper). To make installs work from
+		// any liveCD we run grub-install chrooted into rootDir so it resolves
+		// its interpreter and libraries from the installation source itself.
+		// Paths handed to grub must therefore be relative to the chroot, and the
+		// boot directory (which lives outside rootDir) is bind-mounted in keeping
+		// its original path.
+		chrootRoot := strings.TrimSuffix(rootDir, "/")
+		grubBinChroot := strings.TrimPrefix(grubBin, chrootRoot)
+		grubDirChroot := strings.TrimPrefix(grubdir, chrootRoot)
+
+		grubargs = append(
+			grubargs,
+			fmt.Sprintf("--directory=%s", grubDirChroot),
+			fmt.Sprintf("--boot-directory=%s", bootDir),
+			"--target=i386-pc", "-v",
+			target,
+		)
+
+		g.config.Logger.Debugf("Running grub with the following args: %s", grubargs)
+
+		grubChroot := NewChroot(rootDir, g.config)
+		grubChroot.SetExtraMounts(map[string]string{bootDir: bootDir})
+		out, err := grubChroot.Run(grubBinChroot, grubargs...)
 		if err != nil {
 			g.config.Logger.Errorf(string(out))
 			return err

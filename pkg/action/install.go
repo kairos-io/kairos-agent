@@ -20,12 +20,17 @@ import (
 	"fmt"
 	"strings"
 
+	"time"
+
 	hook "github.com/kairos-io/kairos-agent/v2/internal/agent/hooks"
 	"github.com/kairos-io/kairos-agent/v2/pkg/config"
 	cnst "github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/elemental"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	"github.com/kairos-io/kairos-agent/v2/pkg/progress"
+	"github.com/kairos-io/kairos-agent/v2/pkg/state"
 	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
+	"github.com/kairos-io/kairos-sdk/agentrun"
 	events "github.com/kairos-io/kairos-sdk/bus"
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
@@ -52,12 +57,27 @@ type InstallAction struct {
 	spec *v1.InstallSpec
 }
 
+func recordInstallState(cfg *sdkConfig.Config, spec *v1.InstallSpec) {
+	mount := cnst.PersistentDir
+	if spec.Partitions.Persistent != nil && spec.Partitions.Persistent.MountPoint != "" {
+		mount = spec.Partitions.Persistent.MountPoint
+	}
+	if err := state.RecordInstall(cfg.Fs, mount, spec.Active.Source.String(), time.Now); err != nil {
+		cfg.Logger.Warnf("failed to update kairos state file: %s", err)
+	}
+}
+
 func NewInstallAction(cfg *sdkConfig.Config, spec *v1.InstallSpec) *InstallAction {
 	return &InstallAction{cfg: cfg, spec: spec}
 }
 
 // Run will install the system from a given configuration
 func (i InstallAction) Run() (err error) {
+	defer func() {
+		if err != nil {
+			progress.EmitError(err.Error())
+		}
+	}()
 	e := elemental.NewElemental(i.cfg)
 	cleanup := utils.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
@@ -100,6 +120,7 @@ func (i InstallAction) Run() (err error) {
 		}
 	} else {
 		// Deactivate any active volume on target
+		progress.EmitStep(agentrun.StepPartition)
 		err = e.DeactivateDevices()
 		if err != nil {
 			return err
@@ -120,6 +141,7 @@ func (i InstallAction) Run() (err error) {
 	})
 
 	// Before install hook happens after partitioning but before the image OS is applied
+	progress.EmitStep(agentrun.StepBeforeInstall)
 	err = i.installHook(cnst.BeforeInstallHook, false)
 	if err != nil {
 		return err
@@ -131,6 +153,7 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Deploy active image
+	progress.EmitStep(agentrun.StepActive)
 	_, err = e.DeployImage(&i.spec.Active, true)
 	if err != nil {
 		return err
@@ -146,6 +169,7 @@ func (i InstallAction) Run() (err error) {
 	}
 
 	// Install grub
+	progress.EmitStep(agentrun.StepBootloader)
 	grub := utils.NewGrub(i.cfg)
 	err = grub.Install(
 		i.spec.Target,
@@ -196,11 +220,13 @@ func (i InstallAction) Run() (err error) {
 		return err
 	}
 	// Install Recovery
+	progress.EmitStep(agentrun.StepRecovery)
 	_, err = e.DeployImage(&i.spec.Recovery, false)
 	if err != nil {
 		return err
 	}
 	// Install Passive
+	progress.EmitStep(agentrun.StepPassive)
 	_, err = e.DeployImage(&i.spec.Passive, false)
 	if err != nil {
 		return err
@@ -211,10 +237,13 @@ func (i InstallAction) Run() (err error) {
 		return err
 	}
 
+	progress.EmitStep(agentrun.StepAfterInstall)
 	err = i.installHook(cnst.AfterInstallHook, false)
 	if err != nil {
 		return err
 	}
+
+	recordInstallState(i.cfg, i.spec)
 
 	// Do not reboot/poweroff on cleanup errors
 	err = cleanup.Cleanup(err)
@@ -237,5 +266,9 @@ func (i InstallAction) Run() (err error) {
 	_ = utils.RunStage(i.cfg, "kairos-install.after")
 	_ = events.RunHookScript("/usr/bin/kairos-agent.install.after.hook") //nolint:errcheck
 
-	return hook.Run(*i.cfg, i.spec, hook.FinishInstall...)
+	if err = hook.Run(*i.cfg, i.spec, hook.FinishInstall...); err != nil {
+		return err
+	}
+	progress.EmitStep(agentrun.StepDone)
+	return nil
 }

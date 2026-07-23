@@ -26,7 +26,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/containerd/archive"
+	"github.com/containerd/containerd/v2/pkg/archive"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -132,6 +132,15 @@ func (e *Elemental) PartitionAndFormatDevice(i sdkSpec.SharedInstallSpec) error 
 			}
 			// we have to match the Fs it was asked with the partition in the system
 			if p.(*gpt.Partition).Name == configPart.Name {
+				fs := configPart.FS
+				if fs == "" {
+					fs = cnst.LinuxImgFs
+				}
+				switch fs {
+				case "-", "none", "noformat":
+					e.config.Logger.Infof("Partition %s is configured without a filesystem, leaving it unformatted", configPart.Name)
+					continue
+				}
 				e.config.Logger.Debugf("Formatting partition: %s", configPart.FilesystemLabel)
 				// Get full partition path by the /dev/disk/by-partlabel/ facility
 				// So we don't need to infer the actual device under it but get udev to tell us
@@ -142,7 +151,7 @@ func (e *Elemental) PartitionAndFormatDevice(i sdkSpec.SharedInstallSpec) error 
 				if err != nil {
 					e.config.Logger.Errorf("Failed finding partition %s by partition label: %s", configPart.FilesystemLabel, err)
 				}
-				err = partitioner.FormatDevice(e.config.Logger, e.config.Runner, device, configPart.FS, configPart.FilesystemLabel)
+				err = partitioner.FormatDevice(e.config.Logger, e.config.Runner, device, fs, configPart.FilesystemLabel)
 				if err != nil {
 					e.config.Logger.Errorf("Failed formatting partition: %s", err)
 					return err
@@ -268,7 +277,7 @@ func (e Elemental) MountImage(img *sdkImages.Image, opts ...string) error {
 
 	err = e.config.Mounter.Mount(loopDevice, img.MountPoint, "auto", opts)
 	if err != nil {
-		return err
+		return errors.Join(err, loop.Unloop(loopDevice, e.config))
 	}
 
 	// Store the loop device so we can later detach it
@@ -300,7 +309,7 @@ func (e Elemental) UnmountImage(img *sdkImages.Image) error {
 
 // CreateFileSystemImage creates the image file for config.target
 func (e Elemental) CreateFileSystemImage(img *sdkImages.Image) error {
-	e.config.Logger.Infof("Creating file system image %s with size %dMb", img.File, img.Size)
+	e.config.Logger.Infof("Creating file system image %s with size %dMiB", img.File, img.Size)
 	err := fsutils.MkdirAll(e.config.Fs, filepath.Dir(img.File), cnst.DirPerm)
 	if err != nil {
 		return err

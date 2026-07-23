@@ -22,9 +22,10 @@ import (
 )
 
 type FakeImageExtractor struct {
-	Logger      sdkLogger.KairosLogger
-	SideEffect  func(imageRef, destination, platformRef string) error
-	ClientCalls []ExtractCall
+	Logger         sdkLogger.KairosLogger
+	SideEffect     func(imageRef, destination, platformRef string) error
+	SizeSideEffect func(imageRef, platformRef string) (int64, error)
+	ClientCalls    []ExtractCall
 }
 
 type ExtractCall struct {
@@ -34,6 +35,9 @@ type ExtractCall struct {
 }
 
 func (f *FakeImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
+	if f.SizeSideEffect != nil {
+		return f.SizeSideEffect(imageRef, platformRef)
+	}
 	return 0, nil
 }
 

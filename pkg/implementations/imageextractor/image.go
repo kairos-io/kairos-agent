@@ -17,37 +17,13 @@ limitations under the License.
 package imageextractor
 
 import (
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	imagetypes "github.com/kairos-io/kairos-sdk/types/images"
-	"github.com/kairos-io/kairos-sdk/utils"
-	imageutils "github.com/kairos-io/kairos-sdk/utils/image"
+	image "github.com/kairos-io/kairos-sdk/utils/image"
 )
 
-type OCIImageExtractor struct{}
-
-var _ imagetypes.ImageExtractor = OCIImageExtractor{}
-
-func (e OCIImageExtractor) ExtractImage(imageRef, destination, platformRef string, excludes ...string) error {
-	// If we pass a platform
-	if platformRef != "" {
-		// make sure its correct
-		_, err := v1.ParsePlatform(platformRef)
-		if err != nil {
-			// and if we cannot properly parse it, then default to the current platform
-			platformRef = utils.GetCurrentPlatform()
-		}
-	} else {
-		// if we don't pass a platform, then default to the current platform
-		platformRef = utils.GetCurrentPlatform()
-	}
-	img, err := imageutils.GetImage(imageRef, platformRef, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	return imageutils.ExtractOCIImage(img, destination, excludes...)
-}
-
-func (e OCIImageExtractor) GetOCIImageSize(imageRef, platformRef string) (int64, error) {
-	return imageutils.GetOCIImageSize(imageRef, platformRef, nil, nil)
-}
+// OCIImageExtractor is the default ImageExtractor implementation. It now lives in
+// the kairos-sdk (utils/image) so it is the single source of truth shared across
+// kairos-agent and AuroraBoot. This alias keeps the historical import path working.
+//
+// Set Insecure to allow pulling from registries served over plain HTTP or
+// presenting an untrusted/self-signed TLS certificate.
+type OCIImageExtractor = image.OCIImageExtractor

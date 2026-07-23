@@ -24,6 +24,9 @@ internal/webui/public/cypress/videos/
 
 node_modules/
 
+# test artifacts
+internal/agent/exec.log
+
 # editor and IDE paraphernalia
 .idea
 .envrc

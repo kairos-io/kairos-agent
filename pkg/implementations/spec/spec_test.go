@@ -22,6 +22,7 @@ import (
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	"github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
 	sdkConstants "github.com/kairos-io/kairos-sdk/constants"
+	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
 	sdkImages "github.com/kairos-io/kairos-sdk/types/images"
 	sdkPartitions "github.com/kairos-io/kairos-sdk/types/partitions"
 	. "github.com/onsi/ginkgo/v2"
@@ -379,6 +380,50 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				err := sp.Sanitize()
 				Expect(err).ToNot(HaveOccurred())
 			})
+			Describe("partition sizes against the target disk", func() {
+				var ghwTest ghwMock.GhwMock
+				BeforeEach(func() {
+					// Present a 100MiB target disk to ghw. The ghw mock writes this
+					// value into the kernel "size" file, which ghw reads back as a
+					// count of 512-byte sectors, so we express the wanted byte size
+					// in 512-byte sectors here to end up with a 100MiB disk.
+					ghwTest = ghwMock.GhwMock{}
+					ghwTest.AddDisk(sdkPartitions.Disk{
+						Name:      "sda",
+						SizeBytes: 100 * 1024 * 1024 / 512,
+					})
+					ghwTest.CreateDevices()
+
+					sp.Active.Source = sdkImages.NewFileSrc("/tmp")
+					sp.Partitions.State = &sdkPartitions.Partition{MountPoint: "/tmp"}
+					sp.Firmware = sdkConstants.BiosPartName
+					sp.PartTable = sdkConstants.GPT
+					sp.Target = "/dev/sda"
+				})
+				AfterEach(func() {
+					ghwTest.Clean()
+				})
+				It("fails when the requested partitions exceed the disk size", func() {
+					sp.Partitions.Persistent = &sdkPartitions.Partition{Size: 200}
+					err := sp.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
+				})
+				It("fails when the partitions leave no room for the partition metadata", func() {
+					// 99MiB persistent + 1MiB BIOS = exactly the 100MiB disk, leaving
+					// no room for the 1MiB start alignment and the 1MiB backup GPT
+					// header that the partitioner reserves.
+					sp.Partitions.Persistent = &sdkPartitions.Partition{Size: 99}
+					err := sp.Sanitize()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
+				})
+				It("passes when the requested partitions fit the disk size", func() {
+					sp.Partitions.Persistent = &sdkPartitions.Partition{Size: 10}
+					err := sp.Sanitize()
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
 		})
 		Describe("ResetSpec sanitize", func() {
 			var sp spec.ResetSpec
@@ -412,6 +457,66 @@ var _ = Describe("Types", Label("types", "config"), func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+		})
+		Describe("InstallUkiSpec sanitize", func() {
+			var sp spec.InstallUkiSpec
+			var ghwTest ghwMock.GhwMock
+			BeforeEach(func() {
+				ghwTest = ghwMock.GhwMock{}
+				ghwTest.AddDisk(sdkPartitions.Disk{
+					Name:      "sda",
+					SizeBytes: 100 * 1024 * 1024 / 512,
+				})
+				ghwTest.CreateDevices()
+
+				sp = spec.InstallUkiSpec{
+					Target: "/dev/sda",
+					Partitions: sdkPartitions.ElementalPartitions{
+						EFI:        &sdkPartitions.Partition{Size: 10, Name: sdkConstants.EfiPartName},
+						OEM:        &sdkPartitions.Partition{Size: 10, Name: sdkConstants.OEMPartName},
+						Persistent: &sdkPartitions.Partition{Size: 10, Name: sdkConstants.PersistentPartName},
+					},
+				}
+			})
+			AfterEach(func() {
+				ghwTest.Clean()
+			})
+			It("passes when the requested partitions fit the disk size", func() {
+				err := sp.Sanitize()
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("fails when the requested partitions exceed the disk size", func() {
+				sp.Partitions.Persistent.Size = 200
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
+			})
+			It("fails when extra_partitions push the layout over the disk size", func() {
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{Name: "data", Size: 200},
+				}
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("does not fit in the target disk"))
+			})
+			It("fails when more than one extra partition has size 0", func() {
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{Name: "data1", Size: 0},
+					&sdkPartitions.Partition{Name: "data2", Size: 0},
+				}
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("more than one extra partition has its size set to 0"))
+			})
+			It("fails when persistent and an extra partition both have size 0", func() {
+				sp.Partitions.Persistent.Size = 0
+				sp.ExtraPartitions = sdkPartitions.PartitionList{
+					&sdkPartitions.Partition{Name: "data", Size: 0},
+				}
+				err := sp.Sanitize()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("both persistent partition and extra partitions have size set to 0"))
+			})
 		})
 		Describe("UpgradeSpec sanitize", func() {
 			var sp spec.UpgradeSpec

@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -416,19 +417,33 @@ type fileSource struct {
 	cfg *sdkConfig.Config
 }
 
-// Download just copies the file to the destination
-// As this is a file source, we just copy the file to the destination, not much to it
+// Download streams the file to the destination with bounded memory usage
+// Uses io.Copy instead of buffering the entire file to avoid OOM on pods with limited memory
 func (f *fileSource) Download(dst string) error {
-	src, err := f.cfg.Fs.ReadFile(f.uri)
+	// Open source file for reading
+	srcFile, err := f.cfg.Fs.Open(f.uri)
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", f.uri, err)
+		return fmt.Errorf("failed to open file %s: %w", f.uri, err)
+	}
+	defer srcFile.Close()
+
+	// Get file info for permissions
+	stat, err := f.cfg.Fs.Stat(f.uri)
+	if err != nil {
+		return fmt.Errorf("failed to stat file %s: %w", f.uri, err)
 	}
 
-	stat, _ := f.cfg.Fs.Stat(f.uri)
+	// Create destination file with same permissions
 	dstFile := filepath.Join(dst, filepath.Base(f.uri))
+	dstFileHandle, err := f.cfg.Fs.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, stat.Mode())
+	if err != nil {
+		return fmt.Errorf("failed to create file %s: %w", dstFile, err)
+	}
+	defer dstFileHandle.Close()
+
+	// Stream copy (bounded memory usage)
 	f.cfg.Logger.Logger.Debug().Str("uri", f.uri).Str("target", dstFile).Msg("Copying system extension")
-	// Keep original permissions
-	if err = f.cfg.Fs.WriteFile(dstFile, src, stat.Mode()); err != nil {
+	if _, err := io.Copy(dstFileHandle, srcFile); err != nil {
 		return fmt.Errorf("failed to copy file %s to %s: %w", f.uri, dstFile, err)
 	}
 

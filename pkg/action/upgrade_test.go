@@ -26,6 +26,7 @@ import (
 	agentConfig "github.com/kairos-io/kairos-agent/v2/pkg/config"
 	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
 	v1 "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	"github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	fsutils "github.com/kairos-io/kairos-agent/v2/pkg/utils/fs"
 	v1mock "github.com/kairos-io/kairos-agent/v2/tests/mocks"
 	ghwMock "github.com/kairos-io/kairos-sdk/ghw/mocks"
@@ -501,6 +502,19 @@ var _ = Describe("Upgrade Actions test", func() {
 				Expect(err).To(HaveOccurred())
 
 			})
+			It("Sets next_entry to cos after a system upgrade", Label("bootentry"), func() {
+				Expect(fsutils.MkdirAll(fs, "/etc/cos", constants.DirPerm)).To(Succeed())
+				Expect(fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry x --id cos {"), constants.FilePerm)).To(Succeed())
+				Expect(fsutils.MkdirAll(fs, "/oem", constants.DirPerm)).To(Succeed())
+
+				spec.Active.Source = sdkImages.NewDockerSrc("alpine")
+				upgrade = action.NewUpgradeAction(config, spec)
+				Expect(upgrade.Run()).To(Succeed())
+
+				variables, err := utils.ReadPersistentVariables("/oem/grubenv", config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(variables["next_entry"]).To(Equal(constants.BootEntryActive))
+			})
 		})
 		Describe(fmt.Sprintf("Booting from %s", constants.PassiveLabel), Label("passive_label"), func() {
 			var err error
@@ -596,6 +610,19 @@ var _ = Describe("Upgrade Actions test", func() {
 				err := upgrade.Run()
 				Expect(err).To(HaveOccurred())
 				Expect(memLog.String()).To(ContainSubstring("Failed to move"))
+			})
+			It("Sets next_entry to cos when upgrading from passive so the new active is tried on reboot", Label("bootentry"), func() {
+				Expect(fsutils.MkdirAll(fs, "/etc/cos", constants.DirPerm)).To(Succeed())
+				Expect(fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry x --id cos {"), constants.FilePerm)).To(Succeed())
+				Expect(fsutils.MkdirAll(fs, "/oem", constants.DirPerm)).To(Succeed())
+
+				spec.Active.Source = sdkImages.NewDockerSrc("alpine")
+				upgrade = action.NewUpgradeAction(config, spec)
+				Expect(upgrade.Run()).To(Succeed())
+
+				variables, err := utils.ReadPersistentVariables("/oem/grubenv", config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(variables["next_entry"]).To(Equal(constants.BootEntryActive))
 			})
 		})
 		Describe(fmt.Sprintf("Booting from %s", constants.RecoveryLabel), Label("recovery_label"), func() {
@@ -781,6 +808,18 @@ var _ = Describe("Upgrade Actions test", func() {
 					// Transition squash should not exist
 					info, err = fs.Stat(spec.Recovery.File)
 					Expect(err).To(HaveOccurred())
+				})
+				It("Does not touch next_entry when only recovery is upgraded", Label("bootentry"), func() {
+					Expect(fsutils.MkdirAll(fs, "/etc/cos", constants.DirPerm)).To(Succeed())
+					Expect(fs.WriteFile("/etc/cos/grub.cfg", []byte("menuentry x --id cos {"), constants.FilePerm)).To(Succeed())
+					Expect(fsutils.MkdirAll(fs, "/oem", constants.DirPerm)).To(Succeed())
+
+					spec.Recovery.Source = sdkImages.NewDockerSrc("alpine")
+					upgrade = action.NewUpgradeAction(config, spec)
+					Expect(upgrade.Run()).To(Succeed())
+
+					_, err := fs.Stat("/oem/grubenv")
+					Expect(err).To(HaveOccurred(), "recovery upgrade must not write grubenv")
 				})
 			})
 		})

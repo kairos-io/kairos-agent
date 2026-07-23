@@ -83,6 +83,7 @@ const (
 	UsrLocalPath                 = "/usr/local"
 	OEMPath                      = "/oem"
 	BootEntryRecovery            = "recovery"
+	BootEntryActive              = "cos"
 
 	// SELinux targeted policy paths
 	SELinuxTargetedPath        = "/etc/selinux/targeted"
@@ -180,8 +181,7 @@ func GetYipConfigDirs() []string {
 func GetUserConfigDirs() []string {
 	return []string{
 		"/run/initramfs/live",
-		"/etc/kairos",    // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
-		"/etc/elemental", // for backwards compatibility
+		"/etc/kairos", // Default system configuration file https://github.com/kairos-io/kairos/issues/2221
 		"/usr/local/cloud-config",
 		"/oem",
 	}

@@ -209,4 +209,49 @@ stages:
 			Expect(c.Platform.GolangArch).To(Equal("riscv64"))
 		})
 	})
+
+	Describe("YAML helpers", func() {
+		It("merges multiple YAML objects", func() {
+			merged, err := pkgConfig.MergeYAML(
+				map[string]string{"a": "1"},
+				map[string]string{"b": "2"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(merged)).To(ContainSubstring("a: \"1\""))
+			Expect(string(merged)).To(ContainSubstring("b: \"2\""))
+		})
+
+		It("adds a header line before data", func() {
+			Expect(pkgConfig.AddHeader("#cloud-config", "phonehome:\n  url: x")).To(Equal("#cloud-config\nphonehome:\n  url: x"))
+		})
+
+		It("stringifies known stages", func() {
+			Expect(pkgConfig.NetworkStage.String()).To(Equal("network"))
+			Expect(pkgConfig.InitramfsStage.String()).To(Equal("initramfs"))
+		})
+	})
+
+	Describe("CheckConfigForExtraPartitions", func() {
+		It("accepts extra partitions with names", func() {
+			c := &sdkConfig.Config{
+				Install: &sdkInstall.Install{
+					ExtraPartitions: sdkPartitions.PartitionList{
+						{Name: "data"},
+					},
+				},
+			}
+			Expect(pkgConfig.CheckConfigForExtraPartitions(c)).To(Succeed())
+		})
+
+		It("rejects extra partitions without names", func() {
+			c := &sdkConfig.Config{
+				Install: &sdkInstall.Install{
+					ExtraPartitions: sdkPartitions.PartitionList{
+						{Size: 1024},
+					},
+				},
+			}
+			Expect(pkgConfig.CheckConfigForExtraPartitions(c)).To(MatchError(ContainSubstring("without a name")))
+		})
+	})
 })

@@ -61,7 +61,7 @@ func ListNewerReleases(includePrereleases bool, registry string) ([]string, erro
 }
 
 func Upgrade(
-	source string, strictValidations bool, dirs []string, upgradeEntry string, excludes ...string) error {
+	source string, strictValidations bool, dirs []string, upgradeEntry string, allowInsecureRegistries bool, excludes ...string) error {
 	bus.Manager.Initialize()
 
 	fixedDirs := make([]string, len(dirs))
@@ -74,14 +74,14 @@ func Upgrade(
 	}
 
 	if internalutils.UkiBootMode() == internalutils.UkiHDD {
-		return upgradeUki(source, fixedDirs, upgradeEntry, strictValidations)
+		return upgradeUki(source, fixedDirs, upgradeEntry, strictValidations, allowInsecureRegistries)
 	} else {
-		return upgrade(source, fixedDirs, upgradeEntry, strictValidations, excludes...)
+		return upgrade(source, fixedDirs, upgradeEntry, strictValidations, allowInsecureRegistries, excludes...)
 	}
 }
 
-func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, excludes ...string) error {
-	c, err := getConfig(sourceImageURL, dirs, upgradeEntry, strictValidations, excludes...)
+func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, allowInsecureRegistries bool, excludes ...string) error {
+	c, err := getConfig(sourceImageURL, dirs, upgradeEntry, strictValidations, allowInsecureRegistries, excludes...)
 	if err != nil {
 		return err
 	}
@@ -112,8 +112,8 @@ func upgrade(sourceImageURL string, dirs []string, upgradeEntry string, strictVa
 	return hook.Run(*c, upgradeSpec, hook.FinishUpgrade...)
 }
 
-func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool) error {
-	c, err := getConfig(sourceImageURL, dirs, upgradeEntry, strictValidations)
+func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, allowInsecureRegistries bool) error {
+	c, err := getConfig(sourceImageURL, dirs, upgradeEntry, strictValidations, allowInsecureRegistries)
 	if err != nil {
 		return err
 	}
@@ -145,8 +145,8 @@ func upgradeUki(sourceImageURL string, dirs []string, upgradeEntry string, stric
 	return hook.Run(*c, upgradeSpec, hook.FinishUpgrade...)
 }
 
-func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, excludes ...string) (*sdkConfig.Config, error) {
-	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeEntry, excludes...)
+func getConfig(sourceImageURL string, dirs []string, upgradeEntry string, strictValidations bool, allowInsecureRegistries bool, excludes ...string) (*sdkConfig.Config, error) {
+	cliConf, err := generateUpgradeConfForCLIArgs(sourceImageURL, upgradeEntry, allowInsecureRegistries, excludes...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +190,11 @@ func newerReleases(registry string) (versioneer.TagList, error) {
 
 // generateUpgradeConfForCLIArgs creates a kairos configuration for `--source` and `--recovery` and `--excluded-paths`
 // command line arguments. It will be added to the rest of the configurations.
-func generateUpgradeConfForCLIArgs(source, upgradeEntry string, excludes ...string) (string, error) {
+func generateUpgradeConfForCLIArgs(source, upgradeEntry string, allowInsecureRegistries bool, excludes ...string) (string, error) {
 	upgradeConfig := ExtraConfigUpgrade{}
 
 	upgradeConfig.Upgrade.Entry = upgradeEntry
+	upgradeConfig.Upgrade.AllowInsecureRegistries = allowInsecureRegistries
 
 	// Set uri both for active and recovery because we don't know what we are
 	// actually upgrading. The "upgradeRecovery" is just the command line argument.
@@ -242,6 +243,7 @@ type ExtraConfigUpgrade struct {
 		System struct {
 			Source string `json:"source,omitempty"`
 		} `json:"system,omitempty"`
-		ExcludedPaths []string `json:"excluded-paths,omitempty"`
+		ExcludedPaths           []string `json:"excluded-paths,omitempty"`
+		AllowInsecureRegistries bool     `json:"allow-insecure-registries,omitempty"`
 	} `json:"upgrade,omitempty"`
 }

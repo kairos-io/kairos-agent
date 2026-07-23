@@ -9,7 +9,14 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/kairos-io/kairos-agent/v2/pkg/action"
+	"github.com/kairos-io/kairos-agent/v2/pkg/constants"
+	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
+
+var selectBootEntry = action.SelectBootEntry
+var rebootScheduler = scheduleReboot
 
 // DefaultCommandHandler returns a CommandHandler that handles all phone-home commands.
 // The serverURL and apiKey are needed to download artifact images for upgrades.
@@ -25,7 +32,7 @@ import (
 // phonehome Run loop stops reconnecting. It is nil-safe (nil => no self-exit,
 // useful for tests and one-shot handler drivers); in production the Client
 // passes its own Stop method in.
-func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed func(string) bool, stop func()) CommandHandler {
+func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed func(string) bool, stop func(), systemConfig *sdkConfig.Config) CommandHandler {
 	return func(cmd CommandData) (string, error) {
 		if isAllowed == nil || !isAllowed(cmd.Command) {
 			return "", fmt.Errorf("command %q is not permitted by the phonehome policy; add it to phonehome.allowed_commands in cloud-config to opt in", cmd.Command)
@@ -47,7 +54,7 @@ func DefaultCommandHandler(serverURL string, apiKey func() string, isAllowed fun
 			return handleUpgrade(ctx, cmd, serverURL, apiKey())
 
 		case "reset":
-			return handleReset(cmd)
+			return handleReset(cmd, systemConfig)
 
 		case "apply-cloud-config":
 			return handleApplyCloudConfig(cmd)
@@ -163,33 +170,24 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 	return string(out) + "\nUpgrade complete. Rebooting in 10s...", nil
 }
 
-// handleReset runs kairos-agent reset and optionally writes a cloud-config after.
-// The persistent partition is always reformatted during reset — that's the
-// NewResetSpec default in pkg/config/spec.go — so there's no arg to surface.
-func handleReset(cmd CommandData) (string, error) {
-	args := []string{"reset", "--unattended"}
-	if cmd.Args["reset-oem"] == "true" {
-		args = append(args, "--reset-oem")
-	}
-
-	Logger.Infof("running: kairos-agent %s", strings.Join(args, " "))
-	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
-	if err != nil {
-		Logger.Errorf("kairos-agent reset exit: err=%v output=%s", err, string(out))
-		return string(out), err
-	}
-	Logger.Infof("kairos-agent reset completed: %s", string(out))
-
-	// If a cloud-config was provided, write it to OEM after reset.
-	// OEM may have been wiped (--reset-oem) so we remount it first.
-	if cfg := cmd.Args["config"]; cfg != "" {
-		if err := writeOEMCloudConfig(cfg); err != nil {
-			return string(out) + "\nReset succeeded but failed to write cloud config: " + err.Error(), err
+// handleReset selects the automatic state-reset boot entry and reboots. Reset
+// itself cannot run from the active system; the statereset entry performs it on
+// the next boot and then returns the node to the active entry.
+func handleReset(cmd CommandData, systemConfig *sdkConfig.Config) (string, error) {
+	for _, argument := range []string{"reset-oem", "config"} {
+		if _, ok := cmd.Args[argument]; ok {
+			return "", fmt.Errorf("reset argument %q is not supported by automatic state reset", argument)
 		}
 	}
+	if systemConfig == nil {
+		return "", fmt.Errorf("reset requires the scanned system configuration")
+	}
+	if err := selectBootEntry(systemConfig, constants.StateResetImgName); err != nil {
+		return "", fmt.Errorf("selecting automatic state-reset boot entry: %w", err)
+	}
 
-	scheduleReboot()
-	return string(out) + "\nReset complete. Rebooting in 10s...", nil
+	rebootScheduler()
+	return "Automatic state reset selected. Rebooting in 10s...", nil
 }
 
 // handleApplyCloudConfig writes a cloud-config file to the OEM partition.
@@ -235,7 +233,7 @@ func writeOEMCloudConfig(content string) error {
 func scheduleReboot() {
 	go func() {
 		// Best-effort flush then reboot — we're going down either way.
-		_ = exec.Command("sync").Run()   //nosec G204 -- fixed command
+		_ = exec.Command("sync").Run() //nosec G204 -- fixed command
 		time.Sleep(10 * time.Second)
 		_ = exec.Command("reboot").Run() //nosec G204 -- fixed command
 	}()
