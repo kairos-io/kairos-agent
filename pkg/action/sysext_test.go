@@ -905,7 +905,7 @@ var _ = Describe("Sysext Actions test", Label("sysext"), func() {
 			config.Fs = vfs.NewReadOnlyFS(fs)
 			err = action.InstallExtension(config, "file:///valid.raw", "sysext")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to copy file"))
+			Expect(err.Error()).To(ContainSubstring("failed to create file"))
 		})
 	})
 	Describe("Read only filesystem failures", func() {

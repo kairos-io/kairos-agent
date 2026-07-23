@@ -40,7 +40,6 @@ var _ = Describe("Constants functions", func() {
 			Expect(cnst.GetUserConfigDirs()).To(Equal([]string{
 				"/run/initramfs/live",
 				"/etc/kairos",
-				"/etc/elemental",
 				"/usr/local/cloud-config",
 				"/oem",
 			}))
