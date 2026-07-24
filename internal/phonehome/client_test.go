@@ -201,6 +201,30 @@ var _ = Describe("PhoneHome Client", func() {
 			Expect(ms.lastReg.Labels).To(HaveKeyWithValue("env", "test"))
 		})
 
+		// Regression for kairos-io/kairos#4196: the injected hostname must
+		// ride the register payload (previously it read os.Hostname() with
+		// no override hook, so a test could not distinguish boot-time and
+		// post-cloud-init hostnames deterministically).
+		It("should send the injected hostname on register", func() {
+			cfg := &phonehome.Config{
+				URL:               ms.server.URL,
+				RegistrationToken: "test-token",
+				HeartbeatInterval: 100 * time.Millisecond,
+				ReconnectBackoff:  50 * time.Millisecond,
+			}
+			client := phonehome.NewClient(cfg,
+				phonehome.WithCredentialsPath(filepath.Join(tmpDir, "creds.yaml")),
+				phonehome.WithMachineIDFunc(func() string { return "test-machine-id" }),
+				phonehome.WithHostnameFunc(func() string { return "kairos-a1b2" }),
+				phonehome.WithLogger(logger),
+			)
+			Expect(client.Register(context.Background())).To(Succeed())
+
+			ms.mu.Lock()
+			defer ms.mu.Unlock()
+			Expect(ms.lastReg.Hostname).To(Equal("kairos-a1b2"))
+		})
+
 		It("should store credentials to file", func() {
 			client := newTestClient("test-token")
 			err := client.Register(context.Background())
@@ -273,6 +297,68 @@ var _ = Describe("PhoneHome Client", func() {
 			ms.mu.Lock()
 			defer ms.mu.Unlock()
 			Expect(len(ms.heartbeats)).To(BeNumerically(">=", 2))
+		})
+
+		// Regression for kairos-io/kairos#4196: heartbeats must carry the
+		// node's current hostname so the AuroraBoot UI updates when the
+		// cloud-config-templated name (e.g. `kairos-a1b2`) is applied on
+		// first boot AFTER the initial register.
+		It("should include the current hostname on every heartbeat", func() {
+			cfg := &phonehome.Config{
+				URL:               ms.server.URL,
+				RegistrationToken: "test-token",
+				HeartbeatInterval: 50 * time.Millisecond,
+				ReconnectBackoff:  50 * time.Millisecond,
+			}
+			calls := 0
+			hostnames := []string{"kairos", "kairos-a1b2"}
+			client := phonehome.NewClient(cfg,
+				phonehome.WithCredentialsPath(filepath.Join(tmpDir, "creds.yaml")),
+				phonehome.WithMachineIDFunc(func() string { return "test-machine-id" }),
+				phonehome.WithHostnameFunc(func() string {
+					// First call is the register; subsequent calls are the
+					// per-heartbeat refresh once cloud-init has renamed the box.
+					n := hostnames[0]
+					if calls > 0 && calls-1 < len(hostnames) {
+						n = hostnames[calls-1]
+					} else if calls > 0 {
+						n = hostnames[len(hostnames)-1]
+					}
+					calls++
+					return n
+				}),
+				phonehome.WithLogger(logger),
+			)
+			err := client.Register(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				defer GinkgoRecover()
+				<-ms.wsConnected
+				time.Sleep(200 * time.Millisecond)
+				cancel()
+			}()
+			client.Connect(ctx)
+
+			ms.mu.Lock()
+			defer ms.mu.Unlock()
+			Expect(len(ms.heartbeats)).To(BeNumerically(">=", 1))
+			// Every heartbeat must carry a hostname (never left empty).
+			for _, hb := range ms.heartbeats {
+				Expect(hb.Hostname).NotTo(BeEmpty())
+			}
+			// At least one heartbeat must reflect the post-rename value so a
+			// server that only reads hostname on register would still see the
+			// change.
+			var sawRenamed bool
+			for _, hb := range ms.heartbeats {
+				if hb.Hostname == "kairos-a1b2" {
+					sawRenamed = true
+					break
+				}
+			}
+			Expect(sawRenamed).To(BeTrue(), "expected at least one heartbeat with the post-rename hostname")
 		})
 
 		It("should fail when the stored API key is rejected by the server", func() {
