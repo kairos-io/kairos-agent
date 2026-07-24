@@ -37,6 +37,14 @@ func WithMachineIDFunc(fn func() string) ClientOption {
 	return func(c *Client) { c.machineIDFn = fn }
 }
 
+// WithHostnameFunc overrides the function that returns the node's current
+// hostname. The default reads os.Hostname(); tests inject a deterministic
+// function so they can drive the register vs. post-cloud-init transition
+// (kairos-io/kairos#4196) without touching the real box hostname.
+func WithHostnameFunc(fn func() string) ClientOption {
+	return func(c *Client) { c.hostnameFn = fn }
+}
+
 // WithCommandHandler sets the handler for incoming commands.
 func WithCommandHandler(h CommandHandler) ClientOption {
 	return func(c *Client) { c.cmdHandler = h }
@@ -56,6 +64,7 @@ type Client struct {
 	httpClient  *http.Client
 	credPath    string
 	machineIDFn func() string
+	hostnameFn  func() string
 	cmdHandler  CommandHandler
 	logger      sdkLogger.KairosLogger
 
@@ -109,6 +118,10 @@ func NewClient(cfg *Config, opts ...ClientOption) *Client {
 			}
 			return strings.TrimSpace(string(data))
 		},
+		hostnameFn: func() string {
+			h, _ := os.Hostname()
+			return h
+		},
 		// Default logger; callers should pass WithLogger(cfg.Logger) from
 		// the scanned sdkConfig.Config so the two output streams match.
 		logger: sdkLogger.NewKairosLogger("phonehome", "info", false),
@@ -129,10 +142,9 @@ func (c *Client) Register(ctx context.Context) error {
 		return nil
 	}
 
-	hostname, _ := os.Hostname()
 	reqBody := RegisterRequest{
 		MachineID:         c.machineIDFn(),
-		Hostname:          hostname,
+		Hostname:          c.hostnameFn(),
 		RegistrationToken: c.cfg.RegistrationToken,
 		Group:             c.cfg.Group,
 		Labels:            c.cfg.Labels,
@@ -353,6 +365,10 @@ func (c *Client) sendHeartbeat(conn *websocket.Conn) error {
 		AgentVersion: common.GetVersion(),
 		OSRelease:    gatherSystemInfo(),
 		Labels:       c.cfg.Labels,
+		// Re-read on every tick so a cloud-config-templated hostname applied
+		// after first boot (kairos-io/kairos#4196) reaches the AuroraBoot UI
+		// on the next heartbeat instead of being frozen at the register value.
+		Hostname: c.hostnameFn(),
 	}
 	data, _ := json.Marshal(hb)
 	msg := WSMessage{Type: "heartbeat", Data: data}

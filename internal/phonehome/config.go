@@ -134,6 +134,11 @@ type HeartbeatData struct {
 	AgentVersion string            `json:"agentVersion"`
 	OSRelease    map[string]string `json:"osRelease,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
+	// Hostname is the node's current OS hostname, re-read on every heartbeat
+	// so cloud-config-templated names (e.g. `kairos-{{ trunc 4 .MachineID }}`)
+	// applied after first boot make their way to the AuroraBoot UI without a
+	// re-register. Fixes kairos-io/kairos#4196.
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // CommandData is received from the management server.
