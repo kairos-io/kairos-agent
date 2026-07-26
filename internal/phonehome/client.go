@@ -137,7 +137,7 @@ func (c *Client) Register(ctx context.Context) error {
 		Group:             c.cfg.Group,
 		Labels:            c.cfg.Labels,
 		Addresses:         gatherAddresses(),
-		BootState:         detectBootState(),
+		BootState:         detectBootState(c.logger.Logger),
 	}
 
 	body, err := json.Marshal(reqBody)
@@ -356,7 +356,7 @@ func (c *Client) sendHeartbeat(conn *websocket.Conn) error {
 		OSRelease:    gatherSystemInfo(),
 		Labels:       c.cfg.Labels,
 		Addresses:    gatherAddresses(),
-		BootState:    detectBootState(),
+		BootState:    detectBootState(c.logger.Logger),
 	}
 	data, _ := json.Marshal(hb)
 	msg := WSMessage{Type: "heartbeat", Data: data}
