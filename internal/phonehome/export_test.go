@@ -100,5 +100,5 @@ func SetScheduleReboot(fn func()) func() {
 
 // HandleUpgradeForTest is the test-only entry point for handleUpgrade.
 func HandleUpgradeForTest(cmd CommandData) (string, error) {
-	return handleUpgrade(context.Background(), cmd, "http://test", "")
+	return handleUpgrade(context.Background(), cmd, "http://test", "", nil, 0, 0)
 }

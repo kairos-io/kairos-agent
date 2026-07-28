@@ -92,7 +92,7 @@ var _ = Describe("parseExtensionArgs", func() {
 var _ = Describe("DefaultCommandHandler — extension command", func() {
 	It("rejects the command when isAllowed returns false", func() {
 		denyAll := func(string) bool { return false }
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, denyAll, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, denyAll, nil, nil)
 		_, err := handler(phonehome.CommandData{
 			ID: "c1", Command: "extension",
 			Args: map[string]string{"type": "sysext", "action": "remove", "name": "x"},
@@ -102,7 +102,7 @@ var _ = Describe("DefaultCommandHandler — extension command", func() {
 
 	It("surfaces parse errors when args are malformed", func() {
 		allow := func(string) bool { return true }
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, allow, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, allow, nil, nil)
 		_, err := handler(phonehome.CommandData{
 			ID: "c1", Command: "extension",
 			Args: map[string]string{"type": "wat"},
@@ -115,7 +115,7 @@ var _ = Describe("DefaultCommandHandler — extension command", func() {
 		restore := phonehome.SetExecCommand(rec.record)
 		defer restore()
 		allow := func(string) bool { return true }
-		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, allow, nil)
+		handler := phonehome.DefaultCommandHandler("http://example", func() string { return "" }, allow, nil, nil)
 		_, err := handler(phonehome.CommandData{
 			ID: "c1", Command: "extension",
 			Args: map[string]string{
