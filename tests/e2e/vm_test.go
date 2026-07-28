@@ -131,27 +131,6 @@ func sshTimeout() int {
 	return 1200
 }
 
-// wipeDisk clears any prior install so the next spec starts from a blank
-// /dev/vda. Umounts and tools are best-effort — a spec that never mounted
-// anything (e.g. the "too big" validation case) will no-op here. The primary
-// GPT (first 34 sectors) and backup GPT (last 34 sectors) are always zeroed
-// so the next install cannot see leftover partitions.
-func wipeDisk(vm VM) {
-	const cmd = `set +e
-sync
-for p in /dev/vda*; do umount "$p" 2>/dev/null; done
-wipefs -a /dev/vda >/dev/null 2>&1
-sgdisk --zap-all /dev/vda >/dev/null 2>&1
-dd if=/dev/zero of=/dev/vda bs=512 count=34 conv=fsync >/dev/null 2>&1
-end=$(blockdev --getsz /dev/vda 2>/dev/null)
-if [ -n "$end" ]; then
-  dd if=/dev/zero of=/dev/vda bs=512 seek=$((end - 34)) count=34 conv=fsync >/dev/null 2>&1
-fi
-partprobe /dev/vda >/dev/null 2>&1
-true`
-	_, _ = vm.Sudo(cmd)
-}
-
 // dumpSerial writes the VM serial log into ./logs on failure.
 func dumpSerial(vm VM) {
 	serial, _ := os.ReadFile(filepath.Join(vm.StateDir, "serial.log"))

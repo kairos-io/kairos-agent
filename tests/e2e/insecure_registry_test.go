@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/spectrocloud/peg/matcher"
 )
 
 // Strings observed in a real manual-install run. tlsError is the go-containerregistry
@@ -20,21 +21,29 @@ const (
 )
 
 var _ = Describe("manual-install against an insecure registry", Label("insecure-registry"), func() {
+	var vm VM
+
 	BeforeEach(func() {
-		// Fresh disk for each spec — the suite-shared VM is reused, but any
-		// prior install must be scrubbed so partitioning starts from zero.
-		wipeDisk(suiteVM)
+		vm = startVM()
+		vm.EventuallyConnects(sshTimeout())
 
 		cfg, err := os.ReadFile("config.yaml")
 		Expect(err).ToNot(HaveOccurred())
-		_, err = suiteVM.Sudo(fmt.Sprintf("cat > /tmp/config.yaml <<'EOF'\n%s\nEOF", string(cfg)))
+		_, err = vm.Sudo(fmt.Sprintf("cat > /tmp/config.yaml <<'EOF'\n%s\nEOF", string(cfg)))
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	AfterEach(dumpSuiteSerialOnFailure)
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			dumpSerial(vm)
+		}
+		if vm.StateDir != "" {
+			_ = vm.Destroy(nil)
+		}
+	})
 
 	It("fails at the pull without --allow-insecure-registries", func() {
-		out, err := suiteVM.Sudo(fmt.Sprintf(
+		out, err := vm.Sudo(fmt.Sprintf(
 			"kairos-agent manual-install --device /dev/vda --source %s /tmp/config.yaml",
 			sourceURI()))
 		Expect(err).To(HaveOccurred(), out)
@@ -45,7 +54,7 @@ var _ = Describe("manual-install against an insecure registry", Label("insecure-
 		// We only verify the pull stage: with the flag the image is pulled and
 		// unpacked successfully. The install may not run to completion in this
 		// minimal setup, so the command error is intentionally ignored.
-		out, _ := suiteVM.Sudo(fmt.Sprintf(
+		out, _ := vm.Sudo(fmt.Sprintf(
 			"kairos-agent manual-install --allow-insecure-registries --device /dev/vda --source %s /tmp/config.yaml",
 			sourceURI()))
 		Expect(out).ToNot(ContainSubstring(tlsError), out)
