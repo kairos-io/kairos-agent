@@ -3,6 +3,8 @@ package webui
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,20 +14,19 @@ import (
 
 // TestInstall_RedirectsWhenProcessAlreadyRunning drives the branch in the
 // /install handler that short-circuits to progress.html when a process is
-// already tracked. We use an internal test so we can hand-build the router
-// with a pre-populated state — the exported BuildRouter always starts with
-// s.p == nil.
+// already tracked. We can't call p.Run() with a real /bin/sh because
+// processmanager spins up a monitor goroutine that races with the /install
+// handler's IsAlive() call — the library writes Process.PID from both without
+// a lock (upstream process.go:69). Instead we build a stateless Process, drop
+// an "exitcode" file in its state dir so ExitCode() reports "0", and rely on
+// the handler's `IsAlive() || status == "0"` guard: IsAlive() is false (no pid
+// file), status is "0", the redirect fires. No goroutine, no race.
 func TestInstall_RedirectsWhenProcessAlreadyRunning(t *testing.T) {
 	stateDir := t.TempDir()
-	p := process.New(
-		process.WithName("/bin/sh"),
-		process.WithArgs("-c", "sleep 2"),
-		process.WithStateDir(stateDir),
-	)
-	if err := p.Run(); err != nil {
-		t.Skipf("cannot spawn /bin/sh: %v", err)
+	p := process.New(process.WithStateDir(stateDir))
+	if err := os.WriteFile(filepath.Join(stateDir, "exitcode"), []byte("0"), 0600); err != nil {
+		t.Fatal(err)
 	}
-	defer func() { _ = p.Stop() }()
 
 	s := &state{p: p}
 	ec := buildRouterFromState(s)
