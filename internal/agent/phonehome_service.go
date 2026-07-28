@@ -11,6 +11,17 @@ import (
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 )
 
+// phoneHomeServicePath and phoneHomeExecCommand are test seams. In production
+// they point at the real systemd unit file and os/exec.Command. Tests override
+// them to a t.TempDir() path and a stub so the systemctl daemon-reload /
+// enable / start invocations never touch the host — running those on a dev
+// machine would reload systemd and enable a service the developer never asked
+// for.
+var (
+	phoneHomeServicePath = phonehome.ServicePath
+	phoneHomeExecCommand = func(name string, args ...string) *exec.Cmd { return exec.Command(name, args...) }
+)
+
 func phoneHomeServiceUnit(agentBin string) string {
 	return fmt.Sprintf(`[Unit]
 Description=Kairos Agent Phone Home
@@ -50,7 +61,7 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 
 	c.Logger.Infof("phone-home configuration detected, enabling phone-home service")
 
-	if err := os.WriteFile(phonehome.ServicePath, []byte(phoneHomeServiceUnit(constants.AgentDefaultPath)), 0600); err != nil {
+	if err := os.WriteFile(phoneHomeServicePath, []byte(phoneHomeServiceUnit(constants.AgentDefaultPath)), 0600); err != nil {
 		c.Logger.Warnf("failed to write phone-home service: %v", err)
 		return
 	}
@@ -61,7 +72,7 @@ func enablePhoneHomeIfConfigured(c *sdkConfig.Config) {
 		{"systemctl", "start", phonehome.ServiceName},
 	} {
 		// args is a literal slice defined just above — no user input reaches exec.Command.
-		cmd := exec.Command(args[0], args[1:]...) //nosec G204 -- fixed command and arguments
+		cmd := phoneHomeExecCommand(args[0], args[1:]...) //nosec G204 -- fixed command and arguments
 		if out, err := cmd.CombinedOutput(); err != nil {
 			c.Logger.Warnf("%s failed: %v (%s)", strings.Join(args, " "), err, string(out))
 		}

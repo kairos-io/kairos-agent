@@ -61,12 +61,19 @@ func Run(c sdkConfig.Config, spec sdkSpec.Spec, hooks ...Interface) error {
 	return nil
 }
 
+// lockPartitionsShFn wraps utils.SH so tests can inject a stub that returns
+// canned dmsetup output. Without this seam lockPartitions would depend on the
+// host actually having dm-crypt devices, which no CI/dev machine reliably
+// does, and the interesting per-mapper cryptsetup close loop would stay
+// uncovered.
+var lockPartitionsShFn = utils.SH
+
 // lockPartitions will try to close all the partitions that are unencrypted.
 func lockPartitions(log sdkLogger.KairosLogger) {
-	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
+	_, _ = lockPartitionsShFn("udevadm trigger --type=all || udevadm trigger")
 
 	// Get list of active mapper devices
-	dmOutput, err := utils.SH("dmsetup ls --target crypt")
+	dmOutput, err := lockPartitionsShFn("dmsetup ls --target crypt")
 	if err != nil {
 		log.Debugf("could not list dm devices: %v", err)
 		return
@@ -87,7 +94,7 @@ func lockPartitions(log sdkLogger.KairosLogger) {
 		mapperName := fields[0]
 
 		log.Debugf("Closing encrypted device: %s", mapperName)
-		out, err := utils.SH(fmt.Sprintf("cryptsetup close %s", mapperName))
+		out, err := lockPartitionsShFn(fmt.Sprintf("cryptsetup close %s", mapperName))
 		// There is a known error with cryptsetup that it can't close the device because of a semaphore
 		// doesnt seem to affect anything as the device is closed as expected so we ignore it if it matches the
 		// output of the error

@@ -90,10 +90,7 @@ func Install(sourceImgURL string, allowInsecureRegistries bool, dir ...string) e
 
 	bus.Manager.Initialize()
 	utils.OnSignal(func() {
-		svc, err := machine.Getty(1)
-		if err == nil {
-			_ = svc.Start() //nolint:errcheck
-		}
+		startGettyTTY1()
 	}, syscall.SIGINT, syscall.SIGTERM)
 
 	tk := ""
@@ -135,10 +132,7 @@ func Install(sourceImgURL string, allowInsecureRegistries bool, dir ...string) e
 
 		if !cc.Install.Reboot && !cc.Install.Poweroff {
 			_, _ = pterm.DefaultInteractiveContinue.Show("Installation completed, press enter to go back to the shell.")
-			svc, err := machine.Getty(1)
-			if err == nil {
-				_ = svc.Start() //nolint:errcheck
-			}
+			startGettyTTY1()
 		}
 
 		return nil
@@ -214,10 +208,7 @@ func Install(sourceImgURL string, allowInsecureRegistries bool, dir ...string) e
 		_, _ = utils.Prompt("") //nolint:errcheck
 
 		// give tty1 back
-		svc, err := machine.Getty(1)
-		if err == nil {
-			_ = svc.Start() //nolint: errcheck
-		}
+		startGettyTTY1()
 	}
 
 	return nil

@@ -23,6 +23,20 @@ var selectBootEntry = action.SelectBootEntry
 var rebootScheduler = scheduleReboot
 var persistentDir = constants.PersistentDir
 
+// Test seams: /oem is a real mount point on the target host, and
+// "kairos-agent upgrade" spawns a real installer. Unit tests can swap these
+// out to redirect writes to a temp dir and stub out the exec — without a
+// seam the writeOEMCloudConfig / handleUpgrade code paths are effectively
+// untestable on a dev machine.
+var (
+	oemDir           = "/oem"
+	oemRemoteConfig  = "99_phonehome_remote.yaml"
+	oemMountCommand  = func() error { return exec.Command("mount", "-L", "COS_OEM", "/oem").Run() } //nosec G204 -- fixed label
+	kairosAgentUpgrade = func(_ context.Context, args ...string) ([]byte, error) {
+		return exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args from validated CommandData
+	}
+)
+
 func createArtifactTempFile(config *sdkConfig.Config, artifactID string) (*os.File, error) {
 	if config == nil || config.Mounter == nil {
 		return nil, fmt.Errorf("cannot verify the persistent partition mount")
@@ -173,7 +187,7 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 
 	// Use background context — upgrade must NOT be killed if WS disconnects
 	Logger.Infof("running: kairos-agent %s", strings.Join(args, " "))
-	out, err := exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args is a fixed set built from validated CommandData fields
+	out, err := kairosAgentUpgrade(ctx, args...)
 	if err != nil {
 		Logger.Errorf("kairos-agent upgrade exit: err=%v output=%s", err, string(out))
 		return string(out), err
@@ -183,7 +197,7 @@ func handleUpgrade(ctx context.Context, cmd CommandData, serverURL string, apiKe
 	// Reboot after successful upgrade so the new image takes effect.
 	// Do NOT reboot for recovery upgrades (recovery doesn't need reboot).
 	if cmd.Command != "upgrade-recovery" {
-		scheduleReboot()
+		rebootScheduler()
 	}
 
 	return string(out) + "\nUpgrade complete. Rebooting in 10s...", nil
@@ -316,7 +330,7 @@ func handleApplyCloudConfig(cmd CommandData) (string, error) {
 
 // handleReboot schedules a system reboot.
 func handleReboot() (string, error) {
-	scheduleReboot()
+	rebootScheduler()
 	return "Rebooting in 10s...", nil
 }
 
@@ -330,13 +344,13 @@ func writeOEMCloudConfig(content string) error {
 	// Ensure /oem is mounted (it may have been unmounted during reset).
 	// MkdirAll is best-effort: if /oem already exists we proceed; any other
 	// failure will surface from the mount attempt or WriteFile below.
-	if err := os.MkdirAll("/oem", 0750); err != nil {
-		Logger.Warnf("mkdir /oem: %v", err)
+	if err := os.MkdirAll(oemDir, 0750); err != nil {
+		Logger.Warnf("mkdir %s: %v", oemDir, err)
 	}
 	// Best-effort mount — error is expected and ignored when /oem is already mounted.
-	_ = exec.Command("mount", "-L", "COS_OEM", "/oem").Run() //nosec G204 -- fixed label, called on local mountpoint
+	_ = oemMountCommand()
 
-	return os.WriteFile("/oem/99_phonehome_remote.yaml", []byte(content), 0600)
+	return os.WriteFile(filepath.Join(oemDir, oemRemoteConfig), []byte(content), 0600)
 }
 
 // scheduleReboot syncs filesystems and reboots after a short delay.

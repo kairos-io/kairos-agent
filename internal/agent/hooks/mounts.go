@@ -17,12 +17,25 @@ import (
 
 type CustomMounts struct{}
 
+// oemCloudConfigDir is the directory where saveCloudConfig writes generated
+// yip fragments. Extracted as a package-level var so tests can point it at a
+// t.TempDir() and exercise the write path without needing a real /oem mount.
+var oemCloudConfigDir = "/oem"
+
+// customMountsMountFn / customMountsUmountFn wrap machine.Mount / machine.Umount
+// so tests can inject stubs and exercise CustomMounts.Run all the way through
+// saveCloudConfig without actually mounting a partition on the host.
+var (
+	customMountsMountFn  = machine.Mount
+	customMountsUmountFn = machine.Umount
+)
+
 func saveCloudConfig(name config.Stage, yc yip.YipConfig) error {
 	yipYAML, err := yaml.Marshal(yc)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join("/oem", fmt.Sprintf("10_%s.yaml", name)), yipYAML, 0400)
+	return os.WriteFile(filepath.Join(oemCloudConfigDir, fmt.Sprintf("10_%s.yaml", name)), yipYAML, 0400)
 }
 
 // Run Read the keys sections ephemeral_mounts and bind mounts from install key in the cloud config.
@@ -34,12 +47,12 @@ func (cm CustomMounts) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	}
 	c.Logger.Logger.Debug().Msg("Running CustomMounts hook")
 
-	err := machine.Mount("COS_OEM", "/oem")
+	err := customMountsMountFn("COS_OEM", "/oem")
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = machine.Umount("/oem")
+		_ = customMountsUmountFn("/oem")
 	}()
 
 	var mountsList = map[string]string{}

@@ -13,6 +13,16 @@ import (
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
+// bundlesMountFn, bundlesUmountFn are test seams around the machine.Mount /
+// machine.Umount calls made by BundlePostInstall. Tests override them so the
+// hook can be driven past the initial mount (which always fails on a dev
+// machine because the COS_OEM label is not present) without actually mounting
+// anything.
+var (
+	bundlesMountFn  = machine.Mount
+	bundlesUmountFn = machine.Umount
+)
+
 // BundlePostInstall install bundles just after installation
 type BundlePostInstall struct{}
 
@@ -34,18 +44,18 @@ func (b BundlePostInstall) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	// Note that the binding of /usr/local/.state/var-lib-extensions.bind to /var/lib/extensions on active/passive its done by inmmucore based on the
 	// 00_rootfs.yaml config which sets the bind and ephemeral paths.
 	c.Logger.Logger.Info().Msg("Running BundlePostInstall hook")
-	_ = machine.Umount(constants.OEMDir)        //nolint:errcheck
-	_ = machine.Umount(constants.PersistentDir) //nolint:errcheck
+	_ = bundlesUmountFn(constants.OEMDir)        //nolint:errcheck
+	_ = bundlesUmountFn(constants.PersistentDir) //nolint:errcheck
 
 	c.Logger.Logger.Debug().Msg("Mounting OEM partition")
-	err := machine.Mount(constants.OEMLabel, constants.OEMPath)
+	err := bundlesMountFn(constants.OEMLabel, constants.OEMPath)
 	if err != nil {
 		c.Logger.Logger.Err(err).Msg("could not mount OEM")
 		return err
 	}
 	defer func() {
 		c.Logger.Debugf("Unmounting OEM partition")
-		err = machine.Umount(constants.OEMPath)
+		err = bundlesUmountFn(constants.OEMPath)
 		if err != nil {
 			c.Logger.Errorf("could not unmount oem partition: %s", err)
 		}
@@ -54,7 +64,7 @@ func (b BundlePostInstall) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 	_, _ = utils.SH("udevadm trigger --type=all || udevadm trigger")
 	syscall.Sync()
 	c.Logger.Logger.Debug().Msg("Mounting persistent partition")
-	err = machine.Mount(constants.PersistentLabel, constants.UsrLocalPath)
+	err = bundlesMountFn(constants.PersistentLabel, constants.UsrLocalPath)
 	if err != nil {
 		c.Logger.Logger.Err(err).Msg("could not mount persistent")
 		return err
@@ -62,7 +72,7 @@ func (b BundlePostInstall) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 
 	defer func() {
 		c.Logger.Debugf("Unmounting persistent partition")
-		err = machine.Umount(constants.UsrLocalPath)
+		err = bundlesUmountFn(constants.UsrLocalPath)
 		if err != nil {
 			c.Logger.Errorf("could not unmount persistent partition: %s", err)
 		}
@@ -83,7 +93,7 @@ func (b BundlePostInstall) Run(c sdkConfig.Config, _ sdkSpec.Spec) error {
 		return err
 	}
 	defer func() {
-		_ = machine.Umount("/var/lib/extensions")
+		_ = bundlesUmountFn("/var/lib/extensions")
 	}()
 
 	opts := c.Install.Bundles.Options()

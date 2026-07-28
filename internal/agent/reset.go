@@ -16,18 +16,23 @@ import (
 	internalutils "github.com/kairos-io/kairos-agent/v2/pkg/utils"
 	sdk "github.com/kairos-io/kairos-sdk/bus"
 	"github.com/kairos-io/kairos-sdk/collector"
-	"github.com/kairos-io/kairos-sdk/machine"
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
 	"github.com/kairos-io/kairos-sdk/utils"
 
 	"github.com/mudler/go-pluggable"
 )
 
+// ukiBootModeFn is a package-level indirection over internalutils.UkiBootMode
+// so tests can override it to exercise the UkiHDD / UkiRemovableMedia branches
+// without needing a real UKI boot environment (rd.immucore.uki in
+// /proc/cmdline plus /run/cos/uki_boot_mode).
+var ukiBootModeFn = internalutils.UkiBootMode
+
 func Reset(reboot, unattended, resetOem bool, dir ...string) error {
 	// In both cases we want
-	if internalutils.UkiBootMode() == internalutils.UkiHDD {
+	if ukiBootModeFn() == internalutils.UkiHDD {
 		return resetUki(reboot, unattended, resetOem, dir...)
-	} else if internalutils.UkiBootMode() == internalutils.UkiRemovableMedia {
+	} else if ukiBootModeFn() == internalutils.UkiRemovableMedia {
 		return fmt.Errorf("reset is not supported on removable media, please run reset from the installed system recovery entry")
 	} else {
 		return reset(reboot, unattended, resetOem, dir...)
@@ -119,10 +124,7 @@ func sharedReset(reboot, unattended, resetOem bool, dir ...string) (c *sdkConfig
 			// Wait for user input and go back to shell
 			utils.Prompt("") //nolint:errcheck
 			// give tty1 back
-			svc, err := machine.Getty(1)
-			if err == nil {
-				svc.Start() //nolint:errcheck
-			}
+			startGettyTTY1()
 
 			lock.Lock()
 			fmt.Println("Reset aborted")

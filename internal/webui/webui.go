@@ -321,32 +321,18 @@ func (t *TemplateRenderer) Render(c *echo.Context, w io.Writer, name string, dat
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-func Start(ctx context.Context) error {
-
-	s := state{}
-	listen := constants.DefaultWebUIListenAddress
-
+// buildRouter constructs the echo instance with all routes and renderer
+// wired up. It is separated from Start so tests can hit the /validate and
+// /install handlers directly via httptest without opening a real socket or
+// coupling to constants.DefaultWebUIListenAddress.
+func buildRouter(s *state) *echo.Echo {
 	ec := echo.New()
 	assetHandler := http.FileServer(getFileSystem())
 
 	renderer := &TemplateRenderer{
 		templates: template.Must(template.ParseFS(getFS(), "*.html")),
 	}
-
 	ec.Renderer = renderer
-	agentConfig, err := agent.LoadConfig()
-	if err != nil {
-		return err
-	}
-
-	if agentConfig.WebUI.ListenAddress != "" {
-		listen = agentConfig.WebUI.ListenAddress
-	}
-
-	if agentConfig.WebUI.Disable {
-		log.Println("WebUI installer disabled by branding")
-		return nil
-	}
 
 	ec.GET("/*", echo.WrapHandler(http.StripPrefix("/", assetHandler)))
 
@@ -429,13 +415,56 @@ func Start(ctx context.Context) error {
 		return c.Redirect(http.StatusSeeOther, "progress.html")
 	})
 
-	ec.GET("/ws", streamProcess(&s))
+	ec.GET("/ws", streamProcess(s))
 
+	return ec
+}
+
+// BuildRouter is the test-visible wrapper around buildRouter so tests in the
+// external webui_test package can exercise the routes without spinning up a
+// real listener. The state is created fresh per call.
+func BuildRouter() *echo.Echo {
+	return buildRouter(&state{})
+}
+
+// loadAgentConfig is the test seam for the agent config loader. Tests point
+// it at a fixture path (or an outright fake) so Start's branches can be
+// exercised without depending on /etc/kairos/agent.yaml on the host.
+var loadAgentConfig = func() (*agent.Config, error) { return agent.LoadConfig() }
+
+// listenAndServe is the test seam for the actual HTTP listener. Production
+// callers keep the default (echo.StartConfig.Start on a real port); tests
+// point it at a no-op so Start can be driven without opening a socket.
+var listenAndServe = func(ctx context.Context, addr string, ec *echo.Echo) error {
 	sc := echo.StartConfig{
-		Address:         listen,
+		Address:         addr,
 		GracefulTimeout: 10 * time.Second,
 	}
-	if err := sc.Start(ctx, ec); err != nil && err != http.ErrServerClosed {
+	return sc.Start(ctx, ec)
+}
+
+func Start(ctx context.Context) error {
+
+	s := state{}
+	listen := constants.DefaultWebUIListenAddress
+
+	agentConfig, err := loadAgentConfig()
+	if err != nil {
+		return err
+	}
+
+	if agentConfig.WebUI.ListenAddress != "" {
+		listen = agentConfig.WebUI.ListenAddress
+	}
+
+	if agentConfig.WebUI.Disable {
+		log.Println("WebUI installer disabled by branding")
+		return nil
+	}
+
+	ec := buildRouter(&s)
+
+	if err := listenAndServe(ctx, listen, ec); err != nil && err != http.ErrServerClosed {
 		return err
 	}
 

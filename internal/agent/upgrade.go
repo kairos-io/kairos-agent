@@ -60,6 +60,10 @@ func ListNewerReleases(includePrereleases bool, registry string) ([]string, erro
 	return tagList.FullImages()
 }
 
+// upgradeUkiBootModeFn is a test seam over internalutils.UkiBootMode. See the
+// comment on reset.go's ukiBootModeFn for the rationale.
+var upgradeUkiBootModeFn = internalutils.UkiBootMode
+
 func Upgrade(
 	source string, strictValidations bool, dirs []string, upgradeEntry string, allowInsecureRegistries bool, excludes ...string) error {
 	bus.Manager.Initialize()
@@ -73,7 +77,7 @@ func Upgrade(
 		fixedDirs = append(fixedDirs, filepath.Join(hostdir, dir))
 	}
 
-	if internalutils.UkiBootMode() == internalutils.UkiHDD {
+	if upgradeUkiBootModeFn() == internalutils.UkiHDD {
 		return upgradeUki(source, fixedDirs, upgradeEntry, strictValidations, allowInsecureRegistries)
 	} else {
 		return upgrade(source, fixedDirs, upgradeEntry, strictValidations, allowInsecureRegistries, excludes...)

@@ -15,6 +15,17 @@ import (
 	"github.com/kairos-io/kairos-sdk/utils"
 )
 
+// encryptShFn wraps utils.SH so tests can stub out the blkid / findmnt /
+// dmsetup / mount subcommands and drive findMapperDeviceForPartition,
+// preparePartitionsForEncryption and restoreOEM through their happy-path
+// branches. Without this seam these functions bottom out at line ~10% coverage
+// because blkid always fails to find a fake label on a dev host.
+var (
+	encryptShFn     = utils.SH
+	encryptMountFn  = machine.Mount
+	encryptUmountFn = machine.Umount
+)
+
 // Encrypt is the unified encryption method that works for both UKI and non-UKI modes
 func Encrypt(c sdkConfig.Config) error {
 	c.Logger.Logger.Info().Msg("Starting unified encryption flow")
@@ -101,7 +112,7 @@ func preparePartitionsForEncryption(c sdkConfig.Config, partitions []string) err
 
 		// Unmount the partition before encrypting it
 		// Find the device path for this partition label
-		devPath, err := utils.SH(fmt.Sprintf("blkid -L %s", p))
+		devPath, err := encryptShFn(fmt.Sprintf("blkid -L %s", p))
 		if err != nil {
 			c.Logger.Logger.Warn().Str("label", p).Err(err).Msg("Could not find device for label")
 		} else {
@@ -109,12 +120,12 @@ func preparePartitionsForEncryption(c sdkConfig.Config, partitions []string) err
 			c.Logger.Logger.Info().Str("device", devPath).Str("label", p).Msg("Found device for label")
 
 			// Find all mount points for this device and unmount them
-			mountPoints, _ := utils.SH(fmt.Sprintf("findmnt -n -o TARGET -S %s", devPath))
+			mountPoints, _ := encryptShFn(fmt.Sprintf("findmnt -n -o TARGET -S %s", devPath))
 			if mountPoints != "" {
 				for _, mp := range strings.Split(strings.TrimSpace(mountPoints), "\n") {
 					if mp != "" {
 						c.Logger.Logger.Info().Str("device", devPath).Str("mountpoint", mp).Msg("Unmounting partition")
-						if err := machine.Umount(mp); err != nil {
+						if err := encryptUmountFn(mp); err != nil {
 							c.Logger.Logger.Warn().Str("mountpoint", mp).Err(err).Msg("Could not unmount")
 						}
 					}
@@ -130,13 +141,13 @@ func backupOEMIfNeeded(c sdkConfig.Config) (backupPath string, cleanup func(), e
 	c.Logger.Logger.Info().Msg("Backing up OEM partition before encryption")
 
 	// Check if OEM is already mounted
-	_, err = utils.SH(fmt.Sprintf("findmnt %s", constants.OEMDir))
+	_, err = encryptShFn(fmt.Sprintf("findmnt %s", constants.OEMDir))
 	oemAlreadyMounted := (err == nil)
 
 	// Mount OEM partition if not already mounted
 	if !oemAlreadyMounted {
 		c.Logger.Logger.Info().Msg("Mounting OEM partition for backup")
-		err = machine.Mount(constants.OEMLabel, constants.OEMDir)
+		err = encryptMountFn(constants.OEMLabel, constants.OEMDir)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to mount OEM for backup: %w", err)
 		}
@@ -148,7 +159,7 @@ func backupOEMIfNeeded(c sdkConfig.Config) (backupPath string, cleanup func(), e
 	tmpDir, err := fsutils.TempDir(c.Fs, "", "oem-backup-xxxx")
 	if err != nil {
 		if !oemAlreadyMounted {
-			machine.Umount(constants.OEMDir) //nolint:errcheck
+			encryptUmountFn(constants.OEMDir) //nolint:errcheck
 		}
 		return "", nil, fmt.Errorf("failed to create temp dir for OEM backup: %w", err)
 	}
@@ -158,13 +169,13 @@ func backupOEMIfNeeded(c sdkConfig.Config) (backupPath string, cleanup func(), e
 	if err != nil {
 		c.Fs.RemoveAll(tmpDir) //nolint:errcheck
 		if !oemAlreadyMounted {
-			machine.Umount(constants.OEMDir) //nolint:errcheck
+			encryptUmountFn(constants.OEMDir) //nolint:errcheck
 		}
 		return "", nil, fmt.Errorf("failed to sync OEM data: %w", err)
 	}
 
 	// Unmount OEM (it will be unmounted again by preparePartitionsForEncryption, but that's ok)
-	err = machine.Umount(constants.OEMDir) //nolint:errcheck
+	err = encryptUmountFn(constants.OEMDir) //nolint:errcheck
 	if err != nil {
 		c.Fs.RemoveAll(tmpDir) //nolint:errcheck
 		return "", nil, fmt.Errorf("failed to unmount OEM after backup: %w", err)
@@ -187,7 +198,7 @@ func backupOEMIfNeeded(c sdkConfig.Config) (backupPath string, cleanup func(), e
 func findMapperDeviceForPartition(c sdkConfig.Config, label string) (string, error) {
 	// First, find the underlying encrypted partition device by its label
 	// This will return the LUKS container device (e.g., /dev/vda2)
-	partitionPath, err := utils.SH(fmt.Sprintf("blkid -L %s", label))
+	partitionPath, err := encryptShFn(fmt.Sprintf("blkid -L %s", label))
 	if err != nil {
 		return "", fmt.Errorf("failed to find partition with label %s: %w", label, err)
 	}
@@ -201,7 +212,7 @@ func findMapperDeviceForPartition(c sdkConfig.Config, label string) (string, err
 	mapperPath := fmt.Sprintf("/dev/mapper/%s", baseName)
 
 	// Get list of active encrypted mapper devices to verify it's unlocked
-	dmOutput, err := utils.SH("dmsetup ls --target crypt")
+	dmOutput, err := encryptShFn("dmsetup ls --target crypt")
 	if err != nil {
 		return "", fmt.Errorf("failed to list dm-crypt devices: %w", err)
 	}
@@ -281,10 +292,10 @@ func restoreOEM(c sdkConfig.Config, backupPath string) error {
 	c.Logger.Logger.Info().Str("device", devicePath).Str("mountpoint", constants.OEMDir).Msg("Mounting OEM partition")
 
 	// First check what filesystem is on the device
-	fsType, _ := utils.SH(fmt.Sprintf("blkid -s TYPE -o value %s", devicePath))
+	fsType, _ := encryptShFn(fmt.Sprintf("blkid -s TYPE -o value %s", devicePath))
 	c.Logger.Logger.Info().Str("device", devicePath).Str("fs_type", strings.TrimSpace(fsType)).Msg("Filesystem type on mapper device")
 
-	mountOut, err := utils.SH(fmt.Sprintf("mount %s %s", devicePath, constants.OEMDir))
+	mountOut, err := encryptShFn(fmt.Sprintf("mount %s %s", devicePath, constants.OEMDir))
 	if err != nil {
 		c.Logger.Logger.Error().Str("mount_output", mountOut).Str("device", devicePath).Msg("Mount failed")
 		return fmt.Errorf("failed to mount OEM for restore: %w (output: %s)", err, mountOut)
@@ -293,12 +304,12 @@ func restoreOEM(c sdkConfig.Config, backupPath string) error {
 	// Copy back the contents of the OEM partition that we saved before encrypting
 	err = internalutils.SyncData(c.Logger, c.Runner, c.Fs, backupPath, constants.OEMDir, []string{}...)
 	if err != nil {
-		machine.Umount(constants.OEMDir) //nolint:errcheck
+		encryptUmountFn(constants.OEMDir) //nolint:errcheck
 		return fmt.Errorf("failed to restore OEM data: %w", err)
 	}
 
 	// Unmount the OEM partition and leave everything unmounted
-	err = machine.Umount(constants.OEMDir)
+	err = encryptUmountFn(constants.OEMDir)
 	if err != nil {
 		return fmt.Errorf("failed to unmount OEM after restore: %w", err)
 	}
