@@ -121,11 +121,12 @@ var _ = Describe("run stage", Label("RunStage"), func() {
 		// Modern replacement for the legacy cos.setup= stanza. Both must
 		// resolve through the same SDK-backed helper (kairos-sdk PR #812),
 		// so the RunStage side effect (yip source added) is identical.
-		d, _ := fsutils.TempDir(fs, "", "elemental")
-		_ = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte{}, os.ModePerm)
+		d, err := fsutils.TempDir(fs, "", "elemental")
+		Expect(err).ToNot(HaveOccurred())
+		err = fs.WriteFile(fmt.Sprintf("%s/test.yaml", d), []byte{}, os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
 
-		writeCmdline(fmt.Sprintf("root=LABEL=X kairos.config_url=%s/test.yaml quiet", d), fs)
-
+		Expect(writeCmdline(fmt.Sprintf("root=LABEL=X kairos.config_url=%s/test.yaml quiet", d), fs)).To(Succeed())
 		Expect(utils.RunStage(config, "padme")).To(BeNil())
 		Expect(memLog).To(ContainSubstring("padme"))
 		Expect(memLog).To(ContainSubstring(fmt.Sprintf("%s/test.yaml", d)))
