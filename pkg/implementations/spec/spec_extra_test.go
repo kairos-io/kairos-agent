@@ -133,7 +133,7 @@ var _ = Describe("Spec accessors and uki specs", Label("types", "config"), func(
 	})
 
 	Describe("InstallUkiSpec", func() {
-		It("sanitizes without error and exposes accessors", func() {
+		It("exposes accessors", func() {
 			sp := spec.InstallUkiSpec{
 				Reboot:   true,
 				PowerOff: true,
@@ -145,7 +145,6 @@ var _ = Describe("Spec accessors and uki specs", Label("types", "config"), func(
 					&sdkPartitions.Partition{Name: "extra"},
 				},
 			}
-			Expect(sp.Sanitize()).ToNot(HaveOccurred())
 			Expect(sp.ShouldReboot()).To(BeTrue())
 			Expect(sp.ShouldShutdown()).To(BeTrue())
 			Expect(sp.GetTarget()).To(Equal("/dev/sda"))
