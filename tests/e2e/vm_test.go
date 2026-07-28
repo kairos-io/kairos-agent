@@ -19,8 +19,27 @@ import (
 	"github.com/spectrocloud/peg/pkg/machine/types"
 )
 
+// kvmAvailable reports whether /dev/kvm is present and usable. When true, the
+// VM is launched with hardware acceleration; boot times drop from minutes
+// (TCG) to seconds. CI runners expose /dev/kvm after the "Enable KVM" step.
+func kvmAvailable() bool {
+	if os.Getenv("KAIROS_E2E_NO_KVM") != "" {
+		return false
+	}
+	if _, err := os.Stat("/dev/kvm"); err != nil {
+		return false
+	}
+	f, err := os.OpenFile("/dev/kvm", os.O_RDWR, 0)
+	if err != nil {
+		return false
+	}
+	_ = f.Close()
+	return true
+}
+
 // startVM boots the ISO at $ISO in QEMU (user-mode networking) with a single
-// blank 20G drive as the install target, and waits for SSH.
+// blank 20G drive as the install target, and waits for SSH. Uses KVM when
+// available; falls back to TCG otherwise.
 func startVM() VM {
 	iso := os.Getenv("ISO")
 	Expect(iso).ToNot(BeEmpty(), "ISO env var must point to the test ISO")
@@ -38,11 +57,20 @@ func startVM() VM {
 
 	memory := os.Getenv("MEMORY")
 	if memory == "" {
-		memory = "4000"
+		// 2GB is enough for the live ISO + install; keeps the whole suite
+		// under the 6GB CI budget even if we later run two VMs in parallel.
+		memory = "2048"
 	}
 	cpus := os.Getenv("CPUS")
 	if cpus == "" {
 		cpus = "2"
+	}
+
+	useKVM := kvmAvailable()
+	if useKVM {
+		fmt.Println("KVM acceleration: enabled")
+	} else {
+		fmt.Println("KVM acceleration: disabled (TCG fallback — slow)")
 	}
 
 	opts := []types.MachineOption{
@@ -70,6 +98,11 @@ func startVM() VM {
 				"-serial", "chardev:char0",
 				"-mon", "chardev=char0",
 			)
+			if useKVM {
+				// -cpu host: expose the physical CPU model to the guest so
+				// KVM does not need to emulate feature gaps.
+				m.Args = append(m.Args, "-enable-kvm", "-cpu", "host")
+			}
 			return nil
 		},
 	}
@@ -81,6 +114,42 @@ func startVM() VM {
 	_, err = vm.Start(context.Background())
 	Expect(err).ToNot(HaveOccurred())
 	return vm
+}
+
+// sshTimeout returns the seconds to wait for the guest SSH to come up. With
+// KVM a live ISO usually boots in well under a minute; without KVM keep the
+// old generous budget so local runs without acceleration still pass.
+func sshTimeout() int {
+	if v := os.Getenv("SSH_TIMEOUT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	if kvmAvailable() {
+		return 240
+	}
+	return 1200
+}
+
+// wipeDisk clears any prior install so the next spec starts from a blank
+// /dev/vda. Umounts and tools are best-effort — a spec that never mounted
+// anything (e.g. the "too big" validation case) will no-op here. The primary
+// GPT (first 34 sectors) and backup GPT (last 34 sectors) are always zeroed
+// so the next install cannot see leftover partitions.
+func wipeDisk(vm VM) {
+	const cmd = `set +e
+sync
+for p in /dev/vda*; do umount "$p" 2>/dev/null; done
+wipefs -a /dev/vda >/dev/null 2>&1
+sgdisk --zap-all /dev/vda >/dev/null 2>&1
+dd if=/dev/zero of=/dev/vda bs=512 count=34 conv=fsync >/dev/null 2>&1
+end=$(blockdev --getsz /dev/vda 2>/dev/null)
+if [ -n "$end" ]; then
+  dd if=/dev/zero of=/dev/vda bs=512 seek=$((end - 34)) count=34 conv=fsync >/dev/null 2>&1
+fi
+partprobe /dev/vda >/dev/null 2>&1
+true`
+	_, _ = vm.Sudo(cmd)
 }
 
 // dumpSerial writes the VM serial log into ./logs on failure.

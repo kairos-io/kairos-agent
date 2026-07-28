@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/spectrocloud/peg/matcher"
 )
 
 // oversizeError is the message Sanitize() returns when the requested manual
@@ -54,29 +53,21 @@ users:
 )
 
 var _ = Describe("manual-install with custom partition sizes", Label("partition-validation"), func() {
-	var vm VM
-
 	BeforeEach(func() {
-		vm = startVM()
-		vm.EventuallyConnects(1200)
+		wipeDisk(suiteVM)
 	})
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			dumpSerial(vm)
-		}
-		Expect(vm.Destroy(nil)).ToNot(HaveOccurred())
-	})
+	AfterEach(dumpSuiteSerialOnFailure)
 
 	// writeConfig drops the given cloud-config into the guest at /tmp/config.yaml.
 	writeConfig := func(content string) {
-		_, err := vm.Sudo(fmt.Sprintf("cat > /tmp/config.yaml <<'EOF'\n%s\nEOF", content))
+		_, err := suiteVM.Sudo(fmt.Sprintf("cat > /tmp/config.yaml <<'EOF'\n%s\nEOF", content))
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	It("fails before pulling when the partitions exceed the disk size", func() {
 		writeConfig(tooBigConfig)
-		out, err := vm.Sudo(fmt.Sprintf(
+		out, err := suiteVM.Sudo(fmt.Sprintf(
 			"kairos-agent manual-install --allow-insecure-registries --device /dev/vda --source %s /tmp/config.yaml",
 			sourceURI()))
 		Expect(err).To(HaveOccurred(), out)
@@ -91,7 +82,7 @@ var _ = Describe("manual-install with custom partition sizes", Label("partition-
 		// With partitions that fit, the install proceeds past sanitization and
 		// pulls/unpacks the image. We only assert it cleared the new check and
 		// reached the pull stage; completing the whole install is out of scope.
-		out, _ := vm.Sudo(fmt.Sprintf(
+		out, _ := suiteVM.Sudo(fmt.Sprintf(
 			"kairos-agent manual-install --allow-insecure-registries --device /dev/vda --source %s /tmp/config.yaml",
 			sourceURI()))
 		Expect(out).ToNot(ContainSubstring(oversizeError), out)
