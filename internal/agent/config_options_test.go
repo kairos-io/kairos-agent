@@ -4,36 +4,34 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	. "github.com/kairos-io/kairos-agent/v2/internal/agent"
 )
 
-func TestWebUI_HasAddress(t *testing.T) {
-	if (WebUI{}).HasAddress() {
-		t.Fatal("empty WebUI should have no address")
-	}
-	if !(WebUI{ListenAddress: ":8080"}).HasAddress() {
-		t.Fatal("non-empty ListenAddress should report HasAddress=true")
-	}
-}
+var _ = Describe("agent config and options", func() {
+	Describe("WebUI.HasAddress", func() {
+		It("reports whether a listen address is set", func() {
+			Expect((WebUI{}).HasAddress()).To(BeFalse(), "empty WebUI should have no address")
+			Expect((WebUI{ListenAddress: ":8080"}).HasAddress()).To(BeTrue(), "non-empty ListenAddress should report HasAddress=true")
+		})
+	})
 
-func TestLoadConfig_MissingFileReturnsDefaults(t *testing.T) {
-	dir := t.TempDir()
-	// point at a file that does not exist; LoadConfig swallows read errors
-	c, err := LoadConfig(filepath.Join(dir, "missing.yaml"))
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if c == nil {
-		t.Fatal("expected non-nil config even when file missing")
-	}
-}
+	Describe("LoadConfig", func() {
+		It("returns defaults when the file is missing", func() {
+			dir := GinkgoT().TempDir()
+			// point at a file that does not exist; LoadConfig swallows read errors.
+			c, err := LoadConfig(filepath.Join(dir, "missing.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c).ToNot(BeNil(), "expected non-nil config even when file missing")
+		})
 
-func TestLoadConfig_ParsesYAML(t *testing.T) {
-	dir := t.TempDir()
-	p := filepath.Join(dir, "agent.yaml")
-	yaml := `fast: true
+		It("parses YAML", func() {
+			dir := GinkgoT().TempDir()
+			p := filepath.Join(dir, "agent.yaml")
+			yaml := `fast: true
 webui:
   disable: true
   listen_address: ":9999"
@@ -43,63 +41,44 @@ branding:
   reset: RST
   recovery: REC
 `
-	if err := os.WriteFile(p, []byte(yaml), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, err := LoadConfig(p)
-	if err != nil {
-		t.Fatalf("LoadConfig err: %v", err)
-	}
-	if !c.Fast {
-		t.Errorf("expected fast=true")
-	}
-	if !c.WebUI.Disable {
-		t.Errorf("expected webui.disable=true")
-	}
-	if c.WebUI.ListenAddress != ":9999" {
-		t.Errorf("listen_address=%q", c.WebUI.ListenAddress)
-	}
-	if c.Branding.InteractiveInstall != "HI" || c.Branding.Install != "INS" ||
-		c.Branding.Reset != "RST" || c.Branding.Recovery != "REC" {
-		t.Errorf("unexpected branding: %+v", c.Branding)
-	}
-}
+			Expect(os.WriteFile(p, []byte(yaml), 0o600)).To(Succeed())
+			c, err := LoadConfig(p)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.Fast).To(BeTrue(), "expected fast=true")
+			Expect(c.WebUI.Disable).To(BeTrue(), "expected webui.disable=true")
+			Expect(c.WebUI.ListenAddress).To(Equal(":9999"))
+			Expect(c.Branding.InteractiveInstall).To(Equal("HI"))
+			Expect(c.Branding.Install).To(Equal("INS"))
+			Expect(c.Branding.Reset).To(Equal("RST"))
+			Expect(c.Branding.Recovery).To(Equal("REC"))
+		})
 
-func TestLoadConfig_NoPathsUsesDefault(t *testing.T) {
-	// Default path is /etc/kairos/agent.yaml which likely doesn't exist in test
-	// env — LoadConfig should still return a non-nil zero-value config.
-	c, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig err: %v", err)
-	}
-	if c == nil {
-		t.Fatal("expected non-nil config")
-	}
-}
+		It("uses the default path when none is given", func() {
+			// Default path is /etc/kairos/agent.yaml which likely doesn't exist in test
+			// env — LoadConfig should still return a non-nil zero-value config.
+			c, err := LoadConfig()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c).ToNot(BeNil(), "expected non-nil config")
+		})
+	})
 
-func TestOptions_Apply(t *testing.T) {
-	o := &Options{}
-	err := o.Apply(WithAPI("http://x"), WithDirectory("/a", "/b"), ForceAgent, RestartAgent)
-	if err != nil {
-		t.Fatalf("Apply err: %v", err)
-	}
-	if o.APIAddress != "http://x" {
-		t.Errorf("APIAddress=%q", o.APIAddress)
-	}
-	if len(o.Dir) != 2 || o.Dir[0] != "/a" || o.Dir[1] != "/b" {
-		t.Errorf("Dir=%v", o.Dir)
-	}
-	if !o.Force || !o.Restart {
-		t.Errorf("Force/Restart not set: %+v", o)
-	}
-}
+	Describe("Options.Apply", func() {
+		It("applies all options", func() {
+			o := &Options{}
+			err := o.Apply(WithAPI("http://x"), WithDirectory("/a", "/b"), ForceAgent, RestartAgent)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(o.APIAddress).To(Equal("http://x"))
+			Expect(o.Dir).To(Equal([]string{"/a", "/b"}))
+			Expect(o.Force).To(BeTrue(), "Force not set")
+			Expect(o.Restart).To(BeTrue(), "Restart not set")
+		})
 
-func TestOptions_ApplyPropagatesError(t *testing.T) {
-	boom := errors.New("boom")
-	bad := func(_ *Options) error { return boom }
-	o := &Options{}
-	err := o.Apply(bad)
-	if !errors.Is(err, boom) {
-		t.Fatalf("expected boom, got %v", err)
-	}
-}
+		It("propagates errors from options", func() {
+			boom := errors.New("boom")
+			bad := func(_ *Options) error { return boom }
+			o := &Options{}
+			err := o.Apply(bad)
+			Expect(errors.Is(err, boom)).To(BeTrue(), "expected boom, got %v", err)
+		})
+	})
+})

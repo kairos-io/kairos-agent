@@ -1,19 +1,17 @@
 package agent
 
 import (
-	"strings"
-	"testing"
-
 	"github.com/kairos-io/kairos-sdk/constants"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestPhoneHomeServiceUnit(t *testing.T) {
-	unit := phoneHomeServiceUnit(constants.AgentDefaultPath)
+var _ = Describe("phone-home service unit", func() {
+	It("uses AgentDefaultPath in ExecStart instead of a hardcoded path", func() {
+		unit := phoneHomeServiceUnit(constants.AgentDefaultPath)
 
-	if !strings.Contains(unit, "ExecStart="+constants.AgentDefaultPath+" phone-home") {
-		t.Fatalf("ExecStart should use AgentDefaultPath, got:\n%s", unit)
-	}
-	if strings.Contains(unit, "/usr/sbin/kairos-agent") {
-		t.Fatalf("unit should not hardcode /usr/sbin/kairos-agent, got:\n%s", unit)
-	}
-}
+		Expect(unit).To(ContainSubstring("ExecStart="+constants.AgentDefaultPath+" phone-home"), unit)
+		Expect(unit).ToNot(ContainSubstring("/usr/sbin/kairos-agent"), unit)
+	})
+})

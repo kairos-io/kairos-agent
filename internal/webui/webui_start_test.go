@@ -4,96 +4,87 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"testing"
 
 	"github.com/kairos-io/kairos-agent/v2/internal/agent"
 	"github.com/labstack/echo/v5"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// The tests below reach into the package-local seams to exercise Start's
+// The specs below reach into the package-local seams to exercise Start's
 // branches without opening a socket or reading /etc/kairos/agent.yaml.
+var _ = Describe("Start", func() {
+	It("returns an error when LoadConfig fails", func() {
+		prev := loadAgentConfig
+		defer func() { loadAgentConfig = prev }()
+		loadAgentConfig = func() (*agent.Config, error) { return nil, errors.New("nope") }
 
-func TestStart_LoadConfigError(t *testing.T) {
-	prev := loadAgentConfig
-	defer func() { loadAgentConfig = prev }()
-	loadAgentConfig = func() (*agent.Config, error) { return nil, errors.New("nope") }
+		Expect(Start(context.Background())).To(HaveOccurred(), "expected error from LoadConfig")
+	})
 
-	if err := Start(context.Background()); err == nil {
-		t.Fatal("expected error from LoadConfig")
-	}
-}
+	It("returns nil when the WebUI is disabled", func() {
+		prev := loadAgentConfig
+		defer func() { loadAgentConfig = prev }()
+		loadAgentConfig = func() (*agent.Config, error) {
+			return &agent.Config{WebUI: agent.WebUI{Disable: true}}, nil
+		}
 
-func TestStart_DisabledReturnsNil(t *testing.T) {
-	prev := loadAgentConfig
-	defer func() { loadAgentConfig = prev }()
-	loadAgentConfig = func() (*agent.Config, error) {
-		return &agent.Config{WebUI: agent.WebUI{Disable: true}}, nil
-	}
+		// Disable=true short-circuits before the listener would open — nil error,
+		// no server started.
+		Expect(Start(context.Background())).To(Succeed())
+	})
 
-	// Disable=true short-circuits before the listener would open — nil error,
-	// no server started.
-	if err := Start(context.Background()); err != nil {
-		t.Fatalf("Start(disabled): %v", err)
-	}
-}
+	It("uses the custom listen address from the config", func() {
+		prevCfg := loadAgentConfig
+		prevListen := listenAndServe
+		defer func() {
+			loadAgentConfig = prevCfg
+			listenAndServe = prevListen
+		}()
 
-func TestStart_UsesCustomListenAddress(t *testing.T) {
-	prevCfg := loadAgentConfig
-	prevListen := listenAndServe
-	defer func() {
-		loadAgentConfig = prevCfg
-		listenAndServe = prevListen
-	}()
+		loadAgentConfig = func() (*agent.Config, error) {
+			return &agent.Config{WebUI: agent.WebUI{ListenAddress: "127.0.0.1:9"}}, nil
+		}
+		var gotAddr string
+		listenAndServe = func(_ context.Context, addr string, _ *echo.Echo) error {
+			gotAddr = addr
+			return nil
+		}
 
-	loadAgentConfig = func() (*agent.Config, error) {
-		return &agent.Config{WebUI: agent.WebUI{ListenAddress: "127.0.0.1:9"}}, nil
-	}
-	var gotAddr string
-	listenAndServe = func(_ context.Context, addr string, _ *echo.Echo) error {
-		gotAddr = addr
-		return nil
-	}
+		Expect(Start(context.Background())).To(Succeed())
+		Expect(gotAddr).To(Equal("127.0.0.1:9"), "listen addr not propagated")
+	})
 
-	if err := Start(context.Background()); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-	if gotAddr != "127.0.0.1:9" {
-		t.Errorf("listen addr not propagated: %q", gotAddr)
-	}
-}
+	It("swallows http.ErrServerClosed", func() {
+		prevCfg := loadAgentConfig
+		prevListen := listenAndServe
+		defer func() {
+			loadAgentConfig = prevCfg
+			listenAndServe = prevListen
+		}()
 
-func TestStart_SwallowsErrServerClosed(t *testing.T) {
-	prevCfg := loadAgentConfig
-	prevListen := listenAndServe
-	defer func() {
-		loadAgentConfig = prevCfg
-		listenAndServe = prevListen
-	}()
+		loadAgentConfig = func() (*agent.Config, error) { return &agent.Config{}, nil }
+		listenAndServe = func(_ context.Context, _ string, _ *echo.Echo) error {
+			// mimic the graceful-shutdown error surfaced by echo — Start must not
+			// forward it to the caller.
+			return http.ErrServerClosed
+		}
+		Expect(Start(context.Background())).To(Succeed(), "expected ErrServerClosed to be swallowed")
+	})
 
-	loadAgentConfig = func() (*agent.Config, error) { return &agent.Config{}, nil }
-	listenAndServe = func(_ context.Context, _ string, _ *echo.Echo) error {
-		// mimic the graceful-shutdown error surfaced by echo — Start must not
-		// forward it to the caller.
-		return http.ErrServerClosed
-	}
-	if err := Start(context.Background()); err != nil {
-		t.Fatalf("expected ErrServerClosed to be swallowed, got %v", err)
-	}
-}
+	It("surfaces listener errors", func() {
+		prevCfg := loadAgentConfig
+		prevListen := listenAndServe
+		defer func() {
+			loadAgentConfig = prevCfg
+			listenAndServe = prevListen
+		}()
 
-func TestStart_ListenerErrorSurfaces(t *testing.T) {
-	prevCfg := loadAgentConfig
-	prevListen := listenAndServe
-	defer func() {
-		loadAgentConfig = prevCfg
-		listenAndServe = prevListen
-	}()
-
-	loadAgentConfig = func() (*agent.Config, error) { return &agent.Config{}, nil }
-	listenAndServe = func(_ context.Context, _ string, _ *echo.Echo) error {
-		return errors.New("bind failed")
-	}
-	if err := Start(context.Background()); err == nil {
-		t.Fatal("expected error to bubble up")
-	}
-}
+		loadAgentConfig = func() (*agent.Config, error) { return &agent.Config{}, nil }
+		listenAndServe = func(_ context.Context, _ string, _ *echo.Echo) error {
+			return errors.New("bind failed")
+		}
+		Expect(Start(context.Background())).To(HaveOccurred(), "expected error to bubble up")
+	})
+})

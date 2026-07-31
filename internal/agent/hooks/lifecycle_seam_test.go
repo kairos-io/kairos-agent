@@ -1,10 +1,11 @@
 package hook
 
 import (
-	"testing"
 	"time"
 
 	specImpl "github.com/kairos-io/kairos-agent/v2/pkg/implementations/spec"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // rebootableSpec is a small sdkSpec.Spec impl that reports the reboot /
@@ -18,44 +19,38 @@ type rebootableSpec struct {
 func (r *rebootableSpec) ShouldReboot() bool   { return r.reboot }
 func (r *rebootableSpec) ShouldShutdown() bool { return r.shutdown }
 
-func TestLifecycle_Run_RebootBranch(t *testing.T) {
-	rebooted := false
-	origSleep := lifecycleSleepFn
-	origReboot := lifecycleRebootFn
-	lifecycleSleepFn = func(_ time.Duration) {}
-	lifecycleRebootFn = func() { rebooted = true }
-	defer func() {
-		lifecycleSleepFn = origSleep
-		lifecycleRebootFn = origReboot
-	}()
+var _ = Describe("Lifecycle seams", func() {
+	It("takes the reboot branch", func() {
+		rebooted := false
+		origSleep := lifecycleSleepFn
+		origReboot := lifecycleRebootFn
+		lifecycleSleepFn = func(_ time.Duration) {}
+		lifecycleRebootFn = func() { rebooted = true }
+		defer func() {
+			lifecycleSleepFn = origSleep
+			lifecycleRebootFn = origReboot
+		}()
 
-	cfg := makeConfig()
-	sp := &rebootableSpec{reboot: true}
-	if err := (Lifecycle{}).Run(cfg, sp); err != nil {
-		t.Fatalf("Lifecycle.Run err: %v", err)
-	}
-	if !rebooted {
-		t.Fatal("expected Reboot to be called")
-	}
-}
+		cfg := makeConfig()
+		sp := &rebootableSpec{reboot: true}
+		Expect((Lifecycle{}).Run(cfg, sp)).To(Succeed())
+		Expect(rebooted).To(BeTrue(), "expected Reboot to be called")
+	})
 
-func TestLifecycle_Run_ShutdownBranch(t *testing.T) {
-	off := false
-	origSleep := lifecycleSleepFn
-	origOff := lifecyclePowerOffFn
-	lifecycleSleepFn = func(_ time.Duration) {}
-	lifecyclePowerOffFn = func() { off = true }
-	defer func() {
-		lifecycleSleepFn = origSleep
-		lifecyclePowerOffFn = origOff
-	}()
+	It("takes the shutdown branch", func() {
+		off := false
+		origSleep := lifecycleSleepFn
+		origOff := lifecyclePowerOffFn
+		lifecycleSleepFn = func(_ time.Duration) {}
+		lifecyclePowerOffFn = func() { off = true }
+		defer func() {
+			lifecycleSleepFn = origSleep
+			lifecyclePowerOffFn = origOff
+		}()
 
-	cfg := makeConfig()
-	sp := &rebootableSpec{shutdown: true}
-	if err := (Lifecycle{}).Run(cfg, sp); err != nil {
-		t.Fatalf("Lifecycle.Run err: %v", err)
-	}
-	if !off {
-		t.Fatal("expected PowerOFF to be called")
-	}
-}
+		cfg := makeConfig()
+		sp := &rebootableSpec{shutdown: true}
+		Expect((Lifecycle{}).Run(cfg, sp)).To(Succeed())
+		Expect(off).To(BeTrue(), "expected PowerOFF to be called")
+	})
+})

@@ -1,29 +1,18 @@
 package hook
 
-import "testing"
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func TestGracePeriodMessage(t *testing.T) {
-	tests := []struct {
-		name     string
-		action   string
-		expected string
-	}{
-		{
-			name:     "power off message announces the grace period and how to cancel",
-			action:   "Powering off node",
-			expected: "Powering off node in 5s, press Ctrl+C to cancel",
+var _ = Describe("gracePeriodMessage", func() {
+	DescribeTable("builds the grace period message",
+		func(action, expected string) {
+			Expect(gracePeriodMessage(action)).To(Equal(expected))
 		},
-		{
-			name:     "reboot message announces the grace period and how to cancel",
-			action:   "Rebooting node",
-			expected: "Rebooting node in 5s, press Ctrl+C to cancel",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := gracePeriodMessage(tt.action); got != tt.expected {
-				t.Fatalf("gracePeriodMessage(%q) = %q, want %q", tt.action, got, tt.expected)
-			}
-		})
-	}
-}
+		Entry("power off message announces the grace period and how to cancel",
+			"Powering off node", "Powering off node in 5s, press Ctrl+C to cancel"),
+		Entry("reboot message announces the grace period and how to cancel",
+			"Rebooting node", "Rebooting node in 5s, press Ctrl+C to cancel"),
+	)
+})

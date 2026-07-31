@@ -1,4 +1,4 @@
-package webui_test
+package cmd_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestWebUISuite(t *testing.T) {
+func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "WebUI test suite")
+	RunSpecs(t, "Cmd Suite")
 }

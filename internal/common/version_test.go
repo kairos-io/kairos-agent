@@ -2,27 +2,25 @@ package common
 
 import (
 	"runtime"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestGetVersion(t *testing.T) {
-	if v := GetVersion(); v == "" {
-		t.Fatal("GetVersion returned empty string")
-	}
-	if v := GetVersion(); v != VERSION {
-		t.Fatalf("GetVersion=%q want %q", v, VERSION)
-	}
-}
+var _ = Describe("version", func() {
+	Describe("GetVersion", func() {
+		It("returns the non-empty VERSION constant", func() {
+			Expect(GetVersion()).ToNot(BeEmpty())
+			Expect(GetVersion()).To(Equal(VERSION))
+		})
+	})
 
-func TestGet(t *testing.T) {
-	info := Get()
-	if info.Version != VERSION {
-		t.Fatalf("Version=%q want %q", info.Version, VERSION)
-	}
-	if info.GitCommit == "" {
-		t.Fatal("GitCommit empty")
-	}
-	if info.GoVersion != runtime.Version() {
-		t.Fatalf("GoVersion=%q want %q", info.GoVersion, runtime.Version())
-	}
-}
+	Describe("Get", func() {
+		It("returns populated version info", func() {
+			info := Get()
+			Expect(info.Version).To(Equal(VERSION))
+			Expect(info.GitCommit).ToNot(BeEmpty())
+			Expect(info.GoVersion).To(Equal(runtime.Version()))
+		})
+	})
+})

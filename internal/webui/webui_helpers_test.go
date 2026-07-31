@@ -2,127 +2,100 @@ package webui
 
 import (
 	"bytes"
-	"strings"
-	"testing"
 	"text/template"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestStripANSI(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{"", ""},
-		{"no codes here", "no codes here"},
-		{"\x1b[31mred\x1b[0m", "red"},
-		{"a\x1b[1mB\x1b[0mc\x1b[32mD\x1b[0m", "aBcD"},
-	}
-	for _, c := range cases {
-		if got := stripANSI(c.in); got != c.want {
-			t.Errorf("stripANSI(%q)=%q want %q", c.in, got, c.want)
-		}
-	}
-}
+var _ = Describe("WebUI helpers", func() {
+	Describe("stripANSI", func() {
+		It("strips ANSI escape codes", func() {
+			cases := []struct {
+				in, want string
+			}{
+				{"", ""},
+				{"no codes here", "no codes here"},
+				{"\x1b[31mred\x1b[0m", "red"},
+				{"a\x1b[1mB\x1b[0mc\x1b[32mD\x1b[0m", "aBcD"},
+			}
+			for _, c := range cases {
+				Expect(stripANSI(c.in)).To(Equal(c.want), "stripANSI(%q)", c.in)
+			}
+		})
+	})
 
-func TestAnsiToHTML_NoCodes(t *testing.T) {
-	// Without ANSI codes the function must HTML-escape special chars and
-	// return the escaped string.
-	got := ansiToHTML("a<b>&c")
-	if got != "a&lt;b&gt;&amp;c" {
-		t.Fatalf("got %q", got)
-	}
-}
+	Describe("ansiToHTML", func() {
+		It("HTML-escapes special chars when there are no codes", func() {
+			// Without ANSI codes the function must HTML-escape special chars and
+			// return the escaped string.
+			Expect(ansiToHTML("a<b>&c")).To(Equal("a&lt;b&gt;&amp;c"))
+		})
 
-func TestAnsiToHTML_ColorSpans(t *testing.T) {
-	got := ansiToHTML("\x1b[31mRED\x1b[0mnorm\x1b[32mGREEN\x1b[0m")
-	if !strings.Contains(got, "color: #ff5555") {
-		t.Errorf("missing red color: %q", got)
-	}
-	if !strings.Contains(got, ">RED<") {
-		t.Errorf("RED text not wrapped: %q", got)
-	}
-	if !strings.Contains(got, "color: #50fa7b") {
-		t.Errorf("missing green color: %q", got)
-	}
-	if !strings.Contains(got, "norm") {
-		t.Errorf("norm text missing: %q", got)
-	}
-}
+		It("wraps colored text in spans", func() {
+			got := ansiToHTML("\x1b[31mRED\x1b[0mnorm\x1b[32mGREEN\x1b[0m")
+			Expect(got).To(ContainSubstring("color: #ff5555"), "missing red color: %q", got)
+			Expect(got).To(ContainSubstring(">RED<"), "RED text not wrapped: %q", got)
+			Expect(got).To(ContainSubstring("color: #50fa7b"), "missing green color: %q", got)
+			Expect(got).To(ContainSubstring("norm"), "norm text missing: %q", got)
+		})
 
-func TestAnsiToHTML_Bold(t *testing.T) {
-	got := ansiToHTML("\x1b[1mBOLD\x1b[0m")
-	if !strings.Contains(got, "font-weight: bold") {
-		t.Fatalf("missing bold style: %q", got)
-	}
-}
+		It("renders bold text with a bold style", func() {
+			got := ansiToHTML("\x1b[1mBOLD\x1b[0m")
+			Expect(got).To(ContainSubstring("font-weight: bold"), "missing bold style: %q", got)
+		})
 
-func TestAnsiToHTML_BrightColor(t *testing.T) {
-	got := ansiToHTML("\x1b[91mBRIGHT\x1b[0m")
-	if !strings.Contains(got, "color: #ff6e6e") {
-		t.Fatalf("missing bright red: %q", got)
-	}
-}
+		It("maps bright colors", func() {
+			got := ansiToHTML("\x1b[91mBRIGHT\x1b[0m")
+			Expect(got).To(ContainSubstring("color: #ff6e6e"), "missing bright red: %q", got)
+		})
 
-func TestAnsiToHTML_HTMLEscapesInsideSpan(t *testing.T) {
-	got := ansiToHTML("\x1b[31m<x&y>\x1b[0m")
-	if !strings.Contains(got, "&lt;x&amp;y&gt;") {
-		t.Fatalf("html not escaped inside span: %q", got)
-	}
-}
+		It("HTML-escapes text inside spans", func() {
+			got := ansiToHTML("\x1b[31m<x&y>\x1b[0m")
+			Expect(got).To(ContainSubstring("&lt;x&amp;y&gt;"), "html not escaped inside span: %q", got)
+		})
 
-func TestAnsiToHTML_TrailingTextAfterCode(t *testing.T) {
-	// text before an ANSI code + text after last code (both branches).
-	got := ansiToHTML("prefix\x1b[31mmiddle\x1b[0msuffix")
-	for _, s := range []string{"prefix", "middle", "suffix"} {
-		if !strings.Contains(got, s) {
-			t.Errorf("missing %q in %q", s, got)
-		}
-	}
-}
+		It("keeps text before an ANSI code and after the last code", func() {
+			// text before an ANSI code + text after last code (both branches).
+			got := ansiToHTML("prefix\x1b[31mmiddle\x1b[0msuffix")
+			for _, s := range []string{"prefix", "middle", "suffix"} {
+				Expect(got).To(ContainSubstring(s), "missing %q in %q", s, got)
+			}
+		})
 
-func TestAnsiToHTML_EmptyCodeDefaultsToReset(t *testing.T) {
-	// `\x1b[m` (empty payload) is treated as `0` (reset) per the code path
-	// that substitutes "" → "0".
-	got := ansiToHTML("\x1b[m")
-	if got != "" {
-		t.Fatalf("expected empty string, got %q", got)
-	}
-}
+		It("treats an empty code as reset", func() {
+			// `\x1b[m` (empty payload) is treated as `0` (reset) per the code path
+			// that substitutes "" → "0".
+			Expect(ansiToHTML("\x1b[m")).To(BeEmpty())
+		})
+	})
 
-func TestFormatLogLine(t *testing.T) {
-	if got := formatLogLine(""); got != "" {
-		t.Errorf("empty line should stay empty, got %q", got)
-	}
-	if got := formatLogLine("   \t\n"); got != "" {
-		t.Errorf("whitespace-only line should be empty, got %q", got)
-	}
-	got := formatLogLine("  \x1b[32mhello\x1b[0m  ")
-	if !strings.Contains(got, "hello") {
-		t.Errorf("payload missing from %q", got)
-	}
-	if !strings.Contains(got, "color: #50fa7b") {
-		t.Errorf("color missing from %q", got)
-	}
-}
+	Describe("formatLogLine", func() {
+		It("trims whitespace and colorizes the payload", func() {
+			Expect(formatLogLine("")).To(BeEmpty(), "empty line should stay empty")
+			Expect(formatLogLine("   \t\n")).To(BeEmpty(), "whitespace-only line should be empty")
+			got := formatLogLine("  \x1b[32mhello\x1b[0m  ")
+			Expect(got).To(ContainSubstring("hello"), "payload missing from %q", got)
+			Expect(got).To(ContainSubstring("color: #50fa7b"), "color missing from %q", got)
+		})
+	})
 
-func TestTemplateRenderer_Render(t *testing.T) {
-	tmpl := template.Must(template.New("hello.html").Parse("Hi {{.Name}}!"))
-	r := &TemplateRenderer{templates: tmpl}
-	var buf bytes.Buffer
-	// echo.Context is only used by Echo internally; Render only touches the
-	// writer with the template output, so passing nil is safe here.
-	if err := r.Render(nil, &buf, "hello.html", map[string]string{"Name": "Kairos"}); err != nil {
-		t.Fatalf("Render err: %v", err)
-	}
-	if buf.String() != "Hi Kairos!" {
-		t.Fatalf("got %q", buf.String())
-	}
-}
+	Describe("TemplateRenderer", func() {
+		It("renders a template by name", func() {
+			tmpl := template.Must(template.New("hello.html").Parse("Hi {{.Name}}!"))
+			r := &TemplateRenderer{templates: tmpl}
+			var buf bytes.Buffer
+			// echo.Context is only used by Echo internally; Render only touches the
+			// writer with the template output, so passing nil is safe here.
+			Expect(r.Render(nil, &buf, "hello.html", map[string]string{"Name": "Kairos"})).To(Succeed())
+			Expect(buf.String()).To(Equal("Hi Kairos!"))
+		})
+	})
 
-func TestGetFileSystem_And_GetFS(t *testing.T) {
-	if getFileSystem() == nil {
-		t.Fatal("getFileSystem returned nil")
-	}
-	if getFS() == nil {
-		t.Fatal("getFS returned nil")
-	}
-}
+	Describe("embedded filesystem accessors", func() {
+		It("returns non-nil filesystems from getFileSystem and getFS", func() {
+			Expect(getFileSystem()).ToNot(BeNil())
+			Expect(getFS()).ToNot(BeNil())
+		})
+	})
+})

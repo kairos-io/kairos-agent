@@ -1,28 +1,33 @@
 package kairos
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestBrandingFile(t *testing.T) {
-	got := BrandingFile("banner")
-	want := filepath.Join("/etc", "kairos", "branding", "banner")
-	if got != want {
-		t.Fatalf("BrandingFile=%q want %q", got, want)
-	}
-}
+var _ = Describe("branding", func() {
+	Describe("BrandingFile", func() {
+		It("joins the name under the branding directory", func() {
+			got := BrandingFile("banner")
+			want := filepath.Join("/etc", "kairos", "branding", "banner")
+			Expect(got).To(Equal(want))
+		})
+	})
 
-func TestDefaultTitleInteractiveInstaller_Fallback(t *testing.T) {
-	// When branding file is missing under /etc/kairos/branding (unlikely to exist in test env),
-	// fall back to the hardcoded default string.
-	got := DefaultTitleInteractiveInstaller()
-	if got == "" {
-		t.Fatal("DefaultTitleInteractiveInstaller returned empty")
-	}
-	// Either the fallback string or content of the real branding file (both non-empty).
-	if !strings.Contains(got, "Kairos") && got == "Kairos Interactive Installer" {
-		t.Fatalf("unexpected default title: %q", got)
-	}
-}
+	Describe("DefaultTitleInteractiveInstaller", func() {
+		It("falls back to the default title when the branding file is missing", func() {
+			// When branding file is missing under /etc/kairos/branding (unlikely to exist in test env),
+			// fall back to the hardcoded default string.
+			got := DefaultTitleInteractiveInstaller()
+			Expect(got).ToNot(BeEmpty())
+			// Either the fallback string or content of the real branding file (both non-empty).
+			if !strings.Contains(got, "Kairos") && got == "Kairos Interactive Installer" {
+				Fail(fmt.Sprintf("unexpected default title: %q", got))
+			}
+		})
+	})
+})

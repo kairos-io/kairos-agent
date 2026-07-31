@@ -6,121 +6,111 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"time"
 
 	sdkConfig "github.com/kairos-io/kairos-sdk/types/config"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestIsSafeArtifactID(t *testing.T) {
-	cases := map[string]bool{
-		"":                    false,
-		"abc":                 true,
-		"a-b_c.d":             true,
-		"ABC123":              true,
-		"has space":           false,
-		"path/traversal":      false,
-		"cmd$injection":       false,
-		"a.b.c-42_43":         true,
-	}
-	for id, want := range cases {
-		if got := isSafeArtifactID(id); got != want {
-			t.Errorf("isSafeArtifactID(%q)=%v want %v", id, got, want)
-		}
-	}
-}
+var _ = Describe("isSafeArtifactID", func() {
+	DescribeTable("validates artifact identifiers",
+		func(id string, want bool) {
+			Expect(isSafeArtifactID(id)).To(Equal(want))
+		},
+		Entry("empty", "", false),
+		Entry("plain", "abc", true),
+		Entry("separators", "a-b_c.d", true),
+		Entry("alphanumeric", "ABC123", true),
+		Entry("space", "has space", false),
+		Entry("path traversal", "path/traversal", false),
+		Entry("shell metacharacter", "cmd$injection", false),
+		Entry("mixed separators", "a.b.c-42_43", true),
+	)
+})
 
-func TestIsTransientDownloadError(t *testing.T) {
-	if !isTransientDownloadError(io.ErrUnexpectedEOF) {
-		t.Error("ErrUnexpectedEOF should be transient")
-	}
-	if isTransientDownloadError(errors.New("plain error")) {
-		t.Error("plain error should not be transient")
-	}
-}
+var _ = Describe("isTransientDownloadError", func() {
+	It("classifies unexpected EOF as transient", func() {
+		Expect(isTransientDownloadError(io.ErrUnexpectedEOF)).To(BeTrue(), "ErrUnexpectedEOF should be transient")
+	})
 
-func TestHandleUpgrade_MissingSource(t *testing.T) {
-	_, err := handleUpgrade(context.Background(), CommandData{Args: map[string]string{}}, "", "", nil, 1, time.Millisecond)
-	if err == nil {
-		t.Fatal("expected error for missing source")
-	}
-}
+	It("classifies plain errors as non-transient", func() {
+		Expect(isTransientDownloadError(errors.New("plain error"))).To(BeFalse(), "plain error should not be transient")
+	})
+})
 
-func TestHandleUpgrade_InvalidArtifactID(t *testing.T) {
-	_, err := handleUpgrade(context.Background(), CommandData{Args: map[string]string{"source": "artifact:bad id"}}, "", "", nil, 1, time.Millisecond)
-	if err == nil {
-		t.Fatal("expected error for invalid artifact id")
-	}
-}
+var _ = Describe("handleUpgrade argument validation", func() {
+	It("fails when the source argument is missing", func() {
+		_, err := handleUpgrade(context.Background(), CommandData{Args: map[string]string{}}, "", "", nil, 1, time.Millisecond)
+		Expect(err).To(HaveOccurred(), "expected error for missing source")
+	})
 
-func TestHandleReboot(t *testing.T) {
-	// scheduleReboot spawns a goroutine that sleeps 10s before firing sync/reboot.
-	// The handler itself returns immediately with a status message — we don't
-	// wait for the goroutine to complete.
-	msg, err := handleReboot()
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if msg == "" {
-		t.Fatal("expected non-empty message")
-	}
-}
+	It("fails when the artifact id is invalid", func() {
+		_, err := handleUpgrade(context.Background(), CommandData{Args: map[string]string{"source": "artifact:bad id"}}, "", "", nil, 1, time.Millisecond)
+		Expect(err).To(HaveOccurred(), "expected error for invalid artifact id")
+	})
+})
 
-func TestHandleApplyCloudConfig_MissingArg(t *testing.T) {
-	_, err := handleApplyCloudConfig(CommandData{Args: map[string]string{}})
-	if err == nil {
-		t.Fatal("expected error for missing config arg")
-	}
-}
+var _ = Describe("handleReboot", func() {
+	It("returns a status message immediately", func() {
+		// scheduleReboot spawns a goroutine that sleeps 10s before firing sync/reboot.
+		// The handler itself returns immediately with a status message — we don't
+		// wait for the goroutine to complete.
+		msg, err := handleReboot()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(msg).ToNot(BeEmpty())
+	})
+})
 
-func TestDownloadArtifact_NonTransient404(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer ts.Close()
-	cfg := &sdkConfig.Config{}
-	_, err := downloadArtifact(context.Background(), ts.URL, "key", "artifact-1", cfg, 0, time.Millisecond)
-	if err == nil {
-		t.Fatal("expected error for 404")
-	}
-}
+var _ = Describe("handleApplyCloudConfig argument validation", func() {
+	It("fails when the config argument is missing", func() {
+		_, err := handleApplyCloudConfig(CommandData{Args: map[string]string{}})
+		Expect(err).To(HaveOccurred(), "expected error for missing config arg")
+	})
+})
 
-func TestDownloadArtifact_TransientRetriedThenFails(t *testing.T) {
-	// Always return 500 (transient) → each attempt fails, exhausts retries.
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer ts.Close()
-	cfg := &sdkConfig.Config{}
-	_, err := downloadArtifact(context.Background(), ts.URL, "key", "artifact-1", cfg, 2, time.Millisecond)
-	if err == nil {
-		t.Fatal("expected error after retries")
-	}
-}
+var _ = Describe("downloadArtifact error propagation", func() {
+	It("fails on a non-transient 404", func() {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer ts.Close()
+		cfg := &sdkConfig.Config{}
+		_, err := downloadArtifact(context.Background(), ts.URL, "key", "artifact-1", cfg, 0, time.Millisecond)
+		Expect(err).To(HaveOccurred(), "expected error for 404")
+	})
 
-func TestArtifactDownloadRetrySettings_Nil(t *testing.T) {
-	r, i := artifactDownloadRetrySettings(nil)
-	if r != DefaultArtifactDownloadRetries || i != DefaultArtifactDownloadRetryInterval {
-		t.Fatalf("got %d/%s", r, i)
-	}
-}
+	It("fails after transient errors exhaust the retries", func() {
+		// Always return 500 (transient) → each attempt fails, exhausts retries.
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer ts.Close()
+		cfg := &sdkConfig.Config{}
+		_, err := downloadArtifact(context.Background(), ts.URL, "key", "artifact-1", cfg, 2, time.Millisecond)
+		Expect(err).To(HaveOccurred(), "expected error after retries")
+	})
+})
 
-func TestArtifactDownloadRetrySettings_Clamp(t *testing.T) {
-	// A ridiculously large interval must clamp to Max.
-	c := &Config{ArtifactDownloadRetries: 5, ArtifactDownloadRetryInterval: 10 * time.Hour}
-	r, i := artifactDownloadRetrySettings(c)
-	if r != 5 {
-		t.Errorf("retries=%d", r)
-	}
-	if i != MaxArtifactDownloadRetryInterval {
-		t.Errorf("interval not clamped: %s", i)
-	}
-}
+var _ = Describe("artifactDownloadRetrySettings", func() {
+	It("falls back to defaults for a nil config", func() {
+		r, i := artifactDownloadRetrySettings(nil)
+		Expect(r).To(Equal(DefaultArtifactDownloadRetries))
+		Expect(i).To(Equal(DefaultArtifactDownloadRetryInterval))
+	})
 
-func TestArtifactDownloadRetrySettings_Defaults(t *testing.T) {
-	c := &Config{}
-	r, i := artifactDownloadRetrySettings(c)
-	if r != DefaultArtifactDownloadRetries || i != DefaultArtifactDownloadRetryInterval {
-		t.Fatalf("got %d/%s", r, i)
-	}
-}
+	It("clamps an oversized interval to the maximum", func() {
+		// A ridiculously large interval must clamp to Max.
+		c := &Config{ArtifactDownloadRetries: 5, ArtifactDownloadRetryInterval: 10 * time.Hour}
+		r, i := artifactDownloadRetrySettings(c)
+		Expect(r).To(Equal(5))
+		Expect(i).To(Equal(MaxArtifactDownloadRetryInterval), "interval not clamped")
+	})
+
+	It("applies defaults when the config leaves the settings zeroed", func() {
+		c := &Config{}
+		r, i := artifactDownloadRetrySettings(c)
+		Expect(r).To(Equal(DefaultArtifactDownloadRetries))
+		Expect(i).To(Equal(DefaultArtifactDownloadRetryInterval))
+	})
+})

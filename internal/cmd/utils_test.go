@@ -4,17 +4,15 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
+func captureStdout(fn func()) string {
 	orig := os.Stdout
 	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "pipe")
 	os.Stdout = w
 	defer func() { os.Stdout = orig }()
 
@@ -31,48 +29,50 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func TestClearScreen(t *testing.T) {
-	out := captureStdout(t, ClearScreen)
-	if !strings.Contains(out, "\033c") {
-		t.Fatalf("ClearScreen did not emit reset sequence, got %q", out)
-	}
-}
+var _ = Describe("cmd utils", func() {
+	Describe("ClearScreen", func() {
+		It("emits the terminal reset sequence", func() {
+			out := captureStdout(ClearScreen)
+			Expect(out).To(ContainSubstring("\033c"))
+		})
+	})
 
-func TestPrintText(t *testing.T) {
-	// pterm writes to its own default writer (initialized before we swap
-	// os.Stdout in captureStdout), so we can't reliably capture its output.
-	// Just exercise the function to prove it does not panic.
-	PrintText("hello world", "Banner")
-}
+	Describe("PrintText", func() {
+		It("does not panic", func() {
+			// pterm writes to its own default writer (initialized before we swap
+			// os.Stdout in captureStdout), so we can't reliably capture its output.
+			// Just exercise the function to prove it does not panic.
+			PrintText("hello world", "Banner")
+		})
+	})
 
-func TestPrintBranding_FromFile(t *testing.T) {
-	dir := t.TempDir()
-	brandingPath := dir + "/banner"
-	if err := os.WriteFile(brandingPath, []byte("MY-BRAND-TEXT-42"), 0o644); err != nil {
-		t.Fatalf("write branding: %v", err)
-	}
-	orig := brandingFilePath
-	brandingFilePath = func() string { return brandingPath }
-	defer func() { brandingFilePath = orig }()
+	Describe("PrintBranding", func() {
+		It("prints the branding file contents when the file is readable", func() {
+			dir := GinkgoT().TempDir()
+			brandingPath := dir + "/banner"
+			Expect(os.WriteFile(brandingPath, []byte("MY-BRAND-TEXT-42"), 0o644)).To(Succeed())
+			orig := brandingFilePath
+			brandingFilePath = func() string { return brandingPath }
+			DeferCleanup(func() { brandingFilePath = orig })
 
-	out := captureStdout(t, func() { PrintBranding([]byte("unused")) })
-	if !strings.Contains(out, "MY-BRAND-TEXT-42") {
-		t.Fatalf("expected branding text in output, got %q", out)
-	}
-}
+			out := captureStdout(func() { PrintBranding([]byte("unused")) })
+			Expect(out).To(ContainSubstring("MY-BRAND-TEXT-42"))
+		})
 
-func TestPrintBranding_FallbackWhenReadFails(t *testing.T) {
-	// Point at a path that exists but is unreadable (a directory) — os.ReadFile
-	// returns an error and the fallback PrintBanner path is taken. That call
-	// would panic without a tty, so we recover from the panic to prove we
-	// reached the fallback branch.
-	dir := t.TempDir()
-	orig := brandingFilePath
-	brandingFilePath = func() string { return dir }
-	defer func() { brandingFilePath = orig }()
+		It("falls back to PrintBanner when the read fails", func() {
+			// Point at a path that exists but is unreadable (a directory) — os.ReadFile
+			// returns an error and the fallback PrintBanner path is taken. That call
+			// would panic without a tty, so we recover from the panic to prove we
+			// reached the fallback branch.
+			dir := GinkgoT().TempDir()
+			orig := brandingFilePath
+			brandingFilePath = func() string { return dir }
+			DeferCleanup(func() { brandingFilePath = orig })
 
-	defer func() {
-		_ = recover() // PrintBanner panics in headless mode, that's expected.
-	}()
-	PrintBranding([]byte("data"))
-}
+			defer func() {
+				_ = recover() // PrintBanner panics in headless mode, that's expected.
+			}()
+			PrintBranding([]byte("data"))
+		})
+	})
+})

@@ -1,4 +1,4 @@
-package webui_test
+package kairos_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestWebUISuite(t *testing.T) {
+func TestKairos(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "WebUI test suite")
+	RunSpecs(t, "Kairos Suite")
 }

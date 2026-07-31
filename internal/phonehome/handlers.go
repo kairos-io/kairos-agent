@@ -29,9 +29,9 @@ var persistentDir = constants.PersistentDir
 // seam the writeOEMCloudConfig / handleUpgrade code paths are effectively
 // untestable on a dev machine.
 var (
-	oemDir           = "/oem"
-	oemRemoteConfig  = "99_phonehome_remote.yaml"
-	oemMountCommand  = func() error { return exec.Command("mount", "-L", "COS_OEM", "/oem").Run() } //nosec G204 -- fixed label
+	oemDir             = "/oem"
+	oemRemoteConfig    = "99_phonehome_remote.yaml"
+	oemMountCommand    = func() error { return exec.Command("mount", "-L", "COS_OEM", "/oem").Run() } //nosec G204 -- fixed label
 	kairosAgentUpgrade = func(_ context.Context, args ...string) ([]byte, error) {
 		return exec.Command("kairos-agent", args...).CombinedOutput() //nosec G204 -- args from validated CommandData
 	}
